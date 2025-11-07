@@ -299,9 +299,7 @@ const HolidayCalendar = () => {
           tileClassName={tileClassName}
           className="mx-auto"
         />
-        <p className="mt-6 text-center text-gray-500 font-medium bg-gray-100 py-2 rounded-xl">
-          🎯 Holidays are marked with vibrant red circles
-        </p>
+   
       </div>
     </div>
   );
