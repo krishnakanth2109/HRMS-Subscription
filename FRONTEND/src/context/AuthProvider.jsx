@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (emp) {
-        const userData = { role: "employee", email: emp.email, id: emp._id };
+        const userData = { role: "employee", email: emp.email, id: emp._id , employeeId: emp.employeeId };
         localStorage.setItem("hrmsUser", JSON.stringify(userData));
         setUser(userData);
         return "employee";
