@@ -1,11 +1,15 @@
+// --- START OF FILE Login.jsx ---
+
 import { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
 import logo from "../assets/logo.png";
+import { loginUser } from "../api.js"; // Import the centralized API function
 
 const Login = () => {
+  // The login function from context will now likely call our API
   const { user, login } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -29,21 +33,34 @@ const Login = () => {
     }
   }, [error]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError(""); // Clear previous errors
 
-    // Fake delay for loader animation
-    setTimeout(() => {
-      const result = login(email, password);
+    try {
+      // Use the login function from AuthContext, which should internally call your API.
+      // This is a more robust pattern than calling the API directly in the component.
+      // Your AuthContext's login function would look something like:
+      // const login = async (email, password) => {
+      //   const userData = await loginUser(email, password);
+      //   setUser(userData);
+      //   return userData.role;
+      // };
 
-      if (result === "admin") navigate("/admin/dashboard");
-      else if (result === "employee") navigate("/employee/dashboard");
-      else {
-        setError("Invalid credentials. Try again.");
-        setLoading(false);
+      const result = await login(email, password); // Using the context login function
+
+      if (result === "admin") {
+        navigate("/admin/dashboard");
+      } else if (result === "employee") {
+        navigate("/employee/dashboard");
       }
-    }, 2500);
+    } catch (err) {
+      // Handle login failure
+      setError(err.response?.data?.message || "Invalid credentials. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -118,7 +135,7 @@ const Login = () => {
             animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.05, 1] }}
             transition={{ duration: 1.2, repeat: Infinity }}
           >
-            Loading your dashboard...
+            Verifying credentials...
           </motion.p>
         </motion.div>
       ) : (
@@ -231,9 +248,12 @@ const Login = () => {
               variants={fadeIn}
               custom={5}
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 shadow"
+              disabled={loading}
+              className={`w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 shadow ${
+                loading ? "cursor-not-allowed opacity-70" : ""
+              }`}
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </motion.button>
           </form>
         </motion.div>
@@ -243,4 +263,3 @@ const Login = () => {
 };
 
 export default Login;
- 
