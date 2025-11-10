@@ -50,6 +50,10 @@ import CurrentEmployeeNoticeBoard from "./EmployeePages/CurrentEmployeeNoticeBoa
 
 // Route protection
 import ProtectedRoute from "./components/ProtectedRoute";
+import OvertimeForm from "./EmployeePages/EmployeeOvertimeForm";
+import OvertimeAdmin from "./pages/OvertimeAdmin";
+import LeaveWithModal from "./EmployeePages/EmployeeLeavemanagement";
+import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
 
 function App() {
   return (
@@ -109,6 +113,8 @@ function App() {
         } />
         <Route path="/admin/change-password" element={<ChangePasswordPage />} />
         <Route path="/admin/holiday-calendar" element={<AdminHolidayCalendarPage />} />
+            <Route path="/admin/admin-overtime" element={<OvertimeAdmin/>} />
+             <Route path="/admin/admin-Leavemanage" element={<AdminLeavePanel/>} />
       </Route>
 
       {/* Employee protected routes */}
@@ -125,6 +131,8 @@ function App() {
         <Route path="/employee/profile" element={<CurrentEmployeeProfile />} />
         <Route path="/employee/attendance" element={<CurrentEmployeeAttendanceProfile />} />
         <Route path="/employee/leave-management" element={<CurrentEmployeeLeave />} />
+        <Route path="/employee/empovertime" element={<OvertimeForm/>} />
+         <Route path="/employee/leave-request" element={<LeaveWithModal/>} />       
         <Route path="/employee/holiday-calendar" element={
           <HolidayCalendarProvider>
             <CurrentEmployeeHolidayCalendar />

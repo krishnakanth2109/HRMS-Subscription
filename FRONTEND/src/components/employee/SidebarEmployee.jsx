@@ -13,11 +13,7 @@ const navLinks = [
     label: "Attendance",
     icon: <FaClock className="mr-2" />,
   },
-  {
-    to: "/employee/leave-management",
-    label: "Leave Management",
-    icon: <FaClipboardList className="mr-2" />,
-  },
+
   {
     to: "/employee/holiday-calendar",
     label: "Holiday Calendar",
@@ -28,6 +24,18 @@ const navLinks = [
     label: "Notice Board",
     icon: <FaBullhorn className="mr-2" />,
   },
+ 
+  {
+    to: "/employee/empovertime",
+    label: "Request Overtime",
+    icon:  <FaClock className="mr-2" />,
+  },
+    {
+    to: "/employee/leave-request",
+    label: "Leave Requests",
+    icon: <FaClipboardList className="mr-2" />,
+  },
+
 ];
 
 const SidebarEmployee = () => {

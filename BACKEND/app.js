@@ -9,6 +9,8 @@ import employeeRoutes from "./routes/employeeRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
+import overtimeRoutes from "./routes/overtimeRoutes.js";
+import leaveRoutes from "./routes/leaveRoutes.js";
 
 const app = express();
 
@@ -35,6 +37,8 @@ app.use("/employees", employeeRoutes);
 app.use("/attendance", attendanceRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/notices", noticeRoutes);
+app.use("/api/overtime", overtimeRoutes);
+app.use("/api/leave", leaveRoutes);
 
 
 // --- Server Listener ---

@@ -36,11 +36,7 @@ const navLinks = [
         label: "Attendance Log",
         icon: <FaFileAlt />,
       },
-      {
-        to: "/attendance/overtime",
-        label: "Over Time",
-        icon: <FaClock />,
-      },
+  
       {
         to: "/attendance/permissions",
         label: "Permission Hours",
@@ -48,16 +44,11 @@ const navLinks = [
       },
     ],
   },
-  {
-    to: "/leave-management",
-    label: "Leave Management",
-    icon: <FaClipboardList />,
-  },
-  {
-    to: "/admin/leave-summary",
-    label: "Leave Summary",
-    icon: <FaChartPie />,
-  },
+  // {
+  //   to: "/admin/leave-summary",
+  //   label: "Leave Summary",
+  //   icon: <FaChartPie />,
+  // },
     {
     to: "/admin/payroll",        // <-- Added Payroll link here
     label: "Payroll",
@@ -73,6 +64,19 @@ const navLinks = [
     label: "Holiday Calendar",
     icon: <FaCalendarAlt />,
   },
+    {
+    to: "/admin/admin-overtime",
+    label: "Overtime Approval",
+    icon: <FaChartPie />,
+  },
+
+      {
+    to: "/admin/admin-Leavemanage",
+    label: "Leave Approvals",
+    icon:<FaClipboardList />,
+  },
+
+
 ];
 
 const Sidebar = () => {
