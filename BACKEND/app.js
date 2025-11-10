@@ -19,8 +19,8 @@ const allowedOrigins = [
   'http://localhost:5173',  // Vite default port
   'http://127.0.0.1:5173',
   'http://localhost:5000',
-  'https://hrms-420.netlify.app/',
-  ''  // Localhost alternative
+  'https://hrms-420.netlify.app',
+  'https://hrms-ask.onrender.com'  // Localhost alternative
 ];
 
 const corsOptions = {
