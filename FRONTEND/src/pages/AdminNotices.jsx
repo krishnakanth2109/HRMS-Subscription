@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+// --- START OF FILE AdminNotices.jsx ---
+
+import React, { useState, useEffect, useCallback } from "react";
+// Import the centralized API functions
+import { getNotices, addNotice } from "../api.js";
 
 const NoticeForm = () => {
   const [noticeData, setNoticeData] = useState({
@@ -11,31 +14,32 @@ const NoticeForm = () => {
   const [notices, setNotices] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch all notices
-  const fetchNotices = async () => {
+  // Fetch all notices using the centralized API
+  const fetchNotices = useCallback(async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/notices");
-      setNotices(res.data);
+      const data = await getNotices();
+      setNotices(data);
     } catch (error) {
       console.error("Error fetching notices:", error);
+      setMessage("❌ Failed to load notices.");
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchNotices();
-  }, []);
+  }, [fetchNotices]);
 
   // Handle input changes
   const handleChange = (e) => {
     setNoticeData({ ...noticeData, [e.target.name]: e.target.value });
   };
 
-  // Handle form submission
+  // Handle form submission using the centralized API
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axios.post("http://localhost:5000/api/notices", noticeData);
+      await addNotice(noticeData);
       setMessage("✅ Notice posted successfully!");
       setNoticeData({ title: "", description: "", date: "" });
       fetchNotices(); // Refresh notices after posting

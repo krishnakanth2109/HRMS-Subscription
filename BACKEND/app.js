@@ -8,6 +8,8 @@ import employeeRoutes from "./routes/employeeRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
+import leaveRoutes from "./routes/leaveRoutes.js"
+
 
 const app = express();
 
@@ -16,7 +18,9 @@ const allowedOrigins = [
   process.env.FRONTEND_URL, // Your frontend production URL
   'http://localhost:5173',  // Vite default port
   'http://127.0.0.1:5173',
-  'http://localhost:5000',  // Localhost alternative
+  'http://localhost:5000',
+  'https://hrms-420.netlify.app/',
+  ''  // Localhost alternative
 ];
 
 const corsOptions = {
