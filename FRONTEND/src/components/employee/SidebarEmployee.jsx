@@ -35,6 +35,12 @@ const navLinks = [
     label: "Leave Requests",
     icon: <FaClipboardList className="mr-2" />,
   },
+    {
+    to: "/employee/new-attendence",
+    label: "Attendance 2",
+    icon:  <FaClock className="mr-2" />,
+  },
+
 
 ];
 

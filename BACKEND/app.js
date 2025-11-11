@@ -1,3 +1,4 @@
+
 import dotenv from "dotenv";
 dotenv.config(); // Load environment variables FIRST
 
@@ -10,59 +11,19 @@ import holidayRoutes from "./routes/holidayRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
 import overtimeRoutes from "./routes/overtimeRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
+import EmployeeattendanceRoutes from "./routes/EmployeeattendanceRoutes.js";
+import AdminAttendanceRoutes from "./routes/AdminAttendanceRoutes.js";
 
 const app = express();
 
-// --- CORS Configuration ---
-const allowedOrigins = [
-  process.env.FRONTEND_URL, // Your frontend production URL
-  'http://localhost:5173',  // Vite default port
-  'http://127.0.0.1:5173',
-  'http://localhost:5000',
-  'https://hrms-420.netlify.app',
-  'https://hrms-ask.onrender.com'
-];
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // Allow cookies if needed
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-};
-
 // --- Middleware ---
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' })); // Add body size limit
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors());
+app.use(express.json());
 
-// --- Security Headers Middleware ---
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  next();
-});
-
-// --- Database Connection with Production Options ---
+// --- Database Connection ---
 const mongoUri = process.env.MONGO_URI;
 
-const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000, // Timeout after 5s
-  socketTimeoutMS: 45000, // Close sockets after 45s
-};
-
-mongoose.connect(mongoUri, mongooseOptions)
+mongoose.connect(mongoUri)
     .then(() => {
         console.log('✅ Database Connected Successfully');
     })
@@ -72,31 +33,18 @@ mongoose.connect(mongoUri, mongooseOptions)
         process.exit(1);
     });
 
-// --- Health Check Route ---
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
 
-// --- API Routes (CORRECTED FOR CONSISTENCY) ---
- // Added for login functionality
-app.use("/api/employees", employeeRoutes); // ✅ FIXED
-app.use("/api/attendance", attendanceRoutes); // ✅ FIXED
+// --- API Routes ---
+app.use("/employees", employeeRoutes);
+app.use("/attendance", attendanceRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/notices", noticeRoutes);
 app.use("/api/overtime", overtimeRoutes);
 app.use("/api/leave", leaveRoutes);
+app.use("/api/attendance", EmployeeattendanceRoutes);
+app.use("/api/admin/attendance", AdminAttendanceRoutes);
 
 
 // --- Server Listener ---
 const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Allowed origins: ${allowedOrigins.join(', ')}`);
-});
+app.listen(PORT, () => console.log(`✅ Server running on ${PORT}`));

@@ -12,7 +12,7 @@ import EmployeeManagement from "./pages/EmployeeManagement";
 import AddEmployee from "./pages/AddEmployee";
 import ReactivateEmployee from "./pages/ReactivateEmployee";
 import EditEmployee from "./pages/EditEmployee";
-import Attendance from "./pages/Attendance";
+import Attendance from "./pages/AdminviewAttendance";
 import LeaveManagement from "./pages/LeaveManagement";
 import AdminLeaveSummary from "./pages/AdminLeaveSummary";
 import AdminProfile from "./pages/AdminProfile";
@@ -54,6 +54,8 @@ import OvertimeForm from "./EmployeePages/EmployeeOvertimeForm";
 import OvertimeAdmin from "./pages/OvertimeAdmin";
 import LeaveWithModal from "./EmployeePages/EmployeeLeavemanagement";
 import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
+// import EmployeeAttendance from "./EmployeePages/EmployeeAttendance";
+import NewEmployeeAttendance from "./EmployeePages/EmployeeAttendance";
 
 function App() {
   return (
@@ -77,6 +79,7 @@ function App() {
         <Route path="/employees/reactivate/:id" element={<ReactivateEmployee />} />
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
+ 
         <Route path="/attendance" element={<Attendance />} />
         <Route
           path="/attendance/overtime"
@@ -107,7 +110,7 @@ function App() {
         <Route path="/admin/notifications" element={<AdminNotifications />} />
         <Route path="/admin/on-leave-today" element={<EmployeesOnLeaveToday />} />
         <Route path="/admin/notices" element={
-          <NoticeProvider>
+          <NoticeProvider> 
             <AdminNotices />
           </NoticeProvider>
         } />
@@ -115,6 +118,7 @@ function App() {
         <Route path="/admin/holiday-calendar" element={<AdminHolidayCalendarPage />} />
             <Route path="/admin/admin-overtime" element={<OvertimeAdmin/>} />
              <Route path="/admin/admin-Leavemanage" element={<AdminLeavePanel/>} />
+                   
       </Route>
 
       {/* Employee protected routes */}
@@ -132,7 +136,8 @@ function App() {
         <Route path="/employee/attendance" element={<CurrentEmployeeAttendanceProfile />} />
         <Route path="/employee/leave-management" element={<CurrentEmployeeLeave />} />
         <Route path="/employee/empovertime" element={<OvertimeForm/>} />
-         <Route path="/employee/leave-request" element={<LeaveWithModal/>} />       
+         <Route path="/employee/leave-request" element={<LeaveWithModal/>} />  
+          <Route path="/employee/new-attendence" element={<NewEmployeeAttendance/>} />     
         <Route path="/employee/holiday-calendar" element={
           <HolidayCalendarProvider>
             <CurrentEmployeeHolidayCalendar />

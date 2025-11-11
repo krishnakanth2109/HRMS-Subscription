@@ -52,7 +52,7 @@ const LeaveWithModal = () => {
     if (employee?.employeeId) fetchLeaves(employee.employeeId);
   }, [employee]);
 
-  /* ✅ Handle Input */
+  /* ✅ Handle Inputs */
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
@@ -91,6 +91,19 @@ const LeaveWithModal = () => {
     }
   };
 
+  /* ✅ CANCEL LEAVE FUNCTION */
+  const handleCancelLeave = async (leaveId) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/leave/cancel/${leaveId}`);
+
+      // ✅ Refresh table
+      fetchLeaves(employee.employeeId);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to cancel leave");
+    }
+  };
+
   if (loading) return <div className="p-6">Loading...</div>;
   if (!employee) return <div className="text-red-600">Employee Not Found</div>;
 
@@ -118,8 +131,10 @@ const LeaveWithModal = () => {
               <th className="px-3 py-2 border">Type</th>
               <th className="px-3 py-2 border">Reason</th>
               <th className="px-3 py-2 border">Status</th>
+              <th className="px-3 py-2 border">Action</th>
             </tr>
           </thead>
+
           <tbody>
             {leaveList.length > 0 ? (
               leaveList.map((lv) => (
@@ -128,6 +143,7 @@ const LeaveWithModal = () => {
                   <td className="border px-3 py-2">{lv.date_to}</td>
                   <td className="border px-3 py-2 text-center">{lv.leaveType}</td>
                   <td className="border px-3 py-2">{lv.reason}</td>
+
                   <td className="border px-3 py-2 text-center">
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -141,11 +157,25 @@ const LeaveWithModal = () => {
                       {lv.status}
                     </span>
                   </td>
+
+                  {/* ✅ CANCEL BUTTON */}
+                  <td className="border px-3 py-2 text-center">
+                    {lv.status === "PENDING" ? (
+                      <button
+                        onClick={() => handleCancelLeave(lv._id)}
+                        className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded text-xs"
+                      >
+                        Cancel
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="p-4 text-center text-gray-500">
+                <td colSpan="6" className="p-4 text-center text-gray-500">
                   No leave requests found.
                 </td>
               </tr>
