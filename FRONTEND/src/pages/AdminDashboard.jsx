@@ -1,4 +1,6 @@
-import React, { useState, useContext, useEffect, useMemo } from "react";
+// --- START OF FILE AdminDashboard.jsx ---
+
+import React, { useState, useContext, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaUsers, FaCalendarAlt, FaClipboardList, FaBuilding, FaChevronLeft, FaChevronRight, FaSyncAlt } from "react-icons/fa";
 import AttendanceChart from "../components/AttendanceChart";
@@ -6,31 +8,21 @@ import DepartmentPieChart from "../components/DepartmentPieChart";
 import { EmployeeContext } from "../context/EmployeeContext";
 import { AttendanceContext } from "../context/AttendanceContext";
 import { LeaveRequestContext } from "../context/LeaveRequestContext";
-import axios from "axios"
 
-// --- Main AdminDashboard Component ---
 const AdminDashboard = () => {
-  // 1. GET RAW DATA AND THE NEW "BACKEND" FUNCTION FROM CONTEXTS
   const { employees } = useContext(EmployeeContext);
   const { attendanceRecords, getDashboardData } = useContext(AttendanceContext);
   const { leaveRequests } = useContext(LeaveRequestContext);
   const navigate = useNavigate();
 
-  useEffect(()=>{
-    axios.get('http://localhost:5000/employees/6908c587f534792f3015a0ea').then((res)=>console.log(res))
-  },[]);
-
-  // 2. MANAGE UI-ONLY STATE
   const [selectedDept, setSelectedDept] = useState("All");
-  const [currentWeek, setCurrentWeek] = useState(0); // 0 = current week
+  const [currentWeek, setCurrentWeek] = useState(0);
 
-  // 3. FETCH ALL PROCESSED DATA IN ONE GO
   const { statCards, activeEmployees, departmentList } = useMemo(
     () => getDashboardData(employees, leaveRequests),
     [employees, leaveRequests, getDashboardData]
   );
 
-  // 4. CALCULATE WEEK DATES AND FILTER THE FINAL ATTENDANCE DATA FOR THE CHART
   const weekDates = useMemo(() => {
     const today = new Date();
     today.setDate(today.getDate() + currentWeek * 7);
@@ -47,14 +39,11 @@ const AdminDashboard = () => {
 
   const filteredAttendance = useMemo(() => {
     const activeEmployeeMap = new Map(activeEmployees.map(e => [e.employeeId, e.department]));
-
     return attendanceRecords.filter(record => {
       const dateMatch = record.date >= weekDates.start && record.date <= weekDates.end;
       if (!dateMatch) return false;
-
       const department = activeEmployeeMap.get(record.employeeId);
       if (!department) return false;
-
       const deptMatch = selectedDept === "All" || department === selectedDept;
       return deptMatch;
     });
@@ -124,8 +113,6 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-
-     
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { AuthContext } from "./AuthContext";
+// ✅ Import the centralized API function
+import { getEmployees } from "../api";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -11,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    // ✅ Admin login — don't change
+    // ✅ Admin login – don't change
     if (email === "admin@hrms.com" && password === "admin123") {
       const userData = { role: "admin", email };
       localStorage.setItem("hrmsUser", JSON.stringify(userData));
@@ -19,10 +20,10 @@ export const AuthProvider = ({ children }) => {
       return "admin";
     }
 
-    // ✅ Employee login from backend list
+    // ✅ Employee login using centralized API
     try {
-      const res = await axios.get("http://localhost:5000/employees");
-      const employees = res.data;
+      // Use the getEmployees function from api.js instead of hardcoded localhost
+      const employees = await getEmployees();
 
       // find employee by email + password
       const emp = employees.find(
@@ -30,7 +31,12 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (emp) {
-        const userData = { role: "employee", email: emp.email, id: emp._id , employeeId: emp.employeeId };
+        const userData = { 
+          role: "employee", 
+          email: emp.email, 
+          id: emp._id, 
+          employeeId: emp.employeeId 
+        };
         localStorage.setItem("hrmsUser", JSON.stringify(userData));
         setUser(userData);
         return "employee";

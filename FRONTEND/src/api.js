@@ -2,24 +2,20 @@
 
 import axios from "axios";
 
-// ✅ FIXED: Use import.meta.env.MODE instead of process.env.NODE_ENV
-// Vite sets MODE to 'production' during build and 'development' during dev
+// This logic automatically chooses the correct backend URL.
 const baseURL =
   import.meta.env.MODE === "production"
     ? import.meta.env.VITE_API_URL_PRODUCTION
     : import.meta.env.VITE_API_URL_DEVELOPMENT;
 
-// Debug logs (remove in production)
+// Debug logs to confirm the correct URL is being used
 console.log("🔧 Environment Mode:", import.meta.env.MODE);
 console.log("🌐 API Base URL:", baseURL);
 
-// Create an Axios instance that will use the correct base URL automatically.
 const api = axios.create({
   baseURL: baseURL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
+  timeout: 60000,
+  headers: { 'Content-Type': 'application/json' }
 });
 
 /**
@@ -39,35 +35,43 @@ export const loginUser = async (email, password) => {
   }
 };
 
-// ------------------ Holiday API Calls ------------------
-export const getHolidays = async () => {
-  const response = await api.get("/api/holidays");
-  return response.data;
-};
-
-export const addHoliday = async (holidayData) => {
-  const response = await api.post("/api/holidays", holidayData);
-  return response.data;
-};
-
-export const deleteHolidayById = async (id) => {
-  const response = await api.delete(`/api/holidays/${id}`);
-  return response.data;
-};
-
 // ------------------ Employee API Calls ------------------
 export const getEmployees = async () => {
   const response = await api.get("/api/employees");
   return response.data;
 };
-
 export const getEmployeeById = async (id) => {
   const response = await api.get(`/api/employees/${id}`);
   return response.data;
 };
-
+export const addEmployee = async (employeeData) => {
+  const response = await api.post("/api/employees", employeeData);
+  return response.data;
+};
 export const updateEmployeeById = async (id, employeeData) => {
   const response = await api.put(`/api/employees/${id}`, employeeData);
+  return response.data;
+};
+export const deactivateEmployeeById = async (id, data) => {
+  const response = await api.patch(`/api/employees/${id}/deactivate`, data);
+  return response.data;
+};
+export const activateEmployeeById = async (id) => {
+  const response = await api.patch(`/api/employees/${id}/activate`);
+  return response.data;
+};
+
+// ------------------ Holiday API Calls ------------------
+export const getHolidays = async () => {
+  const response = await api.get("/api/holidays");
+  return response.data;
+};
+export const addHoliday = async (holidayData) => {
+  const response = await api.post("/api/holidays", holidayData);
+  return response.data;
+};
+export const deleteHolidayById = async (id) => {
+  const response = await api.delete(`/api/holidays/${id}`);
   return response.data;
 };
 
@@ -76,12 +80,54 @@ export const getNotices = async () => {
   const response = await api.get("/api/notices");
   return response.data;
 };
-
 export const addNotice = async (noticeData) => {
   const response = await api.post("/api/notices", noticeData);
   return response.data;
 };
 
-export default api;
+// ✅ ADDED: Leave Request API Calls
+// ------------------ Leave API Calls ------------------
+export const getLeaveRequests = async () => {
+  const response = await api.get("/api/leaves");
+  return response.data;
+};
+export const approveLeaveRequestById = async (id) => {
+  const response = await api.patch(`/api/leaves/${id}/approve`);
+  return response.data;
+};
+export const rejectLeaveRequestById = async (id) => {
+  const response = await api.patch(`/api/leaves/${id}/reject`);
+  return response.data;
+};
 
-// --- END OF FILE api.js ---
+// ✅ ADDED: Overtime API Calls
+// ------------------ Overtime API Calls ------------------
+export const getOvertimeRequests = async () => {
+  const response = await api.get("/api/overtime");
+  return response.data;
+};
+export const approveOvertimeRequestById = async (id) => {
+  const response = await api.patch(`/api/overtime/${id}/approve`);
+  return response.data;
+};
+export const rejectOvertimeRequestById = async (id) => {
+  const response = await api.patch(`/api/overtime/${id}/reject`);
+  return response.data;
+};
+
+// ✅ ADDED: Permission Hours API Calls
+// ------------------ Permission Hours API Calls ------------------
+export const getPermissionRequests = async () => {
+  const response = await api.get("/api/permissions");
+  return response.data;
+};
+export const approvePermissionRequestById = async (id) => {
+  const response = await api.patch(`/api/permissions/${id}/approve`);
+  return response.data;
+};
+export const rejectPermissionRequestById = async (id) => {
+  const response = await api.patch(`/api/permissions/${id}/reject`);
+  return response.data;
+};
+
+export default api;

@@ -1,8 +1,12 @@
+// --- START OF FILE EmployeeManagement.jsx ---
+
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { FaUser, FaEdit, FaTrash, FaRedo, FaDownload } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+// ✅ IMPORT THE CENTRALIZED API FUNCTIONS
+import { getEmployees, deactivateEmployeeById, activateEmployeeById } from "../api";
 
 // Department color mapping
 const DEPARTMENT_COLORS = {
@@ -19,65 +23,30 @@ const DEPARTMENT_COLORS = {
 // Helper to get current department
 const getCurrentDepartment = (employee) => {
   if (employee && Array.isArray(employee.experienceDetails)) {
-    const currentExp = employee.experienceDetails.find(
-      (exp) => exp.lastWorkingDate === "Present"
-    );
+    const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present");
     return currentExp?.department || "";
   }
   return "";
 };
 
-// ==== API CALLS ADDED ==== //
-
-// Deactivate employee in DB
-const deactivateEmployeeAPI = async (id, endDate, reason) => {
-  try {
-    const res = await fetch(`http://localhost:5000/employees/deactivate/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ endDate, reason }),
-    });
-
-    if (!res.ok) throw new Error("Failed to deactivate employee");
-    return true;
-  } catch (e) {
-    alert("❌ Error deactivating employee");
-    console.error(e);
-    return false;
-  }
+// Client-side Excel download function
+const downloadExcelReport = (data, filename) => {
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Employees");
+  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+  saveAs(blob, filename);
 };
 
-// Reactivate employee in DB
-const reactivateEmployeeAPI = async (id) => {
-  try {
-    const res = await fetch(`http://localhost:5000/employees/reactivate/${id}`, {
-      method: "PATCH",
-    });
-
-    if (!res.ok) throw new Error("Failed to reactivate employee");
-    return true;
-  } catch (e) {
-    alert("❌ Error reactivating employee");
-    console.error(e);
-    return false;
-  }
-};
-
-// ==========================
 
 // Employee Row Component
 const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
   const isEven = idx % 2 === 0;
   const currentDepartment = getCurrentDepartment(emp);
   return (
-    <tr
-      className={`border-t transition duration-150 ${
-        isEven ? "bg-gray-50" : "bg-white"
-      } hover:bg-blue-50`}
-    >
-      <td className="p-4 font-mono font-semibold text-blue-700">
-        {emp.employeeId}
-      </td>
+    <tr className={`border-t transition duration-150 ${isEven ? "bg-gray-50" : "bg-white"} hover:bg-blue-50`}>
+      <td className="p-4 font-mono font-semibold text-blue-700">{emp.employeeId}</td>
       <td className="p-4 flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-blue-700 font-bold border border-gray-300">
           {emp.name?.split(" ").map((n) => n[0]).join("")}
@@ -85,33 +54,20 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
         <span className="font-semibold text-gray-800">{emp.name}</span>
       </td>
       <td className="p-4">
-        <span
-          className={`px-2 py-1 rounded text-xs font-bold ${
-            DEPARTMENT_COLORS[currentDepartment]?.bg || "bg-gray-100"
-          } ${DEPARTMENT_COLORS[currentDepartment]?.text || "text-gray-700"}`}
-        >
+        <span className={`px-2 py-1 rounded text-xs font-bold ${DEPARTMENT_COLORS[currentDepartment]?.bg || "bg-gray-100"} ${DEPARTMENT_COLORS[currentDepartment]?.text || "text-gray-700"}`}>
           {currentDepartment || "Unknown"}
         </span>
       </td>
       <td className="p-4 text-gray-700">{emp.email}</td>
       <td className="p-4">
         <div className="flex flex-row items-center gap-2">
-          <button
-            onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
-            className="bg-gray-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 flex items-center gap-1 font-semibold shadow"
-          >
+          <button onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="bg-gray-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 flex items-center gap-1 font-semibold shadow">
             <FaUser /> Profile
           </button>
-          <button
-            onClick={() => navigate(`/employees/edit/${emp.employeeId}`)}
-            className="bg-gray-100 text-green-700 px-2 py-1 rounded hover:bg-green-100 flex items-center gap-1 font-semibold shadow"
-          >
+          <button onClick={() => navigate(`/employees/edit/${emp.employeeId}`)} className="bg-gray-100 text-green-700 px-2 py-1 rounded hover:bg-green-100 flex items-center gap-1 font-semibold shadow">
             <FaEdit /> Edit
           </button>
-          <button
-            onClick={() => onDeactivateClick(emp)}
-            className="bg-gray-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-100 flex items-center gap-1 font-semibold shadow"
-          >
+          <button onClick={() => onDeactivateClick(emp)} className="bg-gray-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-100 flex items-center gap-1 font-semibold shadow">
             <FaTrash /> Deactivate
           </button>
         </div>
@@ -120,14 +76,12 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
   );
 };
 
-// Inactive Employee Row (Updated Reactivate)
+// Inactive Employee Row
 const InactiveEmployeeRow = ({ emp, navigate, onReactivate }) => {
   const currentDepartment = getCurrentDepartment(emp);
   return (
     <tr className="border-t transition duration-150 bg-gray-300 opacity-60 hover:bg-gray-400">
-      <td className="p-4 font-mono font-semibold text-gray-600">
-        {emp.employeeId}
-      </td>
+      <td className="p-4 font-mono font-semibold text-gray-600">{emp.employeeId}</td>
       <td className="p-4 flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-gray-600 font-bold border border-gray-400">
           {emp.name?.split(" ").map((n) => n[0]).join("")}
@@ -135,27 +89,17 @@ const InactiveEmployeeRow = ({ emp, navigate, onReactivate }) => {
         <span className="font-semibold text-gray-600">{emp.name} (Inactive)</span>
       </td>
       <td className="p-4">
-        <span
-          className={`px-2 py-1 rounded text-xs font-bold ${
-            DEPARTMENT_COLORS[currentDepartment]?.bg || "bg-gray-400"
-          } ${DEPARTMENT_COLORS[currentDepartment]?.text || "text-gray-700"}`}
-        >
+        <span className={`px-2 py-1 rounded text-xs font-bold ${DEPARTMENT_COLORS[currentDepartment]?.bg || "bg-gray-400"} ${DEPARTMENT_COLORS[currentDepartment]?.text || "text-gray-700"}`}>
           {currentDepartment || "Unknown"}
         </span>
       </td>
       <td className="p-4 text-gray-600">{emp.email}</td>
       <td className="p-4">
         <div className="flex flex-row items-center gap-2">
-          <button
-            onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
-            className="bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300 flex items-center gap-1 font-semibold shadow"
-          >
+          <button onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300 flex items-center gap-1 font-semibold shadow">
             <FaUser /> Profile
           </button>
-          <button
-            onClick={() => onReactivate(emp)}
-            className="bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 flex items-center gap-1 font-semibold shadow"
-          >
+          <button onClick={() => onReactivate(emp)} className="bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 flex items-center gap-1 font-semibold shadow">
             <FaRedo /> Reactivate
           </button>
         </div>
@@ -187,35 +131,12 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
         <h3 className="text-xl font-bold mb-4">Deactivate {employee.name}</h3>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded w-full"
-            required
-          />
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="border border-gray-300 px-3 py-2 rounded w-full"
-            rows={3}
-            required
-          />
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full" required />
+          <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full" rows={3} placeholder="Reason for deactivation" required />
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2 justify-end mt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700"
-            >
-              Deactivate
-            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700">Deactivate</button>
           </div>
         </form>
       </div>
@@ -223,7 +144,7 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   );
 }
 
-// 🌐 MAIN PAGE
+// Main Page Component
 const EmployeeManagement = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
@@ -232,47 +153,53 @@ const EmployeeManagement = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
-  // Fetch employees
-  const fetchEmployees = async () => {
-    const res = await fetch("http://localhost:5000/employees");
-    const data = await res.json();
-    setEmployees(data);
-  };
+  // Fetch employees using the centralized API
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const data = await getEmployees();
+      setEmployees(data);
+    } catch (err) {
+      console.error("Failed to fetch employees:", err);
+    }
+  }, []);
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [fetchEmployees]);
 
-  // Deactivate employee in UI after DB success
+  // Deactivate employee using the centralized API
   const handleDeactivateSubmit = async ({ endDate, reason }) => {
-    const ok = await deactivateEmployeeAPI(selectedEmployee.employeeId, endDate, reason);
-    if (ok) {
-      fetchEmployees();
+    try {
+      await deactivateEmployeeById(selectedEmployee.employeeId, { endDate, reason });
+      fetchEmployees(); // Re-fetch data to update the UI
       setModalOpen(false);
+    } catch (e) {
+      alert("❌ Error deactivating employee");
+      console.error(e);
     }
   };
 
-  // Reactivate handler
+  // Reactivate handler using the centralized API
   const handleReactivate = async (emp) => {
-    const ok = await reactivateEmployeeAPI(emp.employeeId);
-    if (ok) fetchEmployees();
+    try {
+      await activateEmployeeById(emp.employeeId);
+      fetchEmployees(); // Re-fetch data to update the UI
+    } catch (e) {
+      alert("❌ Error reactivating employee");
+      console.error(e);
+    }
   };
 
   // Filters
   const departmentSet = useMemo(() => {
-    const depts = employees
-      .map((emp) => getCurrentDepartment(emp))
-      .filter((dept, idx, arr) => dept && arr.indexOf(dept) === idx);
+    const depts = employees.map(emp => getCurrentDepartment(emp)).filter((dept, idx, arr) => dept && arr.indexOf(dept) === idx);
     return depts.sort();
   }, [employees]);
 
   const { activeEmployees, inactiveEmployees } = useMemo(() => {
     const filtered = employees.filter((emp) => {
       const currentDepartment = getCurrentDepartment(emp);
-      const matchesSearch = [emp.employeeId, emp.name, currentDepartment, emp.email]
-        .some((field) =>
-          (field ?? "").toString().toLowerCase().includes(searchQuery.toLowerCase())
-        );
+      const matchesSearch = [emp.employeeId, emp.name, currentDepartment, emp.email].some((field) => (field ?? "").toString().toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesDept = selectedDept === "All" || currentDepartment === selectedDept;
       return matchesSearch && matchesDept;
     });
@@ -290,64 +217,31 @@ const EmployeeManagement = () => {
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center py-0">
       <div className="w-full max-w-7xl mx-auto py-12">
-        {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
           <div className="flex flex-col gap-2 md:gap-4">
-            <h2 className="text-3xl font-bold text-gray-800 tracking-tight">
-              Employee Management
-            </h2>
-
+            <h2 className="text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
             <div className="flex flex-row gap-2 mt-2">
-              <button
-                onClick={() =>
-                  downloadExcelReport(activeEmployees, "Active_Employees_Report.xlsx")
-                }
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 shadow font-semibold"
-              >
+              <button onClick={() => downloadExcelReport(activeEmployees, "Active_Employees_Report.xlsx")} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 shadow font-semibold">
                 <FaDownload /> Active Employees
               </button>
-
-              <button
-                onClick={() =>
-                  downloadExcelReport(inactiveEmployees, "Inactive_Employees_Report.xlsx")
-                }
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2 shadow font-semibold"
-              >
+              <button onClick={() => downloadExcelReport(inactiveEmployees, "Inactive_Employees_Report.xlsx")} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2 shadow font-semibold">
                 <FaDownload /> Inactive Employees
               </button>
             </div>
           </div>
-
-          <button
-            onClick={() => navigate("/employees/add")}
-            className="bg-blue-700 text-white px-6 py-3 rounded-lg hover:bg-blue-800 flex items-center gap-2 shadow font-semibold"
-          >
+          <button onClick={() => navigate("/employees/add")} className="bg-blue-700 text-white px-6 py-3 rounded-lg hover:bg-blue-800 flex items-center gap-2 shadow font-semibold">
             <FaUser /> Add Employee
           </button>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col md:flex-row gap-4 mb-10 items-center">
-          <input
-            type="text"
-            placeholder="Search by ID, Name, Department, or Email"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full max-w-md border border-gray-300 px-4 py-2 rounded-lg shadow focus:outline-none focus:ring focus:ring-blue-200"
-          />
-          <select
-            value={selectedDept}
-            onChange={(e) => setSelectedDept(e.target.value)}
-            className="border border-gray-300 px-4 py-2 rounded-lg w-full max-w-xs shadow focus:outline-none focus:ring focus:ring-blue-200 font-semibold"
-          >
+          <input type="text" placeholder="Search by ID, Name, Department, or Email" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full max-w-md border border-gray-300 px-4 py-2 rounded-lg shadow focus:outline-none focus:ring focus:ring-blue-200" />
+          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="border border-gray-300 px-4 py-2 rounded-lg w-full max-w-xs shadow focus:outline-none focus:ring focus:ring-blue-200 font-semibold">
             <option value="All">All Departments</option>
-            {departmentSet.map((dept) => (
-              <option key={dept} value={dept}>{dept}</option>
-            ))}
+            {departmentSet.map((dept) => (<option key={dept} value={dept}>{dept}</option>))}
           </select>
         </div>
 
-        {/* Table */}
         <div className="overflow-x-auto rounded-xl shadow bg-white">
           <table className="min-w-full rounded-xl">
             <thead className="sticky top-0 z-10">
@@ -363,41 +257,20 @@ const EmployeeManagement = () => {
               {activeEmployees.length > 0 || inactiveEmployees.length > 0 ? (
                 <>
                   {activeEmployees.map((emp, idx) => (
-                    <EmployeeRow
-                      key={`${emp.employeeId}-${emp.email}`}
-                      emp={emp}
-                      idx={idx}
-                      navigate={navigate}
-                      onDeactivateClick={openDeactivateModal}
-                    />
+                    <EmployeeRow key={`${emp.employeeId}-${emp.email}`} emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} />
                   ))}
-
                   {inactiveEmployees.map((emp) => (
-                    <InactiveEmployeeRow
-                      key={`${emp.employeeId}-${emp.email}-inactive`}
-                      emp={emp}
-                      navigate={navigate}
-                      onReactivate={handleReactivate}
-                    />
+                    <InactiveEmployeeRow key={`${emp.employeeId}-${emp.email}-inactive`} emp={emp} navigate={navigate} onReactivate={handleReactivate} />
                   ))}
                 </>
               ) : (
-                <tr>
-                  <td colSpan="5" className="p-4 text-center text-gray-500">
-                    No matching employees found.
-                  </td>
-                </tr>
+                <tr><td colSpan="5" className="p-4 text-center text-gray-500">No matching employees found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        <DeactivateModal
-          open={modalOpen}
-          employee={selectedEmployee}
-          onClose={() => setModalOpen(false)}
-          onSubmit={handleDeactivateSubmit}
-        />
+        <DeactivateModal open={modalOpen} employee={selectedEmployee} onClose={() => setModalOpen(false)} onSubmit={handleDeactivateSubmit} />
       </div>
     </div>
   );
