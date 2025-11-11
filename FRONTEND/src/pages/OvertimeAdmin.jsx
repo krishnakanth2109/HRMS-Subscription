@@ -1,45 +1,41 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+// --- START OF FILE OvertimeAdmin.jsx ---
+
+import React, { useEffect, useState, useCallback } from "react";
+// ✅ IMPORT THE CENTRALIZED API FUNCTIONS
+import { getAllOvertimeRequests, updateOvertimeStatus } from "../api";
 
 const OvertimeAdmin = () => {
   const [overtimeList, setOvertimeList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
 
-  // ✅ Fetch all Overtime Requests
-  const fetchOvertimes = async () => {
+  // ✅ Fetch all Overtime Requests using the API service
+  const fetchOvertimes = useCallback(async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/overtime/all");
-      setOvertimeList(res.data);
+      setLoading(true);
+      const data = await getAllOvertimeRequests();
+      setOvertimeList(data);
     } catch (err) {
       console.error("Error fetching overtime:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOvertimes();
-  }, []);
+  }, [fetchOvertimes]);
 
-  // ✅ Update OT Status
+  // ✅ Update OT Status using the API service
   const updateStatus = async (id, newStatus) => {
     try {
       setUpdatingId(id);
-
-      const res = await axios.put(
-        `http://localhost:5000/api/overtime/update-status/${id}`,
-        { status: newStatus }
-      );
-
-      // ✅ Update UI instantly without refetching
+      await updateOvertimeStatus(id, { status: newStatus });
+      
+      // Update UI instantly for better UX, the source of truth will be updated on next fetch
       setOvertimeList((prev) =>
-        prev.map((ot) =>
-          ot._id === id ? { ...ot, status: newStatus } : ot
-        )
+        prev.map((ot) => (ot._id === id ? { ...ot, status: newStatus } : ot))
       );
-
-      console.log("Updated:", res.data);
     } catch (err) {
       console.error("Error updating status:", err);
       alert("Failed to update status");
@@ -75,42 +71,33 @@ const OvertimeAdmin = () => {
                   <td className="px-3 py-2 border">{ot.employeeName}</td>
                   <td className="px-3 py-2 border text-center">{ot.date}</td>
                   <td className="px-3 py-2 border text-center">{ot.type}</td>
-
                   <td className="px-3 py-2 border text-center">
                     <span
                       className={`px-2 py-1 rounded text-xs font-bold ${
-                        ot.status === "APPROVED"
-                          ? "bg-green-200 text-green-700"
-                          : ot.status === "REJECTED"
-                          ? "bg-red-200 text-red-700"
-                          : "bg-yellow-200 text-yellow-700"
+                        ot.status === "APPROVED" ? "bg-green-200 text-green-700"
+                        : ot.status === "REJECTED" ? "bg-red-200 text-red-700"
+                        : "bg-yellow-200 text-yellow-700"
                       }`}
                     >
                       {ot.status}
                     </span>
                   </td>
-
                   <td className="px-3 py-2 border text-center">
                     <div className="flex gap-2 justify-center">
-
-                      {/* ✅ APPROVE BUTTON */}
                       <button
-                        disabled={updatingId === ot._id}
+                        disabled={updatingId === ot._id || ot.status !== 'PENDING'}
                         onClick={() => updateStatus(ot._id, "APPROVED")}
-                        className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50"
+                        className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Approve
                       </button>
-
-                      {/* ✅ REJECT BUTTON */}
                       <button
-                        disabled={updatingId === ot._id}
+                        disabled={updatingId === ot._id || ot.status !== 'PENDING'}
                         onClick={() => updateStatus(ot._id, "REJECTED")}
-                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50"
+                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Reject
                       </button>
-
                     </div>
                   </td>
                 </tr>
