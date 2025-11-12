@@ -1,147 +1,130 @@
+// --- START OF FILE CurrentEmployeeProfile.jsx ---
+
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+// ✅ Step 1: Remove all context and axios imports. This component is now self-reliant.
 
 const CurrentEmployeeProfile = () => {
+  // ✅ Step 2: Create local state to hold the employee data and loading status.
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ get logged user from localStorage
-  const loggedUser = JSON.parse(localStorage.getItem("hrmsUser"));
-  const loggedEmail = loggedUser?.email;
-
+  // ✅ Step 3: Use useEffect to load the user directly from sessionStorage on mount.
   useEffect(() => {
-    const fetchEmployee = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/employees");
+    const savedUser = sessionStorage.getItem("hrmsUser");
+    if (savedUser) {
+      setEmployee(JSON.parse(savedUser));
+    }
+    setLoading(false); // Stop loading after attempting to get the user
+  }, []); // The empty array means this runs only once when the component mounts.
 
-        // ✅ find employee by email (same as dashboard)
-        const emp = res.data.find((e) => e.email === loggedEmail);
-
-        setEmployee(emp || null);
-      } catch (err) {
-        console.error("Error fetching employee:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (loggedEmail) fetchEmployee();
-  }, [loggedEmail]);
-
-  if (loading) return <div className="p-6 text-xl">Loading profile...</div>;
-  if (!employee) return <div className="p-6 text-red-600">Employee not found</div>;
-
-  // ✅ extract related data
-  const personal = employee.personalDetails || {};
-  const bank = employee.bankDetails || {};
-  const experience = employee.experienceDetails || [];
-
-  // ✅ split emergency name - number
-  let emergencyName = "";
-  let emergencyPhone = "";
-  if (employee.emergency?.includes("-")) {
-    const parts = employee.emergency.split("-");
-    emergencyName = parts[0].trim();
-    emergencyPhone = parts[1].trim();
+  if (loading) {
+    return <div className="p-6 text-xl text-center">Loading profile...</div>;
   }
+
+  if (!employee) {
+    return <div className="p-6 text-red-600 text-center">Employee not found. Please log in again.</div>;
+  }
+
+  // ✅ Step 4: Destructure data from the local 'employee' state variable.
+  const {
+    employeeId, name, email, phone, address, emergency,
+    personalDetails = {}, bankDetails = {}, experienceDetails = [],
+    currentDepartment, currentRole, joiningDate, currentSalary
+  } = employee;
+
+  // Helper to split emergency contact info
+  const [emergencyName, emergencyPhone] = emergency?.includes("-")
+    ? emergency.split("-").map(part => part.trim())
+    : [emergency || "N/A", ""];
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
-      <h2 className="text-2xl font-semibold mb-6">Employee Profile</h2>
+      <h2 className="text-3xl font-bold text-gray-800 mb-8">My Profile</h2>
 
       {/* BASIC DETAILS */}
-      <div className="bg-white p-6 rounded shadow mb-6">
-        <h3 className="font-bold text-lg mb-3">Basic Details</h3>
-        <p><strong>Employee ID:</strong> {employee.employeeId}</p>
-        <p><strong>Name:</strong> {employee.name}</p>
-        <p><strong>Email:</strong> {employee.email}</p>
-        <p><strong>Phone:</strong> {employee.phone}</p>
-        <p><strong>Address:</strong> {employee.address}</p>
-        <p><strong>Emergency Contact Name:</strong> {emergencyName}</p>
-        <p><strong>Emergency Contact Phone:</strong> {emergencyPhone}</p>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 className="font-bold text-xl mb-4 text-blue-700 border-b pb-2">Basic Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p><strong>Employee ID:</strong> {employeeId}</p>
+          <p><strong>Name:</strong> {name}</p>
+          <p><strong>Email:</strong> {email}</p>
+          <p><strong>Phone:</strong> {phone || 'N/A'}</p>
+          <p className="md:col-span-2"><strong>Address:</strong> {address || 'N/A'}</p>
+          <p><strong>Emergency Contact Name:</strong> {emergencyName}</p>
+          <p><strong>Emergency Contact Phone:</strong> {emergencyPhone}</p>
+        </div>
       </div>
 
       {/* PERSONAL DETAILS */}
-      <div className="bg-white p-6 rounded shadow mb-6">
-        <h3 className="font-bold text-lg mb-3">Personal Details</h3>
-        <p><strong>Date of Birth:</strong> {personal.dob?.split("T")[0]}</p>
-        <p><strong>Gender:</strong> {personal.gender}</p>
-        <p><strong>Marital Status:</strong> {personal.maritalStatus}</p>
-        <p><strong>Nationality:</strong> {personal.nationality}</p>
-        <p><strong>Aadhaar Number:</strong> {personal.aadharNumber}</p>
-        <p><strong>PAN Number:</strong> {personal.panNumber}</p>
-
-        <p>
-          <strong>Aadhaar File:</strong>{" "}
-          {personal.aadharFileUrl ? (
-            <a href={personal.aadharFileUrl} className="text-blue-600 underline" target="_blank">
-              View Aadhaar
-            </a>
-          ) : "Not Uploaded"}
-        </p>
-
-        <p>
-          <strong>PAN File:</strong>{" "}
-          {personal.panFileUrl ? (
-            <a href={personal.panFileUrl} className="text-blue-600 underline" target="_blank">
-              View PAN
-            </a>
-          ) : "Not Uploaded"}
-        </p>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 className="font-bold text-xl mb-4 text-blue-700 border-b pb-2">Personal Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p><strong>Date of Birth:</strong> {personalDetails.dob?.split("T")[0] || 'N/A'}</p>
+          <p><strong>Gender:</strong> {personalDetails.gender || 'N/A'}</p>
+          <p><strong>Marital Status:</strong> {personalDetails.maritalStatus || 'N/A'}</p>
+          <p><strong>Nationality:</strong> {personalDetails.nationality || 'N/A'}</p>
+          <p><strong>Aadhaar Number:</strong> {personalDetails.aadharNumber || 'N/A'}</p>
+          <p><strong>PAN Number:</strong> {personalDetails.panNumber || 'N/A'}</p>
+          <p>
+            <strong>Aadhaar File:</strong>{" "}
+            {personalDetails.aadharFileUrl ? (
+              <a href={personalDetails.aadharFileUrl} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">View Aadhaar</a>
+            ) : "Not Uploaded"}
+          </p>
+          <p>
+            <strong>PAN File:</strong>{" "}
+            {personalDetails.panFileUrl ? (
+              <a href={personalDetails.panFileUrl} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">View PAN</a>
+            ) : "Not Uploaded"}
+          </p>
+        </div>
       </div>
 
       {/* JOB DETAILS */}
-      <div className="bg-white p-6 rounded shadow mb-6">
-        <h3 className="font-bold text-lg mb-3">Job Details</h3>
-        <p><strong>Department:</strong> {employee.currentDepartment}</p>
-        <p><strong>Role:</strong> {employee.currentRole}</p>
-        <p><strong>Date of Joining:</strong> {employee.joiningDate?.split("T")[0]}</p>
-        <p><strong>Current Salary:</strong> ₹{employee.currentSalary}</p>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 className="font-bold text-xl mb-4 text-blue-700 border-b pb-2">Job Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p><strong>Department:</strong> {currentDepartment || 'N/A'}</p>
+          <p><strong>Role:</strong> {currentRole || 'N/A'}</p>
+          <p><strong>Date of Joining:</strong> {joiningDate?.split("T")[0] || 'N/A'}</p>
+          <p><strong>Current Salary:</strong> {currentSalary ? `₹${currentSalary}` : 'N/A'}</p>
+        </div>
       </div>
 
       {/* BANK DETAILS */}
-      <div className="bg-white p-6 rounded shadow mb-6">
-        <h3 className="font-bold text-lg mb-3">Bank Details</h3>
-        <p><strong>Bank Name:</strong> {bank.bankName}</p>
-        <p><strong>Account Number:</strong> {bank.accountNumber}</p>
-        <p><strong>IFSC Code:</strong> {bank.ifsc}</p>
-        <p><strong>Branch:</strong> {bank.branch}</p>
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 className="font-bold text-xl mb-4 text-blue-700 border-b pb-2">Bank Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p><strong>Bank Name:</strong> {bankDetails.bankName || 'N/A'}</p>
+          <p><strong>Account Number:</strong> {bankDetails.accountNumber || 'N/A'}</p>
+          <p><strong>IFSC Code:</strong> {bankDetails.ifsc || 'N/A'}</p>
+          <p><strong>Branch:</strong> {bankDetails.branch || 'N/A'}</p>
+        </div>
       </div>
 
-      {/* EXPERIENCE */}
-      <div className="bg-white p-6 rounded shadow mb-6">
-        <h3 className="font-bold text-lg mb-4">Experience Details</h3>
-
-        {experience.map((exp, index) => (
-          <div key={index} className="mb-4 border-b pb-2">
-            <p><strong>Company:</strong> {exp.company}</p>
-            <p><strong>Role:</strong> {exp.role}</p>
-            <p><strong>Department:</strong> {exp.department}</p>
-            <p><strong>Years:</strong> {exp.years}</p>
-            <p><strong>Joining:</strong> {exp.joiningDate?.split("T")[0]}</p>
-            <p><strong>Last Working:</strong> 
-              {exp.lastWorkingDate === "Present"
-                ? "Present"
-                : exp.lastWorkingDate?.split("T")[0]}
-            </p>
-            <p><strong>Salary:</strong> ₹{exp.salary}</p>
-            <p><strong>Reason:</strong> {exp.reason || "N/A"}</p>
-
-            {exp.experienceLetterUrl ? (
-              <p>
-                <a
-                  href={exp.experienceLetterUrl}
-                  className="text-blue-600 underline"
-                  target="_blank"
-                >
-                  View Experience Letter
-                </a>
-              </p>
-            ) : (
-              <p><strong>Experience Letter:</strong> Not Uploaded</p>
-            )}
+      {/* EXPERIENCE DETAILS */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h3 className="font-bold text-xl mb-4 text-blue-700 border-b pb-2">Experience Details</h3>
+        {experienceDetails.length > 0 ? experienceDetails.map((exp, index) => (
+          <div key={index} className="mb-4 border-b pb-4 last:border-b-0 last:pb-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <p><strong>Company:</strong> {exp.company || 'N/A'}</p>
+                <p><strong>Role:</strong> {exp.role || 'N/A'}</p>
+                <p><strong>Department:</strong> {exp.department || 'N/A'}</p>
+                <p><strong>Years:</strong> {exp.years || 'N/A'}</p>
+                <p><strong>Joining:</strong> {exp.joiningDate?.split("T")[0] || 'N/A'}</p>
+                <p><strong>Last Working:</strong> {exp.lastWorkingDate === "Present" ? "Present" : exp.lastWorkingDate?.split("T")[0] || 'N/A'}</p>
+                <p><strong>Salary:</strong> {exp.salary ? `₹${exp.salary}` : 'N/A'}</p>
+                <p><strong>Reason for Leaving:</strong> {exp.reason || "N/A"}</p>
+                <p className="md:col-span-2">
+                    <strong>Experience Letter:</strong>{" "}
+                    {exp.experienceLetterUrl ? (
+                    <a href={exp.experienceLetterUrl} className="text-blue-600 underline" target="_blank" rel="noopener noreferrer">View Letter</a>
+                    ) : "Not Uploaded"}
+                </p>
+            </div>
           </div>
-        ))}
+        )) : <p className="text-gray-500">No experience details available.</p>}
       </div>
     </div>
   );

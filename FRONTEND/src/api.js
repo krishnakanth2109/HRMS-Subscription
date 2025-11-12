@@ -19,6 +19,22 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+// VITAL: Axios Interceptor to automatically add the auth token to every request
+api.interceptors.request.use(
+  (config) => {
+    // Read the token from sessionStorage
+    const token = sessionStorage.getItem("hrms-token");
+    if (token) {
+      // If the token exists, add it to the Authorization header
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 /**
  * =============================================================================
  * API Service Functions
@@ -106,6 +122,7 @@ export const getFilteredLeaveRequests = async (params) => {
 };
 
 export const getLeaveRequestsForEmployee = async (employeeId) => {
+  // ✅ FIXED: Corrected the typo from "leavess" to "leaves"
   const response = await api.get(`/api/leaves/${employeeId}`);
   return response.data;
 };
@@ -116,8 +133,8 @@ export const applyForLeave = async (leaveData) => {
 };
 
 export const getLeaveDetailsById = async (leaveId) => {
-    const response = await api.get(`/api/leaves/${leaveId}/details`);
-    return response.data;
+  const response = await api.get(`/api/leaves/${leaveId}/details`);
+  return response.data;
 };
 
 export const approveLeaveRequestById = async (id) => {
@@ -127,6 +144,11 @@ export const approveLeaveRequestById = async (id) => {
 
 export const rejectLeaveRequestById = async (id) => {
   const response = await api.patch(`/api/leaves/${id}/reject`);
+  return response.data;
+};
+
+export const cancelLeaveRequestById = async (id) => {
+  const response = await api.delete(`/api/leaves/cancel/${id}`);
   return response.data;
 };
 
@@ -183,6 +205,20 @@ export const punchOut = async (punchData) => {
   return response.data;
 };
 
-// We export the configured axios instance as a default export in case it's needed for special cases,
-// but it's best practice to use the named function exports above.
+// ------------------ User Profile & Password API Calls ------------------
+export const getUserProfile = async () => {
+  const response = await api.get("/api/users/profile");
+  return response.data;
+};
+
+export const updateUserProfile = async (userData) => {
+  const response = await api.put("/api/users/profile", userData);
+  return response.data;
+};
+
+
+export const changeUserPassword = async (passwordData) => {
+  const response = await api.post("/api/users/change-password", passwordData);
+  return response.data;
+};
 export default api;

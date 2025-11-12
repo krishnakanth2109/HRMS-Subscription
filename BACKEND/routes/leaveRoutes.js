@@ -1,79 +1,56 @@
+// --- START OF FILE routes/leaveRoutes.js ---
+
 import express from "express";
-import Leave from "../models/Leave.js";
+import {
+  createLeave,
+  listLeavesForEmployee,
+  adminListAllLeaves,
+  getLeaveDetails,
+  updateLeaveStatus,
+  cancelLeave,
+} from "../controllers/leaveController.js";
+import { protect } from "../controllers/authController.js"; // Import your security middleware
 
 const router = express.Router();
 
-/* ✅ Submit Leave */
-router.post("/apply", async (req, res) => {
-  try {
-    const { employeeId, employeeName, date_from, date_to, leaveType, reason } =
-      req.body;
+// All leave routes require a user to be logged in, so we apply the 'protect' middleware globally.
+router.use(protect);
 
-    if (!employeeId || !employeeName || !date_from || !date_to || !leaveType || !reason) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
+// GET /api/leaves
+// This is the route for the Admin Panel to fetch ALL leave requests.
+router.get("/", adminListAllLeaves);
 
-    const newLeave = new Leave({
-      employeeId,
-      employeeName,
-      date_from,
-      date_to,
-      leaveType,
-      reason,
-      status: "PENDING",
-    });
+// POST /api/leaves/apply
+// This is the route for an employee to submit a new leave request.
+router.post("/apply", createLeave);
 
-    await newLeave.save();
+// GET /api/leaves/my-leaves (A more secure endpoint for employees)
+// This lets an employee get ONLY their own leave history.
+router.get("/my-leaves", listLeavesForEmployee);
 
-    res.status(201).json({ message: "Leave applied", data: newLeave });
-  } catch (err) {
-    console.error("Leave Apply Error:", err);
-    res.status(500).json({ message: "Server Error" });
-  }
+// GET /api/leaves/:id/details
+// Gets the day-by-day details for a specific leave request.
+router.get("/:id/details", getLeaveDetails);
+
+// PATCH /api/leaves/:id/approve
+// PATCH /api/leaves/:id/reject
+// These routes are for an admin to update the status of a request.
+router.patch("/:id/approve", (req, res) => {
+    req.body.status = "Approved";
+    updateLeaveStatus(req, res);
+});
+router.patch("/:id/reject", (req, res) => {
+    req.body.status = "Rejected";
+    updateLeaveStatus(req, res);
 });
 
-/* ✅ Get all Leaves of one employee */
-router.get("/:employeeId", async (req, res) => {
-  try {
-    const list = await Leave.find({ employeeId: req.params.employeeId }).sort({ createdAt: -1 });
-    res.json(list);
-  } catch (err) {
-    console.error("Fetch Employee Leave Error:", err);
-    res.status(500).json({ message: "Server Error" });
-  }
-});
+// DELETE /api/leaves/cancel/:id
+// This is for an employee to cancel their own PENDING leave request.
+router.delete("/cancel/:id", cancelLeave);
 
-/* ✅ Admin: Get ALL Leaves */
-router.get("/admin/all", async (req, res) => {
-  try {
-    const list = await Leave.find().sort({ createdAt: -1 });
-    res.json(list);
-  } catch (err) {
-    console.error("Fetch All Leaves Error:", err);
-    res.status(500).json({ message: "Server Error" });
-  }
-});
+// This route must be last to avoid conflicts with other routes like 'apply'
+// GET /api/leaves/:employeeId (Legacy support if needed, but /my-leaves is better)
+router.get("/:employeeId", listLeavesForEmployee);
 
-/* ✅ Admin: Update Leave Status */
-router.put("/admin/update-status/:id", async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    if (!["PENDING", "APPROVED", "REJECTED"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
-    }
-
-    const updated = await Leave.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
-
-    res.json({ message: "Status updated", data: updated });
-  } catch (err) {
-    console.error("Update Leave Status Error:", err);
-    res.status(500).json({ message: "Server Error" });
-  }
-});
 
 export default router;

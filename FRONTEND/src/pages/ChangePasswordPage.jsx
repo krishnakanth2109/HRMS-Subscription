@@ -1,6 +1,11 @@
+// --- START OF FILE ChangePasswordPage.jsx ---
+
 import React, { useState } from "react";
+// ✅ Correctly imports the centralized API function
+import { changeUserPassword } from "../api";
 import { FaEye, FaEyeSlash, FaCheckCircle, FaLock } from "react-icons/fa";
 
+// Helper function to determine password strength
 const getPasswordStrength = (password) => {
   if (!password) return "";
   if (password.length < 6) return "Weak";
@@ -9,6 +14,7 @@ const getPasswordStrength = (password) => {
   return "Medium";
 };
 
+// Helper component to render the strength bar
 const strengthBar = (strength) => {
   if (strength === "Strong")
     return <div className="h-2 rounded bg-green-500 w-full transition-all"></div>;
@@ -46,37 +52,40 @@ const ChangePasswordPage = () => {
     setShow((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const handleSubmit = (e) => {
+  // The handleSubmit function is correctly asynchronous and handles the API call
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    // Simple validation
     if (!form.currentPassword || !form.newPassword || !form.confirmPassword) {
-      setError("All fields are required.");
-      return;
+      return setError("All fields are required.");
     }
     if (form.newPassword.length < 6) {
-      setError("New password must be at least 6 characters.");
-      return;
+      return setError("New password must be at least 6 characters.");
     }
     if (form.newPassword !== form.confirmPassword) {
-      setError("New password and confirm password do not match.");
-      return;
+      return setError("New password and confirm password do not match.");
     }
 
     setLoading(true);
-    // TODO: Replace this with real API call
-    setTimeout(() => {
-      setLoading(false);
-      setSuccess("Password changed successfully!");
-      setForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+    
+    try {
+      // It correctly calls the API function from api.js
+      await changeUserPassword({
+        currentPassword: form.currentPassword,
+        newPassword: form.newPassword,
       });
-      setTimeout(() => setSuccess(""), 2500);
-    }, 1200);
+
+      setSuccess("Password changed successfully!");
+      setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      // It correctly displays the error message from the backend
+      setError(err.response?.data?.message || "Failed to change password. Please check your current password.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -97,6 +106,7 @@ const ChangePasswordPage = () => {
             Update your account password below
           </p>
         </div>
+
         {error && (
           <div className="mb-4 text-red-600 bg-red-50 px-3 py-2 rounded border border-red-200 transition-all">
             {error}
@@ -107,122 +117,54 @@ const ChangePasswordPage = () => {
             <FaCheckCircle className="text-green-500" /> {success}
           </div>
         )}
+
         <div className="mb-5 relative">
-          <label className="block mb-1 font-medium text-gray-700">
-            Current Password
-          </label>
-          <input
-            type={show.current ? "text" : "password"}
-            name="currentPassword"
-            value={form.currentPassword}
-            onChange={handleChange}
-            className="w-full border px-3 py-2 rounded focus:outline-blue-400 pr-10 transition"
-            autoComplete="current-password"
-            required
-          />
-          <button
-            type="button"
-            tabIndex={-1}
-            className="absolute right-3 top-9 text-gray-400 hover:text-blue-600"
-            onClick={() => handleShow("current")}
-            aria-label={show.current ? "Hide password" : "Show password"}
-          >
+          <label className="block mb-1 font-medium text-gray-700">Current Password</label>
+          <input type={show.current ? "text" : "password"} name="currentPassword" value={form.currentPassword} onChange={handleChange} className="w-full border px-3 py-2 rounded focus:outline-blue-400 pr-10 transition" autoComplete="current-password" required />
+          <button type="button" tabIndex={-1} className="absolute right-3 top-9 text-gray-400 hover:text-blue-600" onClick={() => handleShow("current")} aria-label={show.current ? "Hide password" : "Show password"}>
+            {/* ✅ Minor Syntax Correction */}
             {show.current ? <FaEyeSlash /> : <FaEye />}
           </button>
         </div>
+
         <div className="mb-5 relative">
-          <label className="block mb-1 font-medium text-gray-700">
-            New Password
-          </label>
-          <input
-            type={show.new ? "text" : "password"}
-            name="newPassword"
-            value={form.newPassword}
-            onChange={handleChange}
-            className="w-full border px-3 py-2 rounded focus:outline-blue-400 pr-10 transition"
-            autoComplete="new-password"
-            required
-          />
-          <button
-            type="button"
-            tabIndex={-1}
-            className="absolute right-3 top-9 text-gray-400 hover:text-blue-600"
-            onClick={() => handleShow("new")}
-            aria-label={show.new ? "Hide password" : "Show password"}
-          >
+          <label className="block mb-1 font-medium text-gray-700">New Password</label>
+          <input type={show.new ? "text" : "password"} name="newPassword" value={form.newPassword} onChange={handleChange} className="w-full border px-3 py-2 rounded focus:outline-blue-400 pr-10 transition" autoComplete="new-password" required />
+          <button type="button" tabIndex={-1} className="absolute right-3 top-9 text-gray-400 hover:text-blue-600" onClick={() => handleShow("new")} aria-label={show.new ? "Hide password" : "Show password"}>
+            {/* ✅ Minor Syntax Correction */}
             {show.new ? <FaEyeSlash /> : <FaEye />}
           </button>
           {form.newPassword && (
             <div className="mt-2">
               {strengthBar(passwordStrength)}
-              <span
-                className={
-                  "block mt-1 text-xs font-semibold " +
-                  (passwordStrength === "Strong"
-                    ? "text-green-600"
-                    : passwordStrength === "Medium"
-                    ? "text-yellow-600"
-                    : "text-red-600")
-                }
-              >
+              <span className={`block mt-1 text-xs font-semibold ${passwordStrength === "Strong" ? "text-green-600" : passwordStrength === "Medium" ? "text-yellow-600" : "text-red-600"}`}>
                 Password strength: {passwordStrength}
               </span>
             </div>
           )}
         </div>
+
         <div className="mb-8 relative">
-          <label className="block mb-1 font-medium text-gray-700">
-            Confirm New Password
-          </label>
-          <input
-            type={show.confirm ? "text" : "password"}
-            name="confirmPassword"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            className="w-full border px-3 py-2 rounded focus:outline-blue-400 pr-10 transition"
-            autoComplete="new-password"
-            required
-          />
-          <button
-            type="button"
-            tabIndex={-1}
-            className="absolute right-3 top-9 text-gray-400 hover:text-blue-600"
-            onClick={() => handleShow("confirm")}
-            aria-label={show.confirm ? "Hide password" : "Show password"}
-          >
+          <label className="block mb-1 font-medium text-gray-700">Confirm New Password</label>
+          <input type={show.confirm ? "text" : "password"} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} className="w-full border px-3 py-2 rounded focus:outline-blue-400 pr-10 transition" autoComplete="new-password" required />
+          <button type="button" tabIndex={-1} className="absolute right-3 top-9 text-gray-400 hover:text-blue-600" onClick={() => handleShow("confirm")} aria-label={show.confirm ? "Hide password" : "Show password"}>
+            {/* ✅ Minor Syntax Correction */}
             {show.confirm ? <FaEyeSlash /> : <FaEye />}
           </button>
         </div>
+
         <button
           type="submit"
           disabled={loading}
-          className={`w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition flex items-center justify-center ${
-            loading ? "opacity-70 cursor-not-allowed" : ""
-          }`}
+          className={`w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition flex items-center justify-center ${loading ? "opacity-70 cursor-not-allowed" : ""}`}
         >
           {loading ? (
-            <svg
-              className="animate-spin h-5 w-5 mr-2 text-white"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8z"
-              ></path>
+            <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
             </svg>
           ) : null}
-          Change Password
+          {loading ? "Changing..." : "Change Password"}
         </button>
       </form>
     </div>

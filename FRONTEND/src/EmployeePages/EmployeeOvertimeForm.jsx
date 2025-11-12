@@ -1,46 +1,46 @@
 // --- START OF FILE EmployeeOvertimeForm.jsx ---
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-// ✅ IMPORT THE CENTRALIZED API FUNCTIONS
-import { getEmployees, getOvertimeForEmployee, applyForOvertime } from "../api";
+// ✅ Step 1: Import AuthContext to get the currently logged-in user
+import { AuthContext } from "../context/AuthContext";
+// ✅ Step 2: Import only the necessary API functions
+import { getOvertimeForEmployee, applyForOvertime } from "../api";
 
 const OvertimeWithModal = () => {
+  // ✅ Step 3: Get the authenticated user directly from the context
+  const { user } = useContext(AuthContext);
+
   const [form, setForm] = useState({ date: "", type: "INCENTIVE_OT" });
-  const [employee, setEmployee] = useState(null);
   const [overtimeList, setOvertimeList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loggedUser = JSON.parse(localStorage.getItem("hrmsUser"));
-  const loggedEmail = loggedUser?.email;
-
-  const fetchEmployeeData = useCallback(async () => {
-    if (!loggedEmail) {
+  // ✅ Step 4: Refactor data fetching to be more efficient
+  // This function now only fetches overtime data for the logged-in user.
+  const fetchOvertimeData = useCallback(async () => {
+    // Only run the fetch if we have a user with an employeeId
+    if (!user?.employeeId) {
       setLoading(false);
       return;
     }
     try {
-      const allEmployees = await getEmployees();
-      const emp = allEmployees.find((e) => e.email === loggedEmail);
-      if (emp) {
-        setEmployee(emp);
-        const otData = await getOvertimeForEmployee(emp.employeeId);
-        setOvertimeList(otData);
-      }
+      setLoading(true);
+      const otData = await getOvertimeForEmployee(user.employeeId);
+      setOvertimeList(otData);
     } catch (err) {
-      console.error("Error fetching employee data:", err);
-      setError("Could not load your data.");
+      console.error("Error fetching overtime data:", err);
+      setError("Could not load your overtime requests.");
     } finally {
       setLoading(false);
     }
-  }, [loggedEmail]);
+  }, [user?.employeeId]); // This will re-run only if the logged-in user changes
 
   useEffect(() => {
-    fetchEmployeeData();
-  }, [fetchEmployeeData]);
+    fetchOvertimeData();
+  }, [fetchOvertimeData]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -48,6 +48,7 @@ const OvertimeWithModal = () => {
     setSuccess("");
   };
 
+  // ✅ Step 5: Update handleSubmit to use the user from the context
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.date || !form.type) {
@@ -56,14 +57,14 @@ const OvertimeWithModal = () => {
     }
     try {
       await applyForOvertime({
-        employeeId: employee.employeeId,
-        employeeName: employee.name,
+        employeeId: user.employeeId, // Use user from context
+        employeeName: user.name,     // Use user from context
         date: form.date,
         type: form.type,
       });
       setSuccess("Overtime submitted successfully!");
       setForm({ date: "", type: "INCENTIVE_OT" });
-      fetchEmployeeData(); // Refetch all data to update the list
+      fetchOvertimeData(); // Refetch all data to update the list
       setTimeout(() => setModalOpen(false), 1500);
     } catch (err) {
       console.error("Failed to submit OT:", err);
@@ -72,7 +73,7 @@ const OvertimeWithModal = () => {
   };
 
   if (loading) return <div className="p-6 text-center">Loading...</div>;
-  if (!employee) return <div className="text-red-600 p-6 text-center">Employee Not Found. Please log in again.</div>;
+  if (!user) return <div className="text-red-600 p-6 text-center">Could not find employee data. Please log in again.</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -122,8 +123,9 @@ const OvertimeWithModal = () => {
             <motion.div className="bg-white w-96 p-6 rounded-xl shadow-xl" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
               <h3 className="text-xl font-bold mb-4 text-indigo-700">Apply Overtime</h3>
               <div className="mb-4 p-3 rounded bg-indigo-50 text-sm">
-                <p><b>Name:</b> {employee.name}</p>
-                <p><b>ID:</b> {employee.employeeId}</p>
+                {/* ✅ Use user from context here */}
+                <p><b>Name:</b> {user.name}</p>
+                <p><b>ID:</b> {user.employeeId}</p>
               </div>
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div>

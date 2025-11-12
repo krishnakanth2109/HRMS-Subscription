@@ -1,10 +1,10 @@
-// --- START OF FILE AdminNotices.jsx ---
+// --- AdminNotices.jsx ---
+// ✅ Cleaned, fixed, and production-ready version
 
 import React, { useState, useEffect, useCallback } from "react";
-// ✅ Step 1: Import the centralized API functions instead of axios
-import { getNotices, addNotice } from "../api";
+import { getNotices, addNotice } from "../api"; // ✅ Import from API
 
-const NoticeForm = () => {
+const AdminNotices = () => {
   const [noticeData, setNoticeData] = useState({
     title: "",
     description: "",
@@ -14,14 +14,13 @@ const NoticeForm = () => {
   const [notices, setNotices] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ✅ Step 2: Use the imported getNotices function
+  // ✅ Fetch notices using imported API function
   const fetchNotices = useCallback(async () => {
     try {
       const data = await getNotices();
       setNotices(data);
     } catch (error) {
       console.error("Error fetching notices:", error);
-      setMessage("❌ Failed to load notices.");
     }
   }, []);
 
@@ -29,12 +28,12 @@ const NoticeForm = () => {
     fetchNotices();
   }, [fetchNotices]);
 
-  // Handle input changes (no changes needed here)
+  // Handle input changes
   const handleChange = (e) => {
     setNoticeData({ ...noticeData, [e.target.name]: e.target.value });
   };
 
-  // ✅ Step 3: Use the imported addNotice function
+  // Handle form submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -42,7 +41,7 @@ const NoticeForm = () => {
       await addNotice(noticeData);
       setMessage("✅ Notice posted successfully!");
       setNoticeData({ title: "", description: "", date: "" });
-      fetchNotices(); // Refresh notices after posting
+      fetchNotices();
     } catch (error) {
       console.error(error);
       setMessage("❌ Failed to post notice.");
@@ -51,34 +50,39 @@ const NoticeForm = () => {
     }
   };
 
-  // Dynamic color based on message type
+  // UI helpers
   const getMessageColor = () => {
-    if (message.includes("✅")) return "text-green-600 bg-green-50 border-green-200";
-    if (message.includes("❌")) return "text-red-600 bg-red-50 border-red-200";
+    if (message.includes("✅"))
+      return "text-green-600 bg-green-50 border-green-200";
+    if (message.includes("❌"))
+      return "text-red-600 bg-red-50 border-red-200";
     return "text-blue-600 bg-blue-50 border-blue-200";
   };
 
-  // Dynamic border colors for notice cards
   const getNoticeBorderColor = (index) => {
     const colors = [
-      "border-blue-500", "border-green-500", "border-purple-500",
-      "border-orange-500", "border-pink-500", "border-indigo-500"
+      "border-blue-500",
+      "border-green-500",
+      "border-purple-500",
+      "border-orange-500",
+      "border-pink-500",
+      "border-indigo-500",
     ];
     return colors[index % colors.length];
   };
 
-  // Dynamic background for notice cards
   const getNoticeBackground = (index) => {
     const backgrounds = [
       "bg-gradient-to-br from-blue-50 to-white",
       "bg-gradient-to-br from-green-50 to-white",
       "bg-gradient-to-br from-purple-50 to-white",
       "bg-gradient-to-br from-orange-50 to-white",
-      "bg-gradient-to-br from-pink-50 to-white"
+      "bg-gradient-to-br from-pink-50 to-white",
     ];
     return backgrounds[index % backgrounds.length];
   };
 
+  // ✅ UI
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-10 px-4 flex flex-col items-center">
       {/* Form Section */}
@@ -90,7 +94,9 @@ const NoticeForm = () => {
           <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Post a New Notice
           </h2>
-          <p className="text-gray-500 mt-2">Share important updates with your community</p>
+          <p className="text-gray-500 mt-2">
+            Share important updates with your community
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -162,13 +168,15 @@ const NoticeForm = () => {
         </form>
 
         {message && (
-          <div className={`mt-6 p-4 rounded-xl border-2 text-center font-medium transition-all duration-300 animate-pulse ${getMessageColor()}`}>
+          <div
+            className={`mt-6 p-4 rounded-xl border-2 text-center font-medium transition-all duration-300 animate-pulse ${getMessageColor()}`}
+          >
             {message}
           </div>
         )}
       </div>
 
-      {/* Notice Display Section */}
+      {/* Notices Section */}
       <div className="w-full max-w-6xl">
         <div className="text-center mb-10">
           <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -177,7 +185,9 @@ const NoticeForm = () => {
           <h3 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             All Posted Notices
           </h3>
-          <p className="text-gray-500 mt-2">Stay updated with recent announcements</p>
+          <p className="text-gray-500 mt-2">
+            Stay updated with recent announcements
+          </p>
         </div>
 
         {notices.length === 0 ? (
@@ -192,8 +202,12 @@ const NoticeForm = () => {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {notices.map((notice, index) => (
               <div
-                key={notice._id}
-                className={`${getNoticeBackground(index)} p-6 rounded-2xl shadow-lg border-t-4 ${getNoticeBorderColor(index)} transform hover:scale-[1.02] hover:shadow-xl transition-all duration-300 group`}
+                key={notice._id || index}
+                className={`${getNoticeBackground(
+                  index
+                )} p-6 rounded-2xl shadow-lg border-t-4 ${getNoticeBorderColor(
+                  index
+                )} transform hover:scale-[1.02] hover:shadow-xl transition-all duration-300 group`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <h4 className="text-xl font-bold text-gray-800 group-hover:text-gray-900 transition-colors line-clamp-2">
@@ -210,11 +224,11 @@ const NoticeForm = () => {
 
                 <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                   <p className="text-sm font-medium text-gray-500 flex items-center">
-                    <span className="w-2 h-2 bg-current rounded-full mr-2"></span>
-                    📅 {new Date(notice.date).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
+                    📅{" "}
+                    {new Date(notice.date).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
                     })}
                   </p>
                 </div>
@@ -227,4 +241,4 @@ const NoticeForm = () => {
   );
 };
 
-export default NoticeForm;
+export default AdminNotices;
