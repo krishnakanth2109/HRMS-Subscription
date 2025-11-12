@@ -144,65 +144,126 @@ const EmployeeDashboard = () => {
       </div>
 
       {/* Attendance Section */}
-      <div className="bg-white rounded-2xl shadow p-6 mb-8">
-        <div className="flex items-center mb-4 gap-2"><FaRegClock className="text-blue-600" /><h2 className="font-bold text-xl">Daily Attendance</h2></div>
-        <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-                <thead>
-                    <tr className="bg-blue-50 text-blue-900 text-left">
-                        <th className="px-3 py-2">Date</th>
-                        <th className="px-3 py-2">Punch In</th>
-                        <th className="px-3 py-2">Punch Out</th>
-                        <th className="px-3 py-2">Worked</th>
-                        <th className="px-3 py-2 text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr className="text-left">
-                        <td className="px-3 py-2">{today}</td>
-                        <td className="px-3 py-2">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
-                        <td className="px-3 py-2">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</td>
-                        <td className="px-3 py-2 font-mono">{todayLog?.displayTime || "0h 0m 0s"}</td>
-                        <td className="px-3 py-2 text-center">
-                            {!todayLog?.punchIn ? (
-                                <button className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold shadow-md hover:bg-green-600 transition-all" onClick={() => handlePunch("IN")}>Punch In</button>
-                            ) : !todayLog?.punchOut ? (
-                                <button className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold shadow-md hover:bg-red-600 transition-all" onClick={() => handlePunch("OUT")}>Punch Out</button>
-                            ) : (
-                                <span className="font-semibold text-gray-500">Done</span>
-                            )}
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <h3 className="mt-8 font-bold text-xl text-gray-800 border-t pt-6">Attendance History</h3>
-        <div className="overflow-y-auto max-h-60 mt-4">
-            <table className="min-w-full text-sm border border-gray-200 rounded-lg shadow-sm">
-                <thead className="bg-gray-100 sticky top-0">
-                    <tr className="text-gray-600 uppercase">
-                        <th className="border-b px-4 py-3">Date</th>
-                        <th className="border-b px-4 py-3">In</th>
-                        <th className="border-b px-4 py-3">Out</th>
-                        <th className="border-b px-4 py-3">Worked</th>
-                        <th className="border-b px-4 py-3">Status</th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white">
-                    {attendance.map((a, i) => (
-                        <tr key={i} className="text-center text-gray-700 hover:bg-blue-50 transition-colors">
-                            <td className="border-b px-4 py-3">{a.date}</td>
-                            <td className="border-b px-4 py-3">{a.punchIn ? new Date(a.punchIn).toLocaleTimeString() : "--"}</td>
-                            <td className="border-b px-4 py-3">{a.punchOut ? new Date(a.punchOut).toLocaleTimeString() : "--"}</td>
-                            <td className="border-b px-4 py-3 font-mono">{a.displayTime}</td>
-                            <td className="border-b px-4 py-3">{a.status}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    </div>
+<div className="bg-gradient-to-br from-gray-50 to-blue-100 rounded-2xl shadow-lg p-6 mb-8 transition-all duration-300 hover:shadow-2xl">
+  <div className="flex items-center mb-6 gap-3 border-b border-gray-200 pb-4">
+    <FaRegClock className="text-blue-600 text-2xl" />
+    <h2 className="font-bold text-2xl text-gray-800">Daily Attendance</h2>
+  </div>
 
+  {/* TODAY ROW */}
+  <div className="overflow-x-auto">
+    <table className="min-w-full text-sm rounded-lg overflow-hidden">
+      <thead>
+        <tr className="bg-blue-600 text-white uppercase tracking-wider">
+          <th className="px-4 py-3 text-left">Date</th>
+          <th className="px-4 py-3 text-left">Punch In</th>
+          <th className="px-4 py-3 text-left">Punch Out</th>
+          <th className="px-4 py-3 text-left">Worked</th>
+          <th className="px-4 py-3 text-left">Login Status</th>
+          <th className="px-4 py-3 text-center">Action</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white">
+        <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200">
+          <td className="px-4 py-3 font-medium">{today}</td>
+          <td className="px-4 py-3">
+            {todayLog?.punchIn
+              ? new Date(todayLog.punchIn).toLocaleTimeString()
+              : "--"}
+          </td>
+          <td className="px-4 py-3">
+            {todayLog?.punchOut
+              ? new Date(todayLog.punchOut).toLocaleTimeString()
+              : "--"}
+          </td>
+          <td className="px-4 py-3 font-mono">{todayLog?.displayTime || "0h 0m 0s"}</td>
+          <td className="px-4 py-3">
+            {todayLog?.punchIn ? (
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                  todayLog.loginStatus === "LATE"
+                    ? "bg-red-100 text-red-800 border border-red-200"
+                    : "bg-green-100 text-green-800 border border-green-200"
+                }`}
+              >
+                {todayLog.loginStatus === "LATE" ? "Late" : "On Time"}
+              </span>
+            ) : (
+              "--"
+            )}
+          </td>
+          <td className="px-4 py-3 text-center">
+            {!todayLog?.punchIn ? (
+              <button
+                className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold shadow-md hover:bg-green-600 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-400"
+                onClick={() => handlePunch("IN")}
+              >
+                Punch In
+              </button>
+            ) : !todayLog?.punchOut ? (
+              <button
+                className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold shadow-md hover:bg-red-600 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-400"
+                onClick={() => handlePunch("OUT")}
+              >
+                Punch Out
+              </button>
+            ) : (
+              <span className="text-gray-500 font-semibold">Done</span>
+            )}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  {/* FULL HISTORY */}
+  <h3 className="mt-8 font-bold text-xl text-gray-800 border-t pt-6">Attendance History</h3>
+
+  <div className="overflow-x-auto mt-4">
+    <table className="min-w-full text-sm border border-gray-200 rounded-lg shadow-sm">
+      <thead className="bg-gray-100">
+        <tr className="text-gray-600 uppercase">
+          <th className="border-b px-4 py-3">Date</th>
+          <th className="border-b px-4 py-3">In</th>
+          <th className="border-b px-4 py-3">Out</th>
+          <th className="border-b px-4 py-3">Worked</th>
+          <th className="border-b px-4 py-3">Status</th>
+          <th className="border-b px-4 py-3">Login Status</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white">
+        {attendance.map((a, i) => (
+          <tr key={i} className="text-center text-gray-700 hover:bg-blue-50 transition-colors duration-200">
+            <td className="border-b px-4 py-3">{a.date}</td>
+            <td className="border-b px-4 py-3">
+              {a.punchIn ? new Date(a.punchIn).toLocaleTimeString() : "--"}
+            </td>
+            <td className="border-b px-4 py-3">
+              {a.punchOut ? new Date(a.punchOut).toLocaleTimeString() : "--"}
+            </td>
+            <td className="border-b px-4 py-3 font-mono">{a.displayTime}</td>
+            <td className="border-b px-4 py-3">{a.status}</td>
+            <td className="border-b px-4 py-3">
+              {a.punchIn ? (
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    a.loginStatus === "LATE"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {a.loginStatus === "LATE" ? "Late" : "On Time"}
+                </span>
+              ) : (
+                "--"
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow p-4">

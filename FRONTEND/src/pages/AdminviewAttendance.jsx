@@ -1,22 +1,30 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import * as FileSaver from "file-saver";
+import * as XLSX from "xlsx";
 
 const AdminAttendance = () => {
   const today = new Date().toISOString().split("T")[0];
 
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
   const [attendanceData, setAttendanceData] = useState([]);
 
-  const fetchAttendance = async (date) => {
-    const res = await axios.get(
-      `http://localhost:5000/api/admin/attendance/by-date/${date}`
-    );
-    setAttendanceData(res.data);
+  const fetchAttendance = async (start, end) => {
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/admin/attendance/by-range?startDate=${start}&endDate=${end}`
+      );
+      setAttendanceData(res.data);
+    } catch (error) {
+      console.error("Error fetching attendance data:", error);
+      setAttendanceData([]);
+    }
   };
 
   useEffect(() => {
-    fetchAttendance(selectedDate);
-  }, [selectedDate]);
+    fetchAttendance(startDate, endDate);
+  }, [startDate, endDate]);
 
   const workingCount = attendanceData.filter(
     (item) => item.punchIn && !item.punchOut
@@ -26,25 +34,58 @@ const AdminAttendance = () => {
     (item) => item.punchIn && item.punchOut
   ).length;
 
+  const exportToExcel = () => {
+    const fileType =
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
+    const fileExtension = ".xlsx";
+    const fileName = `attendance_data_${startDate}_to_${endDate}`;
+
+    const ws = XLSX.utils.json_to_sheet(attendanceData);
+    const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const data = new Blob([excelBuffer], { type: fileType });
+    FileSaver.saveAs(data, fileName + fileExtension);
+  };
+
   return (
     <div className="p-6 bg-slate-50 min-h-screen font-sans text-slate-800">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8">
         <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">
-          Admin Attendance
+          All Employees Attendance
         </h2>
 
-        {/* Styled Date Filter */}
-        <div className="mt-4 md:mt-0 flex items-center bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
-          <span className="px-3 py-2 bg-slate-100 border-r text-slate-500 text-sm font-medium">
-            Filter Date
-          </span>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-3 py-2 outline-none text-slate-700 font-medium"
-          />
+        <div className="flex flex-col md:flex-row items-center gap-4 mt-4 md:mt-0">
+          {/* Styled Date Filter */}
+          <div className="flex items-center bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+            <span className="px-3 py-2 bg-slate-100 border-r text-slate-500 text-sm font-medium">
+              From
+            </span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 outline-none text-slate-700 font-medium"
+            />
+          </div>
+          <div className="flex items-center bg-white shadow-sm border border-slate-200 rounded-lg overflow-hidden">
+            <span className="px-3 py-2 bg-slate-100 border-r text-slate-500 text-sm font-medium">
+              To
+            </span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 outline-none text-slate-700 font-medium"
+            />
+          </div>
+
+          <button
+            onClick={exportToExcel}
+            className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75"
+          >
+            Export to Excel
+          </button>
         </div>
       </div>
 
@@ -131,7 +172,7 @@ const AdminAttendance = () => {
                     colSpan="8"
                     className="text-center py-10 text-slate-500 text-lg"
                   >
-                    No attendance records found for this date.
+                    No attendance records found for this date range.
                   </td>
                 </tr>
               ) : (

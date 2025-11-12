@@ -1,41 +1,68 @@
 import express from "express";
-import Attendance from "../models/Attendance.js";
+import Attendance from "../models/Attendance.js"; // Make sure this path is correct
 
 const router = express.Router();
 
-// ✅ Admin fetch attendance by date
-router.get("/by-date/:date", async (req, res) => {
+// ✅ NEW: Admin fetch attendance by date range
+router.get("/by-range", async (req, res) => {
   try {
-    const selectedDate = req.params.date; // YYYY-MM-DD
+    const { startDate, endDate } = req.query;
 
-    // Fetch all employee attendance documents
-    const allEmployees = await Attendance.find();
+    // 1. Validate input
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "startDate and endDate are required." });
+    }
 
-    // Flatten attendance by date
-    const result = [];
+    // 2. Use an Aggregation Pipeline to efficiently query the data
+    const result = await Attendance.aggregate([
+      // Stage 1: Deconstruct the 'attendance' array into separate documents
+      {
+        $unwind: "$attendance"
+      },
 
-    allEmployees.forEach((emp) => {
-      const dayEntry = emp.attendance.find(a => a.date === selectedDate);
+      // Stage 2: Filter those documents to match the date range
+      {
+        $match: {
+          "attendance.date": {
+            $gte: startDate, // Greater than or equal to startDate
+            $lte: endDate    // Less than or equal to endDate
+          }
+        }
+      },
+      
+      // Stage 3: Sort the results by date, then by employee name
+      {
+        $sort: {
+          "attendance.date": 1, // 1 for ascending order
+          "employeeName": 1
+        }
+      },
 
-      if (dayEntry) {
-        result.push({
-          employeeName: emp.employeeName,
-          employeeId: emp.employeeId,
-          date: selectedDate,
-          punchIn: dayEntry.punchIn,
-          punchOut: dayEntry.punchOut,
-          displayTime: dayEntry.displayTime,
-          loginStatus: dayEntry.loginStatus,
-          status: dayEntry.status,
-        });
+      // Stage 4: Reshape the output to match the format your frontend expects
+      {
+        $project: {
+          _id: 0, // Exclude the default _id field
+          employeeName: "$employeeName",
+          employeeId: "$employeeId",
+          date: "$attendance.date",
+          punchIn: "$attendance.punchIn",
+          punchOut: "$attendance.punchOut",
+          displayTime: "$attendance.displayTime",
+          loginStatus: "$attendance.loginStatus",
+          status: "$attendance.status",
+        }
       }
-    });
+    ]);
 
     res.json(result);
 
   } catch (err) {
+    console.error("Error fetching attendance by range:", err);
     res.status(500).json({ error: err.message });
   }
 });
+
+
+
 
 export default router;
