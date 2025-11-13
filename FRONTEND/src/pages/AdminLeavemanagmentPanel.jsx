@@ -1,33 +1,52 @@
-// --- START OF FILE AdminLeavemanagmentPanel.jsx ---
-
-import React, { useEffect, useState, useCallback, useMemo } from "react";
-// ✅ Step 1: Import all necessary API functions
-import { getLeaveRequests, getEmployees, approveLeaveRequestById, rejectLeaveRequestById } from "../api";
+// --- START OF FILE AdminLeaveManagementPanel.jsx ---
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+} from "react";
+import {
+  getLeaveRequests,
+  getEmployees,
+  approveLeaveRequestById,
+  rejectLeaveRequestById,
+} from "../api";
+import { FaCheck, FaTimes, FaFilter } from "react-icons/fa";
 
 const AdminLeavePanel = () => {
   const [leaveList, setLeaveList] = useState([]);
-  const [employeesMap, setEmployeesMap] = useState(new Map()); // To store employee names by ID
+  const [employeesMap, setEmployeesMap] = useState(new Map());
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(null);
 
-  // ✅ Step 2: Fetch ALL data (leaves and employees) when the component mounts
+  // --- UI States ---
+  const [filterDept, setFilterDept] = useState("All");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showMoreId, setShowMoreId] = useState(null);
+  const [snackbar, setSnackbar] = useState("");
+
+  // --- Helper Snackbar Function ---
+  const showSnackbar = (msg) => {
+    setSnackbar(msg);
+    setTimeout(() => setSnackbar(""), 1800);
+  };
+
+  // ✅ Fetch leaves & employees
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      // Use Promise.all to fetch both datasets in parallel for better performance
       const [leavesData, employeesData] = await Promise.all([
         getLeaveRequests(),
-        getEmployees()
+        getEmployees(),
       ]);
 
       setLeaveList(leavesData);
 
-      // Create a Map for quick and easy lookup of employee names by their ID
       const newEmployeesMap = new Map(
-        employeesData.map(emp => [emp.employeeId, emp.name])
+        employeesData.map((emp) => [emp.employeeId, emp])
       );
       setEmployeesMap(newEmployeesMap);
-
     } catch (err) {
       console.error("Admin Panel Data Fetch Error:", err);
     } finally {
@@ -39,114 +58,266 @@ const AdminLeavePanel = () => {
     fetchAllData();
   }, [fetchAllData]);
 
-  // ✅ Step 3: "Enrich" the leave list with employee names using useMemo for efficiency
+  // ✅ Enriched leave list
   const enrichedLeaveList = useMemo(() => {
-    return leaveList.map(leave => ({
-      ...leave,
-      // Look up the name from the map; provide a fallback if not found
-      employeeName: employeesMap.get(leave.employeeId) || 'Unknown Employee'
-    }));
+    return leaveList.map((leave) => {
+      const emp = employeesMap.get(leave.employeeId);
+      return {
+        ...leave,
+        employeeName: emp?.name || "Unknown",
+        department: emp?.department || "Unassigned",
+      };
+    });
   }, [leaveList, employeesMap]);
 
+  // ✅ Department list
+  const allDepartments = useMemo(() => {
+    const depts = Array.from(
+      new Set(
+        Array.from(employeesMap.values()).map((emp) => emp.department)
+      )
+    );
+    return depts.filter(Boolean);
+  }, [employeesMap]);
 
-  // ✅ Step 4: Approve / Reject Leave (this logic remains the same, but now refetches all data)
+  // ✅ Filtering
+  const filteredRequests = useMemo(() => {
+    return enrichedLeaveList.filter((req) => {
+      const matchesDept =
+        filterDept === "All" || req.department === filterDept;
+      const matchesStatus =
+        filterStatus === "All" || req.status === filterStatus;
+      const matchesSearch =
+        req.employeeId
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        req.employeeName
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      return matchesDept && matchesStatus && matchesSearch;
+    });
+  }, [enrichedLeaveList, filterDept, filterStatus, searchQuery]);
+
+  // ✅ Approve / Reject
   const updateStatus = async (id, status) => {
-    if (!window.confirm(`Are you sure you want to ${status.toLowerCase()} this request?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to ${status.toLowerCase()} this request?`
+      )
+    ) {
       return;
     }
-    
+
     setStatusUpdating(id);
     try {
-      if (status === "APPROVED") {
+      if (status === "Approved") {
         await approveLeaveRequestById(id);
-      } else if (status === "REJECTED") {
+      } else if (status === "Rejected") {
         await rejectLeaveRequestById(id);
       }
-      
-      // After updating, refetch all data to ensure consistency
       await fetchAllData();
+      showSnackbar(
+        status === "Approved"
+          ? "Leave approved successfully."
+          : "Leave rejected successfully."
+      );
     } catch (err) {
       console.error("Status Update Error:", err);
-      alert("Failed to update leave status.");
+      showSnackbar("Failed to update leave status.");
     } finally {
       setStatusUpdating(null);
     }
   };
 
+  const toggleShowMore = (id) => {
+    setShowMoreId((prev) => (prev === id ? null : id));
+  };
+
+  const statusBadge = (status) => {
+    let color = "bg-gray-200 text-gray-700";
+    if (status === "Pending") color = "bg-yellow-100 text-yellow-700";
+    if (status === "Approved") color = "bg-green-100 text-green-700";
+    if (status === "Rejected") color = "bg-red-100 text-red-700";
+    return (
+      <span className={`px-2 py-1 rounded text-xs font-semibold ${color}`}>
+        {status}
+      </span>
+    );
+  };
+
   if (loading) {
-    return <div className="p-6 text-center font-semibold">Loading leave requests...</div>;
+    return (
+      <div className="p-6 text-lg text-center font-semibold">
+        Loading leave requests...
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-3xl font-bold text-emerald-900 mb-6">
+    <div className="p-6">
+      <h2 className="text-2xl font-bold mb-4 text-emerald-900">
         Leave Management (Admin Panel)
       </h2>
 
-      <div className="bg-white rounded-xl shadow overflow-x-auto border">
+      {/* Filters Section */}
+      <div className="mb-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="flex gap-2 items-center flex-wrap">
+          <FaFilter className="text-blue-600" />
+          <select
+            value={filterDept}
+            onChange={(e) => setFilterDept(e.target.value)}
+            className="border px-3 py-2 rounded bg-white shadow"
+          >
+            <option value="All">All Departments</option>
+            {allDepartments.map((dept) => (
+              <option key={dept}>{dept}</option>
+            ))}
+          </select>
+
+          {["All", "Pending", "Approved", "Rejected"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`px-4 py-2 rounded font-semibold transition ${
+                filterStatus === s
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 hover:bg-blue-100"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+       
+      </div>
+      <div className="pb-2 ">
+         <input
+          type="text"
+          placeholder="Search by Name or Employee ID"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="border px-4 py-2 rounded w-full max-w-sm"
+        />
+      </div>
+
+      {/* Summary Section */}
+      <div className="mb-4 bg-gray-50 rounded-xl p-3 shadow flex gap-6 text-sm font-semibold">
+        <span>Total: {filteredRequests.length}</span>
+        <span>
+          Approved:{" "}
+          {filteredRequests.filter((r) => r.status === "Approved").length}
+        </span>
+        <span>
+          Pending:{" "}
+          {filteredRequests.filter((r) => r.status === "Pending").length}
+        </span>
+        <span>
+          Rejected:{" "}
+          {filteredRequests.filter((r) => r.status === "Rejected").length}
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto bg-white rounded-xl shadow">
         <table className="min-w-full text-sm">
-          <thead className="bg-emerald-100 text-emerald-900">
-            <tr>
-              <th className="px-4 py-3 border">Employee ID</th>
-              <th className="px-4 py-3 border">Name</th>
-              <th className="px-4 py-3 border">From</th>
-              <th className="px-4 py-3 border">To</th>
-              <th className="px-4 py-3 border">Type</th>
-              <th className="px-4 py-3 border">Reason</th>
-              <th className="px-4 py-3 border">Status</th>
-              <th className="px-4 py-3 border text-center">Actions</th>
+          <thead>
+            <tr className="bg-gray-100 text-left">
+              <th className="p-4">Employee ID</th>
+              <th className="p-4">Name</th>
+              <th className="p-4">Department</th>
+              <th className="p-4">From</th>
+              <th className="p-4">To</th>
+              <th className="p-4">Type</th>
+              <th className="p-4">Reason</th>
+              <th className="p-4">Status</th>
+              <th className="p-4">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {enrichedLeaveList.length > 0 ? (
-              // ✅ Step 5: Render the new 'enrichedLeaveList'
-              enrichedLeaveList.map((lv) => (
-                <tr key={lv._id} className="hover:bg-gray-50 transition">
-                  <td className="border px-4 py-2 text-center">{lv.employeeId}</td>
-                  {/* This will now display the correct name */}
-                  <td className="border px-4 py-2">{lv.employeeName}</td>
-                  <td className="border px-4 py-2 text-center">{lv.from}</td>
-                  <td className="border px-4 py-2 text-center">{lv.to}</td>
-                  <td className="border px-4 py-2 text-center">{lv.leaveType}</td>
-                  <td className="border px-4 py-2">{lv.reason}</td>
-                  <td className="border px-4 py-2 text-center">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        lv.status === "Approved" ? "bg-green-200 text-green-800"
-                        : lv.status === "Rejected" ? "bg-red-200 text-red-800"
-                        : "bg-yellow-200 text-yellow-800"
-                      }`}
-                    >
-                      {lv.status}
-                    </span>
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    {lv.status === "Pending" ? (
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          disabled={statusUpdating === lv._id}
-                          onClick={() => updateStatus(lv._id, "APPROVED")}
-                          className="bg-green-600 hover:bg-green-800 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
-                        >
-                          {statusUpdating === lv._id ? "..." : "Approve"}
-                        </button>
-                        <button
-                          disabled={statusUpdating === lv._id}
-                          onClick={() => updateStatus(lv._id, "REJECTED")}
-                          className="bg-red-600 hover:bg-red-800 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
-                        >
-                          {statusUpdating === lv._id ? "..." : "Reject"}
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-xs">—</span>
-                    )}
-                  </td>
-                </tr>
+            {filteredRequests.length > 0 ? (
+              filteredRequests.map((lv) => (
+                <React.Fragment key={lv._id}>
+                  <tr className="border-t hover:bg-blue-50 transition">
+                    <td className="p-4">{lv.employeeId}</td>
+                    <td className="p-4">{lv.employeeName}</td>
+                    <td className="p-4">{lv.department}</td>
+                    <td className="p-4">{lv.from}</td>
+                    <td className="p-4">{lv.to}</td>
+                    <td className="p-4">{lv.leaveType}</td>
+                    <td className="p-4">{lv.reason}</td>
+                    <td className="p-4">{statusBadge(lv.status)}</td>
+                    <td className="p-4 flex gap-2">
+                      <button
+                        onClick={() => toggleShowMore(lv._id)}
+                        className="bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200"
+                      >
+                        {showMoreId === lv._id ? "Hide" : "Details"}
+                      </button>
+                      <button
+                        onClick={() => updateStatus(lv._id, "Approved")}
+                        disabled={lv.status !== "Pending"}
+                        className="bg-green-100 text-green-700 px-2 py-1 rounded disabled:opacity-50"
+                      >
+                        <FaCheck />
+                      </button>
+                      <button
+                        onClick={() => updateStatus(lv._id, "Rejected")}
+                        disabled={lv.status !== "Pending"}
+                        className="bg-red-100 text-red-700 px-2 py-1 rounded disabled:opacity-50"
+                      >
+                        <FaTimes />
+                      </button>
+                    </td>
+                  </tr>
+
+                  {showMoreId === lv._id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan="9" className="p-4">
+                        <div className="bg-white p-4 rounded shadow">
+                          <h4 className="font-semibold mb-2">
+                            Leave Day Details
+                          </h4>
+                          {lv.details?.length ? (
+                            <table className="min-w-full text-left text-sm">
+                              <thead>
+                                <tr className="bg-gray-100">
+                                  <th className="px-3 py-2">Date</th>
+                                  <th className="px-3 py-2">Category</th>
+                                  <th className="px-3 py-2">Type</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {lv.details.map((d, i) => (
+                                  <tr key={i} className="border-t">
+                                    <td className="px-3 py-2">{d.date}</td>
+                                    <td className="px-3 py-2">
+                                      {d.leavecategory}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                      {d.leaveDayType}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <p className="text-gray-500">
+                              No details available.
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="text-center p-4 text-gray-500">
+                <td
+                  colSpan="9"
+                  className="text-center p-4 text-gray-500"
+                >
                   No leave requests found.
                 </td>
               </tr>
@@ -154,6 +325,16 @@ const AdminLeavePanel = () => {
           </tbody>
         </table>
       </div>
+
+      {snackbar && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 rounded shadow-lg z-50 text-white ${
+            snackbar.includes("rejected") ? "bg-red-600" : "bg-green-600"
+          }`}
+        >
+          {snackbar}
+        </div>
+      )}
     </div>
   );
 };

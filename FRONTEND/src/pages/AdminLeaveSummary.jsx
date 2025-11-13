@@ -1,4 +1,4 @@
-import React, { useContext, useState, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   PieChart,
   Pie,
@@ -11,15 +11,11 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
+import { getLeaveRequests, getEmployees } from "../api"; // ✅ make sure correct path
 
-// The component only needs the LeaveRequestContext as all data logic is now handled there.
-import { LeaveRequestContext } from "../context/LeaveRequestContext";
-
-// --- Constants ---
 const COLORS = { Approved: "#22c55e", Rejected: "#ef4444", Pending: "#f59e0b" };
 const STATUS_FILTERS = ["All", "Pending", "Approved", "Rejected"];
 
-// --- Helper UI Components for a Cleaner Structure ---
 const StatCard = ({ title, value, colorClass }) => (
   <div className="bg-white p-6 rounded-lg shadow-md flex flex-col justify-center items-center text-center">
     <p className={`text-4xl font-bold ${colorClass}`}>{value}</p>
@@ -27,193 +23,288 @@ const StatCard = ({ title, value, colorClass }) => (
   </div>
 );
 
-// --- Main AdminLeaveSummary Component ---
 const AdminLeaveSummary = () => {
-  // 1. Get the "backend" function and global lists from the context.
-  const { getLeaveSummary, allMonths, allDepartments } = useContext(LeaveRequestContext);
-
-  // 2. Manage state ONLY for the UI filters.
+  const [allRequests, setAllRequests] = useState([]);
+  const [employeesMap, setEmployeesMap] = useState(new Map());
   const [statusFilter, setStatusFilter] = useState("All");
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-
-  // Logic to set the default selected month.
-  // It calculates the current month in 'YYYY-MM' format.
-  const currentMonthISO = new Date().toISOString().slice(0, 7);
-  // It then checks if this month exists in the available data. If yes, it's the default.
-  // If not (e.g., no leaves in the current month), it defaults to 'All' to show some data.
-  const [selectedMonth, setSelectedMonth] = useState(
-    allMonths.includes(currentMonthISO) ? currentMonthISO : "All"
-  );
-  
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const chartRef = useRef(null);
 
-  // 3. Call the "backend" function with the current filters.
-  // useMemo ensures this only re-runs when a filter changes.
-  const { summaryStats, filteredRequests } = useMemo(() =>
-    getLeaveSummary({ selectedMonth, departmentFilter, statusFilter }),
-    [selectedMonth, departmentFilter, statusFilter, getLeaveSummary]
-  );
+  // ✅ Fetch both leaves & employees
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setIsLoading(true);
+        const [leaves, employees] = await Promise.all([
+          getLeaveRequests(),
+          getEmployees(),
+        ]);
+        setAllRequests(leaves);
 
-  // 4. Derive chart data from the already processed summaryStats.
-  const chartData = useMemo(() =>
-    Object.entries(summaryStats)
-      .filter(([key, value]) => key !== 'Total' && value > 0)
-      .map(([name, value]) => ({ name, value })),
+        const empMap = new Map(
+          employees.map((emp) => [emp.employeeId, emp.name])
+        );
+        setEmployeesMap(empMap);
+      } catch (err) {
+        console.error("Error fetching summary data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, []);
+
+  // ✅ Attach employee names
+  const enrichedRequests = useMemo(() => {
+    return allRequests.map((req) => ({
+      ...req,
+      employeeName: employeesMap.get(req.employeeId) || "Unknown",
+    }));
+  }, [allRequests, employeesMap]);
+
+  // ✅ Extract available months
+  const allMonths = useMemo(() => {
+    const months = new Set();
+    enrichedRequests.forEach((req) => {
+      if (req.from) months.add(req.from.slice(0, 7)); // YYYY-MM
+    });
+    return Array.from(months).sort().reverse();
+  }, [enrichedRequests]);
+
+  // ✅ Filter by status & month
+  const filteredRequests = useMemo(() => {
+    return enrichedRequests.filter((req) => {
+      const matchesStatus =
+        statusFilter === "All" || req.status === statusFilter;
+      const matchesMonth =
+        selectedMonth === "All" || req.from.startsWith(selectedMonth);
+      return matchesStatus && matchesMonth;
+    });
+  }, [enrichedRequests, statusFilter, selectedMonth]);
+
+  // ✅ Summary Stats
+  const summaryStats = useMemo(() => {
+    const stats = { Approved: 0, Rejected: 0, Pending: 0, Total: filteredRequests.length };
+    filteredRequests.forEach((r) => {
+      if (r.status in stats) stats[r.status]++;
+    });
+    return stats;
+  }, [filteredRequests]);
+
+  // ✅ Chart Data
+  const chartData = useMemo(
+    () =>
+      Object.entries(summaryStats)
+        .filter(([k, v]) => k !== "Total" && v > 0)
+        .map(([name, value]) => ({ name, value })),
     [summaryStats]
   );
 
-  // --- Export Functions ---
+  // ✅ Export CSV
+  const exportCSV = () => {
+    const headers = ["Employee Name", "From", "To", "Status"];
+    const rows = filteredRequests.map((req) =>
+      [`"${req.employeeName}"`, req.from, req.to, req.status].join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    saveAs(new Blob([csv], { type: "text/csv;charset=utf-8;" }),
+      `leave_summary_${new Date().toISOString().slice(0, 10)}.csv`);
+  };
+
+  // ✅ Export PDF
   const exportPDF = async () => {
     setIsExporting(true);
-    await new Promise(resolve => setTimeout(resolve, 50));
+    const pdf = new jsPDF("p", "mm", "a4");
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    let tableStartY = 40;
 
-    try {
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      let tableStartY = 40;
-
-      pdf.setFontSize(20).setFont(undefined, 'bold').text("Leave Summary Report", pdfWidth / 2, 20, { align: "center" });
-      pdf.setFontSize(10).setFont(undefined, 'normal').text(`Generated on: ${new Date().toLocaleDateString()}`, pdfWidth / 2, 28, { align: "center" });
-
-      if (chartRef.current && chartData.length > 0) {
-        try {
-          const canvas = await html2canvas(chartRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-          const imgData = canvas.toDataURL('image/png');
-          const imgWidth = 170;
-          const imgHeight = (canvas.height * imgWidth) / canvas.width;
-          pdf.addImage(imgData, 'PNG', (pdfWidth - imgWidth) / 2, 40, imgWidth, imgHeight);
-          tableStartY = 45 + imgHeight;
-        } catch (chartError) {
-          console.warn("Could not capture chart for PDF export. Proceeding with table only.", chartError);
-        }
-      }
-      
-      autoTable(pdf, {
-        startY: tableStartY,
-        head: [['ID', 'Employee Name', 'Department', 'From', 'To', 'Status']],
-        body: filteredRequests.map(req => [req.id, req.employeeName, req.department, req.from, req.to, req.status]),
-        theme: 'grid',
-        headStyles: { fillColor: [41, 128, 185] },
+    pdf
+      .setFontSize(18)
+      .setFont(undefined, "bold")
+      .text("Leave Summary Report", pdfWidth / 2, 20, { align: "center" });
+    pdf
+      .setFontSize(10)
+      .text(`Generated: ${new Date().toLocaleDateString()}`, pdfWidth / 2, 28, {
+        align: "center",
       });
 
-      pdf.save(`leave_summary_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (err) {
-      console.error("A critical error occurred during PDF generation:", err);
-      alert("A critical error occurred while generating the PDF. Please check the console for details.");
-    } finally {
-      setIsExporting(false);
+    if (chartRef.current && chartData.length > 0) {
+      const canvas = await html2canvas(chartRef.current, {
+        scale: 2,
+        backgroundColor: "#fff",
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const imgWidth = 160;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, "PNG", (pdfWidth - imgWidth) / 2, 35, imgWidth, imgHeight);
+      tableStartY = 40 + imgHeight;
     }
+
+    autoTable(pdf, {
+      startY: tableStartY,
+      head: [["Employee", "From", "To", "Status"]],
+      body: filteredRequests.map((r) => [
+        r.employeeName,
+        r.from,
+        r.to,
+        r.status,
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    pdf.save(`leave_summary_${new Date().toISOString().slice(0, 10)}.pdf`);
+    setIsExporting(false);
   };
 
-  const exportCSV = () => {
-    try {
-      const headers = ["Request ID", "Employee Name", "Department", "From", "To", "Status", "Is Active"];
-      const rows = filteredRequests.map(req =>
-        [req.id, `"${req.employeeName}"`, `"${req.department}"`, req.from, req.to, req.status, req.isActive].join(",")
-      );
-      const csvContent = [headers.join(","), ...rows].join("\n");
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      saveAs(blob, `leave_summary_${new Date().toISOString().slice(0, 10)}.csv`);
-    } catch (err) {
-      console.error("CSV Export Failed:", err);
-      alert("An error occurred while generating the CSV file.");
-    }
-  };
+  if (isLoading)
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <p className="text-gray-600 text-lg font-medium">Loading data...</p>
+      </div>
+    );
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Leave Summary Dashboard</h1>
-            <p className="mt-1 text-gray-500">Aggregated leave statistics across the organization.</p>
-          </div>
-          <div className="flex gap-3 mt-4 sm:mt-0">
-            <button onClick={exportCSV} disabled={isExporting || filteredRequests.length === 0} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 shadow font-semibold transition disabled:bg-gray-400 disabled:cursor-not-allowed">Export CSV</button>
-            <button onClick={exportPDF} disabled={isExporting || filteredRequests.length === 0} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 shadow font-semibold transition disabled:bg-gray-400 disabled:cursor-not-allowed">
-              {isExporting ? 'Generating PDF...' : 'Export PDF'}
+    <div className="bg-gray-50 min-h-screen p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Leave Summary</h1>
+          <div className="flex gap-3">
+            <button
+              onClick={exportCSV}
+              disabled={filteredRequests.length === 0}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400"
+            >
+              Export CSV
+            </button>
+            <button
+              onClick={exportPDF}
+              disabled={filteredRequests.length === 0 || isExporting}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400"
+            >
+              {isExporting ? "Generating..." : "Export PDF"}
             </button>
           </div>
-        </header>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-white rounded-lg shadow-md">
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 bg-white p-4 rounded-lg shadow">
           <div>
-            <label className="text-sm font-medium text-gray-700">Status</label>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full p-2 mt-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
-              {STATUS_FILTERS.map(s => <option key={s} value={s}>{s}</option>)}
+            <label className="block text-sm font-medium text-gray-700">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full mt-1 p-2 border rounded-md"
+            >
+              {STATUS_FILTERS.map((s) => (
+                <option key={s}>{s}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Department</label>
-            <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="w-full p-2 mt-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
-              <option value="All">All Departments</option>
-              {allDepartments.map(dept => <option key={dept} value={dept}>{dept}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Month</label>
-            <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="w-full p-2 mt-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
-              <option value="All">All Time</option>
-              {allMonths.map(month => <option key={month} value={month}>{new Date(`${month}-02`).toLocaleString('default', { month: 'long', year: 'numeric' })}</option>)}
+            <label className="block text-sm font-medium text-gray-700">Month</label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full mt-1 p-2 border rounded-md"
+            >
+              <option value="All">All</option>
+              {allMonths.map((m) => (
+                <option key={m} value={m}>
+                  {new Date(`${m}-02`).toLocaleString("default", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard title="Total Requests" value={summaryStats.Total} colorClass="text-blue-600" />
-            <StatCard title="Approved" value={summaryStats.Approved} colorClass="text-green-500" />
-            <StatCard title="Rejected" value={summaryStats.Rejected} colorClass="text-red-500" />
-            <StatCard title="Pending" value={summaryStats.Pending} colorClass="text-amber-500" />
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          <StatCard title="Total" value={summaryStats.Total} colorClass="text-blue-600" />
+          <StatCard title="Approved" value={summaryStats.Approved} colorClass="text-green-600" />
+          <StatCard title="Rejected" value={summaryStats.Rejected} colorClass="text-red-600" />
+        </div>
+
+        {/* Chart + Table */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div ref={chartRef} className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">
+              Leave Status Chart
+            </h3>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    outerRadius={100}
+                    label={({ name, percent }) =>
+                      `${name} (${(percent * 100).toFixed(0)}%)`
+                    }
+                  >
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={COLORS[entry.name]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center py-20 text-gray-500">
+                No data for selected filters
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div ref={chartRef} className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 text-center">Status Distribution</h3>
-              {chartData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}>
-                      {chartData.map(entry => <Cell key={entry.name} fill={COLORS[entry.name]} />)}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : <div className="text-center py-20 text-gray-500">No data for selected filters.</div>}
-            </div>
-
-            <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md overflow-x-auto">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Leave Requests</h3>
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="p-3 text-left font-semibold text-gray-600">Employee</th>
-                    <th className="p-3 text-left font-semibold text-gray-600">Department</th>
-                    <th className="p-3 text-left font-semibold text-gray-600">Dates</th>
-                    <th className="p-3 text-left font-semibold text-gray-600">Status</th>
+          <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow overflow-x-auto">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Leave Requests</h3>
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-3 text-left">Employee ID</th>
+                  <th className="p-3 text-left">Name</th>
+                  <th className="p-3 text-left">From</th>
+                  <th className="p-3 text-left">To</th>
+                  <th className="p-3 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRequests.map((req) => (
+                  <tr key={req._id} className="border-t hover:bg-gray-50">
+                    <td className="p-3 font-medium text-gray-800">{req.employeeId}</td>
+                    <td className="p-3 font-medium text-gray-800">{req.employeeName}</td>
+                    <td className="p-3 text-gray-600">{req.from}</td>
+                    <td className="p-3 text-gray-600">{req.to}</td>
+                    <td className="p-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          req.status === "Approved"
+                            ? "bg-green-100 text-green-800"
+                            : req.status === "Rejected"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
+                      >
+                        {req.status}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredRequests.map(req => (
-                    <tr key={req.id} className={`border-t border-gray-200 ${!req.isActive ? "bg-gray-200 opacity-70" : "hover:bg-gray-50"}`}>
-                      <td className="p-3 font-medium text-gray-800">{req.employeeName}{!req.isActive && <span className="ml-2 text-xs font-semibold text-red-700">(Inactive)</span>}</td>
-                      <td className="p-3 text-gray-600">{req.department}</td>
-                      <td className="p-3 text-gray-600">{`${req.from} to ${req.to}`}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          req.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                          req.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>{req.status}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredRequests.length === 0 && <div className="text-center py-10 text-gray-500">No requests match the current filters.</div>}
-            </div>
+                ))}
+              </tbody>
+            </table>
+            {filteredRequests.length === 0 && (
+              <div className="text-center py-10 text-gray-500">
+                No requests match the filters.
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -15,10 +15,32 @@ import overtimeRoutes from "./routes/overtimeRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import EmployeeattendanceRoutes from "./routes/EmployeeattendanceRoutes.js";
 import AdminAttendanceRoutes from "./routes/AdminAttendanceRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import { Server } from "socket.io";
+import http from "http";
 // Assuming you have this file for authentication from previous steps
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 const app = express();
+
+// For Notification 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("User connected: ", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected");
+  });
+});
+
+global.io = io;
+
 
 // --- CORS Configuration ---
 const allowedOrigins = [
@@ -81,6 +103,7 @@ app.use("/api/leaves", leaveRoutes); // Corrected from '/api/leave' to match fro
 app.use("/api/attendance", EmployeeattendanceRoutes); // Primary attendance route
 app.use("/api/admin/attendance", AdminAttendanceRoutes); // Admin-specific attendance route
 app.use("/api/users", userRoutes); 
+app.use("/notifications", notificationRoutes);
 // --- 404 Handler (for any route not matched above) ---
 app.use('*', (req, res) => {
   res.status(404).json({
