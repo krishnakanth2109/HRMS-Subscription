@@ -151,14 +151,25 @@ const EmployeeDailyAttendance = () => {
     return dataForSelectedMonth;
   }, [attendance, selectedDate, searchTerm, sortConfig]);
 
-  // Memoized statistics for the summary cards, using the corrected logic
+  // --- FIX STARTS HERE: THIS LOGIC NOW PERFECTLY MIRRORS THE TABLE'S DISPLAY LOGIC ---
   const summaryStats = useMemo(() => {
     const data = monthlyFilteredAttendance;
     const totalDays = data.filter(isPresent).length;
-    const onTimeCount = data.filter(a => isPresent(a) && a.loginStatus === 'ONTIME').length;
-    const lateCount = data.filter(a => isPresent(a) && a.loginStatus === 'LATE').length;
+
+    // A day is "Late" if the employee was present, punched in, AND the status is "LATE".
+    const lateCount = data.filter(a =>
+        isPresent(a) && a.punchIn && a.loginStatus === 'LATE'
+    ).length;
+    
+    // A day is "On Time" if the employee was present, punched in, AND the status is NOT "LATE".
+    // This correctly includes records where loginStatus might be null, undefined, or "On Time".
+    const onTimeCount = data.filter(a =>
+        isPresent(a) && a.punchIn && a.loginStatus !== 'LATE'
+    ).length;
+
     return { totalDays, onTimeCount, lateCount };
   }, [monthlyFilteredAttendance]);
+  // --- FIX ENDS HERE ---
 
   // Handlers for UI interactions
   const handleYearChange = (e) => setSelectedDate(new Date(parseInt(e.target.value), selectedDate.getMonth()));
