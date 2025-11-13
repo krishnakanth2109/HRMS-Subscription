@@ -31,13 +31,12 @@ const navLinks = [
     icon: <FaCalendarCheck />,
     to: "/attendance",
   },
-
-  // {
-  //   to: "/admin/leave-summary",
-  //   label: "Leave Summary",
-  //   icon: <FaChartPie />,
-  // },
   {
+    to: "/admin/leave-summary",
+    label: "Leave Summary",
+    icon: <FaChartPie />,
+  },
+    {
     to: "/admin/payroll",        // <-- Added Payroll link here
     label: "Payroll",
     icon: <FaFileAlt />,
