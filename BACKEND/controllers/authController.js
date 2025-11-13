@@ -30,7 +30,7 @@ export const login = async (req, res, next) => {
       return res.status(401).json({ message: "Incorrect email or password." });
     }
 
-    const token = signToken(user._id); // The token now contains the user's unique _id
+    const token = signToken(user._id);
     user.password = undefined;
 
     res.status(200).json({
@@ -44,15 +44,10 @@ export const login = async (req, res, next) => {
   }
 };
 
-// ✅ NEW AND CRITICAL: "Protect" Middleware
-// This function will run before any user-specific API call.
+// This middleware is critical for securing your user-specific routes
 export const protect = async (req, res, next) => {
   let token;
-  // 1) Get token from header
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1];
   }
 
@@ -61,11 +56,8 @@ export const protect = async (req, res, next) => {
   }
 
   try {
-    // 2) Verify token and decode it to get the user's ID
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    // 3) Check if user still exists (hasn't been deleted)
-    // We check both Admin and Employee collections
     let currentUser = await Admin.findById(decoded.id);
     if (!currentUser) {
         currentUser = await Employee.findById(decoded.id);
@@ -75,7 +67,7 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ message: "The user belonging to this token no longer exists." });
     }
 
-    // 4) GRANT ACCESS: Attach the full user object to the request
+    // Attach the full user object to the request for use in subsequent controllers
     req.user = currentUser;
     next();
   } catch (error) {

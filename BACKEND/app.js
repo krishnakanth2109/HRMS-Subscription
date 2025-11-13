@@ -15,9 +15,9 @@ import overtimeRoutes from "./routes/overtimeRoutes.js";
 import leaveRoutes from "./routes/leaveRoutes.js";
 import EmployeeattendanceRoutes from "./routes/EmployeeattendanceRoutes.js";
 import AdminAttendanceRoutes from "./routes/AdminAttendanceRoutes.js";
-// Assuming you have this file for authentication from previous steps
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+
 const app = express();
 
 // --- CORS Configuration ---
@@ -26,7 +26,6 @@ const allowedOrigins = [
   'http://localhost:5173',  // Vite default port
   'https://hrms-420.netlify.app',
   'https://hrms-ask.onrender.com',
-  'http://localhost:5000'
 ];
 
 const corsOptions = {
@@ -57,7 +56,7 @@ app.use((req, res, next) => {
 
 // --- Database Connection ---
 const mongoUri = process.env.MONGO_URI;
-mongoose.connect(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(mongoUri)
     .then(() => {
         console.log('✅ Database Connected Successfully');
     })
@@ -73,14 +72,15 @@ app.get('/health', (req, res) => {
 
 // --- API Routes (Standardized with /api prefix) ---
 app.use("/api/auth", authRoutes); 
+app.use("/api/users", userRoutes); 
 app.use("/api/employees", employeeRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/notices", noticeRoutes);
 app.use("/api/overtime", overtimeRoutes);
-app.use("/api/leaves", leaveRoutes); // Corrected from '/api/leave' to match frontend api.js
-app.use("/api/attendance", EmployeeattendanceRoutes); // Primary attendance route
-app.use("/api/admin/attendance", AdminAttendanceRoutes); // Admin-specific attendance route
-app.use("/api/users", userRoutes); 
+app.use("/api/leaves", leaveRoutes);
+app.use("/api/attendance", EmployeeattendanceRoutes);
+app.use("/api/admin/attendance", AdminAttendanceRoutes);
+
 // --- 404 Handler (for any route not matched above) ---
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -103,4 +103,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 Allowed origins: ${allowedOrigins.join(', ')}`);
 });

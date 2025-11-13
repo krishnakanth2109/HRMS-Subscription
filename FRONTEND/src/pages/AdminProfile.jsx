@@ -1,9 +1,7 @@
 // --- START OF FILE AdminProfile.jsx ---
 
 import { useContext, useState, useEffect } from "react";
-// ✅ Step 1: Import AuthContext instead of AdminContext
 import { AuthContext } from "../context/AuthContext";
-// ✅ Step 2: Import the API function for updating the profile
 import { updateUserProfile } from "../api";
 import { FaUserCircle, FaPhone, FaBriefcase } from "react-icons/fa";
 
@@ -14,13 +12,12 @@ const TABS = [
 ];
 
 const AdminProfile = () => {
-  // ✅ Step 3: Use AuthContext to get the dynamic user and the updateUser function
   const { user, updateUser } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({ ...user });
   const [activeTab, setActiveTab] = useState("personal");
 
-  // Syncs the form data if the user object changes (e.g., after login)
+  // Syncs the form data if the user object from context changes
   useEffect(() => {
     setFormData({ ...user });
   }, [user]);
@@ -31,9 +28,8 @@ const AdminProfile = () => {
 
   const handleSave = async () => {
     try {
-      // ✅ Step 4: Call the API to save changes
       const { data } = await updateUserProfile(formData);
-      // Update the global context and sessionStorage with the response from the server
+      // Update the global context and sessionStorage with the fresh data from the server
       updateUser(data.user);
       setIsEditing(false);
     } catch (error) {
@@ -43,11 +39,10 @@ const AdminProfile = () => {
   };
 
   const handleCancel = () => {
-    setFormData(user); // Reset to original data from context
+    setFormData(user); // Reset to original data from the context
     setIsEditing(false);
   };
 
-  // Show a loading state if the user data hasn't loaded yet
   if (!user) return <div className="p-6 text-center">Loading profile...</div>;
 
   return (
@@ -77,20 +72,20 @@ const AdminProfile = () => {
         <div className="space-y-4 text-gray-800">
           {activeTab === "personal" && (
             <div className="space-y-2">
-              <p><strong>ID:</strong> {user._id}</p> {/* ✅ Use dynamic data */}
-              <p><strong>Name:</strong> {user.name}</p> {/* ✅ Use dynamic data */}
+              <p><strong>ID:</strong> {user._id}</p>
+              <p><strong>Name:</strong> {user.name}</p>
             </div>
           )}
           {activeTab === "contact" && (
             <div className="space-y-2">
-              <p><strong>Email:</strong> {user.email}</p> {/* ✅ Use dynamic data */}
-              <p><strong>Phone:</strong> {user.phone || 'N/A'}</p> {/* ✅ Use dynamic data */}
+              <p><strong>Email:</strong> {user.email}</p>
+              <p><strong>Phone:</strong> {user.phone || 'N/A'}</p>
             </div>
           )}
           {activeTab === "job" && (
             <div className="space-y-2">
-              <p><strong>Role:</strong> {user.role}</p> {/* ✅ Use dynamic data */}
-              <p><strong>Department:</strong> {user.department}</p> {/* ✅ Use dynamic data */}
+              <p><strong>Role:</strong> {user.role}</p>
+              <p><strong>Department:</strong> {user.department}</p>
             </div>
           )}
           <button onClick={() => setIsEditing(true)} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 shadow">
@@ -100,19 +95,35 @@ const AdminProfile = () => {
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4">
-            {/* The editing form JSX is correct and will work with the new state */}
-            {activeTab === "personal" && <label>Name: <input name="name" value={formData.name} onChange={handleChange} /></label>}
+            {activeTab === "personal" && (
+              <label className="flex flex-col font-semibold">
+                Name:
+                <input name="name" value={formData.name || ''} onChange={handleChange} className="w-full border px-3 py-2 rounded mt-1 font-normal" />
+              </label>
+            )}
             {activeTab === "contact" && (
-                <>
-                    <label>Email: <input name="email" value={formData.email} onChange={handleChange} /></label>
-                    <label>Phone: <input name="phone" value={formData.phone} onChange={handleChange} /></label>
-                </>
+              <>
+                <label className="flex flex-col font-semibold">
+                  Email:
+                  <input name="email" value={formData.email || ''} onChange={handleChange} className="w-full border px-3 py-2 rounded mt-1 font-normal" />
+                </label>
+                <label className="flex flex-col font-semibold">
+                  Phone:
+                  <input name="phone" value={formData.phone || ''} onChange={handleChange} className="w-full border px-3 py-2 rounded mt-1 font-normal" />
+                </label>
+              </>
             )}
             {activeTab === "job" && (
-                <>
-                    <label>Role: <input name="role" value={formData.role} onChange={handleChange} /></label>
-                    <label>Department: <input name="department" value={formData.department} onChange={handleChange} /></label>
-                </>
+              <>
+                <label className="flex flex-col font-semibold">
+                  Role:
+                  <input name="role" value={formData.role || ''} onChange={handleChange} className="w-full border px-3 py-2 rounded mt-1 font-normal" />
+                </label>
+                <label className="flex flex-col font-semibold">
+                  Department:
+                  <input name="department" value={formData.department || ''} onChange={handleChange} className="w-full border px-3 py-2 rounded mt-1 font-normal" />
+                </label>
+              </>
             )}
           </div>
           <div className="flex gap-4 mt-2">

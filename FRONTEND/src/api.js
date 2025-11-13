@@ -122,7 +122,6 @@ export const getFilteredLeaveRequests = async (params) => {
 };
 
 export const getLeaveRequestsForEmployee = async (employeeId) => {
-  // ✅ FIXED: Corrected the typo from "leavess" to "leaves"
   const response = await api.get(`/api/leaves/${employeeId}`);
   return response.data;
 };
@@ -195,6 +194,13 @@ export const getAttendanceForEmployee = async (employeeId) => {
   return response.data;
 };
 
+export const getAttendanceByDateRange = async (startDate, endDate) => {
+  const response = await api.get("/api/admin/attendance/by-range", {
+    params: { startDate, endDate },
+  });
+  return response.data;
+};
+
 export const punchIn = async (punchData) => {
   const response = await api.post("/api/attendance/punch-in", punchData);
   return response.data;
@@ -216,9 +222,11 @@ export const updateUserProfile = async (userData) => {
   return response.data;
 };
 
-
 export const changeUserPassword = async (passwordData) => {
   const response = await api.post("/api/users/change-password", passwordData);
   return response.data;
 };
+
+// We export the configured axios instance as a default export in case it's needed for special cases,
+// but it's best practice to use the named function exports above.
 export default api;
