@@ -58,6 +58,7 @@ import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
 
 // Route protection
 import ProtectedRoute from "./components/ProtectedRoute";
+import EmployeeDailyAttendance from "./EmployeePages/EmployeeDailyAttendance";
 
 
 function App() {
@@ -129,6 +130,7 @@ function App() {
         {/* ✅ Corrected element to use the imported component */}
         <Route path="/employee/leave-management" element={<LeaveWithModal />} />
         <Route path="/employee/empovertime" element={<OvertimeForm/>} />
+        <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance/>} />
         {/* ✅ Renamed this route to match its component name */}
         <Route path="/employee/leave-request" element={<LeaveWithModal />} />  
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance/>} />     

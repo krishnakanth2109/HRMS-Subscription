@@ -1,12 +1,12 @@
 import { Link, useLocation, NavLink } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { 
-  FaTachometerAlt, 
-  FaUsers, 
-  FaCalendarCheck, 
-  FaClipboardList, 
-  FaChartPie, 
-  FaBars, 
+import {
+  FaTachometerAlt,
+  FaUsers,
+  FaCalendarCheck,
+  FaClipboardList,
+  FaChartPie,
+  FaBars,
   FaCalendarAlt,
   FaChevronDown,
   FaFileAlt,
@@ -27,28 +27,15 @@ const navLinks = [
     icon: <FaUsers />,
   },
   {
-    label: "Attendance",
+    label: "Employees Attendance",
     icon: <FaCalendarCheck />,
-    basePath: "/attendance",
-    subLinks: [
-      {
-        to: "/attendance",
-        label: "Attendance Log",
-        icon: <FaFileAlt />,
-      },
-  
-      {
-        to: "/attendance/permissions",
-        label: "Permission Hours",
-        icon: <FaBusinessTime />,
-      },
-    ],
+    to: "/attendance",
   },
-  // {
-  //   to: "/admin/leave-summary",
-  //   label: "Leave Summary",
-  //   icon: <FaChartPie />,
-  // },
+  {
+    to: "/admin/leave-summary",
+    label: "Leave Summary",
+    icon: <FaChartPie />,
+  },
     {
     to: "/admin/payroll",        // <-- Added Payroll link here
     label: "Payroll",
@@ -56,7 +43,7 @@ const navLinks = [
   },
   {
     to: "/admin/notices",
-    label: "Admin Notices",
+    label: "Post Notices",
     icon: <FaClipboardList />,
   },
   {
@@ -64,16 +51,16 @@ const navLinks = [
     label: "Holiday Calendar",
     icon: <FaCalendarAlt />,
   },
-    {
+  {
     to: "/admin/admin-overtime",
     label: "Overtime Approval",
     icon: <FaChartPie />,
   },
 
-      {
+  {
     to: "/admin/admin-Leavemanage",
     label: "Leave Approvals",
-    icon:<FaClipboardList />,
+    icon: <FaClipboardList />,
   },
 
 
@@ -89,7 +76,7 @@ const Sidebar = () => {
       setOpenSubMenus({});
     }
   }, [collapsed]);
-  
+
   const handleSubMenuToggle = (label) => {
     setOpenSubMenus((prev) => ({
       ...prev,
@@ -127,11 +114,10 @@ const Sidebar = () => {
               <li key={link.label}>
                 <button
                   onClick={() => handleSubMenuToggle(link.label)}
-                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg font-medium text-base transition-colors duration-150 border-l-4 ${
-                    isParentActive
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg font-medium text-base transition-colors duration-150 border-l-4 ${isParentActive
                       ? 'bg-slate-800 text-indigo-400 border-indigo-500'
                       : 'border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                  } ${collapsed ? 'justify-center' : ''}`}
+                    } ${collapsed ? 'justify-center' : ''}`}
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-xl w-5 flex justify-center">{link.icon}</span>
@@ -150,10 +136,9 @@ const Sidebar = () => {
                         <NavLink
                           to={subLink.to}
                           className={({ isActive }) =>
-                            `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${
-                              isActive
-                                ? 'text-indigo-400'
-                                : 'text-slate-500 hover:text-slate-300'
+                            `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${isActive
+                              ? 'text-indigo-400'
+                              : 'text-slate-500 hover:text-slate-300'
                             }`
                           }
                         >
@@ -168,17 +153,16 @@ const Sidebar = () => {
               </li>
             );
           }
-          
+
           // --- Render Regular Link ---
           return (
             <li key={link.to}>
               <NavLink
                 to={link.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-4 px-4 py-2.5 rounded-lg font-medium text-base transition-colors duration-150 border-l-4 ${
-                    isActive
-                      ? 'bg-slate-800 text-indigo-400 border-indigo-500'
-                      : 'border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                  `flex items-center gap-4 px-4 py-2.5 rounded-lg font-medium text-base transition-colors duration-150 border-l-4 ${isActive
+                    ? 'bg-slate-800 text-indigo-400 border-indigo-500'
+                    : 'border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                   } ${collapsed ? 'justify-center px-2' : ''}`
                 }
                 title={link.label}

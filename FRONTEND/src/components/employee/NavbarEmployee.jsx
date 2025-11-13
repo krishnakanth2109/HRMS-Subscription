@@ -3,11 +3,9 @@ import { AuthContext } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { FaBell, FaUserCircle, FaChevronDown, FaSignOutAlt, FaUser, FaKey, FaCog } from "react-icons/fa";
 import { CurrentEmployeeNotificationContext } from "../../EmployeeContext/CurrentEmployeeNotificationContext";
-import { CurrentEmployeeContext } from "../../EmployeeContext/CurrentEmployeeContext";
 
 const NavbarEmployee = () => {
   const { logout } = useContext(AuthContext);
-  const { currentEmployee } = useContext(CurrentEmployeeContext);
   const {
     notifications,
     unreadCount,
@@ -18,12 +16,22 @@ const NavbarEmployee = () => {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [employeeName, setEmployeeName] = useState("Employee"); // Local state for the name
   const menuRef = useRef(null);
   const notifRef = useRef(null);
 
-  // User info from context
+  // Get user from sessionStorage
+  useEffect(() => {
+    const savedUser = sessionStorage.getItem("hrmsUser");
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      setEmployeeName(user.name || "Employee");
+    }
+  }, []);
+
+  // User info using local state
   const user = {
-    name: currentEmployee?.personal?.name || "Employee",
+    name: employeeName,
     role: "Employee",
     avatar: null,
   };

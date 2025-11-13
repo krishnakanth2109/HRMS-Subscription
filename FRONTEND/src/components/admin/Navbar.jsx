@@ -12,16 +12,17 @@ import {
   FaCog,
   FaPaintBrush,
 } from "react-icons/fa";
-import { useTheme } from "../../context/ThemeContext"; // ✅ import ThemeContext
+import { useTheme } from "../../context/ThemeContext";
 
 const Navbar = () => {
-  const { logout } = useContext(AuthContext);
+  // ✅ Step 1: Get the 'user' object from the AuthContext
+  const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
-  const [showThemeColors, setShowThemeColors] = useState(false); // ✅ theme inside dropdown
+  const [showThemeColors, setShowThemeColors] = useState(false);
   const menuRef = useRef(null);
   const { unreadCount } = useContext(NotificationContext);
-  const { themeColor, setThemeColor } = useTheme(); // ✅ Theme hook
+  const { themeColor, setThemeColor } = useTheme();
 
   const handleLogout = () => {
     logout();
@@ -72,8 +73,9 @@ const Navbar = () => {
           className="relative flex items-center gap-2 cursor-pointer select-none"
         >
           <FaUserCircle className="text-3xl text-white shadow" />
+          {/* ✅ Step 2: Display the dynamic user name with a fallback */}
           <span className="text-white font-semibold hidden md:inline">
-            Admin
+            {user?.name || 'Admin'}
           </span>
           <FaChevronDown
             className={`text-white ml-1 transition-transform duration-200 ${

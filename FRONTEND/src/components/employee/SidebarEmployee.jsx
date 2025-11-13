@@ -9,7 +9,7 @@ const navLinks = [
     icon: <FaHome className="mr-2" />,
   },
   {
-    to: "/employee/attendance", // <-- FIXED path
+    to: "/employee/my-attendence", // <-- FIXED path
     label: "Attendance",
     icon: <FaClock className="mr-2" />,
   },
@@ -35,11 +35,11 @@ const navLinks = [
     label: "Leave Requests",
     icon: <FaClipboardList className="mr-2" />,
   },
-    {
-    to: "/employee/new-attendence",
-    label: "Attendance 2",
-    icon:  <FaClock className="mr-2" />,
-  },
+  //   {
+  //   to: "/employee/new-attendence",
+  //   label: "Attendance 2",
+  //   icon:  <FaClock className="mr-2" />,
+  // },
 
 
 ];
