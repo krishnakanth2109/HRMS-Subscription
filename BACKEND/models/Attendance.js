@@ -34,3 +34,5 @@ const AttendanceSchema = new mongoose.Schema({
 });
 
 export default mongoose.model("Attendance", AttendanceSchema);
+
+

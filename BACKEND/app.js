@@ -21,10 +21,11 @@ import http from "http";
 // Assuming you have this file for authentication from previous steps
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import profilePicRoutes from "./routes/ProfilePicRoute.js"; // <--- IMPORT ADDED
 
 const app = express();
 
-// For Notification 
+// For Notification
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -94,8 +95,8 @@ app.get('/health', (req, res) => {
 });
 
 // --- API Routes (Standardized with /api prefix) ---
-app.use("/api/auth", authRoutes); 
-app.use("/api/users", userRoutes); 
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/notices", noticeRoutes);
@@ -103,11 +104,12 @@ app.use("/api/overtime", overtimeRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/attendance", EmployeeattendanceRoutes);
 app.use("/api/admin/attendance", AdminAttendanceRoutes);
+app.use("/api/profile", profilePicRoutes); // <--- ROUTE REGISTRATION ADDED
 
 app.use("/api/leaves", leaveRoutes); // Corrected from '/api/leave' to match frontend api.js
 app.use("/api/attendance", EmployeeattendanceRoutes); // Primary attendance route
 app.use("/api/admin/attendance", AdminAttendanceRoutes); // Admin-specific attendance route
-app.use("/api/users", userRoutes); 
+app.use("/api/users", userRoutes);
 app.use("/notifications", notificationRoutes);
 // --- 404 Handler (for any route not matched above) ---
 app.use('*', (req, res) => {

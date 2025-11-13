@@ -18,8 +18,9 @@ import {
   FaBell,
   FaCalendarAlt,
   FaChartPie,
+  FaCamera,
 } from "react-icons/fa";
-import { getAttendanceForEmployee, punchIn, punchOut } from "../api";
+import { getAttendanceForEmployee, punchIn, punchOut, uploadProfilePic, getProfilePic } from "../api";
 import { useNavigate } from "react-router-dom";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -30,24 +31,25 @@ const EmployeeDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [attendance, setAttendance] = useState([]);
   const [todayLog, setTodayLog] = useState(null);
+  const [profileImage, setProfileImage] = useState(
+    sessionStorage.getItem("profileImage") || null
+  );
+  const [uploadingImage, setUploadingImage] = useState(false);
   const navigate = useNavigate();
 
   const today = new Date().toISOString().split("T")[0];
 
+  // --- Voice Feedback ---
   const speak = (text) => {
-    if ('speechSynthesis' in window) {
-      // Cancel any previous speech to prevent overlap
-      window.speechSynthesis.cancel();
+    if ("speechSynthesis" in window) {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 0.9;
       utterance.pitch = 1.1;
       window.speechSynthesis.speak(utterance);
-    } else {
-      console.log("Sorry, your browser does not support text-to-speech.");
     }
   };
 
-
+  // --- Fetch Attendance ---
   const loadAttendance = useCallback(async (empId) => {
     try {
       const data = await getAttendanceForEmployee(empId);
@@ -60,11 +62,37 @@ const EmployeeDashboard = () => {
     }
   }, [today]);
 
+  // --- Fetch Profile Picture from backend ---
+  const loadProfilePic = async () => {
+    try {
+      console.log('📸 Fetching profile picture...');
+      const res = await getProfilePic();
+      console.log('📸 Profile pic response:', res);
+      
+      if (res?.profilePhoto?.url) {
+        setProfileImage(res.profilePhoto.url);
+        sessionStorage.setItem("profileImage", res.profilePhoto.url);
+        console.log('✅ Profile picture loaded:', res.profilePhoto.url);
+      } else {
+        console.log('ℹ️ No profile picture found');
+      }
+    } catch (err) {
+      console.error("Profile pic fetch error:", err);
+      // Don't show error to user if profile pic doesn't exist yet
+      if (err.response?.status !== 404) {
+        console.error('Unexpected error fetching profile pic:', err);
+      }
+    }
+  };
+
   useEffect(() => {
     const bootstrap = async () => {
       if (user && user.employeeId) {
         setLoading(true);
-        await loadAttendance(user.employeeId);
+        await Promise.all([
+          loadAttendance(user.employeeId),
+          loadProfilePic(), // No parameter needed
+        ]);
         setLoading(false);
       } else {
         setLoading(false);
@@ -73,68 +101,168 @@ const EmployeeDashboard = () => {
     bootstrap();
   }, [user, loadAttendance]);
 
-  // --- CORRECTED handlePunch Function ---
+  // --- Punch In/Out ---
   const handlePunch = async (action) => {
     if (!user) return;
     try {
-      let speakText = ""; // Define a variable to hold the text to be spoken
-
       if (action === "IN") {
         await punchIn({ employeeId: user.employeeId, employeeName: user.name });
-        speakText = `${user.name}, punch in successful`;
+        speak(`${user.name}, punch in successful`);
       } else {
         await punchOut({ employeeId: user.employeeId });
-        speakText = `${user.name}, punch out successful`;
+        speak(`${user.name}, punch out successful`);
       }
-
-      // First, wait for the attendance data to be reloaded and state to be updated
       await loadAttendance(user.employeeId);
-
-      // NOW, with all async work done, trigger the speech
-      speak(speakText);
-
     } catch (err) {
       console.error("Punch error:", err);
-      speak("Sorry, the action failed. Please try again.");
+      speak("Punch operation failed");
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Employee Dashboard...</div>;
-  if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
+  // --- Upload New Profile Picture ---
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !user) return;
+
+    console.log('📤 Starting image upload...');
+    console.log('File:', file);
+    console.log('User:', user);
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a valid image file (JPEG, PNG, GIF, WEBP)');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("employeeId", user.employeeId);
+    formData.append("name", user.name);
+    formData.append("email", user.email);
+    formData.append("phone", user.phone || "");
+
+    console.log('📋 FormData prepared:', {
+      employeeId: user.employeeId,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      file: file.name
+    });
+
+    setUploadingImage(true);
+
+    try {
+      const res = await uploadProfilePic(formData);
+      console.log('✅ Upload response:', res);
+      
+      if (res?.profilePhoto?.url) {
+        setProfileImage(res.profilePhoto.url);
+        sessionStorage.setItem("profileImage", res.profilePhoto.url);
+        speak("Profile picture updated successfully");
+        alert('Profile picture updated successfully!');
+      } else {
+        console.error('Invalid response format:', res);
+        alert('Upload succeeded but response format was unexpected');
+      }
+    } catch (err) {
+      console.error("Image upload failed:", err);
+      console.error("Error response:", err.response?.data);
+      
+      const errorMessage = err.response?.data?.message || 'Failed to upload image. Please try again.';
+      alert(errorMessage);
+      speak("Profile picture update failed");
+    } finally {
+      setUploadingImage(false);
+      // Reset the file input
+      e.target.value = '';
+    }
+  };
+
+  if (loading)
+    return (
+      <div className="p-8 text-center text-lg font-semibold">
+        Loading Employee Dashboard...
+      </div>
+    );
+
+  if (!user)
+    return (
+      <div className="p-8 text-center text-red-600 font-semibold">
+        Could not load employee data.
+      </div>
+    );
 
   const { name, email, phone, employeeId } = user;
 
   const leaveBarData = {
     labels: ["Full Day", "Half Day", "Absent"],
-    datasets: [{
-      label: "Attendance",
-      data: [
-        attendance.filter(a => a.status === 'Present' && !a.isHalfDay).length,
-        attendance.filter(a => a.isHalfDay).length,
-        attendance.filter(a => a.status === 'Absent').length,
-      ],
-      backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
-      borderRadius: 6,
-    }],
+    datasets: [
+      {
+        label: "Attendance",
+        data: [
+          attendance.filter((a) => a.status === "Present" && !a.isHalfDay).length,
+          attendance.filter((a) => a.isHalfDay).length,
+          attendance.filter((a) => a.status === "Absent").length,
+        ],
+        backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
+        borderRadius: 6,
+      },
+    ],
   };
 
   const workPieData = {
     labels: ["Worked Hours", "Remaining"],
-    datasets: [{
-      data: [todayLog?.workedHours || 0, Math.max(0, 8 - (todayLog?.workedHours || 0))],
-      backgroundColor: ["#3b82f6", "#e5e7eb"],
-    }],
+    datasets: [
+      {
+        data: [todayLog?.workedHours || 0, Math.max(0, 8 - (todayLog?.workedHours || 0))],
+        backgroundColor: ["#3b82f6", "#e5e7eb"],
+      },
+    ],
   };
 
   return (
     <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
       {/* Profile Section */}
       <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6">
-        <img
-          alt="Employee"
-          src={`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
-          className="w-28 h-28 rounded-full border-4 border-white shadow"
-        />
+        <div className="relative">
+          <img
+            alt="Employee"
+            src={
+              profileImage ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`
+            }
+            className="w-28 h-28 rounded-full border-4 border-white shadow object-cover"
+          />
+          <label
+            htmlFor="profile-upload"
+            className={`absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${
+              uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            title="Upload Profile Picture"
+          >
+            {uploadingImage ? (
+              <div className="animate-spin">⏳</div>
+            ) : (
+              <FaCamera size={16} />
+            )}
+          </label>
+          <input
+            id="profile-upload"
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={handleImageUpload}
+            disabled={uploadingImage}
+          />
+        </div>
+
         <div className="flex-1">
           <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2">
             <FaUserCircle className="text-blue-400" /> {name}
@@ -142,19 +270,18 @@ const EmployeeDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 mt-2">
             <div><b>ID:</b> {employeeId}</div>
             <div><b>Email:</b> {email}</div>
-            <div><b>Phone:</b> {phone || 'N/A'}</div>
+            <div><b>Phone:</b> {phone || "N/A"}</div>
           </div>
         </div>
       </div>
 
-      {/* Daily Attendance */}
+      {/* Attendance Table */}
       <div className="bg-gradient-to-br from-gray-50 to-blue-100 rounded-2xl shadow-lg p-6 mb-8 animate-fade-in">
         <div className="flex items-center mb-6 gap-3 border-b border-gray-200 pb-4">
           <FaRegClock className="text-blue-600 text-2xl" />
           <h2 className="font-bold text-2xl text-gray-800">Daily Attendance</h2>
         </div>
 
-        {/* Today Attendance Table */}
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm rounded-lg overflow-hidden">
             <thead>
@@ -170,45 +297,56 @@ const EmployeeDashboard = () => {
             <tbody className="bg-white">
               <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200 animate-fade-in-up">
                 <td className="px-4 py-3 font-medium">{today}</td>
-                <td className="px-4 py-3">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
-                <td className="px-4 py-3">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</td>
+                <td className="px-4 py-3">
+                  {todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}
+                </td>
+                <td className="px-4 py-3">
+                  {todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}
+                </td>
                 <td className="px-4 py-3 font-mono">{todayLog?.displayTime || "0h 0m 0s"}</td>
                 <td className="px-4 py-3">
                   {todayLog?.punchIn ? (
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
-                      todayLog.loginStatus === "LATE"
-                        ? "bg-red-100 text-red-800 border border-red-200"
-                        : "bg-green-100 text-green-800 border border-green-200"
-                    }`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                        todayLog.loginStatus === "LATE"
+                          ? "bg-red-100 text-red-800 border border-red-200"
+                          : "bg-green-100 text-green-800 border border-green-200"
+                      }`}
+                    >
                       {todayLog.loginStatus === "LATE" ? "Late" : "On Time"}
                     </span>
                   ) : "--"}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {!todayLog?.punchIn ? (
-                    <button className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 active:scale-95 transform transition-transform duration-150"
-                      onClick={() => handlePunch("IN")}>
+                    <button
+                      className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 active:scale-95 transform transition-transform duration-150"
+                      onClick={() => handlePunch("IN")}
+                    >
                       Punch In
                     </button>
                   ) : !todayLog?.punchOut ? (
-                    <button className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 active:scale-95 transform transition-transform duration-150"
-                      onClick={() => handlePunch("OUT")}>
+                    <button
+                      className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 active:scale-95 transform transition-transform duration-150"
+                      onClick={() => handlePunch("OUT")}
+                    >
                       Punch Out
                     </button>
-                  ) : <span className="text-gray-500 font-semibold">Done</span>}
+                  ) : (
+                    <span className="text-gray-500 font-semibold">Done</span>
+                  )}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* View History Button */}
         <div className="text-right mt-6">
           <button
             onClick={() => navigate("/employee/my-attendence")}
             className="bg-blue-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-700 transition-all duration-200 ease-in-out transform hover:-translate-y-1"
           >
-            View Attendence History →
+            View Attendance History →
           </button>
         </div>
       </div>
@@ -216,17 +354,23 @@ const EmployeeDashboard = () => {
       {/* Charts & Notices */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2">
+            <FaCalendarAlt className="text-blue-500" /> Attendance Summary
+          </h2>
           <Bar data={leaveBarData} />
         </div>
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2"><FaChartPie className="text-yellow-500" /> Work Hours Today</h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2">
+            <FaChartPie className="text-yellow-500" /> Work Hours Today
+          </h2>
           <Pie data={workPieData} />
         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow p-4 mb-8">
-        <h2 className="font-bold flex items-center gap-2 mb-2"><FaBell className="text-red-500" /> Notice Board</h2>
+        <h2 className="font-bold flex items-center gap-2 mb-2">
+          <FaBell className="text-red-500" /> Notice Board
+        </h2>
         {notices?.length > 0 ? (
           <ul className="space-y-2">
             {notices.map((n, i) => (
@@ -235,7 +379,9 @@ const EmployeeDashboard = () => {
               </li>
             ))}
           </ul>
-        ) : <p className="text-gray-500">No Notices</p>}
+        ) : (
+          <p className="text-gray-500">No Notices</p>
+        )}
       </div>
     </div>
   );
