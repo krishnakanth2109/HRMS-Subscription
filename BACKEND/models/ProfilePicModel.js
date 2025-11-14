@@ -7,7 +7,7 @@ const profilePicSchema = new mongoose.Schema(
       required: [true, 'Employee ID is required'],
       unique: true,
       trim: true,
-      index: true,
+      // REMOVED: index: true (to prevent duplicate index warning)
     },
     name: {
       type: String,
@@ -42,11 +42,11 @@ const profilePicSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true, // Automatically adds createdAt and updatedAt fields
+    timestamps: true,
   }
 );
 
-// Index for faster queries
+// Create indexes separately (prevents duplicate warning)
 profilePicSchema.index({ employeeId: 1 });
 profilePicSchema.index({ email: 1 });
 
