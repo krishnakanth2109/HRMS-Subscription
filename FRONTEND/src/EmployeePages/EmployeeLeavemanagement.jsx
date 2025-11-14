@@ -7,7 +7,7 @@ import {
   cancelLeaveRequestById,
 } from "../api";
 
-const API_BASE = "/leaves";
+
 const REASON_LIMIT = 50;
 
 // Convert "2025-11" → "November 2025"

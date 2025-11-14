@@ -1,22 +1,30 @@
 // --- START OF FILE controllers/leaveController.js ---
 
-import LeaveRequest from "../models/LeaveRequest.js"; // Assuming this is your correct model
+import LeaveRequest from "../models/LeaveRequest.js";
+import Notification from "../models/notificationModel.js";
+import Employee from "../models/employeeModel.js";
+import Admin from "../models/adminModel.js";
 
-// Helper function to get an array of dates between two dates
+// Helper: List dates
 function listDates(fromStr, toStr) {
   const out = [];
   const from = new Date(fromStr);
   const to = new Date(toStr);
+
   for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
     out.push(d.toISOString().slice(0, 10));
   }
   return out;
 }
 
-// ✅ CREATE LEAVE: Now securely uses the authenticated user's ID and name
+// ===================================================================================
+// ✅ EMPLOYEE CREATES LEAVE
+// ===================================================================================
 export const createLeave = async (req, res) => {
   try {
-    const { employeeId, name: employeeName } = req.user; // Get from 'protect' middleware
+    const loggedUser = req.user; // employee or admin
+    const { _id: userMongoId, name } = loggedUser;
+
     const { from, to, reason, leaveType, leaveDayType, halfDaySession = "" } = req.body;
 
     if (!from || !to || !reason || !leaveType || !leaveDayType) {
@@ -24,30 +32,72 @@ export const createLeave = async (req, res) => {
     }
 
     const monthKey = from.slice(0, 7);
-    const details = listDates(from, to).map(date => ({
-      date, leavecategory: "UnPaid", leaveType, leaveDayType: from === to ? leaveDayType : "Full Day",
+
+    const details = listDates(from, to).map((date) => ({
+      date,
+      leavecategory: "UnPaid",
+      leaveType,
+      leaveDayType: from === to ? leaveDayType : "Full Day",
     }));
 
+    // CREATE LEAVE REQUEST
     const doc = await LeaveRequest.create({
-      employeeId, employeeName, from, to, reason, leaveType, leaveDayType,
-      halfDaySession, monthKey, status: "Pending", approvedBy: "-",
-      actionDate: "-", requestDate: new Date().toISOString().slice(0, 10), details,
+      employeeId: loggedUser.employeeId || null,
+      employeeName: loggedUser.name || "Unknown",
+      from,
+      to,
+      reason,
+      leaveType,
+      leaveDayType,
+      halfDaySession,
+      monthKey,
+      status: "Pending",
+      approvedBy: "-",
+      actionDate: "-",
+      requestDate: new Date().toISOString().slice(0, 10),
+      details,
     });
 
-    res.status(201).json(doc);
+    // 🔥 FIND ALL ADMINS
+    const admins = await Admin.find().lean();
+
+    // 🔥 CREATE NOTIFICATION FOR EACH ADMIN
+    const notifList = [];
+
+    for (const admin of admins) {
+      const notif = await Notification.create({
+        userId: admin._id.toString(), // 📌 Store _id only
+        title: "New Leave Request",
+        message: `${name} submitted a leave request (${from} → ${to})`,
+        type: "leave",
+        isRead: false,
+      });
+      notifList.push(notif);
+    }
+
+    // 🔥 EMIT REAL-TIME NOTIFICATIONS
+    const io = req.app.get("io");
+    if (io) {
+      notifList.forEach((n) => io.emit("newNotification", n));
+    }
+
+    return res.status(201).json(doc);
   } catch (err) {
     console.error("createLeave error:", err);
     res.status(500).json({ message: "Failed to create leave request." });
   }
 };
 
-// ✅ EMPLOYEE LIST: Securely fetches leaves for ONLY the logged-in user
+// ===================================================================================
+// FETCH USER LEAVES
+// ===================================================================================
 export const listLeavesForEmployee = async (req, res) => {
   try {
-    const { employeeId } = req.user; // Get from 'protect' middleware, IGNORE query params
+    const { employeeId } = req.user;
     const { month, status } = req.query;
-    
+
     const query = { employeeId };
+
     if (month) query.monthKey = month;
     if (status && status !== "All") query.status = status;
 
@@ -59,10 +109,12 @@ export const listLeavesForEmployee = async (req, res) => {
   }
 };
 
-// ✅ ADMIN LIST: Fetches all leaves for the admin panel
+// ===================================================================================
+// ADMIN LIST ALL LEAVES
+// ===================================================================================
 export const adminListAllLeaves = async (req, res) => {
   try {
-    let docs = await LeaveRequest.find().sort({ requestDate: -1 }).lean();
+    const docs = await LeaveRequest.find().sort({ requestDate: -1 }).lean();
     res.json(docs);
   } catch (err) {
     console.error("adminListAllLeaves error:", err);
@@ -70,16 +122,21 @@ export const adminListAllLeaves = async (req, res) => {
   }
 };
 
-// ✅ GET DETAILS: Securely checks if the user is an admin or the owner of the request
+// ===================================================================================
+// GET DETAILS
+// ===================================================================================
 export const getLeaveDetails = async (req, res) => {
   try {
     const doc = await LeaveRequest.findById(req.params.id).lean();
-    if (!doc) return res.status(404).json({ message: "Leave request not found." });
+    if (!doc) return res.status(404).json({ message: "Not found" });
 
-    if (req.user.role !== 'admin' && doc.employeeId !== req.user.employeeId) {
-        return res.status(403).json({ message: "You are not authorized to view these details." });
+    const isAdmin = req.user.role === "admin";
+    const isOwner = doc.employeeId === req.user.employeeId;
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
-    
+
     res.json(doc.details || []);
   } catch (err) {
     console.error("getLeaveDetails error:", err);
@@ -87,50 +144,104 @@ export const getLeaveDetails = async (req, res) => {
   }
 };
 
-// ✅ UPDATE STATUS: For Admins, automatically logs who took the action
+// ===================================================================================
+// ADMIN UPDATES LEAVE STATUS
+// ===================================================================================
 export const updateLeaveStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const approvedBy = req.user.name; // Get admin's name from authenticated user
+    const approvedBy = req.user.name;
 
     if (!["Approved", "Rejected", "Cancelled"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status provided." });
+      return res.status(400).json({ message: "Invalid status" });
     }
-    const actionDate = new Date().toISOString().slice(0, 10);
 
     const doc = await LeaveRequest.findByIdAndUpdate(
       req.params.id,
-      { status, approvedBy, actionDate },
+      { status, approvedBy, actionDate: new Date().toISOString().slice(0, 10) },
       { new: true }
     );
-    if (!doc) return res.status(404).json({ message: "Leave request not found." });
 
-    res.json(doc);
+    if (!doc) return res.status(404).json({ message: "Not found" });
+
+    // 🔥 NOTIFY EMPLOYEE
+    const employee = await Employee.findOne({ employeeId: doc.employeeId });
+
+    if (employee) {
+      const notif = await Notification.create({
+        userId: employee._id.toString(),
+        title: "Leave Status Updated",
+        message: `Your leave request has been ${status} by ${approvedBy}`,
+        type: "leave-status",
+        isRead: false,
+      });
+
+      const io = req.app.get("io");
+      if (io) io.emit("newNotification", notif);
+    }
+
+    return res.json(doc);
   } catch (err) {
     console.error("updateLeaveStatus error:", err);
     res.status(500).json({ message: "Failed to update leave status." });
   }
+  // ===================================================================================
+  // 🔥 SEND NOTIFICATION TO EMPLOYEE WHEN ADMIN UPDATES STATUS
+  // ===================================================================================
+  const employee = await Employee.findOne({ employeeId: doc.employeeId });
+
+  if (employee) {
+    const notif = await Notification.create({
+      userId: employee._id.toString(),
+      title: "Leave Status Update",
+      message: `Your leave request from ${doc.from} to ${doc.to} has been ${status} by ${approvedBy}.`,
+      type: "leave-status",
+      isRead: false,
+    });
+
+    const io = req.app.get("io");
+    if (io) io.emit("newNotification", notif);
+  }
+
 };
 
-// ✅ CANCEL LEAVE: For Employees, ensures they can only cancel their own pending leaves
+// ===================================================================================
+// EMPLOYEE CANCEL LEAVE
+// ===================================================================================
 export const cancelLeave = async (req, res) => {
-    try {
-      const leave = await LeaveRequest.findById(req.params.id);
-      if (!leave) return res.status(404).json({ message: "Leave request not found" });
-      
-      // Security Check: Make sure the employeeId on the leave matches the logged-in user
-      if (leave.employeeId !== req.user.employeeId) {
-          return res.status(403).json({ message: "You can only cancel your own leave requests." });
-      }
+  try {
+    const leave = await LeaveRequest.findById(req.params.id);
+    if (!leave) return res.status(404).json({ message: "Not found" });
 
-      if (leave.status !== "Pending") {
-        return res.status(400).json({ message: "Only pending leaves can be cancelled" });
-      }
-  
-      await LeaveRequest.findByIdAndDelete(req.params.id);
-      res.json({ message: "Leave cancelled successfully" });
-    } catch (err) {
-      console.error("Leave Cancel Error:", err);
-      res.status(500).json({ message: "Server Error" });
+    if (leave.status !== "Pending") {
+      return res.status(400).json({ message: "Cannot cancel this leave" });
     }
+
+    await LeaveRequest.findByIdAndDelete(req.params.id);
+
+    // 🔥 Notify all admins
+    const admins = await Admin.find().lean();
+    const notifList = [];
+
+    for (const admin of admins) {
+      const notif = await Notification.create({
+        userId: admin._id.toString(),
+        title: "Leave Cancelled",
+        message: `${req.user.name} cancelled a leave (${leave.from} → ${leave.to})`,
+        type: "leave",
+        isRead: false,
+      });
+      notifList.push(notif);
+    }
+
+    const io = req.app.get("io");
+    if (io) notifList.forEach((n) => io.emit("newNotification", n));
+
+    return res.json({ message: "Leave cancelled successfully" });
+  } catch (err) {
+    console.error("cancelLeave error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 };
+
+// --- END OF FILE leaveController.js ---

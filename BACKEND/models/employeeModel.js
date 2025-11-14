@@ -3,7 +3,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs"; // ✅ Import bcryptjs for password handling
 
-// Sub-schemas remain the same
+// Sub-schemas
 const experienceSchema = new mongoose.Schema({
   employeeId: String,
   company: String,
@@ -36,9 +36,9 @@ const bankSchema = new mongoose.Schema({
   branch: String,
 });
 
-// Main Employee Schema with added password security
+// Main Employee Schema with role/isAdmin and password security
 const EmployeeSchema = new mongoose.Schema({
-  employeeId: { type: String, required: true, unique: true },
+  employeeId: { type: String, required: true, unique: true }, // e.g. "EMP001"
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   password: {
@@ -54,19 +54,20 @@ const EmployeeSchema = new mongoose.Schema({
   bankDetails: bankSchema,
   personalDetails: personalSchema,
   experienceDetails: [experienceSchema],
+
+  // ---- NEW: role + isAdmin to detect admins dynamically ----
+  role: { type: String, enum: ["employee", "admin", "manager"], default: "employee" },
+  isAdmin: { type: Boolean, default: false }, // optional helper flag
 });
 
-// ✅ ADDED: Middleware to automatically hash the password before saving a new employee
+// Hash password before save
 EmployeeSchema.pre("save", async function (next) {
-  // Only run this function if password was actually modified
   if (!this.isModified("password")) return next();
-  
-  // Hash the password with a cost of 12
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// ✅ ADDED: Instance method to compare passwords during the login process
+// Instance method to compare password
 EmployeeSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
@@ -75,3 +76,4 @@ EmployeeSchema.methods.correctPassword = async function (
 };
 
 export default mongoose.model("Employee", EmployeeSchema);
+// --- END OF FILE models/employeeModel.js ---
