@@ -20,20 +20,11 @@ import AdminAttendanceRoutes from "./routes/AdminAttendanceRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-<<<<<<< HEAD
-
-const app = express();
-
-// ========================================================
-// 🔥 CREATE HTTP SERVER (IMPORTANT FOR SOCKET.IO)
-// ========================================================
-=======
 import profilePicRoutes from "./routes/ProfilePicRoute.js"; // <--- IMPORT ADDED
 
 const app = express();
 
 // For Notification
->>>>>>> cc983e23747119fea149c71486bd08f99a2f4ade
 const server = http.createServer(app);
 
 // ========================================================
@@ -61,18 +52,10 @@ io.on("connection", (socket) => {
 // CORS Setup
 // ========================================================
 const allowedOrigins = [
-<<<<<<< HEAD
-  process.env.FRONTEND_URL,
-  "http://localhost:5173",
-  "https://hrms-420.netlify.app",
-  "https://hrms-ask.onrender.com",
-  "http://localhost:5000",
-=======
   process.env.FRONTEND_URL, // Your frontend production URL from .env
   'http://localhost:5173',  // Vite default port
   'https://hrms-420.netlify.app',
   'https://hrms-ask.onrender.com',
->>>>>>> cc983e23747119fea149c71486bd08f99a2f4ade
 ];
 
 const corsOptions = {
@@ -97,21 +80,6 @@ app.use((req, res, next) => {
   next();
 });
 
-<<<<<<< HEAD
-// ========================================================
-// DATABASE
-// ========================================================
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log("✅ Database Connected Successfully"))
-  .catch((err) => {
-    console.error("❌ Database connection error:", err);
-    process.exit(1);
-  });
-=======
 // --- Database Connection ---
 const mongoUri = process.env.MONGO_URI;
 mongoose.connect(mongoUri)
@@ -122,23 +90,15 @@ mongoose.connect(mongoUri)
         console.error('❌ Database connection error:', err);
         process.exit(1);
     });
->>>>>>> cc983e23747119fea149c71486bd08f99a2f4ade
 
 // Health Check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK" });
 });
 
-<<<<<<< HEAD
-// ========================================================
-// ROUTES
-// ========================================================
-app.use("/api/auth", authRoutes);
-=======
 // --- API Routes (Standardized with /api prefix) ---
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
->>>>>>> cc983e23747119fea149c71486bd08f99a2f4ade
 app.use("/api/employees", employeeRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/notices", noticeRoutes);
@@ -146,14 +106,11 @@ app.use("/api/overtime", overtimeRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/attendance", EmployeeattendanceRoutes);
 app.use("/api/admin/attendance", AdminAttendanceRoutes);
-<<<<<<< HEAD
-=======
 app.use("/api/profile", profilePicRoutes); // <--- ROUTE REGISTRATION ADDED
 
 app.use("/api/leaves", leaveRoutes); // Corrected from '/api/leave' to match frontend api.js
 app.use("/api/attendance", EmployeeattendanceRoutes); // Primary attendance route
 app.use("/api/admin/attendance", AdminAttendanceRoutes); // Admin-specific attendance route
->>>>>>> cc983e23747119fea149c71486bd08f99a2f4ade
 app.use("/api/users", userRoutes);
 app.use("/notifications", notificationRoutes);
 
@@ -181,17 +138,8 @@ app.use((err, req, res, next) => {
 // 🔥 START SERVER WITH SOCKET.IO
 // ========================================================
 const PORT = process.env.PORT || 5000;
-<<<<<<< HEAD
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running with Socket.io on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
-});
-
-// --- END OF FILE app.js ---
-=======
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔗 Allowed origins: ${allowedOrigins.join(', ')}`);
 });
->>>>>>> cc983e23747119fea149c71486bd08f99a2f4ade

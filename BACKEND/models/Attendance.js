@@ -24,7 +24,12 @@ const DailySchema = new mongoose.Schema({
     default: "NOT_APPLICABLE",
   },
 
-
+  // ✅ ADDED: To track worked status
+  workedStatus: {
+    type: String,
+    enum: ["FULL_DAY", "HALF_DAY", "QUARTER_DAY", "NOT_APPLICABLE"],
+    default: "NOT_APPLICABLE",
+  },
 });
 
 const AttendanceSchema = new mongoose.Schema({
@@ -34,5 +39,3 @@ const AttendanceSchema = new mongoose.Schema({
 });
 
 export default mongoose.model("Attendance", AttendanceSchema);
-
-

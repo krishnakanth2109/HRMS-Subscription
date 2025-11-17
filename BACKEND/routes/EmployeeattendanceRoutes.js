@@ -1,5 +1,3 @@
-
-
 import express from "express";
 import Attendance from "../models/Attendance.js";
 
@@ -38,7 +36,7 @@ router.post("/punch-in", async (req, res) => {
 
     // ✅ Set cutoff time for late login (in 24rhr format)
     const lateCutoff = new Date();
-    lateCutoff.setHours(10, 15, 0, 0); 
+    lateCutoff.setHours(10, 15, 0, 0);
 
     const loginStatus = punchInTime > lateCutoff ? "LATE" : "ON_TIME";
 
@@ -64,7 +62,6 @@ router.post("/punch-in", async (req, res) => {
         punchIn: punchInTime,
         status: "WORKING",
         loginStatus: loginStatus, // ✅ Set login status
-        
       });
     } else {
       todayEntry.punchIn = punchInTime;
@@ -74,7 +71,6 @@ router.post("/punch-in", async (req, res) => {
 
     await record.save();
     res.json(record.attendance);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -95,9 +91,9 @@ router.post("/punch-out", async (req, res) => {
     if (!todayEntry?.punchIn) {
       return res.status(400).json({ message: "Punch in first" });
     }
-    
+
     // Prevent multiple punch-outs
-    if(todayEntry.punchOut) {
+    if (todayEntry.punchOut) {
       return res.json(record.attendance);
     }
 
@@ -111,13 +107,21 @@ router.post("/punch-out", async (req, res) => {
     todayEntry.workedSeconds = work.seconds;
     todayEntry.displayTime = work.displayTime;
 
+    // ✅ ADDED: Logic for workedStatus
+    if (work.floatHours >= 8) {
+      todayEntry.workedStatus = "FULL_DAY";
+    } else if (work.floatHours >= 4) {
+      todayEntry.workedStatus = "HALF_DAY";
+    } else {
+      todayEntry.workedStatus = "QUARTER_DAY";
+    }
+
     if (work.floatHours >= 7) todayEntry.attendanceCategory = "FULL_DAY";
     else if (work.floatHours >= 4) todayEntry.attendanceCategory = "HALF_DAY";
     else todayEntry.attendanceCategory = "ABSENT";
 
     await record.save();
     res.json(record.attendance);
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -126,7 +130,9 @@ router.post("/punch-out", async (req, res) => {
 // ✅ Get all logs
 router.get("/:employeeId", async (req, res) => {
   try {
-    const record = await Attendance.findOne({ employeeId: req.params.employeeId });
+    const record = await Attendance.findOne({
+      employeeId: req.params.employeeId,
+    });
     if (!record) return res.json([]);
     res.json(record.attendance);
   } catch (err) {
