@@ -1,11 +1,19 @@
 // src/context/NotificationProvider.jsx
 import { useState, useEffect, useCallback } from "react";
 import { NotificationContext } from "./NotificationContext";
-import axios from "axios";
+import {
+  getNotifications,
+  addNotificationRequest,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "../api"; // Assuming api.js is in a parent directory
 import { io } from "socket.io-client";
 
-const API_BASE = "http://localhost:5000/notifications";
-const SOCKET_URL = "http://localhost:5000"; // your backend with socket.io
+// Dynamically set Socket.io URL from environment variables
+const SOCKET_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL_PRODUCTION
+    : import.meta.env.VITE_API_URL_DEVELOPMENT;
 
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
@@ -16,12 +24,12 @@ export const NotificationProvider = ({ children }) => {
   const [sound] = useState(() => new Audio("/notification.mp3"));
 
   // ======================================================
-  // 🔹 Fetch existing notifications from DB
+  // 🔹 Fetch existing notifications from DB using api.js
   // ======================================================
   const fetchNotifications = useCallback(async () => {
     try {
-      const res = await axios.get(API_BASE);
-      setNotifications(res.data);
+      const data = await getNotifications();
+      setNotifications(data);
     } catch (err) {
       console.error("Failed to fetch notifications:", err.message);
     } finally {
@@ -41,6 +49,9 @@ export const NotificationProvider = ({ children }) => {
       transports: ["websocket", "polling"],
     });
 
+    socket.on("connect", () => {
+      console.log("📡 Socket Connected:", socket.id);
+    });
 
     socket.on("newNotice", (data) => {
       const newNotification = {
@@ -54,45 +65,31 @@ export const NotificationProvider = ({ children }) => {
 
       setNotifications((prev) => [newNotification, ...prev]);
 
-      // Sound
       try {
         const audio = new Audio("/sounds/notification.mp3");
-        audio.play().catch(() => { });
-      } catch { }
-
-      // Optional: toast popup
+        audio.play().catch(() => {});
+      } catch {}
     });
 
-
-
-    socket.on("connect", () => {
-      console.log("📡 Socket Connected:", socket.id);
-    });
-
-    // 🔥 When newNotification event arrives from backend
     socket.on("newNotification", (data) => {
       console.log("🔥 New Notification received:", data);
 
-      // Avoid adding duplicate notification
       setNotifications((prev) => {
         if (prev.some((n) => n._id === data._id)) return prev;
         return [data, ...prev];
       });
 
-      // Play sound
       try {
         sound.currentTime = 0;
-        sound.play().catch(() => { });
-      } catch (e) { }
+        sound.play().catch(() => {});
+      } catch (e) {}
 
-      // Show toast popup
       const toastId = Date.now();
       setToasts((prev) => [
         { id: toastId, message: data.message, time: new Date() },
         ...prev,
       ]);
 
-      // Auto remove toast after 4 sec
       setTimeout(() => {
         setToasts((prev) => prev.filter((t) => t.id !== toastId));
       }, 4000);
@@ -104,13 +101,12 @@ export const NotificationProvider = ({ children }) => {
   }, [sound]);
 
   // ======================================================
-  // 🔹 Add notification manually
+  // 🔹 Add notification manually using api.js
   // ======================================================
   const addNotification = async (message, type = "info") => {
     try {
-      const res = await axios.post(API_BASE, { message, type });
-      const saved = res.data;
-
+      // Use the renamed function from api.js to avoid naming conflicts
+      const saved = await addNotificationRequest({ message, type });
       setNotifications((prev) => [saved, ...prev]);
       return saved;
     } catch (err) {
@@ -119,12 +115,11 @@ export const NotificationProvider = ({ children }) => {
   };
 
   // ======================================================
-  // 🔹 Mark single as read
+  // 🔹 Mark single as read using api.js
   // ======================================================
   const markAsRead = async (id) => {
     try {
-      await axios.patch(`${API_BASE}/${id}`, { isRead: true });
-
+      await markNotificationAsRead(id);
       setNotifications((prev) =>
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
@@ -134,12 +129,11 @@ export const NotificationProvider = ({ children }) => {
   };
 
   // ======================================================
-  // 🔹 Mark all notifications as read
+  // 🔹 Mark all notifications as read using api.js
   // ======================================================
   const markAllAsRead = async () => {
     try {
-      await axios.patch(`${API_BASE}/mark-all`);
-
+      await markAllNotificationsAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       console.error("Failed to mark all as read:", err.message);
