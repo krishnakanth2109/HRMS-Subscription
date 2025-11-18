@@ -7,18 +7,12 @@ import { FaBell, FaCheckCircle, FaTrash, FaUndo } from "react-icons/fa";
 const STORAGE_KEY = "employee_hidden_notifications";
 
 const EmployeeNotifications = () => {
-  const {
-    notifications,
-    loading,
-    markAsRead,
-    markAllAsRead,
-  } = useContext(CurrentEmployeeNotificationContext);
+  const { notifications, loading, markAsRead, markAllAsRead } =
+    useContext(CurrentEmployeeNotificationContext);
 
   const [localNotifications, setLocalNotifications] = useState([]);
 
-  // ------------------------------------
-  // LOCAL STORAGE HELPERS
-  // ------------------------------------
+  // -------------------- Local Storage Helpers --------------------
   const getHiddenIds = () => {
     try {
       return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -37,47 +31,32 @@ const EmployeeNotifications = () => {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  // ------------------------------------
-  // DELETE SINGLE (UI ONLY)
-  // ------------------------------------
   const removeNotification = (_id) => {
     hideLocally(_id);
     setLocalNotifications((prev) => prev.filter((n) => n._id !== _id));
   };
 
-  // ------------------------------------
-  // CLEAR ALL LOCAL
-  // ------------------------------------
   const clearAllLocal = () => {
     const allIds = localNotifications.map((n) => n._id);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(allIds));
     setLocalNotifications([]);
   };
 
-  // ------------------------------------
-  // RESTORE ALL
-  // ------------------------------------
   const restoreAll = () => {
     clearHiddenList();
     setLocalNotifications(notifications);
   };
 
-  // ------------------------------------
-  // HANDLE VISIBLE LIST
-  // ------------------------------------
+  // -------------------- Handle visible list --------------------
   useEffect(() => {
     const hidden = getHiddenIds();
-
     const filtered = notifications.filter(
       (n) => !hidden.includes(String(n._id))
     );
-
     setLocalNotifications(filtered);
   }, [notifications]);
 
-  // ------------------------------------
-  // LOADING UI
-  // ------------------------------------
+  // -------------------- Loading UI --------------------
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -89,101 +68,115 @@ const EmployeeNotifications = () => {
     );
   }
 
-  // ------------------------------------
-  // MAIN UI
-  // ------------------------------------
+  // -------------------- Main UI --------------------
   return (
-    <div className="p-6 min-h-screen bg-gradient-to-br from-green-100 via-white to-green-200">
-      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-6">
-        
-        {/* HEADER */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <FaBell className="text-green-600 text-2xl" />
-            <h2 className="text-2xl font-bold text-green-700">Your Notifications</h2>
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-6xl mx-auto flex gap-6 h-screen overflow-hidden">
 
-            {localNotifications.some((n) => !n.isRead) && (
-              <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 animate-bounce">
-                {localNotifications.filter((n) => !n.isRead).length} Unread
-              </span>
-            )}
-          </div>
+        {/* ----------------- SIDE PANEL ----------------- */}
+        <div className="w-60 bg-white shadow-md rounded-xl p-5 border">
+          <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <FaBell className="text-blue-600" />
+            Actions
+          </h3>
 
-          {/* ACTION BUTTONS */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-3">
             <button
-              className="text-sm bg-gray-300 text-gray-700 px-3 py-2 rounded-lg font-semibold shadow hover:bg-gray-400 flex items-center gap-1"
-              onClick={restoreAll}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+              onClick={markAllAsRead}
             >
-              <FaUndo /> Restore
+              <FaCheckCircle /> Mark All Read
             </button>
 
             <button
-              className="text-sm bg-red-500 text-white px-3 py-2 rounded-lg font-semibold shadow hover:bg-red-600 flex items-center gap-1"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
               onClick={clearAllLocal}
             >
               <FaTrash /> Clear All
             </button>
 
             <button
-              className="text-sm bg-green-600 text-white px-3 py-2 rounded-lg font-semibold shadow hover:bg-green-700 flex items-center gap-1"
-              onClick={markAllAsRead}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 transition"
+              onClick={restoreAll}
             >
-              <FaCheckCircle /> Mark all as read
+              <FaUndo /> Restore Hidden
             </button>
           </div>
         </div>
 
-        {/* EMPTY STATE */}
-        {localNotifications.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 flex flex-col items-center">
-            <FaBell className="text-5xl mb-4 animate-pulse" />
-            <p className="text-lg">No notifications to show!</p>
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {localNotifications.map((n) => (
-              <li
-                key={n._id}
-                className={`flex items-center gap-3 p-4 rounded-xl shadow border-l-4 transition-all ${
-                  !n.isRead
-                    ? "bg-yellow-50 border-yellow-400 hover:bg-yellow-100"
-                    : "bg-white border-green-100 hover:bg-green-50"
-                }`}
-              >
-                <FaBell
-                  className={`text-lg ${
-                    !n.isRead ? "text-yellow-600" : "text-green-400"
-                  }`}
-                />
+        {/* ----------------- MAIN CONTENT ----------------- */}
+        <div className="flex-1 bg-white rounded-xl shadow-md p-6 border overflow-y-auto">
 
+          <div className="flex justify-between items-center mb-5">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-700">
+                Your Notifications
+              </h2>
+              <p className="text-gray-500 text-sm">All alerts for your account</p>
+            </div>
+
+            {localNotifications.filter((n) => !n.isRead).length > 0 && (
+              <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                {localNotifications.filter((n) => !n.isRead).length} New
+              </span>
+            )}
+          </div>
+
+          {/* ------------ Empty State ------------ */}
+          {localNotifications.length === 0 ? (
+            <div className="text-center py-20 text-gray-500">
+              <FaBell className="text-5xl mx-auto mb-4 text-gray-300" />
+              <p className="text-lg">No notifications to show!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {localNotifications.map((n) => (
                 <div
-                  className="flex-1 cursor-pointer"
+                  key={n._id}
+                  className={`flex items-start gap-4 p-4 rounded-xl border shadow-sm transition cursor-pointer ${
+                    !n.isRead
+                      ? "bg-blue-50 border-blue-300"
+                      : "bg-white border-gray-200"
+                  }`}
                   onClick={() => markAsRead(n._id)}
                 >
-                  <div className="font-medium text-gray-800">{n.message}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {new Date(n.date || n.createdAt).toLocaleString()}
+                  <div
+                    className={`p-3 rounded-full ${
+                      !n.isRead
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-200 text-gray-600"
+                    }`}
+                  >
+                    <FaBell />
                   </div>
+
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">{n.message}</p>
+                    <p className="text-xs mt-1 text-gray-500">
+                      {new Date(n.date || n.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <button
+                    className="text-red-500 hover:text-red-700 p-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeNotification(n._id);
+                    }}
+                  >
+                    <FaTrash />
+                  </button>
+
+                  {!n.isRead && (
+                    <span className="ml-1 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
+                      New
+                    </span>
+                  )}
                 </div>
-
-                <button
-                  className="text-red-500 hover:text-red-700 p-2"
-                  onClick={() => removeNotification(n._id)}
-                >
-                  <FaTrash />
-                </button>
-
-                {!n.isRead && (
-                  <span className="ml-2 bg-yellow-400 text-white text-xs font-bold rounded-full px-2 py-0.5 shadow">
-                    New
-                  </span>
-                )}
-              </li>
-            ))}
-
-          </ul>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

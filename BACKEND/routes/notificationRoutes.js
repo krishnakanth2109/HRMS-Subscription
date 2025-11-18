@@ -56,21 +56,52 @@ router.get("/", async (req, res) => {
 });
 
 // ===================================================================
-// 🔹 CREATE NOTIFICATION + EMIT SOCKET EVENT
+// 🔹 CREATE NOTIFICATION + VALIDATION + EMIT SOCKET EVENT
 // ===================================================================
 router.post("/", async (req, res) => {
   try {
-    const newNotification = await Notification.create(req.body);
+    const { userId, title, message, type } = req.body;
 
-    // Socket event
+    // 🔴 REQUIRED FIELDS
+    if (!userId || !title || !message) {
+      return res.status(400).json({
+        message: "userId, title and message are required",
+      });
+    }
+
+    // 🔵 VALIDATE TYPE
+    const allowedTypes = [
+      "leave",
+      "attendance",
+      "general",
+      "notice",
+      "leave-status",
+      "overtime",
+    ];
+
+    const finalType = allowedTypes.includes(type) ? type : "general";
+
+    // 📌 Create notification safely
+    const newNotification = await Notification.create({
+      userId,
+      title,
+      message,
+      type: finalType,
+      isRead: false,
+      date: new Date(),
+    });
+
+    // 📡 Emit real-time event
     const io = req.app.get("io");
     if (io) io.emit("newNotification", newNotification);
 
     res.status(201).json(newNotification);
+
   } catch (err) {
     console.error("POST notification error:", err);
     res.status(500).json({ message: "Failed to create notification" });
   }
 });
+
 
 export default router;

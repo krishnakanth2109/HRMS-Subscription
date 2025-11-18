@@ -54,6 +54,14 @@ export const updateEmployeeById = async (id, data) => (await api.put(`/api/emplo
 export const deactivateEmployeeById = async (id, data) => (await api.patch(`/api/employees/${id}/deactivate`, data)).data;
 export const activateEmployeeById = async (id) => (await api.patch(`/api/employees/${id}/activate`)).data;
 
+
+/* ============================================================================
+   EMPLOYEE IDLE ACTIVITY (Idle Tracking)
+============================================================================ */
+export const sendIdleActivity = async (data) =>
+  (await api.post("/api/employees/idle-activity", data)).data;
+
+
 /* ============================================================================
    HOLIDAYS
 ============================================================================ */

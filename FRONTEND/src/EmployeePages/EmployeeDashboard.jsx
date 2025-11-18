@@ -1,4 +1,10 @@
-import React, { useContext, useState, useEffect, useCallback } from "react";
+import React, {
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { AuthContext } from "../context/AuthContext";
 import { NoticeContext } from "../context/NoticeContext";
 import { Bar, Pie } from "react-chartjs-2";
@@ -30,6 +36,7 @@ import {
   uploadProfilePic,
   getProfilePic,
   deleteProfilePic,
+  sendIdleActivity, // ✅ idle API helper
 } from "../api";
 import { useNavigate } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
@@ -43,6 +50,11 @@ ChartJS.register(
   Tooltip,
   Legend
 );
+
+// 🔴 IDLE TRACKING CONFIG
+const INACTIVITY_LIMIT_MS = 10 * 1000; // 10 seconds (TEST)
+const WORK_START_HOUR = 0;  // ✅ full day for testing
+const WORK_END_HOUR = 24;   // ✅ change back to 9 & 18 later
 
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -65,6 +77,10 @@ const EmployeeDashboard = () => {
   const [workedTime, setWorkedTime] = useState(0);
 
   const today = new Date().toISOString().split("T")[0];
+
+  // 🔴 IDLE TRACKING REFS
+  const lastActivityRef = useRef(Date.now());
+  const idleNotifiedRef = useRef(false);
 
   // --- Voice Feedback ---
   const speak = (text) => {
@@ -93,10 +109,11 @@ const EmployeeDashboard = () => {
         },
         (error) => {
           let errorMessage = "Unable to retrieve your location";
-          
+
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              errorMessage = "Location access denied. Please enable location permissions.";
+              errorMessage =
+                "Location access denied. Please enable location permissions.";
               break;
             case error.POSITION_UNAVAILABLE:
               errorMessage = "Location information unavailable.";
@@ -105,13 +122,13 @@ const EmployeeDashboard = () => {
               errorMessage = "Location request timed out.";
               break;
           }
-          
+
           reject(new Error(errorMessage));
         },
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 0
+          maximumAge: 0,
         }
       );
     });
@@ -161,10 +178,9 @@ const EmployeeDashboard = () => {
     bootstrap();
   }, [user, loadAttendance]);
 
-  // Extract name/email/phone/id from user and get role/department from experienceDetails if present
+  // Extract name/email/phone/id from user and get role/department
   const { name, email, phone, employeeId } = user || {};
 
-  // Prefer the latest experience entry (fallback to top-level fields if available)
   const latestExp =
     user?.experienceDetails && user.experienceDetails.length
       ? user.experienceDetails[user.experienceDetails.length - 1]
@@ -191,23 +207,21 @@ const EmployeeDashboard = () => {
     }
 
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      if (interval) clearInterval(interval);
     };
   }, [todayLog]);
 
   // ✅ Punch In/Out with Location and granular UI feedback
   const handlePunch = async (action) => {
     if (!user) return;
-    
+
     setPunchStatus("FETCHING");
-    
+
     try {
       const location = await getCurrentLocation();
-      
+
       setPunchStatus("PUNCHING");
-      
+
       if (action === "IN") {
         await punchIn({
           employeeId: user.employeeId,
@@ -217,18 +231,18 @@ const EmployeeDashboard = () => {
         });
         speak(`${user.name}, punch in successful`);
       } else {
-        await punchOut({ 
+        await punchOut({
           employeeId: user.employeeId,
           latitude: location.latitude,
           longitude: location.longitude,
         });
         speak(`${user.name}, punch out successful`);
       }
-      
+
       await loadAttendance(user.employeeId);
     } catch (err) {
       console.error("Punch error:", err);
-      
+
       if (err.message.includes("Location")) {
         alert(err.message);
         speak("Location access required for attendance");
@@ -250,7 +264,13 @@ const EmployeeDashboard = () => {
       alert("File size must be less than 5MB");
       return;
     }
-    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+    const validTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
     if (!validTypes.includes(file.type)) {
       alert("Please upload a valid image file (JPEG, PNG, GIF, WEBP)");
       return;
@@ -290,7 +310,9 @@ const EmployeeDashboard = () => {
         alert("Upload succeeded but response format was unexpected");
       }
     } catch (err) {
-      const errorMessage = err.response?.data?.message || "Failed to upload image. Please try again.";
+      const errorMessage =
+        err.response?.data?.message ||
+        "Failed to upload image. Please try again.";
       alert(errorMessage);
       speak("Profile picture update failed");
     } finally {
@@ -300,7 +322,9 @@ const EmployeeDashboard = () => {
 
   // --- Delete Profile Picture ---
   const handleDeleteProfilePic = async () => {
-    if (!window.confirm("Are you sure you want to delete your profile picture?")) {
+    if (
+      !window.confirm("Are you sure you want to delete your profile picture?")
+    ) {
       return;
     }
 
@@ -311,37 +335,111 @@ const EmployeeDashboard = () => {
       speak("Profile picture deleted successfully");
       alert("Profile picture deleted successfully!");
     } catch (err) {
-      const errorMessage = err.response?.data?.message || "Failed to delete profile picture.";
+      const errorMessage =
+        err.response?.data?.message || "Failed to delete profile picture.";
       alert(errorMessage);
       speak("Profile picture deletion failed");
     }
   };
 
-  if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Employee Dashboard...</div>;
-  if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
+  // 🔴 FINAL IDLE TRACKING EFFECT – check every 1 second
+  useEffect(() => {
+    if (!user || !user.employeeId) return;
+
+    const handleActivity = () => {
+      lastActivityRef.current = Date.now();
+      idleNotifiedRef.current = false;
+    };
+
+    window.addEventListener("mousemove", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+    window.addEventListener("click", handleActivity);
+    window.addEventListener("scroll", handleActivity);
+
+    const intervalId = setInterval(async () => {
+      const now = Date.now();
+      const nowDate = new Date();
+      const hour = nowDate.getHours();
+
+      const isWorkingHours =
+        hour >= WORK_START_HOUR && hour < WORK_END_HOUR;
+
+      if (!isWorkingHours) return;
+
+      const diff = now - lastActivityRef.current;
+
+      if (diff >= INACTIVITY_LIMIT_MS && !idleNotifiedRef.current) {
+        idleNotifiedRef.current = true;
+
+        try {
+          await sendIdleActivity({
+            employeeId: user.employeeId,
+            name: user.name,
+            department,
+            role,
+            lastActiveAt: new Date(lastActivityRef.current).toISOString(),
+          });
+          console.log("✅ Idle activity sent to server for admin notification");
+        } catch (error) {
+          console.error("❌ Failed to send idle activity:", error);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener("mousemove", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      window.removeEventListener("click", handleActivity);
+      window.removeEventListener("scroll", handleActivity);
+      clearInterval(intervalId);
+    };
+  }, [user, department, role]);
+
+  if (loading)
+    return (
+      <div className="p-8 text-center text-lg font-semibold">
+        Loading Employee Dashboard...
+      </div>
+    );
+
+  if (!user)
+    return (
+      <div className="p-8 text-center text-red-600 font-semibold">
+        Could not load employee data.
+      </div>
+    );
 
   const leaveBarData = {
     labels: ["Full Day", "Half Day", "Absent"],
-    datasets: [{
-      label: "Attendance",
-      data: [
-        attendance.filter((a) => a.status === "Present" && !a.isHalfDay).length,
-        attendance.filter((a) => a.isHalfDay).length,
-        attendance.filter((a) => a.status === "Absent").length,
-      ],
-      backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
-      borderRadius: 6,
-    }],
+    datasets: [
+      {
+        label: "Attendance",
+        data: [
+          attendance.filter(
+            (a) => a.status === "Present" && !a.isHalfDay
+          ).length,
+          attendance.filter((a) => a.isHalfDay).length,
+          attendance.filter((a) => a.status === "Absent").length,
+        ],
+        backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
+        borderRadius: 6,
+      },
+    ],
   };
 
   const workPieData = {
     labels: ["Worked Hours", "Remaining"],
-    datasets: [{
-      data: [todayLog?.workedHours || 0, Math.max(0, 8 - (todayLog?.workedHours || 0))],
-      backgroundColor: ["#3b82f6", "#e5e7eb"],
-    }],
+    datasets: [
+      {
+        data: [
+          todayLog?.workedHours || 0,
+          Math.max(0, 8 - (todayLog?.workedHours || 0)),
+        ],
+        backgroundColor: ["#3b82f6", "#e5e7eb"],
+      },
+    ],
   };
-  
+
   const formatWorkedTime = (totalSeconds) => {
     if (isNaN(totalSeconds) || totalSeconds < 0) {
       return "0h 0m 0s";
@@ -356,18 +454,27 @@ const EmployeeDashboard = () => {
     if (!status || status === "NOT_APPLICABLE") return "--";
     return status.replace("_", " ").toLowerCase();
   };
-  
-  // --- Helper to get button content based on punch status ---
-  const getPunchButtonContent = (action) => {
-    const spinner = <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />;
 
-    if (punchStatus === 'FETCHING') {
-      return <>{spinner} Extracting Location...</>;
+  const getPunchButtonContent = (action) => {
+    const spinner = (
+      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+    );
+
+    if (punchStatus === "FETCHING") {
+      return (
+        <>
+          {spinner} Extracting Location...
+        </>
+      );
     }
-    if (punchStatus === 'PUNCHING') {
-      return <>{spinner} {action === 'IN' ? 'Punching In...' : 'Punching Out...'}</>;
+    if (punchStatus === "PUNCHING") {
+      return (
+        <>
+          {spinner} {action === "IN" ? "Punching In..." : "Punching Out..."}
+        </>
+      );
     }
-    return action === 'IN' ? 'Punch In' : 'Punch Out';
+    return action === "IN" ? "Punch In" : "Punch Out";
   };
 
   return (
@@ -377,16 +484,31 @@ const EmployeeDashboard = () => {
         <div className="relative">
           <img
             alt="Employee"
-            src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
+            src={
+              profileImage ||
+              `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                name
+              )}&background=0D8ABC&color=fff&size=128`
+            }
             className="w-28 h-28 rounded-full border-4 border-white shadow object-cover"
           />
           <div className="absolute bottom-1 right-1 flex gap-1">
             <label
               htmlFor="profile-upload"
-              className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${uploadingImage ? "opacity-50 cursor-not-allowed" : ""}`}
-              title={profileImage ? "Change Profile Picture" : "Upload Profile Picture"}
+              className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${
+                uploadingImage ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+              title={
+                profileImage ? "Change Profile Picture" : "Upload Profile Picture"
+              }
             >
-              {uploadingImage ? <div className="animate-spin">⏳</div> : profileImage ? <FaEdit size={14} /> : <FaCamera size={14} />}
+              {uploadingImage ? (
+                <div className="animate-spin">⏳</div>
+              ) : profileImage ? (
+                <FaEdit size={14} />
+              ) : (
+                <FaCamera size={14} />
+              )}
             </label>
             {profileImage && (
               <button
@@ -412,11 +534,21 @@ const EmployeeDashboard = () => {
             <FaUserCircle className="text-blue-400" /> {name}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 mt-2">
-            <div><b>ID:</b> {employeeId}</div>
-            <div><b>Email:</b> {email}</div>
-            <div><b>Phone:</b> {phone || "N/A"}</div>
-            <div><b>Department:</b> {department}</div>
-            <div><b>Role:</b> {role}</div>
+            <div>
+              <b>ID:</b> {employeeId}
+            </div>
+            <div>
+              <b>Email:</b> {email}
+            </div>
+            <div>
+              <b>Phone:</b> {phone || "N/A"}
+            </div>
+            <div>
+              <b>Department:</b> {department}
+            </div>
+            <div>
+              <b>Role:</b> {role}
+            </div>
           </div>
         </div>
       </div>
@@ -425,9 +557,11 @@ const EmployeeDashboard = () => {
       <div className="bg-gradient-to-br from-gray-50 to-blue-100 rounded-2xl shadow-lg p-6 mb-8 animate-fade-in">
         <div className="flex items-center mb-6 gap-3 border-b border-gray-200 pb-4">
           <FaRegClock className="text-blue-600 text-2xl" />
-          <h2 className="font-bold text-2xl text-gray-800">Daily Attendance</h2>
+          <h2 className="font-bold text-2xl text-gray-800">
+            Daily Attendance
+          </h2>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm rounded-lg overflow-hidden">
             <thead>
@@ -444,8 +578,16 @@ const EmployeeDashboard = () => {
             <tbody className="bg-white">
               <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200 animate-fade-in-up">
                 <td className="px-4 py-3 font-medium">{today}</td>
-                <td className="px-4 py-3">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
-                <td className="px-4 py-3">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</td>
+                <td className="px-4 py-3">
+                  {todayLog?.punchIn
+                    ? new Date(todayLog.punchIn).toLocaleTimeString()
+                    : "--"}
+                </td>
+                <td className="px-4 py-3">
+                  {todayLog?.punchOut
+                    ? new Date(todayLog.punchOut).toLocaleTimeString()
+                    : "--"}
+                </td>
                 <td className="px-4 py-3 font-mono">
                   {todayLog?.punchIn && !todayLog?.punchOut
                     ? formatWorkedTime(workedTime)
@@ -462,16 +604,18 @@ const EmployeeDashboard = () => {
                     >
                       {todayLog.loginStatus === "LATE" ? "Late" : "On Time"}
                     </span>
-                  ) : ("--")}
+                  ) : (
+                    "--"
+                  )}
                 </td>
                 <td className="px-4 py-3 capitalize">
-                   {todayLog?.punchIn && !todayLog?.punchOut ? (
-                      <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">
-                        Working...
-                      </span>
-                    ) : (
-                      formatWorkedStatus(todayLog?.workedStatus)
-                    )}
+                  {todayLog?.punchIn && !todayLog?.punchOut ? (
+                    <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      Working...
+                    </span>
+                  ) : (
+                    formatWorkedStatus(todayLog?.workedStatus)
+                  )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {!todayLog?.punchIn ? (
@@ -503,7 +647,12 @@ const EmployeeDashboard = () => {
           <div className="flex items-center gap-3">
             {todayLog?.punchInLocation && (
               <button
-                onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`, "_blank")}
+                onClick={() =>
+                  window.open(
+                    `https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`,
+                    "_blank"
+                  )
+                }
                 className="flex items-center gap-1.5 bg-blue-100 text-blue-800 px-3 py-1.5 text-xs rounded-full font-semibold hover:bg-blue-200 transition-colors shadow-sm transform hover:scale-105"
                 title="View Punch-In Location"
               >
@@ -513,7 +662,12 @@ const EmployeeDashboard = () => {
             )}
             {todayLog?.punchOutLocation && (
               <button
-                onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`, "_blank")}
+                onClick={() =>
+                  window.open(
+                    `https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`,
+                    "_blank"
+                  )
+                }
                 className="flex items-center gap-1.5 bg-red-100 text-red-800 px-3 py-1.5 text-xs rounded-full font-semibold hover:bg-red-200 transition-colors shadow-sm transform hover:scale-105"
                 title="View Punch-Out Location"
               >
@@ -528,7 +682,7 @@ const EmployeeDashboard = () => {
               onClick={() => navigate("/employee/my-attendence")}
               className="bg-blue-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-700 transition-all duration-200 ease-in-out transform hover:-translate-y-1"
             >
-              View Attendance History→
+              View Attendance History →
             </button>
           </div>
         </div>
@@ -537,20 +691,29 @@ const EmployeeDashboard = () => {
       {/* Charts & Notices */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2">
+            <FaCalendarAlt className="text-blue-500" /> Attendance Summary
+          </h2>
           <Bar data={leaveBarData} />
         </div>
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2"><FaChartPie className="text-yellow-500" /> Work Hours Today</h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2">
+            <FaChartPie className="text-yellow-500" /> Work Hours Today
+          </h2>
           <Pie data={workPieData} />
         </div>
       </div>
+
       <div className="bg-white rounded-2xl shadow p-4 mb-8">
-        <h2 className="font-bold flex items-center gap-2 mb-2"><FaBell className="text-red-500" /> Notice Board</h2>
+        <h2 className="font-bold flex items-center gap-2 mb-2">
+          <FaBell className="text-red-500" /> Notice Board
+        </h2>
         {notices?.length > 0 ? (
           <ul className="space-y-2">
             {notices.map((n, i) => (
-              <li key={i} className="border-b pb-2"><b>{n.title}</b> - {n.description}</li>
+              <li key={i} className="border-b pb-2">
+                <b>{n.title}</b> - {n.description}
+              </li>
             ))}
           </ul>
         ) : (

@@ -6,10 +6,10 @@ import {
   addNotificationRequest,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-} from "../api"; // Assuming api.js is in a parent directory
+} from "../api";
 import { io } from "socket.io-client";
 
-// Dynamically set Socket.io URL from environment variables
+// Backend URL
 const SOCKET_URL =
   import.meta.env.MODE === "production"
     ? import.meta.env.VITE_API_URL_PRODUCTION
@@ -20,12 +20,12 @@ export const NotificationProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState([]);
 
-  // 🔔 Load audio
+  // Notification sound
   const [sound] = useState(() => new Audio("/notification.mp3"));
 
-  // ======================================================
-  // 🔹 Fetch existing notifications from DB using api.js
-  // ======================================================
+  // ===========================
+  // 1️⃣ Fetch saved notifications
+  // ===========================
   const fetchNotifications = useCallback(async () => {
     try {
       const data = await getNotifications();
@@ -41,21 +41,48 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // ======================================================
-  // 🔥 SOCKET.IO REAL-TIME LISTENER
-  // ======================================================
+  // ===========================
+  // 2️⃣ SOCKET.IO REAL-TIME LISTENERS
+  // ===========================
   useEffect(() => {
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
     });
 
-    socket.on("connect", () => {
-      console.log("📡 Socket Connected:", socket.id);
+    console.log("📡 SOCKET CONNECTED:", SOCKET_URL);
+
+    // 🔥 IDLE ALERT FROM BACKEND
+    socket.on("admin-notification", (data) => {
+      console.log("⚠️ Idle Alert Received:", data);
+
+      // Add notification if not already present
+      setNotifications((prev) => {
+        if (prev.some((n) => n._id === data._id)) return prev;
+        return [data, ...prev];
+      });
+
+      // Play sound
+      try {
+        sound.currentTime = 0;
+        sound.play().catch(() => {});
+      } catch {}
+
+      // Toast popup
+      const toastId = Date.now();
+      setToasts((prev) => [
+        { id: toastId, message: data.message, time: new Date() },
+        ...prev,
+      ]);
+
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== toastId));
+      }, 4000);
     });
 
+    // 🔔 When admin posts notice
     socket.on("newNotice", (data) => {
       const newNotification = {
-        _id: Date.now(), // temporary local ID
+        _id: Date.now(),
         title: "New Notice Posted",
         message: data.title,
         type: "notice",
@@ -64,15 +91,11 @@ export const NotificationProvider = ({ children }) => {
       };
 
       setNotifications((prev) => [newNotification, ...prev]);
-
-      try {
-        const audio = new Audio("/sounds/notification.mp3");
-        audio.play().catch(() => {});
-      } catch {}
     });
 
+    // 🔔 General notifications
     socket.on("newNotification", (data) => {
-      console.log("🔥 New Notification received:", data);
+      console.log("🔥 New Notification Received:", data);
 
       setNotifications((prev) => {
         if (prev.some((n) => n._id === data._id)) return prev;
@@ -82,7 +105,7 @@ export const NotificationProvider = ({ children }) => {
       try {
         sound.currentTime = 0;
         sound.play().catch(() => {});
-      } catch (e) {}
+      } catch {}
 
       const toastId = Date.now();
       setToasts((prev) => [
@@ -100,12 +123,11 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [sound]);
 
-  // ======================================================
-  // 🔹 Add notification manually using api.js
-  // ======================================================
+  // ===========================
+  // 3️⃣ Manually add notification
+  // ===========================
   const addNotification = async (message, type = "info") => {
     try {
-      // Use the renamed function from api.js to avoid naming conflicts
       const saved = await addNotificationRequest({ message, type });
       setNotifications((prev) => [saved, ...prev]);
       return saved;
@@ -114,9 +136,9 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // ======================================================
-  // 🔹 Mark single as read using api.js
-  // ======================================================
+  // ===========================
+  // 4️⃣ Mark single as read
+  // ===========================
   const markAsRead = async (id) => {
     try {
       await markNotificationAsRead(id);
@@ -128,9 +150,9 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // ======================================================
-  // 🔹 Mark all notifications as read using api.js
-  // ======================================================
+  // ===========================
+  // 5️⃣ Mark all as read
+  // ===========================
   const markAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
@@ -156,7 +178,7 @@ export const NotificationProvider = ({ children }) => {
     >
       {children}
 
-      {/* 🔥 Toast Popup UI */}
+      {/* 🔥 Toast Messages */}
       <div
         style={{
           position: "fixed",
@@ -180,7 +202,13 @@ export const NotificationProvider = ({ children }) => {
             }}
           >
             {toast.message}
-            <div style={{ fontSize: "11px", opacity: 0.6, marginTop: "4px" }}>
+            <div
+              style={{
+                fontSize: "11px",
+                opacity: 0.6,
+                marginTop: "4px",
+              }}
+            >
               {toast.time.toLocaleTimeString()}
             </div>
           </div>

@@ -13,22 +13,32 @@ import {
   FaPaintBrush,
 } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
+import { io } from "socket.io-client";
+
+// ⭐ Connect Socket
+const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000", {
+  transports: ["websocket"],
+});
 
 const Navbar = () => {
-  // ✅ Step 1: Get the 'user' object from the AuthContext
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+
   const [showMenu, setShowMenu] = useState(false);
   const [showThemeColors, setShowThemeColors] = useState(false);
   const menuRef = useRef(null);
-  const { unreadCount } = useContext(NotificationContext);
+
+  const { unreadCount, setUnreadCount, addNotification } =
+    useContext(NotificationContext);
+
   const { themeColor, setThemeColor } = useTheme();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
+  // ⭐ Popup for Idle Alerts
+  const [idlePopup, setIdlePopup] = useState(null);
 
+  const colors = ["#3B82F6", "#FACC15", "#34D399", "#F472B6"];
+
+  // 🧹 Close dropdown if clicked outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -40,100 +50,158 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const colors = ["#3B82F6", "#FACC15", "#34D399", "#F472B6"]; // Blue, Yellow, Green, Pink
+  // ================================
+  // 🔥 SOCKET.IO – LISTEN TO ADMIN EVENTS
+  // ================================
+  useEffect(() => {
+  if (!user) return;
+
+  socket.on("connect", () => {
+    console.log("🟢 Admin Socket Connected:", socket.id);
+
+    // Register admin
+    socket.emit("register", "admin");
+    console.log("📡 Admin registered on socket");
+  });
+
+  socket.on("admin-notification", (data) => {
+    console.log("🔥 Admin Notification Received:", data);
+
+    if (data.title === "Employee Idle Alert") {
+      setIdlePopup(data);
+
+      setTimeout(() => setIdlePopup(null), 6000);
+    }
+
+    addNotification(data);
+    setUnreadCount((prev) => prev + 1);
+  });
+
+  return () => {
+    socket.off("connect");
+    socket.off("admin-notification");
+  };
+}, [user]);
+
+
+  // Logout function
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
 
   return (
-    <nav
-      className="h-16 flex items-center justify-between px-6 shadow-lg relative"
-      style={{ backgroundColor: themeColor }}
-    >
-      <div className="flex items-center gap-3">
+    <>
+      {/* ⭐ IDLE ALERT POPUP */}
+      {idlePopup && (
+        <div className="fixed top-20 right-4 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg w-80 animate-slide-in">
+          <strong className="font-bold flex items-center gap-2">
+            <FaBell className="text-red-600" />
+            {idlePopup.title}
+          </strong>
+          <p className="text-sm mt-1">{idlePopup.message}</p>
+
+          <button
+            onClick={() => navigate("/admin/notifications")}
+            className="mt-3 text-blue-600 text-sm font-semibold underline"
+          >
+            View Notification →
+          </button>
+        </div>
+      )}
+
+      {/* NAVBAR */}
+      <nav
+        className="h-16 flex items-center justify-between px-6 shadow-lg relative"
+        style={{ backgroundColor: themeColor }}
+      >
         <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow">
           HRMS Admin
         </h1>
-      </div>
 
-      <div className="flex items-center gap-6">
-        {/* Notifications */}
-        <div
-          className="relative cursor-pointer group"
-          onClick={() => navigate("/admin/notifications")}
-        >
-          <FaBell className="text-2xl text-white group-hover:text-yellow-300 transition" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-bounce shadow-lg">
-              {unreadCount}
+        <div className="flex items-center gap-6">
+
+          {/* 🔔 Notification Icon */}
+          <div
+            className="relative cursor-pointer group"
+            onClick={() => navigate("/admin/notifications")}
+          >
+            <FaBell className="text-2xl text-white group-hover:text-yellow-300 transition" />
+
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-bounce shadow-lg">
+                {unreadCount}
+              </span>
+            )}
+          </div>
+
+          {/* USER DROPDOWN */}
+          <div
+            ref={menuRef}
+            className="relative flex items-center gap-2 cursor-pointer select-none"
+          >
+            <FaUserCircle className="text-3xl text-white shadow" />
+            <span className="text-white font-semibold hidden md:inline">
+              {user?.name || "Admin"}
             </span>
-          )}
-        </div>
 
-        {/* User Menu */}
-        <div
-          ref={menuRef}
-          className="relative flex items-center gap-2 cursor-pointer select-none"
-        >
-          <FaUserCircle className="text-3xl text-white shadow" />
-          {/* ✅ Step 2: Display the dynamic user name with a fallback */}
-          <span className="text-white font-semibold hidden md:inline">
-            {user?.name || 'Admin'}
-          </span>
-          <FaChevronDown
-            className={`text-white ml-1 transition-transform duration-200 ${
-              showMenu ? "rotate-180" : ""
-            }`}
-            onClick={() => setShowMenu((prev) => !prev)}
-          />
+            <FaChevronDown
+              className={`text-white ml-1 transition-transform duration-200 ${
+                showMenu ? "rotate-180" : ""
+              }`}
+              onClick={() => setShowMenu((prev) => !prev)}
+            />
 
-          {showMenu && (
-            <div className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-56 z-50 text-base animate-fade-in">
-              <div
-                onClick={() => {
-                  navigate("/admin/profile");
-                  setShowMenu(false);
-                }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all"
-              >
-                <FaUser className="text-blue-600" /> View Profile
-              </div>
-              <div
-                onClick={() => {
-                  navigate("/admin/change-password");
-                  setShowMenu(false);
-                }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all"
-              >
-                <FaKey className="text-blue-600" /> Change Password
-              </div>
-              <div
-                onClick={() => {
-                  navigate("/admin/settings");
-                  setShowMenu(false);
-                }}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all border-t"
-              >
-                <FaCog className="text-blue-600" /> Application Settings
-              </div>
-
-              {/* Theme Change Dropdown Inside */}
-              <div className="border-t">
+            {showMenu && (
+              <div className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-56 z-50 text-base animate-fade-in">
                 <div
-                  onClick={() => setShowThemeColors((prev) => !prev)}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all"
+                  onClick={() => {
+                    navigate("/admin/profile");
+                    setShowMenu(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
                 >
-                  <span className="flex items-center gap-3">
-                    <FaPaintBrush className="text-blue-600" /> Theme Change
-                  </span>
-                  <FaChevronDown
-                    className={`ml-1 text-gray-600 transition-transform duration-200 ${
-                      showThemeColors ? "rotate-180" : ""
-                    }`}
-                  />
+                  <FaUser className="text-blue-600" /> View Profile
                 </div>
 
-                {/* Theme Colors */}
-                {showThemeColors && (
-                  <div className="px-4 py-3">
-                    <div className="grid grid-cols-4 gap-3">
+                <div
+                  onClick={() => {
+                    navigate("/admin/change-password");
+                    setShowMenu(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
+                >
+                  <FaKey className="text-blue-600" /> Change Password
+                </div>
+
+                <div
+                  onClick={() => {
+                    navigate("/admin/settings");
+                    setShowMenu(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition border-t"
+                >
+                  <FaCog className="text-blue-600" /> Application Settings
+                </div>
+
+                {/* THEME COLORS */}
+                <div className="border-t">
+                  <div
+                    onClick={() => setShowThemeColors((prev) => !prev)}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
+                  >
+                    <span className="flex items-center gap-3">
+                      <FaPaintBrush className="text-blue-600" /> Theme Change
+                    </span>
+                    <FaChevronDown
+                      className={`ml-1 text-gray-600 transition-transform duration-200 ${
+                        showThemeColors ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
+
+                  {showThemeColors && (
+                    <div className="px-4 py-3 grid grid-cols-4 gap-3">
                       {colors.map((color) => (
                         <button
                           key={color}
@@ -143,21 +211,22 @@ const Navbar = () => {
                         />
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              <div
-                onClick={handleLogout}
-                className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-blue-50 cursor-pointer transition-all border-t"
-              >
-                <FaSignOutAlt /> Logout
+                {/* LOGOUT */}
+                <div
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-blue-50 cursor-pointer transition border-t"
+                >
+                  <FaSignOutAlt /> Logout
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </>
   );
 };
 
