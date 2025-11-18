@@ -145,10 +145,7 @@ const EmployeeDashboard = () => {
     const bootstrap = async () => {
       if (user && user.employeeId) {
         setLoading(true);
-        await Promise.all([
-          loadAttendance(user.employeeId),
-          loadProfilePic(),
-        ]);
+        await Promise.all([loadAttendance(user.employeeId), loadProfilePic()]);
         setLoading(false);
       } else {
         setLoading(false);
@@ -156,7 +153,19 @@ const EmployeeDashboard = () => {
     };
     bootstrap();
   }, [user, loadAttendance]);
-  
+
+  // Extract name/email/phone/id from user and get role/department from experienceDetails if present
+  const { name, email, phone, employeeId } = user || {};
+
+  // Prefer the latest experience entry (fallback to top-level fields if available)
+  const latestExp =
+    user?.experienceDetails && user.experienceDetails.length
+      ? user.experienceDetails[user.experienceDetails.length - 1]
+      : null;
+
+  const role = latestExp?.role || user?.role || "N/A";
+  const department = latestExp?.department || user?.department || "N/A";
+
   // --- Frontend Timer Effect ---
   useEffect(() => {
     let interval;
@@ -272,8 +281,6 @@ const EmployeeDashboard = () => {
   if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Employee Dashboard...</div>;
   if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
 
-  const { name, email, phone, employeeId } = user;
-
   const leaveBarData = {
     labels: ["Full Day", "Half Day", "Absent"],
     datasets: [{
@@ -359,6 +366,10 @@ const EmployeeDashboard = () => {
             <div><b>ID:</b> {employeeId}</div>
             <div><b>Email:</b> {email}</div>
             <div><b>Phone:</b> {phone || "N/A"}</div>
+
+            {/* Department & Role */}
+            <div><b>Department:</b> {department}</div>
+            <div><b>Role:</b> {role}</div>
           </div>
         </div>
       </div>

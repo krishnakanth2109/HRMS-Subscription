@@ -49,6 +49,7 @@ const allowedOrigins = [
   "https://hrms-420.netlify.app",
   "http://localhost:5173",
   "https://hrms-ask.onrender.com",
+  "http://localhost:5000"
 ];
 
 app.use(
@@ -125,7 +126,6 @@ app.use((err, req, res, next) => {
 
 // -------------------- START SERVER (Socket.io + Express) --------------------
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running with Socket.io on port ${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
