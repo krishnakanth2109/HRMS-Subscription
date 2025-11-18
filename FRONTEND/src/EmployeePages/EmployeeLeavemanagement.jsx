@@ -15,6 +15,19 @@ const LEAVE_YEAR_START_MONTH = 11;
 
 // --- HELPER FUNCTIONS ---
 
+// Calculates the number of days between two dates, inclusive
+const calculateLeaveDays = (from, to) => {
+  if (!from || !to) return 0;
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+  // Normalize to UTC midnight to avoid timezone issues in day calculation
+  fromDate.setUTCHours(0, 0, 0, 0);
+  toDate.setUTCHours(0, 0, 0, 0);
+  const diffTime = Math.abs(toDate - fromDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return diffDays;
+};
+
 // Gets the start and end dates of the current leave year based on today's date
 const getCurrentLeaveYear = () => {
   const today = new Date();
@@ -131,10 +144,12 @@ const LeaveWithModal = () => {
 
   // Stats states
   const [stats, setStats] = useState({
-    approvedLeaves: 0,      // For selected month
-    extraLeaves: 0,         // For selected month
-    sandwichLeavesCount: 0, // For selected month
-    sandwichDaysCount: 0,   // For selected month
+    approvedLeaves: 0,      // Number of approved requests
+    monthlyAvailable: 1,    
+    totalLeaveDays: 0,      // NEW: Total approved days
+    extraLeaves: 0,         
+    sandwichLeavesCount: 0, 
+    sandwichDaysCount: 0,   
     pendingLeaves: 0,       // Year-to-date
   });
 
@@ -163,7 +178,11 @@ const LeaveWithModal = () => {
         const leaveDate = new Date(leave.from);
         return leave.status === 'Approved' && leaveDate >= startDate && leaveDate <= endDate;
     });
-    const usedLeavesThisYear = approvedLeavesThisYear.length;
+    
+    // UPDATED to calculate total days for yearly pending leaves
+    const usedLeaveDaysThisYear = approvedLeavesThisYear.reduce((total, leave) => {
+        return total + calculateLeaveDays(leave.from, leave.to);
+    }, 0);
     
     // Calculate how many months have passed in the current leave year
     let monthsPassed = 0;
@@ -172,8 +191,8 @@ const LeaveWithModal = () => {
     }
     const earnedLeavesThisYear = Math.max(0, monthsPassed);
 
-    // Calculate pending leaves for the year
-    const pending = Math.max(0, earnedLeavesThisYear - usedLeavesThisYear);
+    // Calculate pending leaves for the year based on days
+    const pending = Math.max(0, earnedLeavesThisYear - usedLeaveDaysThisYear);
     
     setStats(prev => ({
         ...prev,
@@ -182,13 +201,24 @@ const LeaveWithModal = () => {
 
   }, [leaveList]);
 
-  // Calculate MONTHLY stats (Approved, Extra, Sandwich) based on the currently filtered list
+  // Calculate MONTHLY stats based on the currently filtered list
   useEffect(() => {
-    // Count approved leaves in the selected month
-    const approvedInMonth = filteredLeaveList.filter(leave => leave.status === 'Approved').length;
+    // Get all approved leaves in the selected month
+    const approvedLeavesInMonth = filteredLeaveList.filter(leave => leave.status === 'Approved');
     
-    // NEW LOGIC: Extra leaves are any beyond the 1 allotted for the month
-    const extraLeavesInMonth = Math.max(0, approvedInMonth - 1);
+    // 1. Count of approved leave *requests*
+    const approvedRequestsCount = approvedLeavesInMonth.length;
+
+    // 2. Calculate total approved *days* by summing the duration of each request
+    const totalApprovedDays = approvedLeavesInMonth.reduce((total, leave) => {
+      return total + calculateLeaveDays(leave.from, leave.to);
+    }, 0);
+
+    // 3. Logic for Monthly Available (based on requests)
+    const monthlyAvailable = approvedRequestsCount > 0 ? 0 : 1;
+
+    // 4. Logic for Extra Leaves (based on total days)
+    const extraLeavesInMonth = Math.max(0, totalApprovedDays - 1);
 
     // Sandwich leaves calculation for the month
     const sandwichCount = sandwichLeaves.length;
@@ -196,7 +226,9 @@ const LeaveWithModal = () => {
 
     setStats(prev => ({
       ...prev,
-      approvedLeaves: approvedInMonth,
+      approvedLeaves: approvedRequestsCount,
+      totalLeaveDays: totalApprovedDays,
+      monthlyAvailable: monthlyAvailable,
       extraLeaves: extraLeavesInMonth,
       sandwichLeavesCount: sandwichCount,
       sandwichDaysCount: sandwichDays,
@@ -321,8 +353,8 @@ const LeaveWithModal = () => {
         const date = new Date(dateStr);
         if (selectedMonth && !isDateInMonth(dateStr, selectedMonth)) return;
 
-        if (date.getDay() === 5) { // Friday
-            const followingMonday = addDays(date, 3);
+        if (date.getDay() === 6) { // Saturday
+            const followingMonday = addDays(date, 2);
             const mondayStr = formatDate(followingMonday);
             if (selectedMonth && !isDateInMonth(mondayStr, selectedMonth)) return;
 
@@ -330,8 +362,8 @@ const LeaveWithModal = () => {
                  const key = `weekend-${dateStr}`;
                  if (!newSandwichLeaves.has(key)) {
                      newSandwichLeaves.set(key, {
-                        dates: `${dateStr} (Friday) → ${mondayStr} (Monday)`,
-                        reason: 'Leave approved on a Friday and the following Monday, sandwiching the weekend.',
+                        dates: `${dateStr} (Saturday) → ${mondayStr} (Monday)`,
+                        reason: 'Leave approved on a Saturday and the following Monday, sandwiching Sunday.',
                         month: selectedMonth
                      });
                  }
@@ -396,11 +428,11 @@ const LeaveWithModal = () => {
 
     selectedDates.forEach(dateStr => {
       const date = new Date(dateStr);
-      if (date.getDay() === 5) {
-        const followingMonday = formatDate(addDays(date, 3));
+      if (date.getDay() === 6) { // Saturday
+        const followingMonday = formatDate(addDays(date, 2));
         const hasMonday = approvedLeaveDates.has(followingMonday) || selectedDates.has(followingMonday);
-        if (hasMonday && selectedDates.has(followingMonday)) {
-          const message = `Your selected dates create a sandwich leave around the weekend. Leaves on ${dateStr} (Friday) and ${followingMonday} (Monday) surround the weekend.`;
+        if (hasMonday) {
+          const message = `Your selected dates create a sandwich leave around Sunday. Leaves on ${dateStr} (Saturday) and ${followingMonday} (Monday) will surround Sunday.`;
           if (!warnings.some(w => w.message === message)) {
             warnings.push({ type: 'weekend', message });
           }
@@ -648,7 +680,7 @@ const LeaveWithModal = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+          className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8"
         >
           {/* Pending Leaves Card */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
@@ -656,7 +688,7 @@ const LeaveWithModal = () => {
               <div>
                 <p className="text-gray-600 text-sm font-semibold">Pending Leaves</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingLeaves}</p>
-                <p className="text-xs text-gray-500 mt-1">Remaining this year</p>
+                <p className="text-xs text-gray-500 mt-1">Your Pending Leaves</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">📥</span>
@@ -664,16 +696,43 @@ const LeaveWithModal = () => {
             </div>
           </div>
 
-          {/* Approved Leaves Card */}
+          {/* Monthly Available Leave Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-teal-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-semibold">Monthly Available</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.monthlyAvailable}</p>
+                <p className="text-xs text-gray-500 mt-1">Leave Remaning</p>
+              </div>
+              <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">🗓️</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Approved Leaves Card (Counts requests) */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-semibold">Approved Leaves</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{stats.approvedLeaves}</p>
-                <p className="text-xs text-gray-500 mt-1">Approved this month</p>
+                <p className="text-xs text-gray-500 mt-1">Requests this month</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">✅</span>
+              </div>
+            </div>
+          </div>
+          {/* Total Leave Days Card (NEW) */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-cyan-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-semibold">Total Leave Days</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalLeaveDays}</p>
+                <p className="text-xs text-gray-500 mt-1">Days used this month</p>
+              </div>
+              <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
+                 <span className="text-2xl">📥</span>
               </div>
             </div>
           </div>
@@ -684,7 +743,7 @@ const LeaveWithModal = () => {
               <div>
                 <p className="text-gray-600 text-sm font-semibold">Extra Leaves Taken</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{stats.extraLeaves}</p>
-                <p className="text-xs text-gray-500 mt-1">Beyond 1 leave this month</p>
+                <p className="text-xs text-gray-500 mt-1">Beyond 1 day this month</p>
               </div>
               <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">⚠️</span>

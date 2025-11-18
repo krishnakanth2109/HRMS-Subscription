@@ -233,9 +233,10 @@ const AdminAttendance = () => {
             </div>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" />
+                                    <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" />
             {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-3xl"/>} title="Not Logged In" value={loading ? '...' : dailyStats.absentCount} colorClass="border-red-500" onClick={() => dailyStats.absentCount > 0 && setIsAbsentModalOpen(true)} />)}
-            <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" />
-            <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" />
+
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
