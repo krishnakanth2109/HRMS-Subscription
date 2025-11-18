@@ -67,6 +67,7 @@ const allowedOrigins = [
   "https://hrms-420.netlify.app",
   "http://localhost:5173",
   "https://hrms-ask.onrender.com",
+  "http://localhost:5000"
 ];
 
 app.use(

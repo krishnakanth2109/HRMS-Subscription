@@ -1,7 +1,5 @@
-// --- START OF FILE EmployeeManagement.jsx ---
-
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"; // ✅ useRef is added
 import { FaUser, FaEdit, FaTrash, FaRedo, FaDownload } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -12,7 +10,7 @@ import { getEmployees, deactivateEmployeeById, activateEmployeeById } from "../a
 const DEPARTMENT_COLORS = {
   HR: { bg: "bg-pink-100", text: "text-pink-700" },
   Engineering: { bg: "bg-blue-100", text: "text-blue-700" },
-  Sales: { bg: "bg-green-100", text: "text-green-700" },
+  Sales: { bg: "bg-green-100", text: "text-green-700" }, 
   Marketing: { bg: "bg-yellow-100", text: "text-yellow-700" },
   Finance: { bg: "bg-purple-100", text: "text-purple-700" },
   IT: { bg: "bg-blue-100", text: "text-blue-700" },
@@ -40,10 +38,26 @@ const downloadExcelReport = (data, filename) => {
 };
 
 
-// Employee Row Component
+// ✅ START: UPDATED EmployeeRow Component
 const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
   const isEven = idx % 2 === 0;
   const currentDepartment = getCurrentDepartment(emp);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Effect to close the dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   return (
     <tr className={`border-t transition duration-150 ${isEven ? "bg-gray-50" : "bg-white"} hover:bg-blue-50`}>
       <td className="p-4 font-mono font-semibold text-blue-700">{emp.employeeId}</td>
@@ -60,21 +74,56 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
       </td>
       <td className="p-4 text-gray-700">{emp.email}</td>
       <td className="p-4">
-        <div className="flex flex-row items-center gap-2">
-          <button onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="bg-gray-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 flex items-center gap-1 font-semibold shadow">
-            <FaUser /> Profile
+        <div className="relative" ref={menuRef}>
+          {/* Actions button to toggle the dropdown */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 flex items-center gap-2 font-semibold shadow"
+          >
+            Actions
+            <svg className={`w-4 h-4 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
           </button>
-          <button onClick={() => navigate(`/employees/edit/${emp.employeeId}`)} className="bg-gray-100 text-green-700 px-2 py-1 rounded hover:bg-green-100 flex items-center gap-1 font-semibold shadow">
-            <FaEdit /> Edit
-          </button>
-          <button onClick={() => onDeactivateClick(emp)} className="bg-gray-100 text-orange-700 px-2 py-1 rounded hover:bg-orange-100 flex items-center gap-1 font-semibold shadow">
-            <FaTrash /> Deactivate
-          </button>
+          
+          {/* Dropdown Menu */}
+          {isMenuOpen && (
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20 border">
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    navigate(`/employee/${emp.employeeId}/profile`);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-blue-700 hover:bg-blue-50 flex items-center gap-3"
+                >
+                  <FaUser /> Profile
+                </button>
+                <button
+                  onClick={() => {
+                    navigate(`/employees/edit/${emp.employeeId}`);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-3"
+                >
+                  <FaEdit /> Edit
+                </button>
+                <button
+                  onClick={() => {
+                    onDeactivateClick(emp);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center gap-3"
+                >
+                  <FaTrash /> Deactivate
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </td>
     </tr>
   );
 };
+// ✅ END: UPDATED EmployeeRow Component
 
 // Inactive Employee Row
 const InactiveEmployeeRow = ({ emp, navigate, onReactivate }) => {

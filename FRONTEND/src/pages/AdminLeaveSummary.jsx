@@ -4,7 +4,24 @@ import { saveAs } from "file-saver";
 import { getLeaveRequests, getEmployees } from "../api";
 import axios from "axios";
 
-// Helper functions for sandwich leave calculation
+// --- LEAVE YEAR CONFIGURATION ---
+const LEAVE_YEAR_START_MONTH = 11; // November
+
+// --- HELPER FUNCTIONS ---
+
+const getCurrentLeaveYear = () => {
+  const today = new Date();
+  const currentMonth = today.getMonth() + 1;
+  const currentYear = today.getFullYear();
+
+  let startYear = currentMonth < LEAVE_YEAR_START_MONTH ? currentYear - 1 : currentYear;
+
+  const startDate = new Date(startYear, LEAVE_YEAR_START_MONTH - 1, 1);
+  const endDate = new Date(startYear + 1, LEAVE_YEAR_START_MONTH - 1, 0);
+
+  return { startDate, endDate };
+};
+
 const addDays = (date, days) => {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
@@ -15,7 +32,6 @@ const formatDate = (date) => {
   return date.toISOString().split('T')[0];
 };
 
-// Helper function to get the current month in 'YYYY-MM' format
 const getCurrentMonth = () => {
   const now = new Date();
   const year = now.getFullYear();
@@ -52,18 +68,15 @@ const AdminLeaveSummary = () => {
   const [allRequests, setAllRequests] = useState([]);
   const [employeesMap, setEmployeesMap] = useState(new Map());
   const [holidays, setHolidays] = useState([]);
-  // Set the initial state of selectedMonth to the current month
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
-  // Modal states
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [employeeLeaveHistory, setEmployeeLeaveHistory] = useState([]);
 
-  // Fetch holidays
   const fetchHolidays = async () => {
     try {
       const res = await axios.get("http://localhost:5000/api/holidays");
@@ -73,7 +86,6 @@ const AdminLeaveSummary = () => {
     }
   };
 
-  // Fetch both leaves & employees
   useEffect(() => {
     const fetchAllData = async () => {
       try {
@@ -100,7 +112,6 @@ const AdminLeaveSummary = () => {
     fetchAllData();
   }, []);
 
-  // Attach employee names
   const enrichedRequests = useMemo(() => {
     return allRequests.map((req) => ({
       ...req,
@@ -108,7 +119,6 @@ const AdminLeaveSummary = () => {
     }));
   }, [allRequests, employeesMap]);
 
-  // Extract available months
   const allMonths = useMemo(() => {
     const months = new Set();
     enrichedRequests.forEach((req) => {
@@ -117,7 +127,6 @@ const AdminLeaveSummary = () => {
     return Array.from(months).sort().reverse();
   }, [enrichedRequests]);
 
-  // Calculate sandwich leaves for an employee
   const calculateEmployeeSandwichLeaves = (employeeLeaves, month) => {
     const approvedLeaves = employeeLeaves.filter(leave => 
       leave.status === 'Approved' && 
@@ -144,14 +153,11 @@ const AdminLeaveSummary = () => {
 
     const sandwichLeaves = new Map();
 
-    // Check for Holiday Sandwiches
     holidays.forEach(holiday => {
       const holidayDate = new Date(holiday.date);
       const holidayStr = formatDate(holidayDate);
       
-      if (month !== "All" && !isDateInMonth(holidayStr, month)) {
-        return;
-      }
+      if (month !== "All" && !isDateInMonth(holidayStr, month)) return;
 
       const dayBefore = addDays(holidayDate, -1);
       const dayAfter = addDays(holidayDate, 1);
@@ -164,22 +170,13 @@ const AdminLeaveSummary = () => {
       }
     });
 
-    // Check for Weekend Sandwiches
     approvedLeaveDates.forEach(dateStr => {
       const date = new Date(dateStr);
-      
-      if (month !== "All" && !isDateInMonth(dateStr, month)) {
-        return;
-      }
-
+      if (month !== "All" && !isDateInMonth(dateStr, month)) return;
       if (date.getDay() === 5) {
         const followingMonday = addDays(date, 3);
         const mondayStr = formatDate(followingMonday);
-        
-        if (month !== "All" && !isDateInMonth(mondayStr, month)) {
-          return;
-        }
-
+        if (month !== "All" && !isDateInMonth(mondayStr, month)) return;
         if (approvedLeaveDates.has(mondayStr)) {
           const key = `weekend-${dateStr}`;
           if (!sandwichLeaves.has(key)) {
@@ -195,7 +192,6 @@ const AdminLeaveSummary = () => {
     return { count, days };
   };
 
-  // Get sandwich leave reasons for specific dates
   const getSandwichLeaveReasons = (employeeId, leaveFrom, leaveTo) => {
     const reasons = [];
     const employeeLeaves = enrichedRequests.filter(req => 
@@ -215,7 +211,6 @@ const AdminLeaveSummary = () => {
     const leaveFromDate = new Date(leaveFrom);
     const leaveToDate = new Date(leaveTo);
     
-    // Check if this leave creates a holiday sandwich
     holidays.forEach(holiday => {
       const holidayDate = new Date(holiday.date);
       const holidayStr = formatDate(holidayDate);
@@ -233,7 +228,6 @@ const AdminLeaveSummary = () => {
       }
     });
 
-    // Check if this leave creates a weekend sandwich
     let currentDate = new Date(leaveFrom);
     const endDate = new Date(leaveTo);
     while (currentDate <= endDate) {
@@ -247,7 +241,6 @@ const AdminLeaveSummary = () => {
           reasons.push(`Weekend Sandwich: Leave on Friday (${dateStr}) with Monday (${followingMonday})`);
         }
       }
-      
       currentDate = addDays(currentDate, 1);
     }
 
@@ -257,14 +250,28 @@ const AdminLeaveSummary = () => {
   // Calculate employee statistics
   const employeeStats = useMemo(() => {
     const stats = new Map();
-
-    // Get unique employees
     const uniqueEmployees = Array.from(employeesMap.entries());
+    const today = new Date();
+    const { startDate, endDate } = getCurrentLeaveYear();
 
     uniqueEmployees.forEach(([empId, empName]) => {
       const employeeLeaves = enrichedRequests.filter(req => req.employeeId === empId);
       
-      // Filter by selected month
+      // --- Yearly Pending Leaves Calculation ---
+      const approvedLeavesThisYear = employeeLeaves.filter(leave => {
+          const leaveDate = new Date(leave.from);
+          return leave.status === 'Approved' && leaveDate >= startDate && leaveDate <= endDate;
+      });
+      const usedLeavesThisYear = approvedLeavesThisYear.length;
+
+      let monthsPassed = 0;
+      if (today >= startDate) {
+          monthsPassed = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth()) + 1;
+      }
+      const earnedLeavesThisYear = Math.max(0, monthsPassed);
+      const pendingLeaves = Math.max(0, earnedLeavesThisYear - usedLeavesThisYear);
+
+      // --- Monthly Stats Calculation ---
       const monthFilteredLeaves = employeeLeaves.filter(leave => 
         selectedMonth === "All" || 
         isDateInMonth(leave.from, selectedMonth) || 
@@ -273,13 +280,15 @@ const AdminLeaveSummary = () => {
 
       const approvedLeaves = monthFilteredLeaves.filter(leave => leave.status === 'Approved');
       const approvedCount = approvedLeaves.length;
-      const extraLeaves = approvedCount > 2 ? approvedCount - 2 : 0;
+      // CORRECTED LOGIC: Extra leaves are those beyond 1 in a month
+      const extraLeaves = approvedCount > 1 ? approvedCount - 1 : 0;
       
       const sandwichData = calculateEmployeeSandwichLeaves(employeeLeaves, selectedMonth);
 
       stats.set(empId, {
         employeeId: empId,
         employeeName: empName,
+        pendingLeaves: pendingLeaves, // NEW
         approvedLeaves: approvedCount,
         extraLeaves: extraLeaves,
         sandwichLeavesCount: sandwichData.count,
@@ -290,11 +299,9 @@ const AdminLeaveSummary = () => {
     return Array.from(stats.values());
   }, [enrichedRequests, employeesMap, selectedMonth, holidays]);
 
-  // Filter and search employees
   const filteredEmployeeStats = useMemo(() => {
     let filtered = [...employeeStats];
 
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(emp => 
@@ -303,7 +310,6 @@ const AdminLeaveSummary = () => {
       );
     }
 
-    // Sort
     if (sortConfig.key) {
       filtered.sort((a, b) => {
         const aVal = a[sortConfig.key];
@@ -324,17 +330,16 @@ const AdminLeaveSummary = () => {
     return filtered;
   }, [employeeStats, searchQuery, sortConfig]);
 
-  // Calculate totals
   const totals = useMemo(() => {
     return filteredEmployeeStats.reduce((acc, emp) => ({
+      pendingLeaves: acc.pendingLeaves + emp.pendingLeaves,
       approvedLeaves: acc.approvedLeaves + emp.approvedLeaves,
       extraLeaves: acc.extraLeaves + emp.extraLeaves,
       sandwichLeavesCount: acc.sandwichLeavesCount + emp.sandwichLeavesCount,
       sandwichLeavesDays: acc.sandwichLeavesDays + emp.sandwichLeavesDays,
-    }), { approvedLeaves: 0, extraLeaves: 0, sandwichLeavesCount: 0, sandwichLeavesDays: 0 });
+    }), { pendingLeaves: 0, approvedLeaves: 0, extraLeaves: 0, sandwichLeavesCount: 0, sandwichLeavesDays: 0 });
   }, [filteredEmployeeStats]);
 
-  // Sort handler
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -342,18 +347,16 @@ const AdminLeaveSummary = () => {
     }));
   };
 
-  // Export CSV
   const exportEmployeeStatsCSV = () => {
-    const headers = ["Employee ID", "Employee Name", "Approved Leaves", "Extra Leaves", "Sandwich Leaves", "Sandwich Days"];
+    const headers = ["Employee ID", "Employee Name", "Pending Leaves", "Approved Leaves", "Extra Leaves", "Sandwich Leaves", "Sandwich Days"];
     const rows = filteredEmployeeStats.map((emp) =>
-      [emp.employeeId, `"${emp.employeeName}"`, emp.approvedLeaves, emp.extraLeaves, emp.sandwichLeavesCount, emp.sandwichLeavesDays].join(",")
+      [emp.employeeId, `"${emp.employeeName}"`, emp.pendingLeaves, emp.approvedLeaves, emp.extraLeaves, emp.sandwichLeavesCount, emp.sandwichLeavesDays].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
     saveAs(new Blob([csv], { type: "text/csv;charset=utf-8;" }),
       `employee_leave_stats_${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
-  // View employee details
   const handleViewDetails = (employeeId) => {
     const employeeLeaves = enrichedRequests.filter(req => 
       req.employeeId === employeeId &&
@@ -362,12 +365,10 @@ const AdminLeaveSummary = () => {
        isDateInMonth(req.to, selectedMonth))
     );
 
-    // Sort by request date (newest first)
     const sortedLeaves = employeeLeaves.sort((a, b) => 
       new Date(b.requestDate || b.from) - new Date(a.requestDate || a.from)
     );
 
-    // Add sandwich leave reasons to each leave
     const leavesWithReasons = sortedLeaves.map(leave => ({
       ...leave,
       sandwichReasons: getSandwichLeaveReasons(employeeId, leave.from, leave.to)
@@ -392,7 +393,6 @@ const AdminLeaveSummary = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -420,21 +420,32 @@ const AdminLeaveSummary = () => {
           </div>
         </motion.div>
 
-        {/* Summary Cards */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+          className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8"
         >
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-gray-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600 text-sm font-semibold">Total Employees</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{filteredEmployeeStats.length}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
                 <span className="text-2xl">👥</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-semibold">Total Pending</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{totals.pendingLeaves}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">📥</span>
               </div>
             </div>
           </div>
@@ -477,7 +488,6 @@ const AdminLeaveSummary = () => {
           </div>
         </motion.div>
 
-        {/* Filters */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -537,7 +547,6 @@ const AdminLeaveSummary = () => {
           )}
         </motion.div>
 
-        {/* Employee Statistics Table */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -555,144 +564,62 @@ const AdminLeaveSummary = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th 
-                    onClick={() => handleSort('employeeId')}
-                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center gap-2">
-                      Employee ID
-                      {sortConfig.key === 'employeeId' && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
+                  <th onClick={() => handleSort('employeeId')} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-2">Employee ID{sortConfig.key === 'employeeId' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th 
-                    onClick={() => handleSort('employeeName')}
-                    className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center gap-2">
-                      Employee Name
-                      {sortConfig.key === 'employeeName' && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
+                  <th onClick={() => handleSort('employeeName')} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center gap-2">Employee Name{sortConfig.key === 'employeeName' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th 
-                    onClick={() => handleSort('approvedLeaves')}
-                    className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      Approved Leaves
-                      {sortConfig.key === 'approvedLeaves' && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
+                  <th onClick={() => handleSort('pendingLeaves')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-center gap-2">Pending Leaves{sortConfig.key === 'pendingLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th 
-                    onClick={() => handleSort('extraLeaves')}
-                    className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      Extra Leaves
-                      {sortConfig.key === 'extraLeaves' && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
+                  <th onClick={() => handleSort('approvedLeaves')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-center gap-2">Approved Leaves{sortConfig.key === 'approvedLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th 
-                    onClick={() => handleSort('sandwichLeavesCount')}
-                    className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      Sandwich Leaves
-                      {sortConfig.key === 'sandwichLeavesCount' && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
+                  <th onClick={() => handleSort('extraLeaves')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-center gap-2">LOP{sortConfig.key === 'extraLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th 
-                    onClick={() => handleSort('sandwichLeavesDays')}
-                    className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      Sandwich Days
-                      {sortConfig.key === 'sandwichLeavesDays' && (
-                        <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </div>
+                  <th onClick={() => handleSort('sandwichLeavesCount')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-center gap-2">Sandwich Leaves{sortConfig.key === 'sandwichLeavesCount' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Actions
+                  <th onClick={() => handleSort('sandwichLeavesDays')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-center gap-2">Sandwich Days{sortConfig.key === 'sandwichLeavesDays' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
+                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 <AnimatePresence>
                   {filteredEmployeeStats.length > 0 ? (
                     filteredEmployeeStats.map((emp, index) => (
-                      <motion.tr
-                        key={emp.employeeId}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ delay: index * 0.02 }}
-                        className="hover:bg-blue-50 transition duration-150"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-bold text-gray-900">{emp.employeeId}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">{emp.employeeName}</div>
+                      <motion.tr key={emp.employeeId} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ delay: index * 0.02 }} className="hover:bg-blue-50 transition duration-150">
+                        <td className="px-6 py-4"><div className="text-sm font-bold text-gray-900">{emp.employeeId}</div></td>
+                        <td className="px-6 py-4"><div className="text-sm font-medium text-gray-900">{emp.employeeName}</div></td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full bg-blue-100 text-blue-800 font-bold text-sm shadow-sm">{emp.pendingLeaves}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full bg-green-100 text-green-800 font-bold text-sm shadow-sm">
-                            {emp.approvedLeaves}
-                          </span>
+                          <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full bg-green-100 text-green-800 font-bold text-sm shadow-sm">{emp.approvedLeaves}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${
-                            emp.extraLeaves > 0 
-                              ? 'bg-orange-100 text-orange-800' 
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {emp.extraLeaves}
-                          </span>
+                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${emp.extraLeaves > 0 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>{emp.extraLeaves}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${
-                            emp.sandwichLeavesCount > 0 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {emp.sandwichLeavesCount}
-                          </span>
+                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${emp.sandwichLeavesCount > 0 ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>{emp.sandwichLeavesCount}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${
-                            emp.sandwichLeavesDays > 0 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {emp.sandwichLeavesDays}
-                          </span>
+                          <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${emp.sandwichLeavesDays > 0 ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>{emp.sandwichLeavesDays}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <button
-                            onClick={() => handleViewDetails(emp.employeeId)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-200 text-sm"
-                          >
-                            View Details
-                          </button>
+                          <button onClick={() => handleViewDetails(emp.employeeId)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition duration-200 text-sm">View Details</button>
                         </td>
                       </motion.tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center">
+                      <td colSpan={8} className="px-6 py-12 text-center">
                         <div className="text-gray-500">
-                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="text-2xl">🔍</span>
-                          </div>
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl">🔍</span></div>
                           <p className="text-lg font-semibold mb-2">No employees found</p>
                           <p className="text-sm">Try adjusting your search or filter criteria</p>
                         </div>
@@ -704,68 +631,44 @@ const AdminLeaveSummary = () => {
             </table>
           </div>
 
-          {/* Legend */}
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
             <h4 className="text-sm font-semibold text-gray-700 mb-3">📋 Legend:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-gray-600">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs text-gray-600">
+              <div className="flex items-center">
+                <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                <span><strong>Pending Leaves:</strong> Remaining leaves for the year (Nov-Oct)</span>
+              </div>
               <div className="flex items-center">
                 <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                <span><strong>Approved Leaves:</strong> Total approved leaves in selected period</span>
+                <span><strong>Approved Leaves:</strong> Total approved in selected period</span>
               </div>
               <div className="flex items-center">
                 <span className="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
-                <span><strong>Extra Leaves:</strong> Leaves exceeding 2 per month limit</span>
-              </div>
-              <div className="flex items-center">
-                <span className="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
-                <span><strong>Sandwich Leaves:</strong> Number of sandwich leave patterns</span>
-              </div>
-              <div className="flex items-center">
-                <span className="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
-                <span><strong>Sandwich Days:</strong> Total days counted as sandwich leaves</span>
+                <span><strong>Extra Leaves:</strong> Leaves exceeding 1 per month</span>
               </div>
             </div>
           </div>
         </motion.div>
 
-        {/* Employee Leave History Modal */}
         <AnimatePresence>
           {showDetailsModal && selectedEmployee && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-              onClick={() => setShowDetailsModal(false)}
-            >
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Modal Header */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setShowDetailsModal(false)}>
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
                   <div className="flex items-center justify-between">
                     <div className="text-white">
                       <h3 className="text-2xl font-bold">Leave History</h3>
-                      <p className="text-blue-100 text-sm mt-1">
-                        {selectedEmployee.employeeName} ({selectedEmployee.employeeId})
-                      </p>
+                      <p className="text-blue-100 text-sm mt-1">{selectedEmployee.employeeName} ({selectedEmployee.employeeId})</p>
                     </div>
-                    <button
-                      onClick={() => setShowDetailsModal(false)}
-                      className="text-white hover:text-gray-200 text-3xl font-bold transition"
-                    >
-                      ×
-                    </button>
+                    <button onClick={() => setShowDetailsModal(false)} className="text-white hover:text-gray-200 text-3xl font-bold transition">×</button>
                   </div>
                 </div>
-
-                {/* Stats Summary */}
                 <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-5 gap-4">
+                     <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">{selectedEmployee.pendingLeaves}</p>
+                      <p className="text-xs text-gray-600">Pending</p>
+                    </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-green-600">{selectedEmployee.approvedLeaves}</p>
                       <p className="text-xs text-gray-600">Approved</p>
@@ -785,74 +688,32 @@ const AdminLeaveSummary = () => {
                   </div>
                 </div>
 
-                {/* Leave History Table */}
                 <div className="overflow-y-auto max-h-[60vh] p-6">
                   {employeeLeaveHistory.length > 0 ? (
                     <div className="space-y-4">
                       {employeeLeaveHistory.map((leave, index) => (
-                        <motion.div
-                          key={leave._id || index}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                          className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition duration-200"
-                        >
+                        <motion.div key={leave._id || index} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition duration-200">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <span className="text-lg font-bold text-gray-900">
-                                  {formatDisplayDate(leave.from)}
-                                  <span className="mx-2 text-gray-400">→</span>
-                                  {formatDisplayDate(leave.to)}
-                                </span>
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  leave.status === "Approved"
-                                    ? "bg-green-100 text-green-800"
-                                    : leave.status === "Rejected"
-                                    ? "bg-red-100 text-red-800"
-                                    : leave.status === "Pending"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}>
-                                  {leave.status}
-                                </span>
+                                <span className="text-lg font-bold text-gray-900">{formatDisplayDate(leave.from)}<span className="mx-2 text-gray-400">→</span>{formatDisplayDate(leave.to)}</span>
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${leave.status === "Approved" ? "bg-green-100 text-green-800" : leave.status === "Rejected" ? "bg-red-100 text-red-800" : leave.status === "Pending" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800"}`}>{leave.status}</span>
                               </div>
-
                               <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                  <p className="text-gray-600 font-semibold">Leave Type:</p>
-                                  <p className="text-gray-900">{leave.leaveType || "-"}</p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-600 font-semibold">Applied Date:</p>
-                                  <p className="text-gray-900">{formatDisplayDate(leave.requestDate || leave.createdAt)}</p>
-                                </div>
-                                <div className="col-span-2">
-                                  <p className="text-gray-600 font-semibold">Reason:</p>
-                                  <p className="text-gray-900">{leave.reason || "-"}</p>
-                                </div>
-                                {leave.halfDaySession && (
-                                  <div className="col-span-2">
-                                    <p className="text-gray-600 font-semibold">Half Day Session:</p>
-                                    <p className="text-gray-900">{leave.halfDaySession}</p>
-                                  </div>
-                                )}
+                                <div><p className="text-gray-600 font-semibold">Leave Type:</p><p className="text-gray-900">{leave.leaveType || "-"}</p></div>
+                                <div><p className="text-gray-600 font-semibold">Applied Date:</p><p className="text-gray-900">{formatDisplayDate(leave.requestDate || leave.createdAt)}</p></div>
+                                <div className="col-span-2"><p className="text-gray-600 font-semibold">Reason:</p><p className="text-gray-900">{leave.reason || "-"}</p></div>
+                                {leave.halfDaySession && (<div className="col-span-2"><p className="text-gray-600 font-semibold">Half Day Session:</p><p className="text-gray-900">{leave.halfDaySession}</p></div>)}
                               </div>
                             </div>
                           </div>
-
-                          {/* Sandwich Leave Warning */}
                           {leave.sandwichReasons && leave.sandwichReasons.length > 0 && (
                             <div className="mt-4 bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
                               <div className="flex items-start">
                                 <span className="text-orange-600 text-xl mr-2">🥪</span>
                                 <div className="flex-1">
                                   <p className="font-semibold text-orange-800 mb-2">Sandwich Leave Detected</p>
-                                  {leave.sandwichReasons.map((reason, idx) => (
-                                    <p key={idx} className="text-sm text-orange-700 mb-1">
-                                      • {reason}
-                                    </p>
-                                  ))}
+                                  {leave.sandwichReasons.map((reason, idx) => (<p key={idx} className="text-sm text-orange-700 mb-1">• {reason}</p>))}
                                 </div>
                               </div>
                             </div>
@@ -862,23 +723,14 @@ const AdminLeaveSummary = () => {
                     </div>
                   ) : (
                     <div className="text-center py-12 text-gray-500">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl">📭</span>
-                      </div>
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl">📭</span></div>
                       <p className="text-lg font-semibold mb-2">No leave history found</p>
                       <p className="text-sm">This employee has no leave records for the selected period</p>
                     </div>
                   )}
                 </div>
-
-                {/* Modal Footer */}
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end">
-                  <button
-                    onClick={() => setShowDetailsModal(false)}
-                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-2 rounded-lg transition duration-200"
-                  >
-                    Close
-                  </button>
+                  <button onClick={() => setShowDetailsModal(false)} className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-2 rounded-lg transition duration-200">Close</button>
                 </div>
               </motion.div>
             </motion.div>

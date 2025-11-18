@@ -92,7 +92,7 @@ const Login = () => {
         >
           <motion.div variants={fadeIn} className="flex flex-col items-center mb-6">
             <motion.img src={logo} alt="Company Logo" className="h-16 w-16 mb-2 drop-shadow-lg" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 260, damping: 20 }} />
-            <h2 className="text-3xl font-extrabold text-blue-700 mb-1 drop-shadow">Welcome to V-Sync</h2>
+            <h2 className="text-3xl font-extrabold text-blue-700 mb-1 drop-shadow">Welcome to Vagarious-Arah info tech</h2>
             <p className="text-sm text-gray-500">Please login to continue</p>
           </motion.div>
 
