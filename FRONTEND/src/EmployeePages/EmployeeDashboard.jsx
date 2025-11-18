@@ -20,6 +20,8 @@ import {
   FaChartPie,
   FaCamera,
   FaMapMarkerAlt,
+  FaEdit,
+  FaTrash,
 } from "react-icons/fa";
 import {
   getAttendanceForEmployee,
@@ -27,8 +29,10 @@ import {
   punchOut,
   uploadProfilePic,
   getProfilePic,
+  deleteProfilePic,
 } from "../api";
 import { useNavigate } from "react-router-dom";
+import ImageCropModal from "./ImageCropModal";
 
 ChartJS.register(
   CategoryScale,
@@ -50,9 +54,12 @@ const EmployeeDashboard = () => {
     sessionStorage.getItem("profileImage") || null
   );
   const [uploadingImage, setUploadingImage] = useState(false);
-  // State to manage the detailed status of the punch action
-  const [punchStatus, setPunchStatus] = useState("IDLE"); // 'IDLE', 'FETCHING', 'PUNCHING'
+  const [punchStatus, setPunchStatus] = useState("IDLE");
   const navigate = useNavigate();
+
+  // Crop modal states
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState(null);
 
   // State for the frontend timer
   const [workedTime, setWorkedTime] = useState(0);
@@ -194,13 +201,12 @@ const EmployeeDashboard = () => {
   const handlePunch = async (action) => {
     if (!user) return;
     
-    setPunchStatus("FETCHING"); // Step 1: UI shows location fetching
+    setPunchStatus("FETCHING");
     
     try {
-      // Get current location
       const location = await getCurrentLocation();
       
-      setPunchStatus("PUNCHING"); // Step 2: UI shows punching in/out
+      setPunchStatus("PUNCHING");
       
       if (action === "IN") {
         await punchIn({
@@ -231,12 +237,12 @@ const EmployeeDashboard = () => {
         alert("Failed to record attendance. Please try again.");
       }
     } finally {
-      setPunchStatus("IDLE"); // Step 3: Reset UI to default state
+      setPunchStatus("IDLE");
     }
   };
 
-  // --- Upload New Profile Picture ---
-  const handleImageUpload = async (e) => {
+  // --- Handle Image Selection (opens crop modal) ---
+  const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
 
@@ -250,8 +256,21 @@ const EmployeeDashboard = () => {
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageToCrop(reader.result);
+      setShowCropModal(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // --- Handle Cropped Image Upload ---
+  const handleCropComplete = async (croppedBlob) => {
+    if (!user) return;
+
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", croppedBlob, "profile.jpg");
     formData.append("employeeId", user.employeeId);
     formData.append("name", user.name);
     formData.append("email", user.email);
@@ -265,6 +284,8 @@ const EmployeeDashboard = () => {
         sessionStorage.setItem("profileImage", res.profilePhoto.url);
         speak("Profile picture updated successfully");
         alert("Profile picture updated successfully!");
+        setShowCropModal(false);
+        setImageToCrop(null);
       } else {
         alert("Upload succeeded but response format was unexpected");
       }
@@ -274,7 +295,25 @@ const EmployeeDashboard = () => {
       speak("Profile picture update failed");
     } finally {
       setUploadingImage(false);
-      e.target.value = "";
+    }
+  };
+
+  // --- Delete Profile Picture ---
+  const handleDeleteProfilePic = async () => {
+    if (!window.confirm("Are you sure you want to delete your profile picture?")) {
+      return;
+    }
+
+    try {
+      await deleteProfilePic();
+      setProfileImage(null);
+      sessionStorage.removeItem("profileImage");
+      speak("Profile picture deleted successfully");
+      alert("Profile picture deleted successfully!");
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || "Failed to delete profile picture.";
+      alert(errorMessage);
+      speak("Profile picture deletion failed");
     }
   };
 
@@ -331,7 +370,6 @@ const EmployeeDashboard = () => {
     return action === 'IN' ? 'Punch In' : 'Punch Out';
   };
 
-
   return (
     <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
       {/* Profile Section */}
@@ -342,19 +380,30 @@ const EmployeeDashboard = () => {
             src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
             className="w-28 h-28 rounded-full border-4 border-white shadow object-cover"
           />
-          <label
-            htmlFor="profile-upload"
-            className={`absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${uploadingImage ? "opacity-50 cursor-not-allowed" : ""}`}
-            title="Upload Profile Picture"
-          >
-            {uploadingImage ? <div className="animate-spin">⏳</div> : <FaCamera size={16} />}
-          </label>
+          <div className="absolute bottom-1 right-1 flex gap-1">
+            <label
+              htmlFor="profile-upload"
+              className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${uploadingImage ? "opacity-50 cursor-not-allowed" : ""}`}
+              title={profileImage ? "Change Profile Picture" : "Upload Profile Picture"}
+            >
+              {uploadingImage ? <div className="animate-spin">⏳</div> : profileImage ? <FaEdit size={14} /> : <FaCamera size={14} />}
+            </label>
+            {profileImage && (
+              <button
+                onClick={handleDeleteProfilePic}
+                className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition-colors"
+                title="Delete Profile Picture"
+              >
+                <FaTrash size={14} />
+              </button>
+            )}
+          </div>
           <input
             id="profile-upload"
             type="file"
             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
             className="hidden"
-            onChange={handleImageUpload}
+            onChange={handleImageSelect}
             disabled={uploadingImage}
           />
         </div>
@@ -366,8 +415,6 @@ const EmployeeDashboard = () => {
             <div><b>ID:</b> {employeeId}</div>
             <div><b>Email:</b> {email}</div>
             <div><b>Phone:</b> {phone || "N/A"}</div>
-
-            {/* Department & Role */}
             <div><b>Department:</b> {department}</div>
             <div><b>Role:</b> {role}</div>
           </div>
@@ -510,6 +557,19 @@ const EmployeeDashboard = () => {
           <p className="text-gray-500">No Notices</p>
         )}
       </div>
+
+      {/* Crop Modal */}
+      {showCropModal && imageToCrop && (
+        <ImageCropModal
+          imageSrc={imageToCrop}
+          onCropComplete={handleCropComplete}
+          onCancel={() => {
+            setShowCropModal(false);
+            setImageToCrop(null);
+          }}
+          isUploading={uploadingImage}
+        />
+      )}
     </div>
   );
 };
