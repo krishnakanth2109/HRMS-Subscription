@@ -9,6 +9,19 @@ const LEAVE_YEAR_START_MONTH = 11; // November
 
 // --- HELPER FUNCTIONS ---
 
+// Calculates the number of days between two dates, inclusive
+const calculateLeaveDays = (from, to) => {
+  if (!from || !to) return 0;
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+  // Normalize to UTC midnight to avoid timezone issues in day calculation
+  fromDate.setUTCHours(0, 0, 0, 0);
+  toDate.setUTCHours(0, 0, 0, 0);
+  const diffTime = Math.abs(toDate - fromDate);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return diffDays;
+};
+
 const getCurrentLeaveYear = () => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
@@ -133,7 +146,7 @@ const AdminLeaveSummary = () => {
       (month === "All" || isDateInMonth(leave.from, month) || isDateInMonth(leave.to, month))
     );
     
-    if (approvedLeaves.length < 2 && holidays.length === 0) {
+    if (approvedLeaves.length === 0 && holidays.length === 0) {
       return { count: 0, days: 0 };
     }
 
@@ -173,10 +186,12 @@ const AdminLeaveSummary = () => {
     approvedLeaveDates.forEach(dateStr => {
       const date = new Date(dateStr);
       if (month !== "All" && !isDateInMonth(dateStr, month)) return;
-      if (date.getDay() === 5) {
-        const followingMonday = addDays(date, 3);
+
+      if (date.getDay() === 6) { // Saturday
+        const followingMonday = addDays(date, 2);
         const mondayStr = formatDate(followingMonday);
         if (month !== "All" && !isDateInMonth(mondayStr, month)) return;
+
         if (approvedLeaveDates.has(mondayStr)) {
           const key = `weekend-${dateStr}`;
           if (!sandwichLeaves.has(key)) {
@@ -234,11 +249,11 @@ const AdminLeaveSummary = () => {
       const dateStr = formatDate(currentDate);
       const dayOfWeek = currentDate.getDay();
       
-      if (dayOfWeek === 5) { // Friday
-        const followingMonday = formatDate(addDays(currentDate, 3));
+      if (dayOfWeek === 6) { // Saturday
+        const followingMonday = formatDate(addDays(currentDate, 2));
         if (approvedLeaveDates.has(followingMonday) || 
             (new Date(followingMonday) >= leaveFromDate && new Date(followingMonday) <= leaveToDate)) {
-          reasons.push(`Weekend Sandwich: Leave on Friday (${dateStr}) with Monday (${followingMonday})`);
+          reasons.push(`Weekend Sandwich: Leave on Saturday (${dateStr}) with Monday (${followingMonday})`);
         }
       }
       currentDate = addDays(currentDate, 1);
@@ -262,14 +277,14 @@ const AdminLeaveSummary = () => {
           const leaveDate = new Date(leave.from);
           return leave.status === 'Approved' && leaveDate >= startDate && leaveDate <= endDate;
       });
-      const usedLeavesThisYear = approvedLeavesThisYear.length;
+      const usedLeavesDaysThisYear = approvedLeavesThisYear.reduce((total, leave) => total + calculateLeaveDays(leave.from, leave.to), 0);
 
       let monthsPassed = 0;
       if (today >= startDate) {
           monthsPassed = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth()) + 1;
       }
       const earnedLeavesThisYear = Math.max(0, monthsPassed);
-      const pendingLeaves = Math.max(0, earnedLeavesThisYear - usedLeavesThisYear);
+      const pendingLeaves = Math.max(0, earnedLeavesThisYear - usedLeavesDaysThisYear);
 
       // --- Monthly Stats Calculation ---
       const monthFilteredLeaves = employeeLeaves.filter(leave => 
@@ -279,17 +294,22 @@ const AdminLeaveSummary = () => {
       );
 
       const approvedLeaves = monthFilteredLeaves.filter(leave => leave.status === 'Approved');
-      const approvedCount = approvedLeaves.length;
-      // CORRECTED LOGIC: Extra leaves are those beyond 1 in a month
-      const extraLeaves = approvedCount > 1 ? approvedCount - 1 : 0;
+      
+      // Calculate total approved *days*
+      const totalLeaveDays = approvedLeaves.reduce((total, leave) => {
+        return total + calculateLeaveDays(leave.from, leave.to);
+      }, 0);
+
+      // Extra leaves are days beyond 1 in a month
+      const extraLeaves = Math.max(0, totalLeaveDays - 1);
       
       const sandwichData = calculateEmployeeSandwichLeaves(employeeLeaves, selectedMonth);
 
       stats.set(empId, {
         employeeId: empId,
         employeeName: empName,
-        pendingLeaves: pendingLeaves, // NEW
-        approvedLeaves: approvedCount,
+        pendingLeaves: pendingLeaves,
+        totalLeaveDays: totalLeaveDays,
         extraLeaves: extraLeaves,
         sandwichLeavesCount: sandwichData.count,
         sandwichLeavesDays: sandwichData.days
@@ -333,11 +353,11 @@ const AdminLeaveSummary = () => {
   const totals = useMemo(() => {
     return filteredEmployeeStats.reduce((acc, emp) => ({
       pendingLeaves: acc.pendingLeaves + emp.pendingLeaves,
-      approvedLeaves: acc.approvedLeaves + emp.approvedLeaves,
+      totalLeaveDays: acc.totalLeaveDays + emp.totalLeaveDays,
       extraLeaves: acc.extraLeaves + emp.extraLeaves,
       sandwichLeavesCount: acc.sandwichLeavesCount + emp.sandwichLeavesCount,
       sandwichLeavesDays: acc.sandwichLeavesDays + emp.sandwichLeavesDays,
-    }), { pendingLeaves: 0, approvedLeaves: 0, extraLeaves: 0, sandwichLeavesCount: 0, sandwichLeavesDays: 0 });
+    }), { pendingLeaves: 0, totalLeaveDays: 0, extraLeaves: 0, sandwichLeavesCount: 0, sandwichLeavesDays: 0 });
   }, [filteredEmployeeStats]);
 
   const handleSort = (key) => {
@@ -348,9 +368,9 @@ const AdminLeaveSummary = () => {
   };
 
   const exportEmployeeStatsCSV = () => {
-    const headers = ["Employee ID", "Employee Name", "Pending Leaves", "Approved Leaves", "Extra Leaves", "Sandwich Leaves", "Sandwich Days"];
+    const headers = ["Employee ID", "Employee Name", "Pending Leaves", "Total Leave Days", "Extra Leaves (LOP)", "Sandwich Leaves", "Sandwich Days"];
     const rows = filteredEmployeeStats.map((emp) =>
-      [emp.employeeId, `"${emp.employeeName}"`, emp.pendingLeaves, emp.approvedLeaves, emp.extraLeaves, emp.sandwichLeavesCount, emp.sandwichLeavesDays].join(",")
+      [emp.employeeId, `"${emp.employeeName}"`, emp.pendingLeaves, emp.totalLeaveDays, emp.extraLeaves, emp.sandwichLeavesCount, emp.sandwichLeavesDays].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
     saveAs(new Blob([csv], { type: "text/csv;charset=utf-8;" }),
@@ -420,73 +440,7 @@ const AdminLeaveSummary = () => {
           </div>
         </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8"
-        >
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-gray-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Total Employees</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{filteredEmployeeStats.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                <span className="text-2xl">👥</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Total Pending</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totals.pendingLeaves}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-2xl">📥</span>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Total Approved</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totals.approvedLeaves}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-2xl">✅</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Total Extra</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totals.extraLeaves}</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-2xl">⚠️</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Sandwich Leaves</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totals.sandwichLeavesCount}</p>
-                <p className="text-xs text-gray-500 mt-1">{totals.sandwichLeavesDays} days</p>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-2xl">🥪</span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -573,11 +527,11 @@ const AdminLeaveSummary = () => {
                   <th onClick={() => handleSort('pendingLeaves')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
                     <div className="flex items-center justify-center gap-2">Pending Leaves{sortConfig.key === 'pendingLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
-                  <th onClick={() => handleSort('approvedLeaves')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
-                    <div className="flex items-center justify-center gap-2">Approved Leaves{sortConfig.key === 'approvedLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
+                  <th onClick={() => handleSort('totalLeaveDays')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
+                    <div className="flex items-center justify-center gap-2">Total Leave Days{sortConfig.key === 'totalLeaveDays' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
                   <th onClick={() => handleSort('extraLeaves')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
-                    <div className="flex items-center justify-center gap-2">LOP{sortConfig.key === 'extraLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
+                    <div className="flex items-center justify-center gap-2">Extra Leaves (LOP){sortConfig.key === 'extraLeaves' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
                   </th>
                   <th onClick={() => handleSort('sandwichLeavesCount')} className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition">
                     <div className="flex items-center justify-center gap-2">Sandwich Leaves{sortConfig.key === 'sandwichLeavesCount' && <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}</div>
@@ -599,7 +553,7 @@ const AdminLeaveSummary = () => {
                           <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full bg-blue-100 text-blue-800 font-bold text-sm shadow-sm">{emp.pendingLeaves}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full bg-green-100 text-green-800 font-bold text-sm shadow-sm">{emp.approvedLeaves}</span>
+                          <span className="inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full bg-green-100 text-green-800 font-bold text-sm shadow-sm">{emp.totalLeaveDays}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`inline-flex items-center justify-center min-w-[3rem] px-3 py-2 rounded-full font-bold text-sm shadow-sm ${emp.extraLeaves > 0 ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>{emp.extraLeaves}</span>
@@ -640,11 +594,11 @@ const AdminLeaveSummary = () => {
               </div>
               <div className="flex items-center">
                 <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                <span><strong>Approved Leaves:</strong> Total approved in selected period</span>
+                <span><strong>Total Leave Days:</strong> Approved leave days in selected period</span>
               </div>
               <div className="flex items-center">
                 <span className="w-3 h-3 bg-orange-500 rounded-full mr-2"></span>
-                <span><strong>Extra Leaves:</strong> Leaves exceeding 1 per month</span>
+                <span><strong>Extra Leaves (LOP):</strong> Days exceeding 1 per month</span>
               </div>
             </div>
           </div>
@@ -670,12 +624,12 @@ const AdminLeaveSummary = () => {
                       <p className="text-xs text-gray-600">Pending</p>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-green-600">{selectedEmployee.approvedLeaves}</p>
-                      <p className="text-xs text-gray-600">Approved</p>
+                      <p className="text-2xl font-bold text-green-600">{selectedEmployee.totalLeaveDays}</p>
+                      <p className="text-xs text-gray-600">Total Days</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-orange-600">{selectedEmployee.extraLeaves}</p>
-                      <p className="text-xs text-gray-600">Extra</p>
+                      <p className="text-xs text-gray-600">Extra (LOP)</p>
                     </div>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-purple-600">{selectedEmployee.sandwichLeavesCount}</p>
