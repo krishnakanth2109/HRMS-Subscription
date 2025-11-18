@@ -1,4 +1,3 @@
-// --- START OF FILE LeaveWithModal.jsx ---
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -6,7 +5,7 @@ import {
   applyForLeave,
   cancelLeaveRequestById,
 } from "../api";
-
+import axios from "axios";
 
 const REASON_LIMIT = 50;
 
@@ -39,9 +38,29 @@ const monthOptionsForPast = (n = 12) => {
   return out;
 };
 
+// --- HELPER FUNCTIONS FOR SANDWICH LEAVE CALCULATION ---
+const addDays = (date, days) => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
+const formatDate = (date) => {
+  return date.toISOString().split('T')[0];
+};
+
+const isDateInMonth = (dateStr, monthFilter) => {
+  if (!dateStr || !monthFilter) return false;
+  const date = new Date(dateStr);
+  const [year, month] = monthFilter.split('-');
+  return date.getFullYear() === parseInt(year) && 
+         (date.getMonth() + 1) === parseInt(month);
+};
+
 const LeaveWithModal = () => {
-  // logged user from sessionStorage
   const [user, setUser] = useState(null);
+  const [holidays, setHolidays] = useState([]);
+  const [sandwichLeaves, setSandwichLeaves] = useState([]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("hrmsUser") || localStorage.getItem("hrmsUser");
@@ -74,11 +93,81 @@ const LeaveWithModal = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+  
+  // NEW: Sandwich leave warning state
+  const [sandwichWarning, setSandwichWarning] = useState(null);
+  const [showSandwichAlert, setShowSandwichAlert] = useState(false);
 
   // expanded row
   const [expandedId, setExpandedId] = useState(null);
 
-  // Fetch leaves (tries centralized API first, fallback to fetch with query params)
+  // Stats states
+  const [stats, setStats] = useState({
+    approvedLeaves: 0,
+    extraLeaves: 0,
+    sandwichLeavesCount: 0,
+    sandwichDaysCount: 0
+  });
+
+  // Filtered leave list based on selected month and status
+  const filteredLeaveList = useMemo(() => {
+    return leaveList.filter(leave => {
+      // Filter by month
+      const matchesMonth = selectedMonth === "all" || 
+        isDateInMonth(leave.from, selectedMonth) || 
+        isDateInMonth(leave.to, selectedMonth);
+      
+      // Filter by status
+      const matchesStatus = selectedStatus === "All" || leave.status === selectedStatus;
+      
+      return matchesMonth && matchesStatus;
+    });
+  }, [leaveList, selectedMonth, selectedStatus]);
+
+  // Calculate stats based on filtered leaves and selected month
+  useEffect(() => {
+    if (!filteredLeaveList.length) {
+      setStats({
+        approvedLeaves: 0,
+        extraLeaves: 0,
+        sandwichLeavesCount: 0,
+        sandwichDaysCount: 0
+      });
+      return;
+    }
+
+    const approvedLeaves = filteredLeaveList.filter(leave => 
+      leave.status === 'Approved'
+    ).length;
+
+    const extraLeaves = approvedLeaves > 2 ? approvedLeaves - 2 : 0;
+
+    // Calculate sandwich leaves count and days for the selected month
+    const sandwichCount = sandwichLeaves.length;
+    const sandwichDays = sandwichLeaves.reduce((total, leave) => {
+      // Simple estimation - each sandwich leave typically counts as 2 days of leave
+      return total + 2;
+    }, 0);
+
+    setStats({
+      approvedLeaves,
+      extraLeaves,
+      sandwichLeavesCount: sandwichCount,
+      sandwichDaysCount: sandwichDays
+    });
+  }, [filteredLeaveList, selectedMonth, sandwichLeaves]);
+
+  // Fetch holidays from the backend API
+  const fetchHolidays = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/holidays");
+      setHolidays(res.data);
+    } catch (err) {
+      console.error("Error fetching holidays:", err);
+    }
+  };
+
+  // Fetch leaves
   const fetchLeaves = useCallback(async () => {
     if (!user?.employeeId) {
       setLeaveList([]);
@@ -88,10 +177,8 @@ const LeaveWithModal = () => {
     setLoading(true);
     setError("");
     try {
-      // Try centralized API (some projects extend it to accept filters)
       if (typeof getLeaveRequestsForEmployee === "function") {
         try {
-          // attempt with filters if supported
           const maybeResult = await getLeaveRequestsForEmployee(user.employeeId, {
             month: selectedMonth,
             status: selectedStatus === "All" ? undefined : selectedStatus,
@@ -100,14 +187,11 @@ const LeaveWithModal = () => {
             setLeaveList(maybeResult);
             return;
           }
-          // else fall through to fetch
-        } catch (err) {
-          // continue to fallback fetch
-          // console.warn("centralized API failed, falling back to fetch", err);
-        }
+        } catch (err) {}
       }
 
-      // Fallback to fetch /leaves?employeeId=...&month=...&status=...
+      // Fallback implementation
+      const API_BASE = "http://localhost:5000/api/leaves";
       const url = new URL(API_BASE, window.location.origin);
       url.searchParams.set("employeeId", user.employeeId);
       if (selectedMonth) url.searchParams.set("month", selectedMonth);
@@ -118,7 +202,6 @@ const LeaveWithModal = () => {
         throw new Error("Failed to fetch leave list");
       }
       const data = await res.json();
-      // Normalize to expected shape (best-effort)
       const normalized = (data || []).map((d) => ({
         _id: d._id || d.id,
         from: d.from,
@@ -142,21 +225,194 @@ const LeaveWithModal = () => {
   }, [user?.employeeId, selectedMonth, selectedStatus]);
 
   useEffect(() => {
-    if (user) fetchLeaves();
+    if (user) {
+      fetchLeaves();
+      fetchHolidays();
+    }
   }, [user, fetchLeaves]);
 
-  // handle input changes (for both modal form and inline form)
+  // SANDWICH LEAVE CALCULATION - Updated to respect month filter
+  const calculateSandwichLeaves = useCallback(() => {
+    // Use filteredLeaveList instead of leaveList to respect current filters
+    const approvedLeaves = filteredLeaveList.filter(leave => leave.status === 'Approved');
+    if (approvedLeaves.length < 2 && holidays.length === 0) {
+      setSandwichLeaves([]);
+      return;
+    }
+
+    const approvedLeaveDates = new Set();
+    approvedLeaves.forEach(leave => {
+      let currentDate = new Date(leave.from);
+      const endDate = new Date(leave.to);
+      while (currentDate <= endDate) {
+        approvedLeaveDates.add(formatDate(currentDate));
+        currentDate = addDays(currentDate, 1);
+      }
+    });
+
+    if (approvedLeaveDates.size === 0) {
+        setSandwichLeaves([]);
+        return;
+    }
+
+    const newSandwichLeaves = new Map();
+
+    // Check for Holiday Sandwiches within the selected month
+    holidays.forEach(holiday => {
+      const holidayDate = new Date(holiday.date);
+      const holidayStr = formatDate(holidayDate);
+      
+      // Only consider holidays in the selected month
+      if (selectedMonth && !isDateInMonth(holidayStr, selectedMonth)) {
+        return;
+      }
+
+      const dayBefore = addDays(holidayDate, -1);
+      const dayAfter = addDays(holidayDate, 1);
+
+      if (approvedLeaveDates.has(formatDate(dayBefore)) && approvedLeaveDates.has(formatDate(dayAfter))) {
+        const key = `holiday-${formatDate(holidayDate)}`;
+        if (!newSandwichLeaves.has(key)) {
+            newSandwichLeaves.set(key, {
+                dates: `${formatDate(dayBefore)}, ${holiday.name} (Holiday), ${formatDate(dayAfter)}`,
+                reason: `Leave approved on the day before and after the '${holiday.name}' holiday.`,
+                month: selectedMonth
+            });
+        }
+      }
+    });
+
+    // Check for Weekend Sandwiches within the selected month
+    approvedLeaveDates.forEach(dateStr => {
+        const date = new Date(dateStr);
+        
+        // Only consider dates in the selected month
+        if (selectedMonth && !isDateInMonth(dateStr, selectedMonth)) {
+          return;
+        }
+
+        if (date.getDay() === 5) {
+            const followingMonday = addDays(date, 3);
+            const mondayStr = formatDate(followingMonday);
+            
+            // Check if Monday is in the selected month
+            if (selectedMonth && !isDateInMonth(mondayStr, selectedMonth)) {
+              return;
+            }
+
+            if (approvedLeaveDates.has(mondayStr)) {
+                 const key = `weekend-${dateStr}`;
+                 if (!newSandwichLeaves.has(key)) {
+                     newSandwichLeaves.set(key, {
+                        dates: `${dateStr} (Friday) → ${mondayStr} (Monday)`,
+                        reason: 'Leave approved on a Friday and the following Monday, sandwiching the weekend.',
+                        month: selectedMonth
+                     });
+                 }
+            }
+        }
+    });
+
+    setSandwichLeaves(Array.from(newSandwichLeaves.values()));
+  }, [filteredLeaveList, holidays, selectedMonth]);
+
+  useEffect(() => {
+    calculateSandwichLeaves();
+  }, [filteredLeaveList, holidays, selectedMonth, calculateSandwichLeaves]);
+
+  // Check for sandwich leave
+  const checkForSandwichLeave = useCallback((fromDate, toDate) => {
+    if (!fromDate || !toDate) {
+      setSandwichWarning(null);
+      return;
+    }
+
+    const approvedLeaves = filteredLeaveList.filter(leave => leave.status === 'Approved');
+    const approvedLeaveDates = new Set();
+    approvedLeaves.forEach(leave => {
+      let currentDate = new Date(leave.from);
+      const endDate = new Date(leave.to);
+      while (currentDate <= endDate) {
+        approvedLeaveDates.add(formatDate(currentDate));
+        currentDate = addDays(currentDate, 1);
+      }
+    });
+
+    const selectedDates = new Set();
+    let currentDate = new Date(fromDate);
+    const endDate = new Date(toDate);
+    while (currentDate <= endDate) {
+      selectedDates.add(formatDate(currentDate));
+      currentDate = addDays(currentDate, 1);
+    }
+
+    const warnings = [];
+
+    // Check for holiday sandwiches
+    holidays.forEach(holiday => {
+      const holidayDate = new Date(holiday.date);
+      const holidayStr = formatDate(holidayDate);
+      const dayBefore = formatDate(addDays(holidayDate, -1));
+      const dayAfter = formatDate(addDays(holidayDate, 1));
+
+      const hasBeforeLeave = approvedLeaveDates.has(dayBefore) || selectedDates.has(dayBefore);
+      const hasAfterLeave = approvedLeaveDates.has(dayAfter) || selectedDates.has(dayAfter);
+
+      if (hasBeforeLeave && hasAfterLeave) {
+        const newlyCreated = selectedDates.has(dayBefore) || selectedDates.has(dayAfter);
+        if (newlyCreated) {
+          warnings.push({
+            type: 'holiday',
+            message: `Your selected dates create a sandwich leave around '${holiday.name}' (${holidayStr}). Leaves on ${dayBefore} and ${dayAfter} surround this holiday.`
+          });
+        }
+      }
+    });
+
+    // Weekend sandwich check
+    selectedDates.forEach(dateStr => {
+      const date = new Date(dateStr);
+      if (date.getDay() === 5) {
+        const followingMonday = formatDate(addDays(date, 3));
+        const hasMonday = approvedLeaveDates.has(followingMonday) || selectedDates.has(followingMonday);
+        if (hasMonday && selectedDates.has(followingMonday)) {
+          const message = `Your selected dates create a sandwich leave around the weekend. Leaves on ${dateStr} (Friday) and ${followingMonday} (Monday) surround the weekend.`;
+          if (!warnings.some(w => w.message === message)) {
+            warnings.push({ type: 'weekend', message });
+          }
+        }
+      }
+    });
+
+    if (warnings.length > 0) {
+      setSandwichWarning(warnings);
+    } else {
+      setSandwichWarning(null);
+    }
+  }, [filteredLeaveList, holidays]);
+
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: name === "reason" ? value.slice(0, REASON_LIMIT) : value,
-    }));
+    setForm((prev) => {
+      const updated = {
+        ...prev,
+        [name]: name === "reason" ? value.slice(0, REASON_LIMIT) : value,
+      };
+      
+      if (name === "from" || name === "to") {
+        const fromDate = name === "from" ? value : prev.from;
+        const toDate = name === "to" ? value : prev.to;
+        checkForSandwichLeave(fromDate, toDate);
+      }
+      
+      return updated;
+    });
     setSubmitError("");
     setSubmitSuccess("");
   };
 
-  // Submit leave (uses centralized API if available, else POST /leaves)
+  // Submit leave
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { from, to, reason, halfDaySession, leaveType } = form;
@@ -164,6 +420,18 @@ const LeaveWithModal = () => {
       setSubmitError("All fields are required.");
       return;
     }
+    
+    if (sandwichWarning && sandwichWarning.length > 0) {
+      setShowSandwichAlert(true);
+      return;
+    }
+    
+    await submitLeaveRequest();
+  };
+
+  // Actual submission function
+  const submitLeaveRequest = async () => {
+    const { from, to, reason, halfDaySession, leaveType } = form;
     setSubmitError("");
     try {
       const payload = {
@@ -177,19 +445,16 @@ const LeaveWithModal = () => {
         halfDaySession: from === to ? halfDaySession || "" : "",
       };
 
-      // Try centralized applyForLeave
       let applied = false;
       if (typeof applyForLeave === "function") {
         try {
           await applyForLeave(payload);
           applied = true;
-        } catch (err) {
-          // fallback to fetch
-          // console.warn("applyForLeave failed, fallback to fetch POST", err);
-        }
+        } catch (err) {}
       }
 
       if (!applied) {
+        const API_BASE = "http://localhost:5000/api/leaves";
         const res = await fetch(API_BASE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -210,16 +475,23 @@ const LeaveWithModal = () => {
         halfDaySession: "",
         leaveType: "",
       });
+      setSandwichWarning(null);
+      setShowSandwichAlert(false);
       setShowForm(false);
       setModalOpen(false);
       await fetchLeaves();
+      
+      // Show success alert
+      setTimeout(() => {
+        setSubmitSuccess("");
+      }, 3000);
     } catch (err) {
       console.error("submit error", err);
       setSubmitError(err?.message || "Failed to submit leave request.");
     }
   };
 
-  // Cancel leave (tries centralized cancel, else DELETE /leaves/:id or POST /leaves/:id/cancel)
+  // Cancel leave
   const handleCancelLeave = async (leaveId) => {
     if (!window.confirm("Are you sure you want to cancel this leave request?")) return;
     try {
@@ -228,27 +500,25 @@ const LeaveWithModal = () => {
         try {
           await cancelLeaveRequestById(leaveId);
           canceled = true;
-        } catch (err) {
-          // fallback
-        }
+        } catch (err) {}
       }
       if (!canceled) {
-        // try DELETE
+        const API_BASE = "http://localhost:5000/api/leaves";
         let res = await fetch(`${API_BASE}/${leaveId}`, { method: "DELETE" });
         if (!res.ok) {
-          // try cancel sub-endpoint
           res = await fetch(`${API_BASE}/${leaveId}/cancel`, { method: "POST" });
           if (!res.ok) throw new Error("Cancel failed");
         }
       }
       await fetchLeaves();
+      alert("Leave request cancelled successfully!");
     } catch (err) {
       console.error("cancel error", err);
       alert("Failed to cancel the leave request.");
     }
   };
 
-  // Toggle details: tries GET /leaves/:id/details; if not available, show "not available"
+  // Toggle details
   const toggleDetails = async (leaveId) => {
     if (expandedId === leaveId) {
       setExpandedId(null);
@@ -261,6 +531,7 @@ const LeaveWithModal = () => {
     setLoadingDetails((prev) => ({ ...prev, [leaveId]: true }));
     setDetailsError((prev) => ({ ...prev, [leaveId]: "" }));
     try {
+      const API_BASE = "http://localhost:5000/api/leaves";
       const res = await fetch(`${API_BASE}/${leaveId}/details`);
       if (!res.ok) {
         throw new Error("Details endpoint not available");
@@ -276,268 +547,470 @@ const LeaveWithModal = () => {
     }
   };
 
-  // small helpers for UI rendering
+  // Render status badge
   const renderStatusBadge = (status) => {
     const s = status || "Pending";
-    const base = "px-2 py-1 text-xs rounded ";
-    if (s === "Pending") return <span className={`${base} bg-yellow-200 text-yellow-700`}>{s}</span>;
-    if (s === "Approved") return <span className={`${base} bg-green-200 text-green-700`}>{s}</span>;
-    if (s === "Rejected") return <span className={`${base} bg-red-200 text-red-700`}>{s}</span>;
-    return <span className={`${base} bg-gray-200 text-gray-700`}>{s}</span>;
+    const base = "px-3 py-1 rounded-full text-sm font-semibold shadow-sm ";
+    if (s === "Pending") return <span className={`${base} bg-yellow-100 text-yellow-800 border border-yellow-300`}>{s}</span>;
+    if (s === "Approved") return <span className={`${base} bg-green-100 text-green-800 border border-green-300`}>{s}</span>;
+    if (s === "Rejected") return <span className={`${base} bg-red-100 text-red-800 border border-red-300`}>{s}</span>;
+    if (s === "Cancelled") return <span className={`${base} bg-gray-100 text-gray-800 border border-gray-300`}>{s}</span>;
+    return <span className={`${base} bg-gray-100 text-gray-800 border border-gray-300`}>{s}</span>;
+  };
+
+  // Format date for display
+  const formatDisplayDate = (dateStr) => {
+    if (!dateStr || dateStr === "-") return "-";
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
   };
 
   // Render
-  if (loading) return <div className="p-6 text-center">Loading...</div>;
-  if (!user) return <div className="text-red-600 p-6 text-center">Employee data not found. Please log in again.</div>;
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-blue-800 font-semibold">Loading your leave data...</p>
+      </div>
+    </div>
+  );
+  
+  if (!user) return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4 text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span className="text-2xl">🔒</span>
+        </div>
+        <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+        <p className="text-gray-600 mb-6">Employee data not found. Please log in again.</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition duration-200"
+        >
+          Reload Page
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      {/* Heading & primary button */}
-      <div className="flex items-center mb-[25px]">
-        <h2 className="text-3xl font-bold text-blue-800 flex-1">Leave Request</h2>
-
-        <button
-          className={`ml-4 bg-blue-700 hover:bg-blue-900 text-white font-semibold px-6 py-2 rounded-lg shadow transition ${showForm ? "bg-blue-900" : ""}`}
-          onClick={() => {
-            if (!showForm) {
-              setForm({ from: "", to: "", reason: "", halfDaySession: "", leaveType: "" });
-              setSubmitError("");
-              setSubmitSuccess("");
-            }
-            setShowForm((v) => !v);
-          }}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8"
         >
-          {showForm ? "Cancel" : "Leave Request"}
-        </button>
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Leave Management</h1>
+            <p className="text-gray-600">Welcome back, <span className="font-semibold text-blue-600">{user.name || user.employeeId}</span></p>
+          </div>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setModalOpen(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition duration-200 mt-4 lg:mt-0"
+          >
+            📅 Apply for Leave
+          </motion.button>
+        </motion.div>
 
-        {/* <button
-          onClick={() => setModalOpen(true)}
-          className="ml-4 bg-emerald-600 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg shadow"
+        {/* Stats Cards */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
         >
-          Quick Apply
-        </button> */}
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-4 mb-6">
-        <div>
-          <label className="mr-2 font-medium text-blue-800">Month:</label>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="border border-blue-300 rounded px-3 py-2 bg-white"
-          >
-            {monthOptions.map((m) => (
-              <option key={m} value={m}>
-                {formatMonth(m)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mr-2 font-medium text-blue-800">Status:</label>
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="border border-blue-300 rounded px-3 py-2 bg-white"
-          >
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 text-sm text-gray-600">
-          <span>Employee:</span>
-          <strong>{user.name || user.employeeId}</strong>
-        </div>
-      </div>
-
-      {/* Inline Form (showForm) */}
-      {showForm && (
-        <form onSubmit={handleSubmit} className="mb-8 bg-white rounded-lg shadow-md p-6 border max-w-xl">
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-blue-800 mb-1">From Date</label>
-              <input type="date" name="from" value={form.from} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
-            </div>
-
-            <div className="flex-1">
-              <label className="block text-blue-800 mb-1">To Date</label>
-              <input type="date" name="to" value={form.to} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
-            </div>
-
-            {form.from && form.to && form.from === form.to && (
-              <div className="flex-1">
-                <label className="block text-blue-800 mb-1">Half Day</label>
-                <select name="halfDaySession" value={form.halfDaySession} onChange={handleChange} className="border rounded px-3 py-2 w-full">
-                  <option value="">-- Select --</option>
-                  <option value="Morning Half">Morning</option>
-                  <option value="Afternoon Half">Afternoon</option>
-                </select>
+          {/* Approved Leaves Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-green-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-semibold">Approved Leaves</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.approvedLeaves}</p>
+                <p className="text-xs text-gray-500 mt-1">This Month</p>
               </div>
-            )}
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">✅</span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4">
-            <label className="block mb-1 text-blue-800">Reason</label>
-            <input
-              type="text"
-              name="reason"
-              value={form.reason}
-              onChange={handleChange}
-              maxLength={REASON_LIMIT}
-              className="border rounded px-3 py-2 w-full"
-              placeholder="Enter reason"
-            />
-            <div className="text-xs text-gray-400 mt-1">{form.reason.length}/{REASON_LIMIT}</div>
+          {/* Extra Leaves Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-semibold">Extra Leaves</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.extraLeaves}</p>
+                <p className="text-xs text-gray-500 mt-1">Beyond 2 leaves limit</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">⚠️</span>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4">
-            <label className="block mb-1 text-blue-800">Leave Type</label>
-            <select name="leaveType" value={form.leaveType} onChange={handleChange} className="border rounded px-3 py-2 w-full">
-              <option value="">-- Select --</option>
-              <option value="CASUAL">Casual Leave</option>
-              <option value="SICK">Sick Leave</option>
-              <option value="EMERGENCY">Emergency Leave</option>
-              <option value="PAID">Paid Leave</option>
-            </select>
+          {/* Sandwich Leaves Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-semibold">Sandwich Leaves</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.sandwichLeavesCount}</p>
+                <p className="text-xs text-gray-500 mt-1">{stats.sandwichDaysCount} days counted</p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl">🥪</span>
+              </div>
+            </div>
           </div>
+        </motion.div>
 
-          {submitError && <p className="text-red-600 mt-2">{submitError}</p>}
-          {submitSuccess && <p className="text-green-600 mt-2">{submitSuccess}</p>}
+        {/* Filters */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl shadow-lg p-6 mb-8"
+        >
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Month</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full lg:w-64 border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+              >
+                {monthOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {formatMonth(m)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="flex gap-4 mt-4">
-            <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded">Submit</button>
-            <button type="button" onClick={() => setShowForm(false)} className="bg-gray-500 text-white px-6 py-2 rounded">Cancel</button>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Status</label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="w-full lg:w-64 border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+              >
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-1 text-right">
+              <button
+                onClick={fetchLeaves}
+                className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
+              >
+                🔄 Refresh
+              </button>
+            </div>
           </div>
-        </form>
-      )}
+        </motion.div>
 
-      {/* Table */}
-      <div className="overflow-x-auto mb-10">
-        <table className="min-w-full bg-white rounded shadow">
-          <thead className="bg-blue-100">
-            <tr>
-              <th className="px-4 py-2">From</th>
-              <th className="px-4 py-2">To</th>
-              <th className="px-4 py-2">Reason</th>
-              <th className="px-4 py-2">HalfDay</th>
-              <th className="px-4 py-2">Type</th>
-              <th className="px-4 py-2">Action Date</th>
-              <th className="px-4 py-2">Applied</th>
-              <th className="px-4 py-2">Status</th>
-              <th className="px-4 py-2">Approved By</th>
-              <th className="px-4 py-2">Details</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={10} className="text-center py-4 text-gray-500">Loading...</td>
-              </tr>
-            ) : leaveList.length > 0 ? (
-              leaveList.map((lv) => (
-                <React.Fragment key={lv._id}>
-                  <tr className="hover:bg-blue-50">
-                    <td className="px-4 py-2">{lv.from || "-"}</td>
-                    <td className="px-4 py-2">{lv.to || "-"}</td>
-                    <td className="px-4 py-2">{lv.reason || "-"}</td>
-                    <td className="px-4 py-2">{lv.halfDaySession || "-"}</td>
-                    <td className="px-4 py-2">{lv.leaveType || "-"}</td>
-                    <td className="px-4 py-2">{lv.actionDate || "-"}</td>
-                    <td className="px-4 py-2">{lv.requestDate || "-"}</td>
-                    <td className="px-4 py-2">{renderStatusBadge(lv.status)}</td>
-                    <td className="px-4 py-2">{lv.approvedBy || "-"}</td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => toggleDetails(lv._id)} className="px-3 py-1 text-sm border rounded">
-                          {expandedId === lv._id ? "Hide" : "Show"}
-                        </button>
-                        {lv.status === "Pending" && (
-                          <button onClick={() => handleCancelLeave(lv._id)} className="px-3 py-1 text-sm bg-red-500 text-white rounded">
-                            Cancel
-                          </button>
-                        )}
+        {/* Leave Requests Table */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8"
+        >
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Your Leave Requests</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Showing leaves for {formatMonth(selectedMonth)} • {selectedStatus === "All" ? "All Statuses" : selectedStatus}
+            </p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">From-To</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Reason</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">HalfDay</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action Date</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Applied</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Approved By</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Details / Cancel</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {loading ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-8 text-center">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-gray-600">Loading leave requests...</span>
                       </div>
                     </td>
                   </tr>
+                ) : filteredLeaveList.length > 0 ? (
+                  filteredLeaveList.map((lv) => (
+                    <React.Fragment key={lv._id}>
+                      <tr className="hover:bg-blue-50 transition duration-150">
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatDisplayDate(lv.from)} 
+                            <span className="mx-2 text-gray-400">→</span>
+                            {formatDisplayDate(lv.to)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900 max-w-xs">{lv.reason || "-"}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {lv.halfDaySession || "Full Day"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {lv.leaveType || "-"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">{formatDisplayDate(lv.actionDate)}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">{formatDisplayDate(lv.requestDate)}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {renderStatusBadge(lv.status)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">{lv.approvedBy || "-"}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => toggleDetails(lv._id)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm px-3 py-1 rounded-lg border border-blue-200 hover:border-blue-300 transition duration-200"
+                            >
+                              {expandedId === lv._id ? "Hide" : "Show"} Details
+                            </button>
+                            {lv.status === "Pending" && (
+                              <button
+                                onClick={() => handleCancelLeave(lv._id)}
+                                className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1 rounded-lg border border-red-200 hover:border-red-300 transition duration-200"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
 
-                  {expandedId === lv._id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={10} className="px-6 py-4">
-                        {loadingDetails[lv._id] ? (
-                          <div>Loading details...</div>
-                        ) : detailsError[lv._id] ? (
-                          <div className="text-sm text-gray-500">{detailsError[lv._id]}</div>
-                        ) : detailsMap[lv._id] && detailsMap[lv._id].length > 0 ? (
-                          detailsMap[lv._id].map((d, i) => (
-                            <div key={i} className="flex gap-4 py-1">
-                              <span className="w-32">{d.date || "-"}</span>
-                              <span className={`px-3 py-1 text-xs rounded-full ${d.leavecategory === "Paid" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                {d.leavecategory || "-"}
-                              </span>
+                      {expandedId === lv._id && (
+                        <tr className="bg-gray-50">
+                          <td colSpan={9} className="px-6 py-4">
+                            <div className="bg-white rounded-lg border border-gray-200 p-4">
+                              <h4 className="font-semibold text-gray-900 mb-3">Leave Request Details</h4>
+                              {loadingDetails[lv._id] ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                  <span className="ml-2 text-gray-600">Loading details...</span>
+                                </div>
+                              ) : detailsError[lv._id] ? (
+                                <div className="text-center text-gray-500 py-4">{detailsError[lv._id]}</div>
+                              ) : detailsMap[lv._id] && detailsMap[lv._id].length > 0 ? (
+                                <div className="space-y-2">
+                                  {detailsMap[lv._id].map((d, i) => (
+                                    <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                                      <span className="text-sm font-medium text-gray-700">{d.date || "-"}</span>
+                                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                        d.leavecategory === "Paid" 
+                                          ? "bg-green-100 text-green-800" 
+                                          : "bg-red-100 text-red-800"
+                                      }`}>
+                                        {d.leavecategory || "-"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center text-gray-500 py-4">No additional details available.</div>
+                              )}
                             </div>
-                          ))
-                        ) : (
-                          <div className="text-sm text-gray-500">No details found for this request.</div>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={10} className="py-4 text-center text-gray-500">No leave requests found.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <span className="text-2xl">📝</span>
+                        </div>
+                        <p className="text-lg font-semibold mb-2">No leave requests found</p>
+                        <p className="text-sm">No leaves found for {formatMonth(selectedMonth)} with status "{selectedStatus}"</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
 
-      {/* Sandwich block */}
-      <div className="bg-white p-6 border rounded shadow mt-10">
-        <h2 className="text-2xl font-bold text-purple-800 mb-3">Sandwich Leaves</h2>
-        <p className="text-gray-600">No sandwich leaves this month.</p>
-      </div>
-
-      {/* Modal quick-apply (same form but compact) */}
-      {/* <AnimatePresence>
-        {modalOpen && (
-          <motion.div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <motion.div className="bg-white w-96 p-6 rounded-xl shadow-xl" initial={{ scale: 0.7 }} animate={{ scale: 1 }} exit={{ scale: 0.7 }}>
-              <h3 className="text-xl font-bold mb-4 text-emerald-700">Quick Apply Leave</h3>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <div>
-                  <label className="mb-1 block font-medium">From</label>
-                  <input type="date" name="from" value={form.from} onChange={handleChange} className="w-full border rounded px-3 py-2" />
+        {/* Improved Sandwich Leaves Section - Now filtered by month */}
+        {sandwichLeaves.length > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-white rounded-2xl shadow-lg border border-orange-200 mb-8 overflow-hidden"
+          >
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-xl text-white">🥪</span>
                 </div>
-
                 <div>
-                  <label className="mb-1 block font-medium">To</label>
-                  <input type="date" name="to" value={form.to} onChange={handleChange} className="w-full border rounded px-3 py-2" />
+                  <h2 className="text-xl font-bold text-white">Sandwich Leaves Detected</h2>
+                  <p className="text-orange-100 text-sm">
+                    Sandwich leaves for {formatMonth(selectedMonth)} • {sandwichLeaves.length} pattern{sandwichLeaves.length !== 1 ? 's' : ''} found
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                {sandwichLeaves.map((leave, index) => (
+                  <div key={index} className="bg-orange-50 border border-orange-200 rounded-xl p-4 hover:shadow-md transition duration-200">
+                    <div className="flex items-start">
+                      <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-1">
+                        <span className="text-orange-600 text-sm">{(index + 1)}</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm mb-2">{leave.dates}</p>
+                        <p className="text-gray-700 text-xs leading-relaxed">{leave.reason}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 text-sm flex items-center">
+                  <span className="mr-2">💡</span>
+                  <strong>Note:</strong> Sandwich leaves are automatically detected when your approved leaves create extended weekends or holiday bridges within the selected month.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Leave Application Modal */}
+      <AnimatePresence>
+        {modalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => setModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-2xl font-bold text-gray-900">Apply for Leave</h3>
+                  <button
+                    onClick={() => setModalOpen(false)}
+                    className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">From Date</label>
+                    <input 
+                      type="date" 
+                      name="from" 
+                      value={form.from} 
+                      onChange={handleChange}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">To Date</label>
+                    <input 
+                      type="date" 
+                      name="to" 
+                      value={form.to} 
+                      onChange={handleChange}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                    />
+                  </div>
                 </div>
 
                 {form.from && form.to && form.from === form.to && (
                   <div>
-                    <label className="mb-1 block font-medium">Half Day</label>
-                    <select name="halfDaySession" value={form.halfDaySession} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                      <option value="">-- Select --</option>
-                      <option value="Morning Half">Morning</option>
-                      <option value="Afternoon Half">Afternoon</option>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Half Day Session</label>
+                    <select 
+                      name="halfDaySession" 
+                      value={form.halfDaySession} 
+                      onChange={handleChange}
+                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                    >
+                      <option value="">Full Day</option>
+                      <option value="Morning Half">Morning Half</option>
+                      <option value="Afternoon Half">Afternoon Half</option>
                     </select>
                   </div>
                 )}
 
+                {/* Sandwich Warning */}
+                {sandwichWarning && sandwichWarning.length > 0 && (
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                    <div className="flex items-start">
+                      <span className="text-yellow-600 text-xl mr-2">⚠️</span>
+                      <div>
+                        <p className="font-semibold text-yellow-800 mb-2">Sandwich Leave Warning</p>
+                        {sandwichWarning.map((warning, index) => (
+                          <p key={index} className="text-sm text-yellow-700 mb-1">{warning.message}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
-                  <label className="mb-1 block font-medium">Leave Type</label>
-                  <select name="leaveType" value={form.leaveType} onChange={handleChange} className="w-full border rounded px-3 py-2">
-                    <option value="">-- Select --</option>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Leave Type</label>
+                  <select 
+                    name="leaveType" 
+                    value={form.leaveType} 
+                    onChange={handleChange}
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                  >
+                    <option value="">Select Leave Type</option>
                     <option value="CASUAL">Casual Leave</option>
                     <option value="SICK">Sick Leave</option>
                     <option value="EMERGENCY">Emergency Leave</option>
@@ -546,24 +1019,112 @@ const LeaveWithModal = () => {
                 </div>
 
                 <div>
-                  <label className="mb-1 block font-medium">Reason</label>
-                  <textarea name="reason" value={form.reason} onChange={handleChange} className="w-full border rounded px-3 py-2" maxLength={REASON_LIMIT}></textarea>
-                  <div className="text-xs text-gray-400">{form.reason.length}/{REASON_LIMIT}</div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Reason <span className="text-gray-400 text-xs">({form.reason.length}/{REASON_LIMIT})</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="reason"
+                    value={form.reason}
+                    onChange={handleChange}
+                    maxLength={REASON_LIMIT}
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                    placeholder="Brief reason for your leave"
+                  />
                 </div>
 
-                {submitError && <p className="text-red-600">{submitError}</p>}
-                {submitSuccess && <p className="text-green-600">{submitSuccess}</p>}
+                {submitError && (
+                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                    <p className="text-red-700 font-semibold">{submitError}</p>
+                  </div>
+                )}
 
-                <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded shadow hover:bg-emerald-800">Submit Leave</button>
+                {submitSuccess && (
+                  <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+                    <p className="text-green-700 font-semibold">{submitSuccess}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
+                  >
+                    Submit Leave Request
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </form>
-              <button onClick={() => setModalOpen(false)} className="mt-4 w-full text-sm underline text-gray-500">Close</button>
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence> */}
+      </AnimatePresence>
+
+      {/* Sandwich Alert Modal */}
+      <AnimatePresence>
+        {showSandwichAlert && sandwichWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+            >
+              <div className="flex items-center mb-4">
+                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-2xl">⚠️</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Sandwich Leave Detected</h3>
+              </div>
+              
+              <div className="mb-6 space-y-3">
+                {sandwichWarning.map((warning, index) => (
+                  <div key={index} className="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                    <p className="text-sm text-gray-700">{warning.message}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-gray-600 mb-6">
+                Do you want to proceed with this leave request?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowSandwichAlert(false);
+                    submitLeaveRequest();
+                  }}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3 rounded-xl transition duration-200"
+                >
+                  Yes, Proceed
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSandwichAlert(false);
+                  }}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-3 rounded-xl transition duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 export default LeaveWithModal;
-// --- END OF FILE LeaveWithModal.jsx ---

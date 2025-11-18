@@ -19,11 +19,26 @@ import {
   FaCalendarAlt,
   FaChartPie,
   FaCamera,
+  FaMapMarkerAlt,
 } from "react-icons/fa";
-import { getAttendanceForEmployee, punchIn, punchOut, uploadProfilePic, getProfilePic } from "../api";
+import {
+  getAttendanceForEmployee,
+  punchIn,
+  punchOut,
+  uploadProfilePic,
+  getProfilePic,
+} from "../api";
 import { useNavigate } from "react-router-dom";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -35,7 +50,11 @@ const EmployeeDashboard = () => {
     sessionStorage.getItem("profileImage") || null
   );
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const navigate = useNavigate();
+
+  // State for the frontend timer
+  const [workedTime, setWorkedTime] = useState(0);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -49,38 +68,74 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // ✅ Get user's current location
+  const getCurrentLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error("Geolocation is not supported by your browser"));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          let errorMessage = "Unable to retrieve your location";
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location access denied. Please enable location permissions.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information unavailable.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out.";
+              break;
+          }
+          
+          reject(new Error(errorMessage));
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    });
+  };
+
   // --- Fetch Attendance ---
-  const loadAttendance = useCallback(async (empId) => {
-    try {
-      const data = await getAttendanceForEmployee(empId);
-      const attendanceData = Array.isArray(data) ? data : [];
-      setAttendance(attendanceData);
-      const todayEntry = attendanceData.find((d) => d.date === today);
-      setTodayLog(todayEntry || null);
-    } catch (err) {
-      console.error("Attendance fetch error:", err);
-    }
-  }, [today]);
+  const loadAttendance = useCallback(
+    async (empId) => {
+      try {
+        const data = await getAttendanceForEmployee(empId);
+        const attendanceData = Array.isArray(data) ? data : [];
+        setAttendance(attendanceData);
+        const todayEntry = attendanceData.find((d) => d.date === today);
+        setTodayLog(todayEntry || null);
+      } catch (err) {
+        console.error("Attendance fetch error:", err);
+      }
+    },
+    [today]
+  );
 
   // --- Fetch Profile Picture from backend ---
   const loadProfilePic = async () => {
     try {
-      console.log('📸 Fetching profile picture...');
       const res = await getProfilePic();
-      console.log('📸 Profile pic response:', res);
-      
       if (res?.profilePhoto?.url) {
         setProfileImage(res.profilePhoto.url);
         sessionStorage.setItem("profileImage", res.profilePhoto.url);
-        console.log('✅ Profile picture loaded:', res.profilePhoto.url);
-      } else {
-        console.log('ℹ️ No profile picture found');
       }
     } catch (err) {
-      console.error("Profile pic fetch error:", err);
-      // Don't show error to user if profile pic doesn't exist yet
       if (err.response?.status !== 404) {
-        console.error('Unexpected error fetching profile pic:', err);
+        console.error("Unexpected error fetching profile pic:", err);
       }
     }
   };
@@ -89,10 +144,7 @@ const EmployeeDashboard = () => {
     const bootstrap = async () => {
       if (user && user.employeeId) {
         setLoading(true);
-        await Promise.all([
-          loadAttendance(user.employeeId),
-          loadProfilePic(), // No parameter needed
-        ]);
+        await Promise.all([loadAttendance(user.employeeId), loadProfilePic()]);
         setLoading(false);
       } else {
         setLoading(false);
@@ -101,21 +153,82 @@ const EmployeeDashboard = () => {
     bootstrap();
   }, [user, loadAttendance]);
 
-  // --- Punch In/Out ---
+  // Extract name/email/phone/id from user and get role/department from experienceDetails if present
+  const { name, email, phone, employeeId } = user || {};
+
+  // Prefer the latest experience entry (fallback to top-level fields if available)
+  const latestExp =
+    user?.experienceDetails && user.experienceDetails.length
+      ? user.experienceDetails[user.experienceDetails.length - 1]
+      : null;
+
+  const role = latestExp?.role || user?.role || "N/A";
+  const department = latestExp?.department || user?.department || "N/A";
+
+  // --- Frontend Timer Effect ---
+  useEffect(() => {
+    let interval;
+
+    if (todayLog?.punchIn && !todayLog.punchOut) {
+      const punchInTime = new Date(todayLog.punchIn);
+
+      const updateTimer = () => {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - punchInTime) / 1000);
+        setWorkedTime(diffInSeconds);
+      };
+
+      updateTimer();
+      interval = setInterval(updateTimer, 1000);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [todayLog]);
+
+  // ✅ Punch In/Out with Location
   const handlePunch = async (action) => {
     if (!user) return;
+    
+    setLocationLoading(true);
+    
     try {
+      // Get current location
+      const location = await getCurrentLocation();
+      
       if (action === "IN") {
-        await punchIn({ employeeId: user.employeeId, employeeName: user.name });
+        await punchIn({
+          employeeId: user.employeeId,
+          employeeName: user.name,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
         speak(`${user.name}, punch in successful`);
       } else {
-        await punchOut({ employeeId: user.employeeId });
+        await punchOut({ 
+          employeeId: user.employeeId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
         speak(`${user.name}, punch out successful`);
       }
+      
       await loadAttendance(user.employeeId);
     } catch (err) {
       console.error("Punch error:", err);
-      speak("Punch operation failed");
+      
+      if (err.message.includes("Location")) {
+        alert(err.message);
+        speak("Location access required for attendance");
+      } else {
+        speak("Punch operation failed");
+        alert("Failed to record attendance. Please try again.");
+      }
+    } finally {
+      setLocationLoading(false);
     }
   };
 
@@ -124,20 +237,13 @@ const EmployeeDashboard = () => {
     const file = e.target.files[0];
     if (!file || !user) return;
 
-    console.log('📤 Starting image upload...');
-    console.log('File:', file);
-    console.log('User:', user);
-
-    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      alert("File size must be less than 5MB");
       return;
     }
-
-    // Validate file type
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      alert('Please upload a valid image file (JPEG, PNG, GIF, WEBP)');
+      alert("Please upload a valid image file (JPEG, PNG, GIF, WEBP)");
       return;
     }
 
@@ -148,83 +254,65 @@ const EmployeeDashboard = () => {
     formData.append("email", user.email);
     formData.append("phone", user.phone || "");
 
-    console.log('📋 FormData prepared:', {
-      employeeId: user.employeeId,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      file: file.name
-    });
-
     setUploadingImage(true);
-
     try {
       const res = await uploadProfilePic(formData);
-      console.log('✅ Upload response:', res);
-      
       if (res?.profilePhoto?.url) {
         setProfileImage(res.profilePhoto.url);
         sessionStorage.setItem("profileImage", res.profilePhoto.url);
         speak("Profile picture updated successfully");
-        alert('Profile picture updated successfully!');
+        alert("Profile picture updated successfully!");
       } else {
-        console.error('Invalid response format:', res);
-        alert('Upload succeeded but response format was unexpected');
+        alert("Upload succeeded but response format was unexpected");
       }
     } catch (err) {
-      console.error("Image upload failed:", err);
-      console.error("Error response:", err.response?.data);
-      
-      const errorMessage = err.response?.data?.message || 'Failed to upload image. Please try again.';
+      const errorMessage = err.response?.data?.message || "Failed to upload image. Please try again.";
       alert(errorMessage);
       speak("Profile picture update failed");
     } finally {
       setUploadingImage(false);
-      // Reset the file input
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-8 text-center text-lg font-semibold">
-        Loading Employee Dashboard...
-      </div>
-    );
-
-  if (!user)
-    return (
-      <div className="p-8 text-center text-red-600 font-semibold">
-        Could not load employee data.
-      </div>
-    );
-
-  const { name, email, phone, employeeId } = user;
+  if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Employee Dashboard...</div>;
+  if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
 
   const leaveBarData = {
     labels: ["Full Day", "Half Day", "Absent"],
-    datasets: [
-      {
-        label: "Attendance",
-        data: [
-          attendance.filter((a) => a.status === "Present" && !a.isHalfDay).length,
-          attendance.filter((a) => a.isHalfDay).length,
-          attendance.filter((a) => a.status === "Absent").length,
-        ],
-        backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
-        borderRadius: 6,
-      },
-    ],
+    datasets: [{
+      label: "Attendance",
+      data: [
+        attendance.filter((a) => a.status === "Present" && !a.isHalfDay).length,
+        attendance.filter((a) => a.isHalfDay).length,
+        attendance.filter((a) => a.status === "Absent").length,
+      ],
+      backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
+      borderRadius: 6,
+    }],
   };
 
   const workPieData = {
     labels: ["Worked Hours", "Remaining"],
-    datasets: [
-      {
-        data: [todayLog?.workedHours || 0, Math.max(0, 8 - (todayLog?.workedHours || 0))],
-        backgroundColor: ["#3b82f6", "#e5e7eb"],
-      },
-    ],
+    datasets: [{
+      data: [todayLog?.workedHours || 0, Math.max(0, 8 - (todayLog?.workedHours || 0))],
+      backgroundColor: ["#3b82f6", "#e5e7eb"],
+    }],
+  };
+  
+  const formatWorkedTime = (totalSeconds) => {
+    if (isNaN(totalSeconds) || totalSeconds < 0) {
+      return "0h 0m 0s";
+    }
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}h ${minutes}m ${seconds}s`;
+  };
+
+  const formatWorkedStatus = (status) => {
+    if (!status || status === "NOT_APPLICABLE") return "--";
+    return status.replace("_", " ").toLowerCase();
   };
 
   return (
@@ -234,24 +322,15 @@ const EmployeeDashboard = () => {
         <div className="relative">
           <img
             alt="Employee"
-            src={
-              profileImage ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`
-            }
+            src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
             className="w-28 h-28 rounded-full border-4 border-white shadow object-cover"
           />
           <label
             htmlFor="profile-upload"
-            className={`absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${
-              uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            className={`absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${uploadingImage ? "opacity-50 cursor-not-allowed" : ""}`}
             title="Upload Profile Picture"
           >
-            {uploadingImage ? (
-              <div className="animate-spin">⏳</div>
-            ) : (
-              <FaCamera size={16} />
-            )}
+            {uploadingImage ? <div className="animate-spin">⏳</div> : <FaCamera size={16} />}
           </label>
           <input
             id="profile-upload"
@@ -262,7 +341,6 @@ const EmployeeDashboard = () => {
             disabled={uploadingImage}
           />
         </div>
-
         <div className="flex-1">
           <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2">
             <FaUserCircle className="text-blue-400" /> {name}
@@ -271,6 +349,10 @@ const EmployeeDashboard = () => {
             <div><b>ID:</b> {employeeId}</div>
             <div><b>Email:</b> {email}</div>
             <div><b>Phone:</b> {phone || "N/A"}</div>
+
+            {/* Department & Role */}
+            <div><b>Department:</b> {department}</div>
+            <div><b>Role:</b> {role}</div>
           </div>
         </div>
       </div>
@@ -281,6 +363,28 @@ const EmployeeDashboard = () => {
           <FaRegClock className="text-blue-600 text-2xl" />
           <h2 className="font-bold text-2xl text-gray-800">Daily Attendance</h2>
         </div>
+        
+        {/* ✅ Location Info Display */}
+        {todayLog?.punchInLocation && (
+          <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-start gap-2">
+              <FaMapMarkerAlt className="text-blue-600 mt-1" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-blue-900">Punch In Location:</p>
+                <p className="text-xs text-gray-700">{todayLog.punchInLocation.address || "Address unavailable"}</p>
+              </div>
+            </div>
+            {todayLog?.punchOutLocation && (
+              <div className="flex items-start gap-2 mt-3 pt-3 border-t border-blue-200">
+                <FaMapMarkerAlt className="text-red-600 mt-1" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-900">Punch Out Location:</p>
+                  <p className="text-xs text-gray-700">{todayLog.punchOutLocation.address || "Address unavailable"}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm rounded-lg overflow-hidden">
@@ -291,19 +395,20 @@ const EmployeeDashboard = () => {
                 <th className="px-4 py-3 text-left">Punch Out</th>
                 <th className="px-4 py-3 text-left">Worked</th>
                 <th className="px-4 py-3 text-left">Login Status</th>
+                <th className="px-4 py-3 text-left">Worked Status</th>
                 <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white">
               <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200 animate-fade-in-up">
                 <td className="px-4 py-3 font-medium">{today}</td>
-                <td className="px-4 py-3">
-                  {todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}
+                <td className="px-4 py-3">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
+                <td className="px-4 py-3">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</td>
+                <td className="px-4 py-3 font-mono">
+                  {todayLog?.punchIn && !todayLog?.punchOut
+                    ? formatWorkedTime(workedTime)
+                    : todayLog?.displayTime || "0h 0m 0s"}
                 </td>
-                <td className="px-4 py-3">
-                  {todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}
-                </td>
-                <td className="px-4 py-3 font-mono">{todayLog?.displayTime || "0h 0m 0s"}</td>
                 <td className="px-4 py-3">
                   {todayLog?.punchIn ? (
                     <span
@@ -315,22 +420,47 @@ const EmployeeDashboard = () => {
                     >
                       {todayLog.loginStatus === "LATE" ? "Late" : "On Time"}
                     </span>
-                  ) : "--"}
+                  ) : ("--")}
+                </td>
+                <td className="px-4 py-3 capitalize">
+                   {todayLog?.punchIn && !todayLog?.punchOut ? (
+                      <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                        Working...
+                      </span>
+                    ) : (
+                      formatWorkedStatus(todayLog?.workedStatus)
+                    )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {!todayLog?.punchIn ? (
                     <button
-                      className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 active:scale-95 transform transition-transform duration-150"
+                      className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 active:scale-95 transform transition-transform duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
                       onClick={() => handlePunch("IN")}
+                      disabled={locationLoading}
                     >
-                      Punch In
+                      {locationLoading ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                          Getting Location...
+                        </>
+                      ) : (
+                        "Punch In"
+                      )}
                     </button>
                   ) : !todayLog?.punchOut ? (
                     <button
-                      className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 active:scale-95 transform transition-transform duration-150"
+                      className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 active:scale-95 transform transition-transform duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto"
                       onClick={() => handlePunch("OUT")}
+                      disabled={locationLoading}
                     >
-                      Punch Out
+                      {locationLoading ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                          Getting Location...
+                        </>
+                      ) : (
+                        "Punch Out"
+                      )}
                     </button>
                   ) : (
                     <span className="text-gray-500 font-semibold">Done</span>
@@ -340,7 +470,6 @@ const EmployeeDashboard = () => {
             </tbody>
           </table>
         </div>
-
         <div className="text-right mt-6">
           <button
             onClick={() => navigate("/employee/my-attendence")}
@@ -354,29 +483,20 @@ const EmployeeDashboard = () => {
       {/* Charts & Notices */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2">
-            <FaCalendarAlt className="text-blue-500" /> Attendance Summary
-          </h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
           <Bar data={leaveBarData} />
         </div>
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2">
-            <FaChartPie className="text-yellow-500" /> Work Hours Today
-          </h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2"><FaChartPie className="text-yellow-500" /> Work Hours Today</h2>
           <Pie data={workPieData} />
         </div>
       </div>
-
       <div className="bg-white rounded-2xl shadow p-4 mb-8">
-        <h2 className="font-bold flex items-center gap-2 mb-2">
-          <FaBell className="text-red-500" /> Notice Board
-        </h2>
+        <h2 className="font-bold flex items-center gap-2 mb-2"><FaBell className="text-red-500" /> Notice Board</h2>
         {notices?.length > 0 ? (
           <ul className="space-y-2">
             {notices.map((n, i) => (
-              <li key={i} className="border-b pb-2">
-                <b>{n.title}</b> - {n.description}
-              </li>
+              <li key={i} className="border-b pb-2"><b>{n.title}</b> - {n.description}</li>
             ))}
           </ul>
         ) : (

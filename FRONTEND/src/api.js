@@ -1,4 +1,3 @@
-// --- START OF FILE api.js ---
 import axios from "axios";
 
 // Automatically determine API base URL depending on environment
@@ -78,23 +77,13 @@ export const approveLeaveRequestById = async (id) => (await api.patch(`/api/leav
 export const rejectLeaveRequestById = async (id) => (await api.patch(`/api/leaves/${id}/reject`)).data;
 export const cancelLeaveRequestById = async (id) => (await api.delete(`/api/leaves/cancel/${id}`)).data;
 
-
 /* ============================================================================
    NOTIFICATIONS
 ============================================================================ */
 export const getNotifications = async () => (await api.get("/api/notifications")).data;
-
-export const addNotificationAPI = async (data) =>
-  (await api.post("/api/notifications", data)).data;
-
-export const markNotificationAsRead = async (id) =>
-  (await api.patch(`/api/notifications/${id}`, { isRead: true })).data;
-
-export const markAllNotificationsAsRead = async () =>
-  (await api.patch(`/api/notifications/mark-all`)).data;
-
-
-
+export const addNotificationRequest = async (data) => (await api.post("/api/notifications", data)).data;
+export const markNotificationAsRead = async (id) => (await api.patch(`/api/notifications/${id}`, { isRead: true })).data;
+export const markAllNotificationsAsRead = async () => (await api.patch("/api/notifications/mark-all")).data;
 
 /* ============================================================================
    OVERTIME
@@ -130,8 +119,6 @@ export const changeUserPassword = async (data) => (await api.post("/api/users/ch
 /* ============================================================================
    PROFILE PHOTO (Cloudinary Integration)
 ============================================================================ */
-
-// Upload or update employee profile photo
 export const uploadProfilePic = async (formData) => {
   try {
     const response = await api.put("/api/profile/photo", formData, {
@@ -144,7 +131,6 @@ export const uploadProfilePic = async (formData) => {
   }
 };
 
-// Fetch currently logged-in employee profile photo
 export const getProfilePic = async () => {
   try {
     const response = await api.get("/api/profile/me");

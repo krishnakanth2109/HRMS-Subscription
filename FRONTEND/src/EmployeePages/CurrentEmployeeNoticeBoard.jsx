@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { getNotices } from "../api"; // Import the centralized API function
 
 const NoticeList = () => {
   const [notices, setNotices] = useState([]);
@@ -7,8 +7,9 @@ const NoticeList = () => {
   useEffect(() => {
     const fetchNotices = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/notices");
-        setNotices(res.data);
+        // Use the imported getNotices function
+        const data = await getNotices();
+        setNotices(data);
       } catch (err) {
         console.error("Error fetching notices:", err);
       }

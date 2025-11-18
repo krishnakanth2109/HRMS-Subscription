@@ -1,22 +1,24 @@
-// FINAL EMPLOYEE NOTIFICATION PROVIDER
-// ====================================
-
 import React, { useState, useEffect, useCallback } from "react";
 import { CurrentEmployeeNotificationContext } from "./CurrentEmployeeNotificationContext";
-import axios from "axios";
+import {
+  getNotifications,
+  getNotices,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "../api"; // Import centralized API functions
 import { io } from "socket.io-client";
 
-// Backend APIs
-const NOTIFICATION_API = "http://localhost:5000/notifications";   // personal notifications
-const NOTICE_API = "http://localhost:5000/api/notices";           // admin notices
-const SOCKET_URL = "http://localhost:5000";
+// Dynamically determine Socket.io URL from environment variables for consistency
+const SOCKET_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL_PRODUCTION
+    : import.meta.env.VITE_API_URL_DEVELOPMENT;
 
-// Load logged-in employee
+// Load logged-in employee from storage
 const loadLoggedUser = () => {
   try {
     const raw =
-      localStorage.getItem("hrmsUser") ||
-      sessionStorage.getItem("hrmsUser");
+      localStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -38,25 +40,23 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   }, [loggedUser]);
 
   // --------------------------------------------------------
-  // FETCH ALL NOTIFICATIONS (personal + notices)
+  // FETCH ALL NOTIFICATIONS (personal + notices) using api.js
   // --------------------------------------------------------
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
       const userId = getUserIdentifier();
 
-      // 1️⃣ Fetch personal notifications
-      const res = await axios.get(NOTIFICATION_API);
-      const allPersonal = Array.isArray(res.data) ? res.data : [];
+      // 1️⃣ Fetch personal notifications using centralized API
+      const allPersonal = await getNotifications();
 
       const personal = userId
         ? allPersonal.filter((n) => String(n.userId) === String(userId))
         : [];
 
-      // 2️⃣ Fetch notices from admin (should show to all employees)
-      const noticesRes = await axios.get(NOTICE_API);
-
-      const noticeItems = noticesRes.data.map((n) => ({
+      // 2️⃣ Fetch notices from admin using centralized API
+      const noticesData = await getNotices();
+      const noticeItems = noticesData.map((n) => ({
         _id: n._id, // use DB id
         userId: "ALL",
         title: "New Notice",
@@ -66,13 +66,11 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
         date: n.date,
       }));
 
-      // 3️⃣ Combine
+      // 3️⃣ Combine and sort
       const combined = [...personal, ...noticeItems];
-
       combined.sort(
         (a, b) =>
-          new Date(b.date || b.createdAt) -
-          new Date(a.date || a.createdAt)
+          new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
       );
 
       setNotifications(combined);
@@ -103,11 +101,9 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
     // 1️⃣ NEW PERSONAL NOTIFICATION
     socket.on("newNotification", (n) => {
       if (!n || !n.userId) return;
-
       if (String(n.userId) !== String(userId)) return;
 
       setNotifications((prev) => [n, ...prev]);
-
       playSound();
       showToast(n.title ? `${n.title}: ${n.message}` : n.message);
     });
@@ -115,7 +111,6 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
     // 2️⃣ NEW ADMIN NOTICE -> ALL EMPLOYEES GET IT
     socket.on("newNotice", (notice) => {
       if (!notice) return;
-
       const n = {
         _id: Date.now(),
         userId: "ALL",
@@ -125,45 +120,39 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
         isRead: false,
         date: new Date(),
       };
-
       setNotifications((prev) => [n, ...prev]);
-
       playSound();
       showToast(`New Notice: ${notice.title}`);
     });
 
     return () => socket.disconnect();
-  }, [getUserIdentifier]);
+  }, [getUserIdentifier, sound]); // Added sound to dependency array
 
   // --------------------------------------------------------
-  // SOUND
+  // SOUND & TOAST HELPERS
   // --------------------------------------------------------
   const playSound = () => {
     try {
       sound.currentTime = 0;
-      sound.play();
+      sound.play().catch(() => {});
     } catch {}
   };
 
-  // --------------------------------------------------------
-  // TOAST
-  // --------------------------------------------------------
   const showToast = (message) => {
     const id = Date.now();
     setToasts((prev) => [{ id, message }, ...prev]);
-
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   };
 
   // --------------------------------------------------------
-  // MARK AS READ
+  // MARK AS READ using api.js
   // --------------------------------------------------------
   const markAsRead = useCallback(async (id) => {
     try {
-      await axios.patch(`${NOTIFICATION_API}/${id}`, { isRead: true });
-
+      // Use centralized API function
+      await markNotificationAsRead(id);
       setNotifications((prev) =>
         prev.map((n) =>
           String(n._id) === String(id) ? { ...n, isRead: true } : n
@@ -175,15 +164,13 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   }, []);
 
   // --------------------------------------------------------
-  // MARK ALL READ
+  // MARK ALL READ using api.js
   // --------------------------------------------------------
   const markAllAsRead = useCallback(async () => {
     try {
-      await axios.patch(`${NOTIFICATION_API}/mark-all`);
-
-      setNotifications((prev) =>
-        prev.map((n) => ({ ...n, isRead: true }))
-      );
+      // Use centralized API function
+      await markAllNotificationsAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
       console.error("❌ Failed to mark-all:", err);
     }

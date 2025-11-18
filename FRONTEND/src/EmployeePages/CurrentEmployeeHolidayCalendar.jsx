@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { getHolidays } from "../api"; // Import the centralized API function
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 
@@ -10,8 +10,9 @@ const EmployeeHolidays = () => {
   useEffect(() => {
     const fetchHolidays = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/holidays");
-        setHolidays(res.data);
+        // Use the imported getHolidays function
+        const data = await getHolidays();
+        setHolidays(data);
       } catch (err) {
         console.error("Error fetching holidays:", err);
       }

@@ -1,7 +1,6 @@
-
-
 import express from "express";
 import Attendance from "../models/Attendance.js";
+import { reverseGeocode, validateCoordinates } from "../Services/locationService.js";
 
 const router = express.Router();
 
@@ -29,16 +28,32 @@ const calcWork = (start, end) => {
   };
 };
 
-// ✅ Punch IN
+// ✅ Punch IN with Location
 router.post("/punch-in", async (req, res) => {
   try {
-    const { employeeId, employeeName } = req.body;
+    const { employeeId, employeeName, latitude, longitude } = req.body;
     const today = getToday();
-    const punchInTime = new Date(); // Current time
+    const punchInTime = new Date();
 
-    // ✅ Set cutoff time for late login (in 24rhr format)
+    // ✅ Validate location data
+    if (!latitude || !longitude) {
+      return res.status(400).json({ 
+        error: "Location data is required. Please enable location access." 
+      });
+    }
+
+    if (!validateCoordinates(latitude, longitude)) {
+      return res.status(400).json({ 
+        error: "Invalid coordinates provided." 
+      });
+    }
+
+    // ✅ Get address from coordinates
+    const address = await reverseGeocode(latitude, longitude);
+
+    // ✅ Set cutoff time for late login
     const lateCutoff = new Date();
-    lateCutoff.setHours(10, 15, 0, 0); 
+    lateCutoff.setHours(10, 15, 0, 0);
 
     const loginStatus = punchInTime > lateCutoff ? "LATE" : "ON_TIME";
 
@@ -63,28 +78,56 @@ router.post("/punch-in", async (req, res) => {
         date: today,
         punchIn: punchInTime,
         status: "WORKING",
-        loginStatus: loginStatus, // ✅ Set login status
-        
+        loginStatus: loginStatus,
+        punchInLocation: {
+          latitude,
+          longitude,
+          address,
+          timestamp: punchInTime
+        }
       });
     } else {
       todayEntry.punchIn = punchInTime;
       todayEntry.status = "WORKING";
-      todayEntry.loginStatus = loginStatus; // ✅ Set login status
+      todayEntry.loginStatus = loginStatus;
+      todayEntry.punchInLocation = {
+        latitude,
+        longitude,
+        address,
+        timestamp: punchInTime
+      };
     }
 
     await record.save();
     res.json(record.attendance);
-
   } catch (err) {
+    console.error("Punch-in error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ Punch OUT
+// ✅ Punch OUT with Location
 router.post("/punch-out", async (req, res) => {
   try {
-    const { employeeId } = req.body;
+    const { employeeId, latitude, longitude } = req.body;
     const today = getToday();
+    const punchOutTime = new Date();
+
+    // ✅ Validate location data
+    if (!latitude || !longitude) {
+      return res.status(400).json({ 
+        error: "Location data is required. Please enable location access." 
+      });
+    }
+
+    if (!validateCoordinates(latitude, longitude)) {
+      return res.status(400).json({ 
+        error: "Invalid coordinates provided." 
+      });
+    }
+
+    // ✅ Get address from coordinates
+    const address = await reverseGeocode(latitude, longitude);
 
     let record = await Attendance.findOne({ employeeId });
 
@@ -95,14 +138,20 @@ router.post("/punch-out", async (req, res) => {
     if (!todayEntry?.punchIn) {
       return res.status(400).json({ message: "Punch in first" });
     }
-    
+
     // Prevent multiple punch-outs
-    if(todayEntry.punchOut) {
+    if (todayEntry.punchOut) {
       return res.json(record.attendance);
     }
 
-    todayEntry.punchOut = new Date();
+    todayEntry.punchOut = punchOutTime;
     todayEntry.status = "COMPLETED";
+    todayEntry.punchOutLocation = {
+      latitude,
+      longitude,
+      address,
+      timestamp: punchOutTime
+    };
 
     const work = calcWork(todayEntry.punchIn, todayEntry.punchOut);
 
@@ -111,14 +160,23 @@ router.post("/punch-out", async (req, res) => {
     todayEntry.workedSeconds = work.seconds;
     todayEntry.displayTime = work.displayTime;
 
+    // ✅ Logic for workedStatus
+    if (work.floatHours >= 8) {
+      todayEntry.workedStatus = "FULL_DAY";
+    } else if (work.floatHours >= 4) {
+      todayEntry.workedStatus = "HALF_DAY";
+    } else {
+      todayEntry.workedStatus = "QUARTER_DAY";
+    }
+
     if (work.floatHours >= 7) todayEntry.attendanceCategory = "FULL_DAY";
     else if (work.floatHours >= 4) todayEntry.attendanceCategory = "HALF_DAY";
     else todayEntry.attendanceCategory = "ABSENT";
 
     await record.save();
     res.json(record.attendance);
-
   } catch (err) {
+    console.error("Punch-out error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -126,7 +184,9 @@ router.post("/punch-out", async (req, res) => {
 // ✅ Get all logs
 router.get("/:employeeId", async (req, res) => {
   try {
-    const record = await Attendance.findOne({ employeeId: req.params.employeeId });
+    const record = await Attendance.findOne({
+      employeeId: req.params.employeeId,
+    });
     if (!record) return res.json([]);
     res.json(record.attendance);
   } catch (err) {

@@ -1,10 +1,11 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from 'express';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import ProfilePic from '../models/ProfilePicModel.js';
 import { protect } from '../middleware/authMiddleware.js';
-
 const router = express.Router();
 
 // Cloudinary Configuration (loads from .env)

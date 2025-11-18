@@ -1,9 +1,9 @@
 import express from "express";
-import Attendance from "../models/Attendance.js"; // Make sure this path is correct
+import Attendance from "../models/Attendance.js";
 
 const router = express.Router();
 
-// ✅ NEW: Admin fetch attendance by date range
+// ✅ Admin fetch attendance by date range with location data
 router.get("/by-range", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -24,8 +24,8 @@ router.get("/by-range", async (req, res) => {
       {
         $match: {
           "attendance.date": {
-            $gte: startDate, // Greater than or equal to startDate
-            $lte: endDate    // Less than or equal to endDate
+            $gte: startDate,
+            $lte: endDate
           }
         }
       },
@@ -33,15 +33,15 @@ router.get("/by-range", async (req, res) => {
       // Stage 3: Sort the results by date, then by employee name
       {
         $sort: {
-          "attendance.date": 1, // 1 for ascending order
+          "attendance.date": 1,
           "employeeName": 1
         }
       },
 
-      // Stage 4: Reshape the output to match the format your frontend expects
+      // Stage 4: Reshape the output to include location data
       {
         $project: {
-          _id: 0, // Exclude the default _id field
+          _id: 0,
           employeeName: "$employeeName",
           employeeId: "$employeeId",
           date: "$attendance.date",
@@ -49,7 +49,11 @@ router.get("/by-range", async (req, res) => {
           punchOut: "$attendance.punchOut",
           displayTime: "$attendance.displayTime",
           loginStatus: "$attendance.loginStatus",
+          workedStatus: "$attendance.workedStatus",
           status: "$attendance.status",
+          // ✅ ADDED: Location data
+          punchInLocation: "$attendance.punchInLocation",
+          punchOutLocation: "$attendance.punchOutLocation"
         }
       }
     ]);
@@ -61,8 +65,5 @@ router.get("/by-range", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
-
 
 export default router;
