@@ -36,6 +36,11 @@ const navLinks = [
     label: "Leave Summary",
     icon: <FaChartPie />,
   },
+  {
+    to: "/admin/idle-time",
+    label: "Idle Time",
+    icon: <FaChartPie />,
+  },
     {
     to: "/admin/payroll",        // <-- Added Payroll link here
     label: "Payroll",

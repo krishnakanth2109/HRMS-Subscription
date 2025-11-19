@@ -51,10 +51,9 @@ ChartJS.register(
   Legend
 );
 
-// 🔴 IDLE TRACKING CONFIG
-const INACTIVITY_LIMIT_MS = 10 * 1000; // 10 seconds (TEST)
-const WORK_START_HOUR = 0;  // ✅ full day for testing
-const WORK_END_HOUR = 24;   // ✅ change back to 9 & 18 later
+// 🔵 IDLE TRACKING CONFIG
+// 10 seconds idle timeout (you can increase later, e.g., 60 * 1000 for 1 minute)
+const IDLE_TIMEOUT_MS = 10 * 1000;
 
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -78,9 +77,10 @@ const EmployeeDashboard = () => {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // 🔴 IDLE TRACKING REFS
-  const lastActivityRef = useRef(Date.now());
-  const idleNotifiedRef = useRef(false);
+  // 🔵 NEW IDLE TRACKING REFS
+  const idleStartRef = useRef(null);         // when idle started
+  const lastActivityRef = useRef(Date.now()); // last time user was active
+  const isIdleRef = useRef(false);            // current idle state
 
   // --- Voice Feedback ---
   const speak = (text) => {
@@ -240,6 +240,13 @@ const EmployeeDashboard = () => {
       }
 
       await loadAttendance(user.employeeId);
+
+      // When punch-out happens, reset idle state
+      if (action === "OUT") {
+        idleStartRef.current = null;
+        isIdleRef.current = false;
+        lastActivityRef.current = Date.now();
+      }
     } catch (err) {
       console.error("Punch error:", err);
 
@@ -342,58 +349,106 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // 🔴 FINAL IDLE TRACKING EFFECT – check every 1 second
+  // =============================
+  // 🔵 NEW IDLE TIME TRACKING LOGIC
+  // =============================
   useEffect(() => {
     if (!user || !user.employeeId) return;
 
-    const handleActivity = () => {
-      lastActivityRef.current = Date.now();
-      idleNotifiedRef.current = false;
-    };
+    // Only track idle time between punch-in and punch-out
+    const isWorkingSession = !!(todayLog?.punchIn && !todayLog?.punchOut);
 
-    window.addEventListener("mousemove", handleActivity);
-    window.addEventListener("keydown", handleActivity);
-    window.addEventListener("click", handleActivity);
-    window.addEventListener("scroll", handleActivity);
+    const finishIdleSessionIfAny = async () => {
+      if (isIdleRef.current && idleStartRef.current && isWorkingSession) {
+        const idleEnd = new Date();
+        const idleStart = idleStartRef.current;
 
-    const intervalId = setInterval(async () => {
-      const now = Date.now();
-      const nowDate = new Date();
-      const hour = nowDate.getHours();
-
-      const isWorkingHours =
-        hour >= WORK_START_HOUR && hour < WORK_END_HOUR;
-
-      if (!isWorkingHours) return;
-
-      const diff = now - lastActivityRef.current;
-
-      if (diff >= INACTIVITY_LIMIT_MS && !idleNotifiedRef.current) {
-        idleNotifiedRef.current = true;
+        const durationSeconds = Math.round(
+          (idleEnd.getTime() - idleStart.getTime()) / 1000
+        );
 
         try {
           await sendIdleActivity({
-            employeeId: user.employeeId,
-            name: user.name,
+            employeeId,
+            name,
             department,
             role,
-            lastActiveAt: new Date(lastActivityRef.current).toISOString(),
+            date: today,
+            idleStart: idleStart.toISOString(),
+            idleEnd: idleEnd.toISOString(),
+            idleDurationSeconds: durationSeconds,
           });
-          console.log("✅ Idle activity sent to server for admin notification");
+
+          console.log(
+            "✨ IDLE SESSION SENT:",
+            idleStart.toISOString(),
+            "→",
+            idleEnd.toISOString(),
+            "duration:",
+            durationSeconds,
+            "seconds"
+          );
         } catch (error) {
-          console.error("❌ Failed to send idle activity:", error);
+          console.error("❌ Failed to send idle session:", error);
+        } finally {
+          isIdleRef.current = false;
+          idleStartRef.current = null;
         }
+      }
+    };
+
+    const onActivity = () => {
+      // If not in working session, just reset timestamp but don't track
+      if (!isWorkingSession) {
+        lastActivityRef.current = Date.now();
+        return;
+      }
+
+      lastActivityRef.current = Date.now();
+
+      // If user was idle, then this activity marks the end of idle
+      if (isIdleRef.current) {
+        finishIdleSessionIfAny();
+      }
+    };
+
+    window.addEventListener("mousemove", onActivity);
+    window.addEventListener("keydown", onActivity);
+    window.addEventListener("click", onActivity);
+    window.addEventListener("scroll", onActivity);
+
+    const interval = setInterval(() => {
+      if (!isWorkingSession) {
+        // reset when not in working session
+        isIdleRef.current = false;
+        idleStartRef.current = null;
+        lastActivityRef.current = Date.now();
+        return;
+      }
+
+      const now = Date.now();
+      const diff = now - lastActivityRef.current;
+
+      // If exceeded idle timeout & not already marked idle → start idle
+      if (diff >= IDLE_TIMEOUT_MS && !isIdleRef.current) {
+        isIdleRef.current = true;
+
+        // idle starts exactly after timeout from last activity
+        const idleStartTimestamp = lastActivityRef.current + IDLE_TIMEOUT_MS;
+        idleStartRef.current = new Date(idleStartTimestamp);
+
+        console.log("🔴 Idle started at:", idleStartRef.current.toISOString());
       }
     }, 1000);
 
     return () => {
-      window.removeEventListener("mousemove", handleActivity);
-      window.removeEventListener("keydown", handleActivity);
-      window.removeEventListener("click", handleActivity);
-      window.removeEventListener("scroll", handleActivity);
-      clearInterval(intervalId);
+      window.removeEventListener("mousemove", onActivity);
+      window.removeEventListener("keydown", onActivity);
+      window.removeEventListener("click", onActivity);
+      window.removeEventListener("scroll", onActivity);
+      clearInterval(interval);
     };
-  }, [user, department, role]);
+  }, [user, employeeId, name, department, role, todayLog, today]);
 
   if (loading)
     return (

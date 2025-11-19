@@ -60,6 +60,7 @@ import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
 import ProtectedRoute from "./components/ProtectedRoute";
 import EmployeeDailyAttendance from "./EmployeePages/EmployeeDailyAttendance";
 import EmployeeNotifications from "./pages/EmployeeNotifications";
+import IdleTime from "./pages/IdleTime";
 
 
 function App() {
@@ -104,6 +105,7 @@ function App() {
         <Route path="/attendance/profile/:employeeId" element={<EmployeeAttendanceProfile />} />
         <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
+        <Route path="/admin/idle-time" element={<IdleTime />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
         <Route path="/admin/payroll" element={<Payroll />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
@@ -113,6 +115,7 @@ function App() {
         <Route path="/admin/holiday-calendar" element={<AdminHolidayCalendarPage />} />
         <Route path="/admin/admin-overtime" element={<OvertimeAdmin/>} />
         <Route path="/admin/admin-Leavemanage" element={<AdminLeavePanel/>} />
+        
       </Route>
 
       {/* Employee protected routes */}

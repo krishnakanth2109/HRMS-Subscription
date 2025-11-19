@@ -56,10 +56,32 @@ export const activateEmployeeById = async (id) => (await api.patch(`/api/employe
 
 
 /* ============================================================================
-   EMPLOYEE IDLE ACTIVITY (Idle Tracking)
+   Employee IDLE TIME TRACKING
 ============================================================================ */
-export const sendIdleActivity = async (data) =>
-  (await api.post("/api/employees/idle-activity", data)).data;
+export const sendIdleActivity = async (data) => {
+  try {
+    const response = await api.post("/idletime", data); // ✔ Correct route
+    return response.data;
+  } catch (error) {
+    console.error("Idle time API error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+/* ============================================================================
+   IDLE TIME - ADMIN
+============================================================================ */
+export const getAllIdleTimeRecords = async () => {
+  try {
+    const res = await api.get("/idletime/all"); // ✔ Correct backend route
+    return res.data;
+  } catch (error) {
+    console.error("Get all idle time error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+
 
 
 /* ============================================================================

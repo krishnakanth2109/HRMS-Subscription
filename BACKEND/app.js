@@ -21,6 +21,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import profilePicRoutes from "./routes/ProfilePicRoute.js";
+import idleTimeRoutes from "./routes/idleTimeRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -119,6 +120,7 @@ app.use("/api/attendance", EmployeeattendanceRoutes);
 app.use("/api/admin/attendance", AdminAttendanceRoutes);
 app.use("/api/profile", profilePicRoutes);
 app.use("/api/notifications", notificationRoutes); // ✅ Corrected route prefix
+app.use("/idletime", idleTimeRoutes);
 
 // -------------------- 404 Handler --------------------
 app.use("*", (req, res) => {

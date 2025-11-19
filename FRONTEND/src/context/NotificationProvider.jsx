@@ -23,9 +23,9 @@ export const NotificationProvider = ({ children }) => {
   // Notification sound
   const [sound] = useState(() => new Audio("/notification.mp3"));
 
-  // ===========================
-  // 1️⃣ Fetch saved notifications
-  // ===========================
+  // =====================================================
+  // 1️⃣ Fetch saved notifications from DB
+  // =====================================================
   const fetchNotifications = useCallback(async () => {
     try {
       const data = await getNotifications();
@@ -41,9 +41,10 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // ===========================
-  // 2️⃣ SOCKET.IO REAL-TIME LISTENERS
-  // ===========================
+  // =====================================================
+  // 2️⃣ SOCKET.IO — ONLY NOTICE + NOTIFICATION EVENTS
+  // (🔥 Idle-time listeners removed)
+  // =====================================================
   useEffect(() => {
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
@@ -51,35 +52,7 @@ export const NotificationProvider = ({ children }) => {
 
     console.log("📡 SOCKET CONNECTED:", SOCKET_URL);
 
-    // 🔥 IDLE ALERT FROM BACKEND
-    socket.on("admin-notification", (data) => {
-      console.log("⚠️ Idle Alert Received:", data);
-
-      // Add notification if not already present
-      setNotifications((prev) => {
-        if (prev.some((n) => n._id === data._id)) return prev;
-        return [data, ...prev];
-      });
-
-      // Play sound
-      try {
-        sound.currentTime = 0;
-        sound.play().catch(() => {});
-      } catch {}
-
-      // Toast popup
-      const toastId = Date.now();
-      setToasts((prev) => [
-        { id: toastId, message: data.message, time: new Date() },
-        ...prev,
-      ]);
-
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== toastId));
-      }, 4000);
-    });
-
-    // 🔔 When admin posts notice
+    // 🔔 When admin posts a notice
     socket.on("newNotice", (data) => {
       const newNotification = {
         _id: Date.now(),
@@ -93,7 +66,7 @@ export const NotificationProvider = ({ children }) => {
       setNotifications((prev) => [newNotification, ...prev]);
     });
 
-    // 🔔 General notifications
+    // 🔔 General notification from backend
     socket.on("newNotification", (data) => {
       console.log("🔥 New Notification Received:", data);
 
@@ -102,11 +75,13 @@ export const NotificationProvider = ({ children }) => {
         return [data, ...prev];
       });
 
+      // play notification sound
       try {
         sound.currentTime = 0;
         sound.play().catch(() => {});
       } catch {}
 
+      // show toast popup
       const toastId = Date.now();
       setToasts((prev) => [
         { id: toastId, message: data.message, time: new Date() },
@@ -123,9 +98,9 @@ export const NotificationProvider = ({ children }) => {
     };
   }, [sound]);
 
-  // ===========================
-  // 3️⃣ Manually add notification
-  // ===========================
+  // =====================================================
+  // 3️⃣ Add notification manually
+  // =====================================================
   const addNotification = async (message, type = "info") => {
     try {
       const saved = await addNotificationRequest({ message, type });
@@ -136,9 +111,9 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // ===========================
-  // 4️⃣ Mark single as read
-  // ===========================
+  // =====================================================
+  // 4️⃣ Mark single notification as read
+  // =====================================================
   const markAsRead = async (id) => {
     try {
       await markNotificationAsRead(id);
@@ -150,9 +125,9 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // ===========================
-  // 5️⃣ Mark all as read
-  // ===========================
+  // =====================================================
+  // 5️⃣ Mark ALL notifications as read
+  // =====================================================
   const markAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
@@ -162,7 +137,6 @@ export const NotificationProvider = ({ children }) => {
     }
   };
 
-  // Count unread
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
@@ -178,7 +152,7 @@ export const NotificationProvider = ({ children }) => {
     >
       {children}
 
-      {/* 🔥 Toast Messages */}
+      {/* Toast Messages */}
       <div
         style={{
           position: "fixed",
