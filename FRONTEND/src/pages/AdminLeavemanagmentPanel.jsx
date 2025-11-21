@@ -12,6 +12,7 @@ import {
   rejectLeaveRequestById,
 } from "../api";
 import { FaCheck, FaTimes, FaFilter } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
 
 const AdminLeavePanel = () => {
   const [leaveList, setLeaveList] = useState([]);
@@ -25,6 +26,11 @@ const AdminLeavePanel = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showMoreId, setShowMoreId] = useState(null);
   const [snackbar, setSnackbar] = useState("");
+
+  // NEW STATES FOR POPUP
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null); // "Approved" or "Rejected"
+  const [selectedLeaveId, setSelectedLeaveId] = useState(null);
 
   // --- Helper Snackbar Function ---
   const showSnackbar = (msg) => {
@@ -98,24 +104,30 @@ const AdminLeavePanel = () => {
     });
   }, [enrichedLeaveList, filterDept, filterStatus, searchQuery]);
 
-  // ✅ Approve / Reject
-  const updateStatus = async (id, status) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to ${status.toLowerCase()} this request?`
-      )
-    ) {
-      return;
-    }
+  // OPEN CONFIRM POPUP
+  const openConfirm = (id, actionType) => {
+    setSelectedLeaveId(id);
+    setConfirmAction(actionType);
+    setConfirmOpen(true);
+  };
 
+  // CONFIRMATION HANDLER
+  const handleConfirmAction = async () => {
+    const id = selectedLeaveId;
+    const status = confirmAction;
+
+    setConfirmOpen(false);
     setStatusUpdating(id);
+
     try {
       if (status === "Approved") {
         await approveLeaveRequestById(id);
       } else if (status === "Rejected") {
         await rejectLeaveRequestById(id);
       }
+
       await fetchAllData();
+
       showSnackbar(
         status === "Approved"
           ? "Leave approved successfully."
@@ -188,11 +200,10 @@ const AdminLeavePanel = () => {
             </button>
           ))}
         </div>
-
-       
       </div>
-      <div className="pb-2 ">
-         <input
+
+      <div className="pb-2">
+        <input
           type="text"
           placeholder="Search by Name or Employee ID"
           value={searchQuery}
@@ -247,6 +258,7 @@ const AdminLeavePanel = () => {
                     <td className="p-4">{lv.leaveType}</td>
                     <td className="p-4">{lv.reason}</td>
                     <td className="p-4">{statusBadge(lv.status)}</td>
+
                     <td className="p-4 flex gap-2">
                       <button
                         onClick={() => toggleShowMore(lv._id)}
@@ -254,17 +266,19 @@ const AdminLeavePanel = () => {
                       >
                         {showMoreId === lv._id ? "Hide" : "Details"}
                       </button>
+
+                      {/* APPROVE BUTTON */}
                       <button
-                        onClick={() => updateStatus(lv._id, "Approved")}
-                        disabled={lv.status !== "Pending"}
-                        className="bg-green-100 text-green-700 px-2 py-1 rounded disabled:opacity-50"
+                        onClick={() => openConfirm(lv._id, "Approved")}
+                        className="bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
                       >
                         <FaCheck />
                       </button>
+
+                      {/* REJECT BUTTON */}
                       <button
-                        onClick={() => updateStatus(lv._id, "Rejected")}
-                        disabled={lv.status !== "Pending"}
-                        className="bg-red-100 text-red-700 px-2 py-1 rounded disabled:opacity-50"
+                        onClick={() => openConfirm(lv._id, "Rejected")}
+                        className="bg-red-100 text-red-700 px-2 py-1 rounded hover:bg-red-200"
                       >
                         <FaTimes />
                       </button>
@@ -325,6 +339,51 @@ const AdminLeavePanel = () => {
           </tbody>
         </table>
       </div>
+
+      {/* CONFIRM POPUP */}
+      <AnimatePresence>
+        {confirmOpen && (
+          <motion.div
+            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-white w-80 p-6 rounded-xl shadow-xl"
+              initial={{ scale: 0.7 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.7 }}
+            >
+              <h3 className="text-xl font-bold mb-4 text-indigo-700">
+                Confirm {confirmAction}
+              </h3>
+
+              <p className="text-gray-700 mb-6">
+                Are you sure you want to{" "}
+                <b className="text-indigo-700">{confirmAction}</b> this leave
+                request?
+              </p>
+
+              <div className="flex justify-between">
+                <button
+                  onClick={handleConfirmAction}
+                  className="bg-indigo-600 hover:bg-indigo-800 text-white px-4 py-2 rounded"
+                >
+                  Yes, Confirm
+                </button>
+
+                <button
+                  onClick={() => setConfirmOpen(false)}
+                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {snackbar && (
         <div

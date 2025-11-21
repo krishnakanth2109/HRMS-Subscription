@@ -122,6 +122,14 @@ export const getAllOvertimeRequests = async () => (await api.get("/api/overtime/
 export const getOvertimeForEmployee = async (id) => (await api.get(`/api/overtime/${id}`)).data;
 export const applyForOvertime = async (data) => (await api.post("/api/overtime/apply", data)).data;
 export const updateOvertimeStatus = async (id, status) => (await api.put(`/api/overtime/update-status/${id}`, status)).data;
+export const cancelOvertime = async (id) => {
+  const res = await api.patch(`/api/overtime/cancel/${id}`);
+  return res.data;
+};
+
+export const deleteOvertime = async (id) =>
+  (await api.delete(`/api/overtime/delete/${id}`)).data;
+
 
 /* ============================================================================
    PERMISSIONS

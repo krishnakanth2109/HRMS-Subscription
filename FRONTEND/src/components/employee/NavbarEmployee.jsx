@@ -57,12 +57,8 @@ const NavbarEmployee = () => {
         className="flex items-center gap-3 cursor-pointer"
         onClick={() => navigate("/employee/dashboard")}
       >
-        <img
-          src="/src/assets/logo.png"
-          alt="HRMS Logo"
-          className="h-8 w-8 rounded-full"
-        />
-        <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow">
+        
+        <h1 className="ps-5 text-2xl font-bold text-white tracking-wide drop-shadow">
           HRMS
         </h1>
       </div>

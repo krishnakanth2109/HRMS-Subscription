@@ -669,13 +669,8 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow p-4 mb-8">
-        <h2 className="font-bold flex items-center gap-2 mb-2"><FaBell className="text-red-500" /> Notice Board</h2>
-        {notices?.length > 0 ? <ul className="space-y-2">{notices.map((n, i) => <li key={i} className="border-b pb-2"><b>{n.title}</b> - {n.description}</li>)}</ul> : <p className="text-gray-500">No Notices</p>}
-      </div>
-
       {showCropModal && imageToCrop && (
-        <ImageCropModal imageSrc={imageToCrop} onCropComplete={handleCropComplete} onCancel={() => { setShowCropModal(false); setImageToCrop(null); }} isUploading={uploadingImage} />
+      <ImageCropModal imageSrc={imageToCrop} onCropComplete={handleCropComplete} onCancel={() => { setShowCropModal(false); setImageToCrop(null); }} isUploading={uploadingImage} />
       )}
     </div>
   );
