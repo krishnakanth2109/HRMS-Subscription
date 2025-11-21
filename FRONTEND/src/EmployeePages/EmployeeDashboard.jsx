@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { NoticeContext } from "../context/NoticeContext";
+import axios from "axios"; // Added for idle tracking
 import { Bar, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -53,9 +54,19 @@ ChartJS.register(
   Legend
 );
 
-// 🔵 IDLE TRACKING CONFIG
-// 10 seconds idle timeout (adjustable)
-const IDLE_TIMEOUT_MS = 10 * 1000;
+// 🔴 IDLE CONFIGURATION (From File 1)
+const INACTIVITY_LIMIT_MS = 4 * 60 * 1000; // 4 Minutes
+const WORK_START_HOUR = 0;
+const WORK_END_HOUR = 24;
+
+// Helper for idle tracking (From File 1)
+const recordIdleActivityLocally = async (data) => {
+  const token = localStorage.getItem("token");
+  // Adjust URL if your backend port differs
+  return axios.post("http://localhost:5000/api/attendance/record-idle-activity", data, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+};
 
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -80,10 +91,11 @@ const EmployeeDashboard = () => {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // 🔵 IDLE TRACKING REFS
-  const idleStartRef = useRef(null);
-  const lastActivityRef = useRef(Date.now());
+  // 🔴 IDLE TRACKING REFS (From File 1)
   const isIdleRef = useRef(false);
+  const idleStartTimeRef = useRef(null);
+  const idleNotifiedRef = useRef(false); 
+  const LOCAL_STORAGE_KEY = `lastActive_${user?.employeeId}`;
 
   // --- Voice Feedback ---
   const speak = (text) => {
@@ -112,11 +124,9 @@ const EmployeeDashboard = () => {
         },
         (error) => {
           let errorMessage = "Unable to retrieve your location";
-
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              errorMessage =
-                "Location access denied. Please enable location permissions.";
+              errorMessage = "Location access denied. Please enable location permissions.";
               break;
             case error.POSITION_UNAVAILABLE:
               errorMessage = "Location information unavailable.";
@@ -127,14 +137,9 @@ const EmployeeDashboard = () => {
             default:
               break;
           }
-
           reject(new Error(errorMessage));
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     });
   };
@@ -146,7 +151,6 @@ const EmployeeDashboard = () => {
       setShiftTimings(shiftData);
     } catch (err) {
       console.error("Shift timings fetch error:", err);
-      // Set default shift timings if not found
       setShiftTimings({
         shiftStartTime: "09:00",
         shiftEndTime: "18:00",
@@ -165,11 +169,7 @@ const EmployeeDashboard = () => {
     async (empId) => {
       try {
         const data = await getAttendanceForEmployee(empId);
-        
-        // ✅ FIX: Correctly extract array from backend response object
-        // If backend returns { success: true, data: [...] }, this line handles it.
         const attendanceData = Array.isArray(data) ? data : (data.data || []);
-        
         setAttendance(attendanceData);
         const todayEntry = attendanceData.find((d) => d.date === today);
         setTodayLog(todayEntry || null);
@@ -180,7 +180,7 @@ const EmployeeDashboard = () => {
     [today]
   );
 
-  // --- Fetch Profile Picture from backend ---
+  // --- Fetch Profile Picture ---
   const loadProfilePic = async () => {
     try {
       const res = await getProfilePic();
@@ -212,51 +212,78 @@ const EmployeeDashboard = () => {
     bootstrap();
   }, [user, loadAttendance, loadShiftTimings]);
 
-  // Extract name/email/phone/id from user and get role/department
   const { name, email, phone, employeeId } = user || {};
-
-  const latestExp =
-    user?.experienceDetails && user.experienceDetails.length
-      ? user.experienceDetails[user.experienceDetails.length - 1]
-      : null;
-
+  const latestExp = user?.experienceDetails?.[user.experienceDetails.length - 1];
   const role = latestExp?.role || user?.role || "N/A";
   const department = latestExp?.department || user?.department || "N/A";
 
   // --- Frontend Timer Effect ---
   useEffect(() => {
     let interval;
-
     if (todayLog?.punchIn && !todayLog.punchOut) {
       const punchInTime = new Date(todayLog.punchIn);
-
       const updateTimer = () => {
         const now = new Date();
         const diffInSeconds = Math.floor((now - punchInTime) / 1000);
         setWorkedTime(diffInSeconds);
       };
-
       updateTimer();
       interval = setInterval(updateTimer, 1000);
     }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [todayLog]);
 
-  // ✅ Punch In/Out with Location and granular UI feedback
+  // 🔴 Helper to calculate Idle Time String (From File 1)
+  const getTodayIdleTimeStr = () => {
+    const activities = todayLog?.idleActivity || [];
+    if (activities.length === 0) return "--";
+    
+    let totalMs = 0;
+    activities.forEach((item) => {
+      const start = new Date(item.idleStart).getTime();
+      const end = item.idleEnd ? new Date(item.idleEnd).getTime() : new Date().getTime();
+      
+      if (todayLog.punchOut && !item.idleEnd) {
+         const punchOutTime = new Date(todayLog.punchOut).getTime();
+         if (punchOutTime > start) totalMs += (punchOutTime - start);
+      } else {
+         if (end > start) totalMs += (end - start);
+      }
+    });
+
+    const totalSec = Math.floor(totalMs / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${h}h ${m}m ${s}s`;
+  };
+
+  // ✅ Punch In/Out (Updated with Idle check)
   const handlePunch = async (action) => {
     if (!user) return;
+
+    // 🔴 If Punching Out while Idle, force stop idle first
+    if (action === "OUT" && isIdleRef.current) {
+        try {
+            await recordIdleActivityLocally({
+                employeeId: user.employeeId,
+                idleEnd: new Date().toISOString(),
+                isIdle: false,
+                idleStart: idleStartTimeRef.current
+            });
+            isIdleRef.current = false;
+        } catch(e) { console.error(e); }
+    }
 
     setPunchStatus("FETCHING");
 
     try {
       const location = await getCurrentLocation();
-
       setPunchStatus("PUNCHING");
 
       if (action === "IN") {
+        // Reset local storage on punch in
+        localStorage.setItem(LOCAL_STORAGE_KEY, Date.now());
         await punchIn({
           employeeId: user.employeeId,
           employeeName: user.name,
@@ -274,25 +301,13 @@ const EmployeeDashboard = () => {
       }
 
       await loadAttendance(user.employeeId);
-
-      // When punch-out happens, reset idle state
-      if (action === "OUT") {
-        idleStartRef.current = null;
-        isIdleRef.current = false;
-        lastActivityRef.current = Date.now();
-      }
     } catch (err) {
       console.error("Punch error:", err);
-
       const msg = err.response?.data?.message || err.message || "Unknown Error";
-
       if (msg.includes("Location")) {
         alert(msg);
-        speak("Location access required for attendance");
       } else if (msg.toLowerCase().includes("already punched")) {
-        // ✅ Auto-Sync: If backend says we already punched, refresh data
         alert("System syncing: You are already punched in.");
-        speak("Updating status");
         await loadAttendance(user.employeeId);
       } else {
         speak("Punch operation failed");
@@ -303,27 +318,14 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // --- Handle Image Selection (opens crop modal) ---
+  // --- Handle Image Selection ---
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
     if (!file || !user) return;
-
     if (file.size > 5 * 1024 * 1024) {
       alert("File size must be less than 5MB");
       return;
     }
-    const validTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
-    if (!validTypes.includes(file.type)) {
-      alert("Please upload a valid image file (JPEG, PNG, GIF, WEBP)");
-      return;
-    }
-
     const reader = new FileReader();
     reader.onload = () => {
       setImageToCrop(reader.result);
@@ -336,7 +338,6 @@ const EmployeeDashboard = () => {
   // --- Handle Cropped Image Upload ---
   const handleCropComplete = async (croppedBlob) => {
     if (!user) return;
-
     const formData = new FormData();
     formData.append("image", croppedBlob, "profile.jpg");
     formData.append("employeeId", user.employeeId);
@@ -350,198 +351,140 @@ const EmployeeDashboard = () => {
       if (res?.profilePhoto?.url) {
         setProfileImage(res.profilePhoto.url);
         sessionStorage.setItem("profileImage", res.profilePhoto.url);
-        speak("Profile picture updated successfully");
+        speak("Profile updated");
         alert("Profile picture updated successfully!");
         setShowCropModal(false);
         setImageToCrop(null);
-      } else {
-        alert("Upload succeeded but response format was unexpected");
       }
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        "Failed to upload image. Please try again.";
-      alert(errorMessage);
-      speak("Profile picture update failed");
+      alert("Failed to upload image.");
     } finally {
       setUploadingImage(false);
     }
   };
 
-  // --- Delete Profile Picture ---
   const handleDeleteProfilePic = async () => {
-    if (
-      !window.confirm("Are you sure you want to delete your profile picture?")
-    ) {
-      return;
-    }
-
+    if (!window.confirm("Are you sure you want to delete your profile picture?")) return;
     try {
       await deleteProfilePic();
       setProfileImage(null);
       sessionStorage.removeItem("profileImage");
-      speak("Profile picture deleted successfully");
-      alert("Profile picture deleted successfully!");
+      speak("Profile deleted");
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.message || "Failed to delete profile picture.";
-      alert(errorMessage);
-      speak("Profile picture deletion failed");
+      alert("Failed to delete profile picture.");
     }
   };
 
-  // =============================
-  // 🔵 IDLE TIME TRACKING LOGIC
-  // =============================
+  // ============================================================
+  // 🔴 ROBUST IDLE TRACKING (Merged from File 1)
+  // ============================================================
   useEffect(() => {
-    if (!user || !user.employeeId) return;
+    if (!user || !user.employeeId || !todayLog?.punchIn || todayLog?.punchOut) return;
 
-    // Only track idle time between punch-in and punch-out
-    const isWorkingSession = !!(todayLog?.punchIn && !todayLog?.punchOut);
-
-    const finishIdleSessionIfAny = async () => {
-      if (isIdleRef.current && idleStartRef.current && isWorkingSession) {
-        const idleEnd = new Date();
-        const idleStart = idleStartRef.current;
-
-        const durationSeconds = Math.round(
-          (idleEnd.getTime() - idleStart.getTime()) / 1000
-        );
-
-        try {
-          await sendIdleActivity({
-            employeeId,
-            name,
-            department,
-            role,
-            date: today,
-            idleStart: idleStart.toISOString(),
-            idleEnd: idleEnd.toISOString(),
-            idleDurationSeconds: durationSeconds,
-          });
-
-          console.log(
-            "✨ IDLE SESSION SENT:",
-            idleStart.toISOString(),
-            "→",
-            idleEnd.toISOString(),
-            "duration:",
-            durationSeconds,
-            "seconds"
-          );
-        } catch (error) {
-          console.error("❌ Failed to send idle session:", error);
-        } finally {
-          isIdleRef.current = false;
-          idleStartRef.current = null;
-        }
+    // 1. Sync with DB on Load
+    // If DB says we are idle (null idleEnd), ensure the Ref knows it!
+    if (todayLog.idleActivity && todayLog.idleActivity.length > 0) {
+      const lastEntry = todayLog.idleActivity[todayLog.idleActivity.length - 1];
+      if (lastEntry && !lastEntry.idleEnd && !isIdleRef.current) {
+          console.log("🔄 Syncing: DB says user is idle. Updating Ref.");
+          isIdleRef.current = true;
+          idleStartTimeRef.current = lastEntry.idleStart;
       }
-    };
+    }
 
-    const onActivity = () => {
-      // If not in working session, just reset timestamp but don't track
-      if (!isWorkingSession) {
-        lastActivityRef.current = Date.now();
-        return;
-      }
-
-      lastActivityRef.current = Date.now();
-
-      // If user was idle, then this activity marks the end of idle
-      if (isIdleRef.current) {
-        finishIdleSessionIfAny();
-      }
-    };
-
-    window.addEventListener("mousemove", onActivity);
-    window.addEventListener("keydown", onActivity);
-    window.addEventListener("click", onActivity);
-    window.addEventListener("scroll", onActivity);
-
-    const interval = setInterval(() => {
-      if (!isWorkingSession) {
-        // reset when not in working session
-        isIdleRef.current = false;
-        idleStartRef.current = null;
-        lastActivityRef.current = Date.now();
-        return;
-      }
-
+    const handleActivity = () => {
+      // Sync LocalStorage
       const now = Date.now();
-      const diff = now - lastActivityRef.current;
+      const lastSaved = parseInt(localStorage.getItem(LOCAL_STORAGE_KEY) || 0);
+      if (now - lastSaved > 1000) {
+          localStorage.setItem(LOCAL_STORAGE_KEY, now);
+      }
 
-      // If exceeded idle timeout & not already marked idle → start idle
-      if (diff >= IDLE_TIMEOUT_MS && !isIdleRef.current) {
+      // 2. If Idle -> Stop Idle
+      if (isIdleRef.current && idleStartTimeRef.current) {
+        const startT = idleStartTimeRef.current;
+        
+        // Reset immediately
+        isIdleRef.current = false;
+        idleStartTimeRef.current = null;
+        idleNotifiedRef.current = false;
+
+        console.log("🟢 User Active. Sending STOP IDLE to DB...");
+        
+        recordIdleActivityLocally({
+            employeeId: user.employeeId,
+            idleEnd: new Date().toISOString(),
+            isIdle: false,
+            idleStart: startT 
+        })
+        .then(() => {
+           console.log("✅ DB Updated: Idle Stopped.");
+           loadAttendance(user.employeeId); 
+        })
+        .catch(err => console.error("❌ Failed to stop idle:", err));
+      }
+    };
+
+    window.addEventListener("mousemove", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+    window.addEventListener("click", handleActivity);
+    window.addEventListener("scroll", handleActivity);
+
+    const intervalId = setInterval(async () => {
+      const now = Date.now();
+      const hour = new Date().getHours();
+      if (hour < WORK_START_HOUR || hour >= WORK_END_HOUR) return;
+
+      const lastActive = parseInt(localStorage.getItem(LOCAL_STORAGE_KEY) || Date.now());
+      const diff = now - lastActive;
+
+      // 3. If Inactive -> Start Idle
+      if (diff >= INACTIVITY_LIMIT_MS && !isIdleRef.current) {
         isIdleRef.current = true;
+        idleStartTimeRef.current = new Date().toISOString();
+        
+        console.log("🔴 User Inactive. Sending START IDLE to DB...");
+        
+        try {
+          await recordIdleActivityLocally({
+            employeeId: user.employeeId,
+            idleStart: idleStartTimeRef.current,
+            isIdle: true,
+          });
+          
+          if (!idleNotifiedRef.current) {
+            idleNotifiedRef.current = true;
+            // Optional: Send notification
+            await sendIdleActivity({
+              employeeId: user.employeeId,
+              name: user.name,
+              department,
+              role,
+              lastActiveAt: new Date(lastActive).toISOString(),
+            });
+          }
+        } catch (error) { console.error("Failed to record idle start:", error); }
+      }
 
-        // idle starts exactly after timeout from last activity
-        const idleStartTimestamp = lastActivityRef.current + IDLE_TIMEOUT_MS;
-        idleStartRef.current = new Date(idleStartTimestamp);
-
-        console.log("🔴 Idle started at:", idleStartRef.current.toISOString());
+      // Force re-render for live timer updates
+      if (isIdleRef.current) {
+         setWorkedTime(prev => prev); 
       }
     }, 1000);
 
     return () => {
-      window.removeEventListener("mousemove", onActivity);
-      window.removeEventListener("keydown", onActivity);
-      window.removeEventListener("click", onActivity);
-      window.removeEventListener("scroll", onActivity);
-      clearInterval(interval);
+      window.removeEventListener("mousemove", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      window.removeEventListener("click", handleActivity);
+      window.removeEventListener("scroll", handleActivity);
+      clearInterval(intervalId);
     };
-  }, [user, employeeId, name, department, role, todayLog, today]);
+  }, [user, department, role, todayLog, loadAttendance, LOCAL_STORAGE_KEY]);
 
-  // ✅ Memoized Chart Data to prevent flickering on re-renders
-  const leaveBarData = useMemo(() => ({
-    labels: ["Full Day", "Half Day", "Absent"],
-    datasets: [
-      {
-        label: "Attendance",
-        data: [
-          attendance.filter((a) => a.workedStatus === "FULL_DAY").length,
-          attendance.filter((a) => a.workedStatus === "HALF_DAY").length,
-          // 'Absent' can be checked via status 'ABSENT' or workedStatus 'ABSENT'
-          attendance.filter(
-            (a) => a.status === "ABSENT" || a.workedStatus === "ABSENT"
-          ).length,
-        ],
-        backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
-        borderRadius: 6,
-      },
-    ],
-  }), [attendance]);
 
-  const workPieData = useMemo(() => ({
-    labels: ["Worked Hours", "Remaining"],
-    datasets: [
-      {
-        data: [
-          todayLog?.workedHours || 0,
-          Math.max(0, (shiftTimings?.fullDayHours || 8) - (todayLog?.workedHours || 0)),
-        ],
-        backgroundColor: ["#3b82f6", "#e5e7eb"],
-      },
-    ],
-  }), [todayLog, shiftTimings]);
-
-  if (loading)
-    return (
-      <div className="p-8 text-center text-lg font-semibold">
-        Loading Employee Dashboard...
-      </div>
-    );
-
-  if (!user)
-    return (
-      <div className="p-8 text-center text-red-600 font-semibold">
-        Could not load employee data.
-      </div>
-    );
-
+  // Data formatting
   const formatWorkedTime = (totalSeconds) => {
-    if (isNaN(totalSeconds) || totalSeconds < 0) {
-      return "0h 0m 0s";
-    }
+    if (isNaN(totalSeconds) || totalSeconds < 0) return "0h 0m 0s";
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -550,32 +493,16 @@ const EmployeeDashboard = () => {
 
   const formatWorkedStatus = (status) => {
     if (!status || status === "NOT_APPLICABLE") return "--";
-    return status.replace(/_/g, " ").toLowerCase(); // Improved regex replace
+    return status.replace(/_/g, " ").toLowerCase();
   };
 
   const getPunchButtonContent = (action) => {
-    const spinner = (
-      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-    );
-
-    if (punchStatus === "FETCHING") {
-      return (
-        <>
-          {spinner} Extracting Location...
-        </>
-      );
-    }
-    if (punchStatus === "PUNCHING") {
-      return (
-        <>
-          {spinner} {action === "IN" ? "Punching In..." : "Punching Out..."}
-        </>
-      );
-    }
+    const spinner = <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />;
+    if (punchStatus === "FETCHING") return <>{spinner} Extracting Location...</>;
+    if (punchStatus === "PUNCHING") return <>{spinner} {action === "IN" ? "Punching In..." : "Punching Out..."}</>;
     return action === "IN" ? "Punch In" : "Punch Out";
   };
 
-  // Format time for display
   const formatTimeDisplay = (timeString) => {
     if (!timeString) return "--";
     try {
@@ -584,139 +511,97 @@ const EmployeeDashboard = () => {
       const ampm = hour >= 12 ? 'PM' : 'AM';
       const displayHour = hour % 12 || 12;
       return `${displayHour}:${minutes} ${ampm}`;
-    } catch (error) {
-      return timeString;
-    }
+    } catch (error) { return timeString; }
   };
 
-  // Get day names from numbers
   const getDayNames = (dayNumbers = []) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     return dayNumbers.map(day => days[day]).join(', ') || 'None';
   };
 
+  const leaveBarData = useMemo(() => ({
+    labels: ["Full Day", "Half Day", "Absent"],
+    datasets: [{
+        label: "Attendance",
+        data: [
+          attendance.filter((a) => a.workedStatus === "FULL_DAY").length,
+          attendance.filter((a) => a.workedStatus === "HALF_DAY").length,
+          attendance.filter((a) => a.status === "ABSENT" || a.workedStatus === "ABSENT").length,
+        ],
+        backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
+        borderRadius: 6,
+    }],
+  }), [attendance]);
+
+  const workPieData = useMemo(() => ({
+    labels: ["Worked Hours", "Remaining"],
+    datasets: [{
+        data: [
+          todayLog?.workedHours || 0,
+          Math.max(0, (shiftTimings?.fullDayHours || 8) - (todayLog?.workedHours || 0)),
+        ],
+        backgroundColor: ["#3b82f6", "#e5e7eb"],
+    }],
+  }), [todayLog, shiftTimings]);
+
+  if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Dashboard...</div>;
+  if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
+
   return (
     <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
-      {/* Profile Section */}
+      {/* Profile Section (With Cloudinary Fix) */}
       <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6">
         <div className="relative group">
           <img
-            src={
-              profileImage ||
-              `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                name
-              )}&background=0D8ABC&color=fff&size=128`
-            }
+            src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
             alt="Profile"
-            // ✅ FIXED: Prevent Tracking Prevention Errors for Cloudinary
             crossOrigin="anonymous"
             referrerPolicy="no-referrer"
             className="w-28 h-28 rounded-full border-4 border-white shadow-md object-cover"
           />
           <div className="absolute bottom-1 right-1 flex gap-1">
-            <label
-              htmlFor="profile-upload"
-              className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors ${
-                uploadingImage ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              title={
-                profileImage
-                  ? "Change Profile Picture"
-                  : "Upload Profile Picture"
-              }
-            >
-              {uploadingImage ? (
-                <div className="animate-spin">⏳</div>
-              ) : profileImage ? (
-                <FaEdit size={14} />
-              ) : (
-                <FaCamera size={14} />
-              )}
+            <label htmlFor="profile-upload" className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 ${uploadingImage ? "opacity-50 cursor-not-allowed" : ""}`}>
+              {uploadingImage ? <div className="animate-spin">⏳</div> : profileImage ? <FaEdit size={14} /> : <FaCamera size={14} />}
             </label>
             {profileImage && (
-              <button
-                onClick={handleDeleteProfilePic}
-                className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 transition-colors"
-                title="Delete Profile Picture"
-              >
+              <button onClick={handleDeleteProfilePic} className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700">
                 <FaTrash size={14} />
               </button>
             )}
           </div>
-          <input
-            id="profile-upload"
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-            className="hidden"
-            onChange={handleImageSelect}
-            disabled={uploadingImage}
-          />
+          <input id="profile-upload" type="file" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
         </div>
         <div className="flex-1">
-          <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2">
-            <FaUserCircle className="text-blue-400" /> {name}
-          </h3>
+          <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2"><FaUserCircle /> {name}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 mt-2">
-            <div>
-              <b>ID:</b> {employeeId}
-            </div>
-            <div>
-              <b>Email:</b> {email}
-            </div>
-            <div>
-              <b>Phone:</b> {phone || "N/A"}
-            </div>
-            <div>
-              <b>Department:</b> {department}
-            </div>
-            <div>
-              <b>Role:</b> {role}
-            </div>
+            <div><b>ID:</b> {employeeId}</div>
+            <div><b>Email:</b> {email}</div>
+            <div><b>Phone:</b> {phone || "N/A"}</div>
+            <div><b>Department:</b> {department}</div>
+            <div><b>Role:</b> {role}</div>
           </div>
           
-          {/* Shift Timings Display */}
+          {/* Shift Timings (Preserved) */}
           {shiftTimings && (
             <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
-                <FaRegClock className="text-blue-600" /> Your Shift Timings
-              </h4>
+              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2"><FaRegClock /> Your Shift Timings</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-600">Start:</span>
-                  <div className="font-semibold">{formatTimeDisplay(shiftTimings.shiftStartTime)}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">End:</span>
-                  <div className="font-semibold">{formatTimeDisplay(shiftTimings.shiftEndTime)}</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Grace Period:</span>
-                  <div className="font-semibold">{shiftTimings.lateGracePeriod} mins</div>
-                </div>
-                <div>
-                  <span className="text-gray-600">Weekly Off:</span>
-                  <div className="font-semibold text-xs">{getDayNames(shiftTimings.weeklyOffDays)}</div>
-                </div>
+                <div><span className="text-gray-600">Start:</span><div className="font-semibold">{formatTimeDisplay(shiftTimings.shiftStartTime)}</div></div>
+                <div><span className="text-gray-600">End:</span><div className="font-semibold">{formatTimeDisplay(shiftTimings.shiftEndTime)}</div></div>
+                <div><span className="text-gray-600">Grace:</span><div className="font-semibold">{shiftTimings.lateGracePeriod} mins</div></div>
+                <div><span className="text-gray-600">Weekly Off:</span><div className="font-semibold text-xs">{getDayNames(shiftTimings.weeklyOffDays)}</div></div>
               </div>
-              {shiftTimings.isDefault && (
-                <div className="mt-2 text-xs text-orange-600">
-                  * Default shift timings applied
-                </div>
-              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Attendance Table */}
+      {/* Attendance Table (With IDLE TIME Column) */}
       <div className="bg-gradient-to-br from-gray-50 to-blue-100 rounded-2xl shadow-lg p-6 mb-8 animate-fade-in">
         <div className="flex items-center mb-6 gap-3 border-b border-gray-200 pb-4">
           <FaRegClock className="text-blue-600 text-2xl" />
-          <h2 className="font-bold text-2xl text-gray-800">
-            Daily Attendance
-          </h2>
+          <h2 className="font-bold text-2xl text-gray-800">Daily Attendance</h2>
         </div>
-
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm rounded-lg overflow-hidden">
             <thead>
@@ -727,68 +612,34 @@ const EmployeeDashboard = () => {
                 <th className="px-4 py-3 text-left">Worked</th>
                 <th className="px-4 py-3 text-left">Login Status</th>
                 <th className="px-4 py-3 text-left">Worked Status</th>
+                <th className="px-4 py-3 text-left">Idle Time</th> {/* 🔴 Added Idle Column */}
                 <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white">
-              <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200 animate-fade-in-up">
+              <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200">
                 <td className="px-4 py-3 font-medium">{today}</td>
-                <td className="px-4 py-3">
-                  {todayLog?.punchIn
-                    ? new Date(todayLog.punchIn).toLocaleTimeString()
-                    : "--"}
-                </td>
-                <td className="px-4 py-3">
-                  {todayLog?.punchOut
-                    ? new Date(todayLog.punchOut).toLocaleTimeString()
-                    : "--"}
-                </td>
-                <td className="px-4 py-3 font-mono">
-                  {todayLog?.punchIn && !todayLog?.punchOut
-                    ? formatWorkedTime(workedTime)
-                    : todayLog?.displayTime || "0h 0m 0s"}
-                </td>
+                <td className="px-4 py-3">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
+                <td className="px-4 py-3">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</td>
+                <td className="px-4 py-3 font-mono">{todayLog?.punchIn && !todayLog?.punchOut ? formatWorkedTime(workedTime) : todayLog?.displayTime || "0h 0m 0s"}</td>
                 <td className="px-4 py-3">
                   {todayLog?.punchIn ? (
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
-                        todayLog.loginStatus === "LATE"
-                          ? "bg-red-100 text-red-800 border border-red-200"
-                          : "bg-green-100 text-green-800 border border-green-200"
-                      }`}
-                    >
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${todayLog.loginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
                       {todayLog.loginStatus === "LATE" ? "Late" : "On Time"}
                     </span>
-                  ) : (
-                    "--"
-                  )}
+                  ) : "--"}
                 </td>
                 <td className="px-4 py-3 capitalize">
-                  {todayLog?.punchIn && !todayLog?.punchOut ? (
-                    <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">
-                      Working...
-                    </span>
-                  ) : (
-                    formatWorkedStatus(todayLog?.workedStatus)
-                  )}
+                  {todayLog?.punchIn && !todayLog?.punchOut ? <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Working...</span> : formatWorkedStatus(todayLog?.workedStatus)}
+                </td>
+                <td className="px-4 py-3 font-mono font-bold text-orange-600">
+                  {todayLog?.punchIn ? getTodayIdleTimeStr() : "--"} {/* 🔴 Added Idle Data */}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {!todayLog?.punchIn ? (
-                    <button
-                      className="bg-green-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-600 active:scale-95 transform transition-transform duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto min-w-[180px]"
-                      onClick={() => handlePunch("IN")}
-                      disabled={punchStatus !== "IDLE"}
-                    >
-                      {getPunchButtonContent("IN")}
-                    </button>
+                    <button className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:opacity-50 mx-auto flex gap-2" onClick={() => handlePunch("IN")} disabled={punchStatus !== "IDLE"}>{getPunchButtonContent("IN")}</button>
                   ) : !todayLog?.punchOut ? (
-                    <button
-                      className="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 active:scale-95 transform transition-transform duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto min-w-[180px]"
-                      onClick={() => handlePunch("OUT")}
-                      disabled={punchStatus !== "IDLE"}
-                    >
-                      {getPunchButtonContent("OUT")}
-                    </button>
+                    <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 disabled:opacity-50 mx-auto flex gap-2" onClick={() => handlePunch("OUT")} disabled={punchStatus !== "IDLE"}>{getPunchButtonContent("OUT")}</button>
                   ) : (
                     <span className="text-gray-500 font-semibold">Done</span>
                   )}
@@ -797,99 +648,38 @@ const EmployeeDashboard = () => {
             </tbody>
           </table>
         </div>
-
         <div className="flex justify-between items-center mt-6">
           <div className="flex items-center gap-3">
             {todayLog?.punchInLocation && (
-              <button
-                onClick={() =>
-                  window.open(
-                    `https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`,
-                    "_blank"
-                  )
-                }
-                className="flex items-center gap-1.5 bg-blue-100 text-blue-800 px-3 py-1.5 text-xs rounded-full font-semibold hover:bg-blue-200 transition-colors shadow-sm transform hover:scale-105"
-                title="View Punch-In Location"
-              >
-                <FaMapMarkerAlt />
-                View In Location
-              </button>
+              <button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`, "_blank")} className="bg-blue-100 text-blue-800 px-3 py-1.5 text-xs rounded-full hover:bg-blue-200 flex gap-1"><FaMapMarkerAlt /> In Loc</button>
             )}
             {todayLog?.punchOutLocation && (
-              <button
-                onClick={() =>
-                  window.open(
-                    `https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`,
-                    "_blank"
-                  )
-                }
-                className="flex items-center gap-1.5 bg-red-100 text-red-800 px-3 py-1.5 text-xs rounded-full font-semibold hover:bg-red-200 transition-colors shadow-sm transform hover:scale-105"
-                title="View Punch-Out Location"
-              >
-                <FaMapMarkerAlt />
-                View Out Location
-              </button>
+              <button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`, "_blank")} className="bg-red-100 text-red-800 px-3 py-1.5 text-xs rounded-full hover:bg-red-200 flex gap-1"><FaMapMarkerAlt /> Out Loc</button>
             )}
           </div>
-
-          <div>
-            <button
-              onClick={() => navigate("/employee/my-attendence")}
-              className="bg-blue-600 text-white px-6 py-2 rounded-md font-semibold hover:bg-blue-700 transition-all duration-200 ease-in-out transform hover:-translate-y-1"
-            >
-              View Attendance History →
-            </button>
-          </div>
+          <button onClick={() => navigate("/employee/my-attendence")} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">View Attendance History →</button>
         </div>
       </div>
 
       {/* Charts & Notices */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2">
-            <FaCalendarAlt className="text-blue-500" /> Attendance Summary
-          </h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
           <Bar data={leaveBarData} />
         </div>
         <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2">
-            <FaChartPie className="text-yellow-500" /> Work Hours Today
-          </h2>
+          <h2 className="font-bold flex items-center gap-2 mb-2"><FaChartPie className="text-yellow-500" /> Work Hours Today</h2>
           <Pie data={workPieData} />
-          <div className="mt-2 text-center text-sm text-gray-600">
-            Target: {shiftTimings?.fullDayHours || 8} hours
-          </div>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow p-4 mb-8">
-        <h2 className="font-bold flex items-center gap-2 mb-2">
-          <FaBell className="text-red-500" /> Notice Board
-        </h2>
-        {notices?.length > 0 ? (
-          <ul className="space-y-2">
-            {notices.map((n, i) => (
-              <li key={i} className="border-b pb-2">
-                <b>{n.title}</b> - {n.description}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-gray-500">No Notices</p>
-        )}
+        <h2 className="font-bold flex items-center gap-2 mb-2"><FaBell className="text-red-500" /> Notice Board</h2>
+        {notices?.length > 0 ? <ul className="space-y-2">{notices.map((n, i) => <li key={i} className="border-b pb-2"><b>{n.title}</b> - {n.description}</li>)}</ul> : <p className="text-gray-500">No Notices</p>}
       </div>
 
-      {/* Crop Modal */}
       {showCropModal && imageToCrop && (
-        <ImageCropModal
-          imageSrc={imageToCrop}
-          onCropComplete={handleCropComplete}
-          onCancel={() => {
-            setShowCropModal(false);
-            setImageToCrop(null);
-          }}
-          isUploading={uploadingImage}
-        />
+        <ImageCropModal imageSrc={imageToCrop} onCropComplete={handleCropComplete} onCancel={() => { setShowCropModal(false); setImageToCrop(null); }} isUploading={uploadingImage} />
       )}
     </div>
   );

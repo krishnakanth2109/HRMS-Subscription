@@ -1,341 +1,463 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
+  FaSearch,
+  FaSyncAlt,
+  FaUserClock,
+  FaExclamationCircle,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaCalendarAlt,
+  FaChartLine,
+  FaTimes,
+  FaClock,
+  FaChartPie // Added Icon
+} from "react-icons/fa";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
   Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-} from "recharts";
-import { ChevronDown, ChevronUp, Download } from "lucide-react";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
-import { saveAs } from "file-saver";
-import Papa from "papaparse";
-import jsPDF from "jspdf";
+  Legend,
+  Filler,
+  ArcElement // ✅ Added for Pie Chart
+} from 'chart.js';
+import { Line, Pie } from 'react-chartjs-2'; // ✅ Added Pie
 
-import { getAllIdleTimeRecords } from "../api";
+// Register ChartJS
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler,
+  ArcElement // ✅ Register Pie Element
+);
 
-// ---------------------------------------------
-// Helper: format Date -> "YYYY-MM-DD"
-// ---------------------------------------------
-const formatDate = (date) => {
-  if (!date) return "";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "";
-  return d.toISOString().split("T")[0];
-};
-
-// ---------------------------------------------
-// Convert ISO → HH:MM safely
-// ---------------------------------------------
-const toHHMM = (iso) => {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toTimeString().slice(0, 5);
-};
-
-const IdleTime = () => {
+const IdleTimeTracking = () => {
   const [employees, setEmployees] = useState([]);
-  const [expanded, setExpanded] = useState(null);
-  const [search, setSearch] = useState("");
-  const [filterDate, setFilterDate] = useState("today");
-  const [fromDate, setFromDate] = useState(null);
-  const [toDate, setToDate] = useState(null);
-  const [showCalendarFor, setShowCalendarFor] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [error, setError] = useState(null);
+  
+  // Modal State
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const today = formatDate(new Date());
-  const yesterday = formatDate(new Date(Date.now() - 86400000));
+  // 🔧 API URL
+  const API_URL = "http://localhost:5000/api/attendance/all"; 
 
-  // ======================================================
-  // FETCH → CLEAN → TRANSFORM backend idle time records
-  // ======================================================
-  useEffect(() => {
-    loadIdleRecords();
-  }, []);
-
-  const loadIdleRecords = async () => {
+  const fetchIdleData = async () => {
+    if(employees.length === 0) setLoading(true);
+    
     try {
-      const data = await getAllIdleTimeRecords(); // from backend
-      console.log("🔥 Raw Backend Idle Data:", data);
-
-      const map = {};
-
-      data.forEach((rec) => {
-        const id = rec.employeeId;
-
-        if (!map[id]) {
-          map[id] = {
-            id,
-            name: rec.name,
-            date: rec.date,
-            totalWork: 0,
-            totalIdle: 0,
-            timeline: [],
-          };
-        }
-
-        rec.idleTimeline.forEach((r) => {
-          // Skip invalid ones
-          if (
-            !r.idleStart ||
-            !r.idleEnd ||
-            r.idleStart === "" ||
-            r.idleEnd === "" ||
-            isNaN(new Date(r.idleStart).getTime()) ||
-            isNaN(new Date(r.idleEnd).getTime())
-          ) {
-            return;
-          }
-
-          const startTime = toHHMM(r.idleStart);
-          const endTime = toHHMM(r.idleEnd);
-
-          if (!startTime || !endTime) return;
-
-          map[id].totalIdle += (r.idleDurationSeconds || 0) / 3600;
-
-          map[id].timeline.push({ time: startTime, status: 0 });
-          map[id].timeline.push({ time: endTime, status: 1 });
-        });
-
-        // Sort timeline chronologically
-        map[id].timeline.sort((a, b) => (a.time > b.time ? 1 : -1));
+      const token = localStorage.getItem("token");
+      const response = await axios.get(API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const finalArr = Object.values(map).map((e) => ({
-        ...e,
-        totalIdle: isNaN(e.totalIdle) ? "0.0" : e.totalIdle.toFixed(1),
-        totalWork: (8 - e.totalIdle).toFixed(1),
-      }));
+      let allRecords = [];
+      if (response.data && Array.isArray(response.data.data)) {
+        allRecords = response.data.data;
+      } else if (Array.isArray(response.data)) {
+        allRecords = response.data;
+      }
 
-      console.log("✨ Cleaned Final Employees:", finalArr);
+      const now = new Date().getTime();
 
-      setEmployees(finalArr);
-    } catch (error) {
-      console.error("❌ Idle fetch error", error);
+      const processedData = allRecords.map((record) => {
+        const history = record.attendance || [];
+        
+        const log = history.find((l) => {
+            if (!l.date) return false;
+            return l.date === selectedDate || l.date.split("T")[0] === selectedDate;
+        });
+
+        let totalIdleMs = 0;
+        let isCurrentlyIdle = false;
+        let status = "Not Logged In";
+        let punchInTime = null;
+        let punchOutTime = null;
+        let idleSegments = [];
+
+        if (log) {
+          if (log.punchOut) status = "Completed";
+          else if (log.punchIn) status = "Working";
+
+          punchInTime = log.punchIn ? new Date(log.punchIn).getTime() : null;
+          punchOutTime = log.punchOut ? new Date(log.punchOut).getTime() : null;
+
+          if (log.idleActivity && log.idleActivity.length > 0) {
+            log.idleActivity.forEach((item) => {
+              const start = new Date(item.idleStart).getTime();
+              let end = item.idleEnd ? new Date(item.idleEnd).getTime() : (punchOutTime || now);
+
+              if (punchOutTime && end > punchOutTime) {
+                 end = punchOutTime;
+              }
+
+              if (end > start) {
+                totalIdleMs += (end - start);
+                idleSegments.push({ start, end });
+              }
+
+              if (!item.idleEnd && !log.punchOut) {
+                isCurrentlyIdle = true;
+              }
+            });
+          }
+        }
+
+        let grossDurationMs = 0;
+        if (punchInTime) {
+          const endTime = punchOutTime || now;
+          grossDurationMs = Math.max(0, endTime - punchInTime);
+        }
+
+        // ✅ NEW CALCULATION: Net Worked Time = Gross - Idle
+        const netWorkedMs = Math.max(0, grossDurationMs - totalIdleMs);
+
+        return {
+          id: record.employeeId,
+          name: record.employeeName,
+          punchIn: log?.punchIn,
+          punchOut: log?.punchOut,
+          status,
+          totalIdleMs,
+          displayIdle: formatDuration(totalIdleMs),
+          grossDurationMs,
+          displayWork: formatDuration(grossDurationMs), // Gross
+          netWorkedMs, // Raw Net Time
+          displayNetWork: formatDuration(netWorkedMs), // ✅ Display Net Time
+          isCurrentlyIdle,
+          idleSegments,
+          date: selectedDate
+        };
+      });
+
+      const sortedData = processedData.sort((a, b) => {
+        const getScore = (s) => {
+           if (s === "Working") return 3;
+           if (s === "Completed") return 2;
+           return 1;
+        };
+        return getScore(b.status) - getScore(a.status);
+      });
+
+      setEmployees(sortedData);
+      setError(null);
+
+    } catch (err) {
+      console.error(err);
+      if(employees.length === 0) setError("Failed to load attendance data.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // -------------------------------------------------
-  // Filtering
-  // -------------------------------------------------
-  const filteredByDate = employees.filter((emp) => {
-    const empDate = emp.date;
+  useEffect(() => {
+    fetchIdleData();
+    const interval = setInterval(fetchIdleData, 5000); 
+    return () => clearInterval(interval);
+  }, [selectedDate]);
 
-    if (fromDate || toDate) {
-      const from = fromDate ? formatDate(fromDate) : null;
-      const to = toDate ? formatDate(toDate) : null;
+  const formatDuration = (ms) => {
+    if (!ms || ms <= 0) return "0h 0m";
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
 
-      if (from && !to) return empDate >= from;
-      if (!from && to) return empDate <= to;
-      if (from && to) return empDate >= from && empDate <= to;
-      return true;
-    }
+  const handleView = (emp) => {
+    setSelectedEmployee(emp);
+    setIsModalOpen(true);
+  };
 
-    if (filterDate === "today") return empDate === today;
-    if (filterDate === "yesterday") return empDate === yesterday;
-
-    return true;
-  });
-
-  const finalEmployees = filteredByDate.filter((emp) =>
-    emp.name.toLowerCase().includes(search.toLowerCase())
+  const filteredEmployees = employees.filter(emp => 
+    emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // -------------------------------------------------
-  // Export CSV
-  // -------------------------------------------------
-  const exportCSV = (emp) => {
-    const csv = Papa.unparse(emp.timeline);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    saveAs(blob, `${emp.name}-idle-report.csv`);
-  };
-
-  // -------------------------------------------------
-  // Export PDF
-  // -------------------------------------------------
-  const exportPDF = (emp) => {
-    const doc = new jsPDF();
-    doc.text(`Idle Report - ${emp.name}`, 10, 10);
-    doc.text(`Date: ${emp.date}`, 10, 18);
-
-    emp.timeline.forEach((item, idx) => {
-      doc.text(
-        `${item.time} - ${item.status === 1 ? "Work" : "Idle"}`,
-        10,
-        30 + idx * 8
-      );
-    });
-
-    doc.save(`${emp.name}-idle-report.pdf`);
-  };
-
   return (
-    <div className="p-6 bg-gray-100 min-h-screen w-full">
-      <h1 className="text-3xl font-bold mb-2">Employee Idle Time Dashboard</h1>
-      <p className="text-gray-500 mb-6">
-        Track daily idle patterns, real intervals, and export reports.
-      </p>
-
-      {/* ===================== SEARCH + FILTER ===================== */}
-      <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap gap-4 items-end">
-        {/* Search */}
-        <div className="flex flex-col">
-          <label className="text-sm mb-1 font-medium">Search Employee</label>
-          <input
-            type="text"
-            placeholder="Type name..."
-            className="px-4 py-2 rounded-lg border w-64 shadow-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+    <div className="p-4 md:p-8 bg-slate-50 min-h-screen font-sans">
+      {/* Header (Unchanged) */}
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 p-6">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+              <FaUserClock className="text-blue-600" /> Live Productivity Tracker
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Real-time monitoring of work hours & inactivity.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center bg-slate-100 rounded-lg px-3 py-2 border border-slate-200">
+              <FaCalendarAlt className="text-slate-500 mr-2"/>
+              <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="bg-transparent outline-none text-slate-700 font-semibold text-sm"/>
+            </div>
+            <div className="relative flex-1 md:w-64">
+              <FaSearch className="absolute left-3 top-3 text-slate-400 text-xs" />
+              <input type="text" placeholder="Search employee..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+            </div>
+            <button onClick={fetchIdleData} className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+               <FaSyncAlt className={loading ? "animate-spin" : ""} />
+            </button>
+          </div>
         </div>
-
-        {/* Quick Filter */}
-        <div className="flex flex-col">
-          <label className="text-sm mb-1 font-medium">Quick Filter</label>
-          <select
-            className="px-4 py-2 rounded-lg border shadow-sm"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-          >
-            <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="all">All Days</option>
-          </select>
-        </div>
-
-        {/* Date Range */}
-        <div>
-          <label className="text-sm font-medium">From</label>
-          <DatePicker
-            selected={fromDate}
-            onChange={(d) => setFromDate(d)}
-            className="border px-3 py-2 rounded-lg shadow-sm ml-2"
-            dateFormat="yyyy-MM-dd"
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">To</label>
-          <DatePicker
-            selected={toDate}
-            onChange={(d) => setToDate(d)}
-            className="border px-3 py-2 rounded-lg shadow-sm ml-2"
-            dateFormat="yyyy-MM-dd"
-          />
-        </div>
-
-        <button
-          onClick={() => {
-            setFromDate(null);
-            setToDate(null);
-            setFilterDate("today");
-          }}
-          className="ml-auto px-4 py-2 bg-gray-200 rounded-lg text-sm"
-        >
-          Reset
-        </button>
       </div>
 
-      {/* ===================== EMPLOYEE LIST ===================== */}
-      <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Idle Time Summary</h2>
-
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-gray-200 text-left">
-              <th className="p-3">Employee</th>
-              <th className="p-3">Date</th>
-              <th className="p-3">Working (hrs)</th>
-              <th className="p-3">Idle (hrs)</th>
-              <th className="p-3 text-center">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {finalEmployees.map((emp) => (
-              <React.Fragment key={emp.id}>
-                <tr className="border-b hover:bg-gray-50 transition">
-                  <td className="p-3 font-semibold">{emp.name}</td>
-                  <td className="p-3">{emp.date}</td>
-                  <td className="p-3">{emp.totalWork}</td>
-                  <td className="p-3 text-red-600">{emp.totalIdle}</td>
-
-                  <td className="p-3 text-center">
-                    <div className="flex gap-3 justify-center flex-wrap">
-                      <button
-                        onClick={() =>
-                          setExpanded(expanded === emp.id ? null : emp.id)
-                        }
-                        className="text-blue-600 flex items-center gap-1"
-                      >
-                        {expanded === emp.id ? "Hide" : "Show More"}
-                        {expanded === emp.id ? (
-                          <ChevronUp size={16} />
-                        ) : (
-                          <ChevronDown size={16} />
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => exportCSV(emp)}
-                        className="text-green-600 flex items-center gap-1"
-                      >
-                        <Download size={14} /> CSV
-                      </button>
-
-                      <button
-                        onClick={() => exportPDF(emp)}
-                        className="text-pink-600 flex items-center gap-1"
-                      >
-                        <Download size={14} /> PDF
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-
-                {/* Timeline Graph */}
-                {expanded === emp.id && (
-                  <tr className="bg-gray-50">
-                    <td colSpan="5" className="p-4">
-                      <h3 className="text-lg font-semibold mb-2">
-                        Idle Timeline — {emp.name}
-                      </h3>
-
-                      <div className="w-full h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={emp.timeline}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="time" />
-                            <YAxis
-                              domain={[0, 1]}
-                              tickFormatter={(v) => (v === 1 ? "Work" : "Idle")}
-                            />
-                            <Tooltip
-                              formatter={(v) => (v === 1 ? "Working" : "Idle")}
-                            />
-                            <Area
-                              type="stepAfter"
-                              dataKey="status"
-                              stroke="#000"
-                              fill="#ef4444"
-                              fillOpacity={0.3}
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
+      {/* Table (Unchanged) */}
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-600 uppercase text-xs font-bold tracking-wider border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-4">Employee</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-center">Shift Times</th>
+                <th className="px-6 py-4 text-center text-blue-600">Gross Hours</th>
+                <th className="px-6 py-4 text-center text-orange-500">Total Idle</th>
+                <th className="px-6 py-4 text-center">Live Status</th>
+                <th className="px-6 py-4 text-center">View Graph</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading && filteredEmployees.length === 0 ? (
+                <tr><td colSpan="7" className="p-10 text-center text-slate-400">Loading...</td></tr>
+              ) : filteredEmployees.length === 0 ? (
+                <tr><td colSpan="7" className="p-10 text-center text-slate-400">No records found.</td></tr>
+              ) : (
+                filteredEmployees.map((emp) => (
+                  <tr key={emp.id} className="hover:bg-slate-50 transition duration-150">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">{emp.name.charAt(0)}</div>
+                        <div><p className="font-bold text-slate-800">{emp.name}</p><p className="text-xs text-slate-400 font-mono">{emp.id}</p></div>
                       </div>
                     </td>
+                    <td className="px-6 py-4 text-center">
+                       <span className={`px-3 py-1 rounded-full text-xs font-bold border ${emp.status === 'Working' ? 'bg-green-50 border-green-200 text-green-700' : emp.status === 'Completed' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>{emp.status}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="text-xs font-medium text-slate-500 flex flex-col gap-1">
+                        <span className="text-green-600">In: {emp.punchIn ? new Date(emp.punchIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--'}</span>
+                        <span className="text-red-500">Out: {emp.punchOut ? new Date(emp.punchOut).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--'}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono font-bold text-blue-600 text-base">{emp.displayWork}</td>
+                    <td className="px-6 py-4 text-center font-mono font-bold text-orange-500 text-base">{emp.displayIdle}</td>
+                    <td className="px-6 py-4 text-center">
+                      {emp.isCurrentlyIdle ? <div className="flex items-center justify-center gap-1 text-red-600 font-bold text-xs animate-pulse border border-red-100 bg-red-50 px-2 py-1 rounded"><FaExclamationCircle /> IDLE</div> : emp.status === 'Working' ? <div className="flex items-center justify-center gap-1 text-green-600 font-bold text-xs border border-green-100 bg-green-50 px-2 py-1 rounded"><FaCheckCircle /> Active</div> : <span className="text-slate-300 text-xs">-</span>}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button onClick={() => handleView(emp)} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition"><FaChartLine /> View</button>
+                    </td>
                   </tr>
-                )}
-              </React.Fragment>
-            ))}
-          </tbody>
-        </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <EmployeeGraphModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        employee={selectedEmployee} 
+      />
+    </div>
+  );
+};
+
+// 📊 UPDATED MODAL COMPONENT
+const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
+  // ✅ State to toggle between Graph and Pie Chart
+  const [activeTab, setActiveTab] = useState('line'); 
+
+  if (!isOpen || !employee) return null;
+
+  // --- LINE CHART DATA ---
+  const getLineChartData = () => {
+    if (!employee.punchIn) return null;
+    const startTime = new Date(employee.punchIn).getTime();
+    const endTime = employee.punchOut ? new Date(employee.punchOut).getTime() : new Date().getTime();
+    const labels = [];
+    const dataPoints = [];
+    let productivityScore = 0;
+    
+    for (let t = startTime; t <= endTime; t += 60000) {
+      const timeStr = new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const isIdleAtThisTime = employee.idleSegments.some(seg => t >= seg.start && t <= seg.end);
+      if (isIdleAtThisTime) productivityScore -= 1;
+      else productivityScore += 1;
+      labels.push(timeStr);
+      dataPoints.push(productivityScore); 
+    }
+    return {
+      labels,
+      datasets: [{
+        label: 'Productivity Flow',
+        data: dataPoints,
+        borderColor: '#2563EB',
+        backgroundColor: (context) => {
+            const ctx = context.chart.ctx;
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(37, 99, 235, 0.4)');
+            gradient.addColorStop(1, 'rgba(37, 99, 235, 0.0)');
+            return gradient;
+        },
+        borderWidth: 2,
+        fill: true,
+        tension: 0.1, 
+        pointRadius: 0, 
+        pointHoverRadius: 4,
+      }]
+    };
+  };
+
+  // --- ✅ PIE CHART DATA ---
+  const getPieChartData = () => {
+    // Convert MS to Minutes for better chart proportion
+    const workedMinutes = Math.floor(employee.netWorkedMs / 60000);
+    const idleMinutes = Math.floor(employee.totalIdleMs / 60000);
+
+    return {
+      labels: ['Actual Worked Time', 'Idle Time'],
+      datasets: [{
+        data: [workedMinutes, idleMinutes],
+        backgroundColor: ['#10B981', '#F97316'], // Green (Worked), Orange (Idle)
+        hoverBackgroundColor: ['#059669', '#EA580C'],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    };
+  };
+
+  const lineData = getLineChartData();
+  const pieData = getPieChartData();
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl flex flex-col max-h-[95vh]">
+        
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-white border border-slate-200 text-blue-600 flex items-center justify-center font-bold text-xl shadow-sm">
+              {employee.name.charAt(0)}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{employee.name}</h2>
+              <div className="flex items-center gap-3 text-sm text-slate-500 mt-0.5">
+                <span className="flex items-center gap-1"><FaClock/> {employee.date}</span>
+                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-bold">{employee.status}</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-full bg-white hover:bg-red-50 hover:text-red-600 shadow-sm border border-slate-200 transition">
+            <FaTimes size={18}/>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          
+          {/* ✅ UPDATED: 4 Stats Cards (Added Net Worked) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+               <p className="text-xs font-bold text-blue-500 uppercase">Gross Hours</p>
+               <p className="text-2xl font-bold text-slate-800 mt-1">{employee.displayWork}</p>
+            </div>
+            <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl">
+               <p className="text-xs font-bold text-orange-500 uppercase">Total Idle</p>
+               <p className="text-2xl font-bold text-slate-800 mt-1">{employee.displayIdle}</p>
+            </div>
+            
+            {/* ✅ NEW: Net Worked Card (Worked - Idle) */}
+            <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
+               <p className="text-xs font-bold text-green-600 uppercase">Net Worked</p>
+               <p className="text-2xl font-bold text-slate-800 mt-1">{employee.displayNetWork}</p>
+            </div>
+
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+               <p className="text-xs font-bold text-slate-500 uppercase">Status</p>
+               <div className="mt-1 font-bold text-slate-700 text-lg">
+                 {employee.isCurrentlyIdle ? "Inactive" : employee.status}
+               </div>
+            </div>
+          </div>
+
+          {/* ✅ TABS for Navigation */}
+          <div className="flex gap-2 mb-4 border-b border-slate-100 pb-1">
+             <button 
+               onClick={() => setActiveTab('line')}
+               className={`px-4 py-2 text-sm font-bold rounded-t-lg transition ${activeTab === 'line' ? 'bg-blue-100 text-blue-700 border-b-2 border-blue-600' : 'text-slate-500 hover:bg-slate-50'}`}
+             >
+               <FaChartLine className="inline mr-2"/> Timeline
+             </button>
+             <button 
+               onClick={() => setActiveTab('pie')}
+               className={`px-4 py-2 text-sm font-bold rounded-t-lg transition ${activeTab === 'pie' ? 'bg-blue-100 text-blue-700 border-b-2 border-blue-600' : 'text-slate-500 hover:bg-slate-50'}`}
+             >
+               <FaChartPie className="inline mr-2"/> Distribution
+             </button>
+          </div>
+
+          {/* Chart Area (Switches based on Tab) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative min-h-[350px] flex flex-col">
+            
+            {activeTab === 'line' ? (
+              // LINE CHART VIEW
+              <>
+                <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                  Productivity Timeline
+                </h3>
+                <div className="h-64 w-full">
+                  {lineData ? (
+                    <Line data={lineData} options={{ responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 10 } }, y: { grid: { borderDash: [4, 4] }, title: { display: true, text: 'Score' } } }, plugins: { legend: { display: false } } }} />
+                  ) : <p className="text-center text-slate-400 mt-10">No Data</p>}
+                </div>
+              </>
+            ) : (
+              // ✅ PIE CHART VIEW
+              <div className="flex flex-col md:flex-row items-center justify-center h-full gap-8">
+                <div className="h-64 w-64">
+                   <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
+                </div>
+                <div className="space-y-2">
+                   <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-bold text-slate-700">Actual Worked: {employee.displayNetWork}</span>
+                   </div>
+                   <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+                      <span className="text-sm font-bold text-slate-700">Idle Time: {employee.displayIdle}</span>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ CALCULATION FOOTER */}
+            <div className="mt-auto pt-4 border-t border-slate-100 text-center text-sm text-slate-500 font-mono bg-slate-50 p-2 rounded-lg">
+               <span className="font-bold text-blue-600">{employee.displayWork} (Gross)</span> 
+               <span className="mx-2">-</span> 
+               <span className="font-bold text-orange-500">{employee.displayIdle} (Idle)</span> 
+               <span className="mx-2">=</span> 
+               <span className="font-bold text-green-600">{employee.displayNetWork} (Net Worked)</span>
+            </div>
+
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-export default IdleTime;
+export default IdleTimeTracking;

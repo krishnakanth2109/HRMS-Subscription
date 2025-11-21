@@ -7,6 +7,12 @@ const LocationSchema = new mongoose.Schema({
   timestamp: { type: Date, default: null }
 }, { _id: false });
 
+// ✅ New Schema for tracking idle segments (From File 1)
+const IdleActivitySchema = new mongoose.Schema({
+  idleStart: { type: Date, required: true },
+  idleEnd: { type: Date, default: null }, // Null means currently idle
+}, { _id: false });
+
 const DailySchema = new mongoose.Schema({
   date: { type: String, required: true },
   punchIn: { type: Date, default: null },
@@ -46,6 +52,12 @@ const DailySchema = new mongoose.Schema({
     type: String,
     enum: ["FULL_DAY", "HALF_DAY", "ABSENT", "NOT_APPLICABLE"],
     default: "NOT_APPLICABLE"
+  },
+
+  // ✅ Added this field to store idle start/end times (From File 1)
+  idleActivity: {
+    type: [IdleActivitySchema],
+    default: []
   }
 });
 
