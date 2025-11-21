@@ -4,20 +4,20 @@ import * as XLSX from "xlsx";
 import { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees } from "../api"; 
 import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash } from "react-icons/fa";
 
-// Helper function to determine worked status based on punch times
-const getWorkedStatus = (punchIn, punchOut) => {
+// Helper function to determine worked status based on punch times and API status
+const getWorkedStatus = (punchIn, punchOut, apiStatus) => {
+  if (apiStatus === "ABSENT") return "Absent";
   if (!punchIn || !punchOut) {
     return "Working..";
   }
   const workedMilliseconds = new Date(punchOut) - new Date(punchIn);
   const workedHours = workedMilliseconds / (1000 * 60 * 60);
-  if (workedHours >= 8) return "Full Day";
-  if (workedHours >= 4) return "Half Day";
-  if (workedHours > 0) return "Quarter Day";
-  return "N/A";
+  if (workedHours >= 9) return "Full Day";
+  if (workedHours >= 5) return "Half Day";
+  return "Absent(<5)"; // Fallback for very short duration (previously Quarter Day)
 };
 
-// Location Button Component to open Google Maps
+// Location Button Component
 const LocationViewButton = ({ location }) => {
   if (!location || !location.latitude || !location.longitude) {
     return <span className="text-slate-400">--</span>;
@@ -30,24 +30,58 @@ const LocationViewButton = ({ location }) => {
   );
 };
 
-// Attendance Detail Modal
+// ✅ UPDATED: Attendance Detail Modal with Direct Export
 const AttendanceDetailModal = ({ isOpen, onClose, employeeData }) => {
   if (!isOpen || !employeeData) return null;
   const sortedRecords = [...employeeData.records].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  // Handle Individual Export
+  const downloadIndividualReport = () => {
+    if (sortedRecords.length === 0) return;
+    const fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
+    const fileExtension = ".xlsx";
+    
+    const formattedData = sortedRecords.map(item => ({
+        "Date": new Date(item.date).toLocaleDateString(),
+        "Punch In": item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--",
+        "Punch Out": item.punchOut ? new Date(item.punchOut).toLocaleTimeString() : "--",
+        "Duration": item.displayTime || "--",
+        "Login Status": item.loginStatus || "--",
+        "Worked Status": item.workedStatus || "--"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(formattedData);
+    const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const fileName = `${employeeData.name.replace(/\s+/g, '_')}_Attendance_Report`;
+    FileSaver.saveAs(new Blob([excelBuffer], { type: fileType }), `${fileName}${fileExtension}`);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity duration-300" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col transform transition-transform duration-300" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70 rounded-t-2xl">
-          <div><h3 className="text-xl font-bold text-slate-800">Attendance History</h3><p className="text-slate-600 font-semibold">{employeeData.name}</p></div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Close modal"><FaTimes size={20} /></button>
+          <div>
+              <h3 className="text-xl font-bold text-slate-800">Attendance History</h3>
+              <p className="text-slate-600 font-semibold">{employeeData.name}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* ✅ Download Button Added Here */}
+            <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-full hover:bg-green-700 transition-colors shadow-sm">
+                <FaFileExcel /> Download Report
+            </button>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500" aria-label="Close modal"><FaTimes size={20} /></button>
+          </div>
         </div>
         <div className="p-2 sm:p-5 overflow-y-auto">
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-100 text-slate-600 uppercase tracking-wider text-xs"><tr><th className="px-4 py-3 text-left font-semibold">Date</th><th className="px-4 py-3 text-left font-semibold">Punch In</th><th className="px-4 py-3 text-left font-semibold">In Location</th><th className="px-4 py-3 text-left font-semibold">Punch Out</th><th className="px-4 py-3 text-left font-semibold">Out Location</th><th className="px-4 py-3 text-left font-semibold">Duration</th><th className="px-4 py-3 text-left font-semibold">Login Status</th><th className="px-4 py-3 text-left font-semibold">Worked Status</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
-                {sortedRecords.length > 0 ? (sortedRecords.map((record, idx) => (
-                  <tr key={record._id || idx} className="hover:bg-slate-50 transition-colors">
+                {sortedRecords.length > 0 ? (sortedRecords.map((record, idx) => {
+                  const isAbsent = record.status === "ABSENT" || record.workedStatus === "Absent";
+                  return (
+                  <tr key={record._id || idx} className={`hover:bg-slate-50 transition-colors ${isAbsent ? "bg-red-50" : ""}`}>
                     <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-700">{new Date(record.date).toLocaleDateString()}</td>
                     <td className="px-4 py-3 whitespace-nowrap font-medium text-green-600">{record.punchIn ? new Date(record.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
                     <td className="px-4 py-3"><LocationViewButton location={record.punchInLocation} /></td>
@@ -55,8 +89,13 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData }) => {
                     <td className="px-4 py-3"><LocationViewButton location={record.punchOutLocation} /></td>
                     <td className="px-4 py-3 whitespace-nowrap font-mono text-slate-600">{record.displayTime || "0h 0m"}</td>
                     <td className="px-4 py-3 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${record.loginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{record.loginStatus || "--"}</span></td>
-                    <td className="px-4 py-3 whitespace-nowrap font-semibold"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${record.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : record.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : record.workedStatus === "Quarter Day" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{record.workedStatus}</span></td>
-                  </tr>))) : (<tr><td colSpan="8" className="text-center p-10 text-slate-500">No attendance records in this period.</td></tr>)}
+                    <td className="px-4 py-3 whitespace-nowrap font-semibold">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${record.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : record.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>
+                            {record.workedStatus}
+                        </span>
+                    </td>
+                  </tr>
+                )})) : (<tr><td colSpan="8" className="text-center p-10 text-slate-500">No attendance records in this period.</td></tr>)}
               </tbody>
             </table>
           </div>
@@ -91,7 +130,7 @@ const AbsentEmployeeModal = ({ isOpen, onClose, employees, date }) => {
   );
 };
 
-// ✅ START: REUSABLE PAGINATION COMPONENT
+// Pagination Component
 const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setItemsPerPage }) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -101,7 +140,7 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
 
   const handleItemsPerPageChange = (e) => {
     setItemsPerPage(Number(e.target.value));
-    onPageChange(1); // Reset to the first page when page size changes
+    onPageChange(1);
   };
 
   return (
@@ -109,7 +148,6 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
       <div className="flex items-center gap-2">
         <label htmlFor="items-per-page" className="text-sm font-medium text-slate-600">Rows:</label>
         <select id="items-per-page" value={itemsPerPage} onChange={handleItemsPerPageChange} className="bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block w-auto p-1.5">
-         
           <option value="10">10</option>
           <option value="25">25</option>
           <option value="50">50</option>
@@ -126,7 +164,6 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
     </div>
   );
 };
-// ✅ END: REUSABLE PAGINATION COMPONENT
 
 const AdminAttendance = () => {
   const todayISO = new Date().toISOString().split("T")[0];
@@ -144,14 +181,17 @@ const AdminAttendance = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isAbsentModalOpen, setIsAbsentModalOpen] = useState(false);
 
-  // ✅ START: PAGINATION STATE
+  // Pagination State
   const [dailyCurrentPage, setDailyCurrentPage] = useState(1);
   const [dailyItemsPerPage, setDailyItemsPerPage] = useState(10);
   const [summaryCurrentPage, setSummaryCurrentPage] = useState(1);
   const [summaryItemsPerPage, setSummaryItemsPerPage] = useState(10);
-  // ✅ END: PAGINATION STATE
 
-  const processAttendanceData = (data) => (Array.isArray(data) ? data.map(item => ({ ...item, workedStatus: getWorkedStatus(item.punchIn, item.punchOut) })) : []);
+  // ✅ Updated: Pass API Status to Helper
+  const processAttendanceData = (data) => (Array.isArray(data) ? data.map(item => ({ 
+    ...item, 
+    workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status) 
+  })) : []);
 
   const fetchAllEmployees = useCallback(async () => { try { const data = await getEmployees(); setAllEmployees(data.filter(emp => emp.isActive !== false)); } catch (error) { console.error("Error fetching all employees:", error); setAllEmployees([]); } }, []);
   const fetchOvertimeData = useCallback(async () => { try { const data = await getAllOvertimeRequests(); setOvertimeData(data); } catch (error) { console.error("Error fetching overtime data:", error); setOvertimeData([]); } }, []);
@@ -177,19 +217,27 @@ const AdminAttendance = () => {
     if (!summaryAttendanceData.length) return [];
     const approvedOTCounts = overtimeData.reduce((acc, ot) => { if (ot.status === 'APPROVED') { acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1; } return acc; }, {});
     const summary = summaryAttendanceData.reduce((acc, record) => {
-      if (!acc[record.employeeId]) { acc[record.employeeId] = { employeeId: record.employeeId, employeeName: record.employeeName, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, quarterDays: 0, }; }
+      if (!acc[record.employeeId]) { acc[record.employeeId] = { employeeId: record.employeeId, employeeName: record.employeeName, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, }; }
       const empRec = acc[record.employeeId];
-      if (record.punchIn) { empRec.presentDays++; if (record.loginStatus === 'LATE') empRec.lateDays++; else if (record.loginStatus === 'ON_TIME') empRec.onTimeDays++; }
-      if (record.workedStatus === "Full Day") empRec.fullDays++; else if (record.workedStatus === "Half Day") empRec.halfDays++; else if (record.workedStatus === "Quarter Day") empRec.quarterDays++;
+      
+      if (record.punchIn) { 
+          empRec.presentDays++; 
+          if (record.loginStatus === 'LATE') empRec.lateDays++; 
+          else if (record.loginStatus === 'ON_TIME') empRec.onTimeDays++; 
+      }
+
+      // ✅ Updated: Count Absent/Full/Half
+      if (record.workedStatus === "Full Day") empRec.fullDays++; 
+      else if (record.workedStatus === "Half Day") empRec.halfDays++; 
+      else if (record.status === "ABSENT" || record.workedStatus === "Absent") empRec.absentDays++;
+
       return acc;
     }, {});
     return Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 })).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   }, [summaryAttendanceData, overtimeData]);
   
-  // ✅ START: PAGINATED DATA CALCULATION
   const paginatedDailyData = useMemo(() => dailyAttendanceData.slice((dailyCurrentPage - 1) * dailyItemsPerPage, dailyCurrentPage * dailyItemsPerPage), [dailyAttendanceData, dailyCurrentPage, dailyItemsPerPage]);
   const paginatedSummaryData = useMemo(() => employeeSummaryStats.slice((summaryCurrentPage - 1) * summaryItemsPerPage, summaryCurrentPage * summaryItemsPerPage), [employeeSummaryStats, summaryCurrentPage, summaryItemsPerPage]);
-  // ✅ END: PAGINATED DATA CALCULATION
 
   const exportToExcel = (data, fileName, fields) => {
     if (data.length === 0) { alert("No data to export."); return; }
@@ -202,6 +250,7 @@ const AdminAttendance = () => {
     FileSaver.saveAs(new Blob([excelBuffer], { type: fileType }), `${fileName}${fileExtension}`);
   };
 
+  // ✅ Export Function Updated: Removed Quarter Day, Added Absent (if relevant in logs, mostly for summary)
   const exportDailyLogToExcel = () => exportToExcel(dailyAttendanceData, `Daily_Log_${startDate}_to_${endDate}`, [
     { label: "Employee Name", value: item => item.employeeName }, { label: "Employee ID", value: item => item.employeeId }, { label: "Date", value: item => new Date(item.date).toLocaleDateString() },
     { label: "Punch In", value: item => item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" }, { label: "Punch In Location", value: item => item.punchInLocation?.address || "--" },
@@ -209,10 +258,11 @@ const AdminAttendance = () => {
     { label: "Duration", value: item => item.displayTime || "0h 0m" }, { label: "Login Status", value: item => item.loginStatus || "--" }, { label: "Worked Status", value: item => item.workedStatus }, { label: "Status", value: item => item.punchOut ? "Completed" : "Working" },
   ]);
 
+  // ✅ Export Summary Updated: Removed Quarter Day, Added Absent Days
   const exportSummaryToExcel = () => exportToExcel(employeeSummaryStats, `Attendance_Summary_${summaryStartDate}_to_${summaryEndDate}`, [
     { label: "Employee ID", value: item => item.employeeId }, { label: "Employee Name", value: item => item.employeeName }, { label: "Present Days", value: item => item.presentDays },
     { label: "On-Time Days", value: item => item.onTimeDays }, { label: "Late Days", value: item => item.lateDays }, { label: "Approved OT", value: item => item.approvedOT },
-    { label: "Full Days", value: item => item.fullDays }, { label: "Half Days", value: item => item.halfDays }, { label: "Quarter Days", value: item => item.quarterDays },
+    { label: "Full Days", value: item => item.fullDays }, { label: "Half Days", value: item => item.halfDays }, { label: "Absent Days", value: item => item.absentDays },
   ]);
 
   const handleViewDetails = (employeeId, employeeName) => { const records = summaryAttendanceData.filter(r => r.employeeId === employeeId); setSelectedEmployee({ name: employeeName, records }); setIsModalOpen(true); };
@@ -233,18 +283,19 @@ const AdminAttendance = () => {
             </div>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
-                        <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" />
-                                    <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" />
+            <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" />
+            <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" />
             {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-3xl"/>} title="Not Logged In" value={loading ? '...' : dailyStats.absentCount} colorClass="border-red-500" onClick={() => dailyStats.absentCount > 0 && setIsAbsentModalOpen(true)} />)}
-
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-800 text-slate-100 uppercase tracking-wider"><tr><th className="px-6 py-4 text-left font-semibold">Employee</th><th className="px-6 py-4 text-left font-semibold">Date</th><th className="px-6 py-4 text-left font-semibold">Punch In</th><th className="px-6 py-4 text-left font-semibold">In Location</th><th className="px-6 py-4 text-left font-semibold">Punch Out</th><th className="px-6 py-4 text-left font-semibold">Out Location</th><th className="px-6 py-4 text-left font-semibold">Duration</th><th className="px-6 py-4 text-left font-semibold">Login Status</th><th className="px-6 py-4 text-left font-semibold">Worked Status</th><th className="px-6 py-4 text-left font-semibold">Status</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {loading ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500 font-medium">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500">No records found for this date range.</td></tr>) : (
-                  paginatedDailyData.map((item, idx) => (
-                    <tr key={item._id || idx} className="hover:bg-blue-50/60 transition-colors">
+                  paginatedDailyData.map((item, idx) => {
+                    const isAbsent = item.status === "ABSENT" || item.workedStatus === "Absent";
+                    return (
+                    <tr key={item._id || idx} className={`hover:bg-blue-50/60 transition-colors ${isAbsent ? "bg-red-50" : ""}`}>
                       <td className="px-6 py-4 whitespace-nowrap"><div className="font-semibold text-slate-800">{item.employeeName}</div><div className="text-slate-500 font-mono text-xs">{item.employeeId}</div></td>
                       <td className="px-6 py-4 whitespace-nowrap text-slate-600">{new Date(item.date).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-green-600">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
@@ -253,13 +304,17 @@ const AdminAttendance = () => {
                       <td className="px-6 py-4"><LocationViewButton location={item.punchOutLocation} /></td>
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">{item.displayTime || "0h 0m"}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.loginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{item.loginStatus || "--"}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap font-semibold"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : item.workedStatus === "Quarter Day" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{item.workedStatus}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${item.punchOut ? "bg-slate-100 text-slate-600" : "bg-green-100 text-green-700 animate-pulse"}`}>{item.punchOut ? "Completed" : "Working"}</span></td>
-                    </tr>)))}
+                      <td className="px-6 py-4 whitespace-nowrap font-semibold">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>
+                              {item.workedStatus}
+                          </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${item.punchOut ? "bg-slate-100 text-slate-600" : isAbsent ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700 animate-pulse"}`}>{item.punchOut ? "Completed" : isAbsent ? "Absent" : "Working"}</span></td>
+                    </tr>
+                  )}))}
               </tbody>
             </table>
           </div>
-          {/* ✅ RENDER DAILY LOG PAGINATION */}
           <Pagination totalItems={dailyAttendanceData.length} itemsPerPage={dailyItemsPerPage} currentPage={dailyCurrentPage} onPageChange={setDailyCurrentPage} setItemsPerPage={setDailyItemsPerPage} />
         </div>
 
@@ -276,7 +331,8 @@ const AdminAttendance = () => {
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider"><tr><th className="px-6 py-4 text-left font-semibold">Employee</th><th className="px-6 py-4 text-center font-semibold">Present</th><th className="px-6 py-4 text-center font-semibold">On Time</th><th className="px-6 py-4 text-center font-semibold">Late</th><th className="px-6 py-4 text-center font-semibold">Approved OT</th><th className="px-6 py-4 text-center font-semibold">Full Days</th><th className="px-6 py-4 text-center font-semibold">Half Days</th><th className="px-6 py-4 text-center font-semibold">Quarter Days</th><th className="px-6 py-4 text-center font-semibold">Actions</th></tr></thead>
+              {/* ✅ Updated Header: Removed Quarter Days, Added Absent Days */}
+              <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider"><tr><th className="px-6 py-4 text-left font-semibold">Employee</th><th className="px-6 py-4 text-center font-semibold">Present</th><th className="px-6 py-4 text-center font-semibold">On Time</th><th className="px-6 py-4 text-center font-semibold">Late</th><th className="px-6 py-4 text-center font-semibold">Approved OT</th><th className="px-6 py-4 text-center font-semibold">Full Days</th><th className="px-6 py-4 text-center font-semibold">Half Days</th><th className="px-6 py-4 text-center font-semibold">Absent</th><th className="px-6 py-4 text-center font-semibold">Actions</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
                 {summaryLoading ? (<tr><td colSpan="9" className="text-center p-10 text-slate-500 font-medium">Loading summary...</td></tr>) : paginatedSummaryData.length === 0 ? (<tr><td colSpan="9" className="text-center p-10 text-slate-500">No summary data available.</td></tr>) : (
                   paginatedSummaryData.map((emp) => (
@@ -284,13 +340,14 @@ const AdminAttendance = () => {
                       <td className="px-6 py-4 whitespace-nowrap"><div className="font-semibold text-slate-800">{emp.employeeName}</div><div className="text-slate-500 font-mono text-xs">{emp.employeeId}</div></td>
                       <td className="px-6 py-4 text-center font-bold text-blue-600">{emp.presentDays}</td><td className="px-6 py-4 text-center font-semibold text-green-600">{emp.onTimeDays}</td>
                       <td className="px-6 py-4 text-center font-semibold text-red-600">{emp.lateDays}</td><td className="px-6 py-4 text-center font-semibold text-indigo-600">{emp.approvedOT}</td>
-                      <td className="px-6 py-4 text-center">{emp.fullDays}</td><td className="px-6 py-4 text-center">{emp.halfDays}</td><td className="px-6 py-4 text-center">{emp.quarterDays}</td>
+                      <td className="px-6 py-4 text-center">{emp.fullDays}</td><td className="px-6 py-4 text-center">{emp.halfDays}</td>
+                      {/* ✅ Updated Row: Showing Absent Days instead of Quarter Days */}
+                      <td className="px-6 py-4 text-center text-red-500 font-semibold">{emp.absentDays}</td>
                       <td className="px-6 py-4 text-center"><button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"><FaEye /></button></td>
                     </tr>)))}
               </tbody>
             </table>
           </div>
-          {/* ✅ RENDER SUMMARY PAGINATION */}
           <Pagination totalItems={employeeSummaryStats.length} itemsPerPage={summaryItemsPerPage} currentPage={summaryCurrentPage} onPageChange={setSummaryCurrentPage} setItemsPerPage={setSummaryItemsPerPage} />
         </div>
       </div>

@@ -22,6 +22,15 @@ const INDIAN_BANKS = [
   "Canara Bank"
 ];
 
+// Helper to ensure URLs are always HTTPS to prevent "Failed to load PDF" errors
+const getSecureUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http:")) {
+    return url.replace("http:", "https:");
+  }
+  return url;
+};
+
 const CurrentEmployeeProfile = () => {
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,6 +44,20 @@ const CurrentEmployeeProfile = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       parsed.employeeId = String(parsed.employeeId);
+      
+      // Ensure arrays exist
+      if (!parsed.experienceDetails) parsed.experienceDetails = [];
+      // Ensure at least one experience object exists for "Current Job" binding
+      if (parsed.experienceDetails.length === 0) {
+          parsed.experienceDetails.push({
+              company: "Current Company", // Default
+              role: "",
+              department: "",
+              joiningDate: "",
+              salary: 0
+          });
+      }
+
       setEmployee(parsed);
     }
     setLoading(false);
@@ -52,25 +75,19 @@ const CurrentEmployeeProfile = () => {
   // ---------------- STATE UPDATERS ----------------
 
   const handleBasicChange = (field, value) => {
-    // Validation for Name (Letters only)
     if (field === "name" || field === "emergency") {
       if (!/^[A-Za-z\s]*$/.test(value)) return;
     }
-    // Validation for Phone (Numbers only, max 10)
     if (field === "phone" || field === "emergencyPhone") {
       if (!/^\d{0,10}$/.test(value)) return;
     }
-
     setEmployee((p) => ({ ...p, [field]: value }));
   };
 
   const handleNestedChange = (section, field, value) => {
-    // Validation for Account Number (Numbers only)
     if (field === "accountNumber") {
        if (!/^\d*$/.test(value)) return;
     }
-
-    // Validation for Aadhaar (4-4-4 format)
     if (field === "aadhaarNumber") {
       let raw = value.replace(/-/g, "");
       if (!/^\d{0,12}$/.test(raw)) return;
@@ -86,7 +103,20 @@ const CurrentEmployeeProfile = () => {
     }));
   };
 
-  // Experience Helpers
+  // ✅ Helper to Update Current Job (The LAST entry in experience array)
+  const handleCurrentJobChange = (field, value) => {
+    setEmployee((p) => {
+      const list = [...(p.experienceDetails || [])];
+      // Target the last item
+      const lastIndex = list.length - 1;
+      if (lastIndex >= 0) {
+        list[lastIndex] = { ...list[lastIndex], [field]: value };
+      }
+      return { ...p, experienceDetails: list };
+    });
+  };
+
+  // Experience Helpers (For history section)
   const updateExp = (i, field, value) => {
     setEmployee((p) => {
       const list = [...(p.experienceDetails || [])];
@@ -114,7 +144,7 @@ const CurrentEmployeeProfile = () => {
     });
   };
 
-  // ---------------- FILE UPLOAD ----------------
+  // ---------------- FILE UPLOAD (FIXED HTTPS) ----------------
 
   const handleFileUpload = async (e, type, index = null) => {
     const file = e.target.files[0];
@@ -130,7 +160,11 @@ const CurrentEmployeeProfile = () => {
         headers: { "Content-Type": "multipart/form-data" }
       });
 
-      const url = res.data.url;
+      // ✅ FIX: Force HTTPS immediately upon receiving URL
+      let url = res.data.url;
+      if (url && url.startsWith("http:")) {
+        url = url.replace("http:", "https:");
+      }
 
       if (type === "pan") {
         handleNestedChange("personalDetails", "panFileUrl", url);
@@ -141,7 +175,7 @@ const CurrentEmployeeProfile = () => {
       }
     } catch (err) {
       console.error("Upload Error:", err);
-      alert("File upload failed");
+      alert("File upload failed. Please try again.");
     } finally {
       setUploading(prev => ({ ...prev, [type]: false }));
     }
@@ -150,7 +184,6 @@ const CurrentEmployeeProfile = () => {
   // ---------------- SAVE TO BACKEND ----------------
 
   const saveChanges = async () => {
-    // Final Validation before save
     if (employee.phone?.length !== 10) return alert("Phone number must be 10 digits");
     if (employee.personalDetails?.aadhaarNumber?.replace(/-/g, "").length !== 12) return alert("Aadhaar must be 12 digits");
 
@@ -182,12 +215,16 @@ const CurrentEmployeeProfile = () => {
     else setIsEditing(true);
   };
 
-  // Destructure for easier access
+  // Destructure for display
   const {
     employeeId, name, email, phone, address, emergency, emergencyPhone,
     personalDetails = {}, bankDetails = {}, experienceDetails = [],
-    currentDepartment, currentRole, joiningDate, currentSalary,
   } = employee;
+
+  // ✅ Extract Current Job Details (Last item in array)
+  const currentJob = experienceDetails.length > 0 
+    ? experienceDetails[experienceDetails.length - 1] 
+    : {};
 
   return (
     <div className="p-6 md:p-10 bg-slate-50 min-h-screen flex justify-center">
@@ -206,6 +243,7 @@ const CurrentEmployeeProfile = () => {
             {isEditing && (
               <button
                 onClick={() => {
+                  // Revert changes
                   const saved = JSON.parse(sessionStorage.getItem("hrmsUser"));
                   saved.employeeId = String(saved.employeeId);
                   setEmployee(saved);
@@ -275,35 +313,49 @@ const CurrentEmployeeProfile = () => {
                <Input label="Date of Birth" type="date" value={personalDetails.dob?.split("T")[0]} onChange={(v) => handleNestedChange("personalDetails", "dob", v)} editable={isEditing} />
                <Input label="Nationality" value={personalDetails.nationality} onChange={(v) => handleNestedChange("personalDetails", "nationality", v)} editable={isEditing} />
                
-               {/* Aadhaar */}
                <Input label="Aadhaar (xxxx-xxxx-xxxx)" value={personalDetails.aadhaarNumber} onChange={(v) => handleNestedChange("personalDetails", "aadhaarNumber", v)} editable={isEditing} icon={<FaIdCard/>} />
-               
-               {/* PAN */}
                <Input label="PAN Number" value={personalDetails.panNumber} onChange={(v) => handleNestedChange("personalDetails", "panNumber", v)} editable={isEditing} className="uppercase" icon={<FaCreditCard/>} />
             </div>
 
-            {/* File Uploads */}
             {isEditing && (
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                  <FileUpload label="Upload Aadhaar" onChange={(e)=>handleFileUpload(e, 'aadhaar')} uploading={uploading.aadhaar} fileUrl={personalDetails.aadhaarFileUrl} />
                  <FileUpload label="Upload PAN" onChange={(e)=>handleFileUpload(e, 'pan')} uploading={uploading.pan} fileUrl={personalDetails.panFileUrl} />
                </div>
             )}
-            {!isEditing && (
-              <div className="flex gap-4 mt-4">
-                 {personalDetails.aadhaarFileUrl && <a href={personalDetails.aadhaarFileUrl} target="_blank" className="text-blue-600 underline text-sm">View Aadhaar</a>}
-                 {personalDetails.panFileUrl && <a href={personalDetails.panFileUrl} target="_blank" className="text-blue-600 underline text-sm">View PAN</a>}
-              </div>
-            )}
+            
+            {/* ✅ VIEW LINKS: Corrected to force HTTPS */}
+            <div className="flex gap-4 mt-4">
+               {personalDetails.aadhaarFileUrl && (
+                 <a 
+                   href={getSecureUrl(personalDetails.aadhaarFileUrl)} 
+                   target="_blank" 
+                   rel="noopener noreferrer" 
+                   className="text-blue-600 underline text-sm font-semibold flex items-center gap-1"
+                 >
+                   <FaCheck className="text-green-500"/> View Aadhaar Document
+                 </a>
+               )}
+               {personalDetails.panFileUrl && (
+                 <a 
+                   href={getSecureUrl(personalDetails.panFileUrl)} 
+                   target="_blank" 
+                   rel="noopener noreferrer" 
+                   className="text-blue-600 underline text-sm font-semibold flex items-center gap-1"
+                 >
+                   <FaCheck className="text-green-500"/> View PAN Document
+                 </a>
+               )}
+            </div>
           </Section>
 
           {/* 4. Work Details */}
-          <Section title="Job Details">
+          <Section title="Current Job Details">
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-               <StaticField label="Department" value={currentDepartment} />
-               <StaticField label="Role" value={currentRole} />
-               <StaticField label="Joining Date" value={joiningDate?.split("T")[0]} />
-               <StaticField label="Current Salary" value={currentSalary} />
+               <Input label="Department" value={currentJob.department} onChange={(v) => handleCurrentJobChange("department", v)} editable={isEditing} icon={<FaBuilding/>} />
+               <Input label="Role" value={currentJob.role} onChange={(v) => handleCurrentJobChange("role", v)} editable={isEditing} />
+               <Input label="Joining Date" type="date" value={currentJob.joiningDate?.split("T")[0]} onChange={(v) => handleCurrentJobChange("joiningDate", v)} editable={isEditing} icon={<FaCalendarAlt/>} />
+               <Input label="Salary (CTC)" type="number" value={currentJob.salary} onChange={(v) => handleCurrentJobChange("salary", v)} editable={isEditing} icon={<FaMoneyBill/>} />
              </div>
           </Section>
 
@@ -328,11 +380,11 @@ const CurrentEmployeeProfile = () => {
              </div>
           </Section>
 
-          {/* 6. Experience */}
-          <Section title="Experience History">
-             {isEditing && <button onClick={addExperience} className="mb-4 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm font-bold">+ Add Experience</button>}
+          {/* 6. Experience History */}
+          <Section title="Previous Experience History">
+             {isEditing && <button onClick={addExperience} className="mb-4 px-4 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm font-bold">+ Add Previous Job</button>}
              
-             {experienceDetails.map((exp, i) => (
+             {experienceDetails.slice(0, -1).map((exp, i) => (
                <div key={i} className="border border-slate-200 p-4 rounded-lg mb-4 bg-slate-50/50">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Input label="Company" value={exp.company} onChange={(v)=>updateExp(i, "company", v)} editable={isEditing} />
@@ -349,14 +401,22 @@ const CurrentEmployeeProfile = () => {
                           <FileUpload label="Upload Experience Letter" onChange={(e)=>handleFileUpload(e, 'exp', i)} uploading={uploading.exp} fileUrl={exp.experienceLetterUrl} />
                        </div>
                     )}
-                    {!isEditing && exp.experienceLetterUrl && (
-                       <a href={exp.experienceLetterUrl} target="_blank" className="text-blue-600 underline text-sm md:col-span-2">View Document</a>
+                    {exp.experienceLetterUrl && (
+                       <a 
+                         href={getSecureUrl(exp.experienceLetterUrl)} 
+                         target="_blank" 
+                         rel="noopener noreferrer" 
+                         className="text-blue-600 underline text-sm md:col-span-2 flex items-center gap-1"
+                        >
+                          <FaCheck className="text-green-500"/> View Document
+                        </a>
                     )}
                  </div>
                  {isEditing && <button onClick={()=>removeExperience(i)} className="mt-3 text-red-500 text-sm hover:underline flex items-center gap-1"><FaTrash/> Remove Entry</button>}
                </div>
              ))}
-             {experienceDetails.length === 0 && <p className="text-slate-400 italic">No past experience added.</p>}
+             
+             {experienceDetails.length <= 1 && <p className="text-slate-400 italic">No previous experience recorded.</p>}
           </Section>
 
         </div>
@@ -416,8 +476,16 @@ const FileUpload = ({ label, onChange, uploading, fileUrl }) => (
          <span className="text-sm text-slate-700">{uploading ? "Uploading..." : "Choose File"}</span>
          <input type="file" className="hidden" accept="image/*,.pdf" onChange={onChange} disabled={uploading} />
        </label>
-       {fileUrl && <a href={fileUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">View</a>}
+       {fileUrl && (
+         <a 
+           href={getSecureUrl(fileUrl)} 
+           target="_blank" 
+           rel="noreferrer" 
+           className="text-blue-600 hover:underline text-xs"
+         >
+           View
+         </a>
+       )}
     </div>
   </div>
 );
-// --- END OF FILE CurrentEmployeeProfile.jsx ---

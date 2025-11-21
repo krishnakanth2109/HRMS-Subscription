@@ -2,13 +2,24 @@ import React, { useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EmployeeContext } from '../context/EmployeeContext';
 
+// Helper to ensure URLs are always HTTPS to prevent "Failed to load PDF" errors
+const getSecureUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http:")) {
+    return url.replace("http:", "https:");
+  }
+  return url;
+};
+
 const EmployeeProfile = () => {
 
   const { id } = useParams();
   const navigate = useNavigate();
   const { employees } = useContext(EmployeeContext);
   const [activeTab, setActiveTab] = React.useState('personal');
-  const employee = employees.find((emp) => emp.employeeId === id);
+  
+  // Robust finding logic (ensure type safety if IDs are numbers/strings)
+  const employee = employees.find((emp) => String(emp.employeeId) === String(id));
 
   if (!employee) return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
@@ -33,9 +44,9 @@ const EmployeeProfile = () => {
   // Get initials for avatar
   const initials = employee.name?.split(' ').map(n => n[0]).join('').toUpperCase();
 
-  // Get current experience (lastWorkingDate === "Present")
-  const currentExp = Array.isArray(employee.experienceDetails)
-    ? employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present")
+  // Get current experience (lastWorkingDate === "Present" or the last entry if array exists)
+  const currentExp = Array.isArray(employee.experienceDetails) && employee.experienceDetails.length > 0
+    ? (employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present") || employee.experienceDetails[employee.experienceDetails.length - 1])
     : null;
 
   // Helper for safe access
@@ -52,18 +63,24 @@ const EmployeeProfile = () => {
             <InfoCard label="Phone Number" value={safe(employee.phone)} />
             <InfoCard label="Address" value={safe(employee.address)} />
             <InfoCard label="Emergency Contact" value={safe(employee.emergency)} />
-            <InfoCard label="Date of Birth" value={safe(employee.personalDetails?.dob)} />
+            <InfoCard label="Date of Birth" value={safe(employee.personalDetails?.dob?.split('T')[0])} />
             <InfoCard label="Gender" value={safe(employee.personalDetails?.gender)} />
             <InfoCard label="Marital Status" value={safe(employee.personalDetails?.maritalStatus)} />
             <InfoCard label="Nationality" value={safe(employee.personalDetails?.nationality)} />
             <InfoCard label="PAN Number" value={safe(employee.personalDetails?.panNumber)} />
-            <InfoCard label="Aadhaar Number" value={safe(employee.personalDetails?.aadharNumber)} />
+            
+            {/* ✅ FIXED PROPERTY NAME: aadhaarNumber (was aadharNumber) */}
+            <InfoCard label="Aadhaar Number" value={safe(employee.personalDetails?.aadhaarNumber)} />
+            
+            {/* PAN File */}
             <InfoCard label="PAN File" value={employee.personalDetails?.panFileUrl ? (
-              <a href={employee.personalDetails.panFileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View PAN File</a>
-            ) : safe(employee.personalDetails?.panFileUrl)} />
-            <InfoCard label="Aadhaar File" value={employee.personalDetails?.aadharFileUrl ? (
-              <a href={employee.personalDetails.aadharFileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View Aadhaar File</a>
-            ) : safe(employee.personalDetails?.aadharFileUrl)} />
+              <a href={getSecureUrl(employee.personalDetails.panFileUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium hover:text-blue-800">View PAN File</a>
+            ) : "N/A"} />
+            
+            {/* ✅ FIXED PROPERTY NAME: aadhaarFileUrl (was aadharFileUrl) */}
+            <InfoCard label="Aadhaar File" value={employee.personalDetails?.aadhaarFileUrl ? (
+              <a href={getSecureUrl(employee.personalDetails.aadhaarFileUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium hover:text-blue-800">View Aadhaar File</a>
+            ) : "N/A"} />
           </div>
         </div>
       );
@@ -88,44 +105,45 @@ const EmployeeProfile = () => {
             <div className="bg-white border border-blue-200 rounded-lg p-6 shadow-sm mb-4">
               <h3 className="text-lg font-bold text-blue-800 mb-2">Current Employment</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InfoCard label="Employee ID" value={safe(currentExp.employeeId)} />
+                <InfoCard label="Employee ID" value={safe(employee.employeeId)} />
                 <InfoCard label="Company" value={safe(currentExp.company)} />
                 <InfoCard label="Department" value={safe(currentExp.department)} />
                 <InfoCard label="Role/Position" value={safe(currentExp.role)} />
                 <InfoCard label="Salary" value={currentExp.salary ? `₹${Number(currentExp.salary).toLocaleString()}` : "N/A"} />
-                <InfoCard label="Joining Date" value={safe(currentExp.joiningDate)} />
+                <InfoCard label="Joining Date" value={safe(currentExp.joiningDate?.split('T')[0])} />
                 <InfoCard label="Status" value={safe(currentExp.lastWorkingDate)} />
                 <InfoCard label="Years" value={safe(currentExp.years)} />
                 <InfoCard label="Employment Type" value={safe(currentExp.employmentType)} />
                 <InfoCard label="Reason for Leaving" value={safe(currentExp.reason)} />
                 <InfoCard label="Experience Letter" value={currentExp.experienceLetterUrl ? (
-                  <a href={currentExp.experienceLetterUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View Experience Letter</a>
-                ) : safe(currentExp.experienceLetterUrl)} />
+                  <a href={getSecureUrl(currentExp.experienceLetterUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium hover:text-blue-800">View Experience Letter</a>
+                ) : "N/A"} />
               </div>
             </div>
           )}
+          
           {/* Past Experiences */}
           <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
             <h3 className="text-lg font-bold text-gray-800 mb-2">Past Experience</h3>
-            {Array.isArray(employee.experienceDetails) && employee.experienceDetails.filter(exp => exp.lastWorkingDate !== "Present").length > 0 ? (
+            {Array.isArray(employee.experienceDetails) && employee.experienceDetails.filter(exp => exp !== currentExp).length > 0 ? (
               employee.experienceDetails
-                .filter((exp, idx, arr) => exp.lastWorkingDate !== "Present" && arr.findIndex(e => e.company === exp.company && e.joiningDate === exp.joiningDate) === idx)
+                .filter((exp) => exp !== currentExp)
                 .map((exp, idx) => (
                   <div key={idx} className="mb-4 pb-4 border-b last:border-b-0 last:mb-0 last:pb-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <InfoCard label="Employee ID" value={safe(exp.employeeId)} />
+                      <InfoCard label="Employee ID" value={safe(employee.employeeId)} />
                       <InfoCard label="Company" value={safe(exp.company)} />
                       <InfoCard label="Department" value={safe(exp.department)} />
                       <InfoCard label="Role/Position" value={safe(exp.role)} />
                       <InfoCard label="Salary" value={exp.salary ? `₹${Number(exp.salary).toLocaleString()}` : "N/A"} />
-                      <InfoCard label="Joining Date" value={safe(exp.joiningDate)} />
-                      <InfoCard label="End Date" value={safe(exp.lastWorkingDate)} />
+                      <InfoCard label="Joining Date" value={safe(exp.joiningDate?.split('T')[0])} />
+                      <InfoCard label="End Date" value={safe(exp.lastWorkingDate?.split('T')[0])} />
                       <InfoCard label="Years" value={safe(exp.years)} />
                       <InfoCard label="Employment Type" value={safe(exp.employmentType)} />
                       <InfoCard label="Reason for Leaving" value={safe(exp.reason)} />
                       <InfoCard label="Experience Letter" value={exp.experienceLetterUrl ? (
-                        <a href={exp.experienceLetterUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View Experience Letter</a>
-                      ) : safe(exp.experienceLetterUrl)} />
+                        <a href={getSecureUrl(exp.experienceLetterUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium hover:text-blue-800">View Experience Letter</a>
+                      ) : "N/A"} />
                     </div>
                   </div>
                 ))
@@ -143,7 +161,7 @@ const EmployeeProfile = () => {
   const InfoCard = ({ label, value }) => (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
       <div className="text-sm font-medium text-gray-500 mb-1">{label}</div>
-      <div className="text-base font-semibold text-gray-900">{value}</div>
+      <div className="text-base font-semibold text-gray-900 truncate" title={typeof value === 'string' ? value : ''}>{value}</div>
     </div>
   );
 

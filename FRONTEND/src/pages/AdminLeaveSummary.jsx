@@ -5,7 +5,8 @@ import { getLeaveRequests, getEmployees } from "../api";
 import axios from "axios";
 
 // --- LEAVE YEAR CONFIGURATION ---
-const LEAVE_YEAR_START_MONTH = 11; // November
+// Updated: Starts in January (1) as per requirement "from jan newly start"
+const LEAVE_YEAR_START_MONTH = 1; 
 
 // --- HELPER FUNCTIONS ---
 
@@ -24,13 +25,10 @@ const calculateLeaveDays = (from, to) => {
 
 const getCurrentLeaveYear = () => {
   const today = new Date();
-  const currentMonth = today.getMonth() + 1;
+  // Current requirement is Calendar Year (Jan 1 - Dec 31)
   const currentYear = today.getFullYear();
-
-  let startYear = currentMonth < LEAVE_YEAR_START_MONTH ? currentYear - 1 : currentYear;
-
-  const startDate = new Date(startYear, LEAVE_YEAR_START_MONTH - 1, 1);
-  const endDate = new Date(startYear + 1, LEAVE_YEAR_START_MONTH - 1, 0);
+  const startDate = new Date(currentYear, 0, 1); // Jan 1st
+  const endDate = new Date(currentYear, 11, 31); // Dec 31st
 
   return { startDate, endDate };
 };
@@ -266,27 +264,50 @@ const AdminLeaveSummary = () => {
   const employeeStats = useMemo(() => {
     const stats = new Map();
     const uniqueEmployees = Array.from(employeesMap.entries());
+    
+    // Use current calendar year for the iteration loop (Jan - Dec)
     const today = new Date();
-    const { startDate, endDate } = getCurrentLeaveYear();
+    const currentYear = today.getFullYear();
+    const currentMonthIndex = today.getMonth(); // 0 = Jan, 11 = Dec
 
     uniqueEmployees.forEach(([empId, empName]) => {
       const employeeLeaves = enrichedRequests.filter(req => req.employeeId === empId);
       
-      // --- Yearly Pending Leaves Calculation ---
-      const approvedLeavesThisYear = employeeLeaves.filter(leave => {
+      // --- NEW LOGIC: Monthly Accrual with specific Carry Forward Rules ---
+      let runningPendingLeaves = 0;
+
+      // Iterate from January (0) to the current month
+      for (let m = 0; m <= currentMonthIndex; m++) {
+        // 1. Give 1 assigned leave per month
+        runningPendingLeaves += 1;
+
+        // 2. Calculate leaves approved & taken specifically in this month 'm' of current year
+        const leavesInThisMonth = employeeLeaves.filter(leave => {
           const leaveDate = new Date(leave.from);
-          return leave.status === 'Approved' && leaveDate >= startDate && leaveDate <= endDate;
-      });
-      const usedLeavesDaysThisYear = approvedLeavesThisYear.reduce((total, leave) => total + calculateLeaveDays(leave.from, leave.to), 0);
+          // Check if leave is in current year, matching month 'm', and is Approved
+          return leave.status === 'Approved' && 
+                 leaveDate.getFullYear() === currentYear && 
+                 leaveDate.getMonth() === m;
+        });
 
-      let monthsPassed = 0;
-      if (today >= startDate) {
-          monthsPassed = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth()) + 1;
+        const daysUsedInMonth = leavesInThisMonth.reduce((total, leave) => 
+          total + calculateLeaveDays(leave.from, leave.to), 0);
+
+        // 3. Deduct used leaves from balance
+        runningPendingLeaves -= daysUsedInMonth;
+
+        // 4. Requirement: "if a month used 5 leaves... don't count previous month leaves"
+        // Interpretation: If balance becomes negative (debt), reset to 0 for next month.
+        // If balance is positive (unused leaves), it carries over.
+        if (runningPendingLeaves < 0) {
+            runningPendingLeaves = 0;
+        }
       }
-      const earnedLeavesThisYear = Math.max(0, monthsPassed);
-      const pendingLeaves = Math.max(0, earnedLeavesThisYear - usedLeavesDaysThisYear);
 
-      // --- Monthly Stats Calculation ---
+      // The final result after the loop is the current available pending leaves
+      const pendingLeaves = runningPendingLeaves;
+
+      // --- Monthly Stats Calculation (For UI Display) ---
       const monthFilteredLeaves = employeeLeaves.filter(leave => 
         selectedMonth === "All" || 
         isDateInMonth(leave.from, selectedMonth) || 
@@ -590,7 +611,7 @@ const AdminLeaveSummary = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs text-gray-600">
               <div className="flex items-center">
                 <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                <span><strong>Pending Leaves:</strong> Remaining leaves for the year (Nov-Oct)</span>
+                <span><strong>Pending Leaves:</strong> Remaining leaves for the year (Jan-Dec)</span>
               </div>
               <div className="flex items-center">
                 <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>

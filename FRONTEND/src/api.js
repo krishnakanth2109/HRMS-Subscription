@@ -1,3 +1,5 @@
+// --- START OF FILE api.js ---
+
 import axios from "axios";
 
 // Automatically determine API base URL depending on environment
@@ -13,11 +15,11 @@ console.log("🌐 API Base URL:", baseURL);
 // Create a single, consistent Axios instance
 const api = axios.create({
   baseURL,
-  timeout: 500000,
+  timeout: 500000, // Extended timeout for large requests
   headers: { "Content-Type": "application/json" },
 });
 
-// Automatically attach token from sessionStorage
+// Automatically attach token from sessionStorage to every request
 api.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem("hrms-token");
@@ -43,7 +45,7 @@ export const loginUser = async (email, password) => {
 };
 
 /* ============================================================================
-   EMPLOYEE
+   EMPLOYEE MANAGEMENT
 ============================================================================ */
 export const getEmployees = async () => (await api.get("/api/employees")).data;
 export const getEmployeeById = async (id) => (await api.get(`/api/employees/${id}`)).data;
@@ -53,8 +55,9 @@ export const deactivateEmployeeById = async (id, data) => (await api.patch(`/api
 export const activateEmployeeById = async (id) => (await api.patch(`/api/employees/${id}/activate`)).data;
 
 /* ============================================================================
-   Employee IDLE TIME TRACKING
+   IDLE TIME TRACKING
 ============================================================================ */
+// For Employee: Send idle activity (start/end)
 export const sendIdleActivity = async (data) => {
   try {
     const response = await api.post("/idletime", data); 
@@ -65,9 +68,7 @@ export const sendIdleActivity = async (data) => {
   }
 };
 
-/* ============================================================================
-   IDLE TIME - ADMIN
-============================================================================ */
+// For Admin: Get all idle records (Legacy route)
 export const getAllIdleTimeRecords = async () => {
   try {
     const res = await api.get("/idletime/all"); 
@@ -133,12 +134,14 @@ export const rejectPermissionRequestById = async (id) => (await api.patch(`/api/
    ATTENDANCE
 ============================================================================ */
 export const getAttendanceForEmployee = async (id) => (await api.get(`/api/attendance/${id}`)).data;
+
 export const getAttendanceByDateRange = async (startDate, endDate) =>
   (await api.get("/api/admin/attendance/by-range", { params: { startDate, endDate } })).data;
+
 export const punchIn = async (data) => (await api.post("/api/attendance/punch-in", data)).data;
 export const punchOut = async (data) => (await api.post("/api/attendance/punch-out", data)).data;
 
-// ✅ ADDED: Fetch ALL attendance records for admin/tracking
+// ✅ NEW: Fetch ALL attendance records for Admin Dashboard (Idle Tracking)
 export const getAllAttendanceRecords = async () => {
   try {
     const response = await api.get("/api/attendance/all");
@@ -227,6 +230,7 @@ export const createOrUpdateShift = async (shiftData) => {
 export const getAllShifts = async () => {
   try {
     const response = await api.get("/api/shifts/all");
+    // Return .data.data if wrapped, else .data
     return response.data.data || response.data; 
   } catch (error) {
     console.error('Get all shifts error:', error.response?.data || error.message);
@@ -264,4 +268,5 @@ export const bulkCreateShifts = async (employeeIds, shiftData) => {
   }
 };
 
+// Export default for backward compatibility with components using `api.get()` directly
 export default api;

@@ -8,7 +8,6 @@ import React, {
 } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { NoticeContext } from "../context/NoticeContext";
-import axios from "axios"; // Added for idle tracking
 import { Bar, Pie } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -31,7 +30,8 @@ import {
   FaEdit,
   FaTrash,
 } from "react-icons/fa";
-import {
+// ✅ Imported 'api' default export for custom requests
+import api, {
   getAttendanceForEmployee,
   punchIn,
   punchOut,
@@ -54,18 +54,14 @@ ChartJS.register(
   Legend
 );
 
-// 🔴 IDLE CONFIGURATION (From File 1)
-const INACTIVITY_LIMIT_MS = 4 * 60 * 1000; // 4 Minutes
+// 🔴 IDLE CONFIGURATION
+const INACTIVITY_LIMIT_MS = 2 * 60 * 1000; // 2 Minutes
 const WORK_START_HOUR = 0;
 const WORK_END_HOUR = 24;
 
-// Helper for idle tracking (From File 1)
+// ✅ Updated to use centralized API (handles Token & BaseURL automatically)
 const recordIdleActivityLocally = async (data) => {
-  const token = localStorage.getItem("token");
-  // Adjust URL if your backend port differs
-  return axios.post("http://localhost:5000/api/attendance/record-idle-activity", data, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
+  return api.post("/api/attendance/record-idle-activity", data);
 };
 
 const EmployeeDashboard = () => {
@@ -91,7 +87,7 @@ const EmployeeDashboard = () => {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // 🔴 IDLE TRACKING REFS (From File 1)
+  // 🔴 IDLE TRACKING REFS
   const isIdleRef = useRef(false);
   const idleStartTimeRef = useRef(null);
   const idleNotifiedRef = useRef(false); 
@@ -233,7 +229,7 @@ const EmployeeDashboard = () => {
     return () => { if (interval) clearInterval(interval); };
   }, [todayLog]);
 
-  // 🔴 Helper to calculate Idle Time String (From File 1)
+  // 🔴 Helper to calculate Idle Time String
   const getTodayIdleTimeStr = () => {
     const activities = todayLog?.idleActivity || [];
     if (activities.length === 0) return "--";
@@ -258,7 +254,7 @@ const EmployeeDashboard = () => {
     return `${h}h ${m}m ${s}s`;
   };
 
-  // ✅ Punch In/Out (Updated with Idle check)
+  // ✅ Punch In/Out
   const handlePunch = async (action) => {
     if (!user) return;
 
@@ -376,7 +372,7 @@ const EmployeeDashboard = () => {
   };
 
   // ============================================================
-  // 🔴 ROBUST IDLE TRACKING (Merged from File 1)
+  // 🔴 ROBUST IDLE TRACKING
   // ============================================================
   useEffect(() => {
     if (!user || !user.employeeId || !todayLog?.punchIn || todayLog?.punchOut) return;
@@ -612,7 +608,7 @@ const EmployeeDashboard = () => {
                 <th className="px-4 py-3 text-left">Worked</th>
                 <th className="px-4 py-3 text-left">Login Status</th>
                 <th className="px-4 py-3 text-left">Worked Status</th>
-                <th className="px-4 py-3 text-left">Idle Time</th> {/* 🔴 Added Idle Column */}
+                <th className="px-4 py-3 text-left">Idle Time</th>
                 <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
@@ -633,7 +629,7 @@ const EmployeeDashboard = () => {
                   {todayLog?.punchIn && !todayLog?.punchOut ? <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Working...</span> : formatWorkedStatus(todayLog?.workedStatus)}
                 </td>
                 <td className="px-4 py-3 font-mono font-bold text-orange-600">
-                  {todayLog?.punchIn ? getTodayIdleTimeStr() : "--"} {/* 🔴 Added Idle Data */}
+                  {todayLog?.punchIn ? getTodayIdleTimeStr() : "--"}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {!todayLog?.punchIn ? (
@@ -651,10 +647,10 @@ const EmployeeDashboard = () => {
         <div className="flex justify-between items-center mt-6">
           <div className="flex items-center gap-3">
             {todayLog?.punchInLocation && (
-              <button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`, "_blank")} className="bg-blue-100 text-blue-800 px-3 py-1.5 text-xs rounded-full hover:bg-blue-200 flex gap-1"><FaMapMarkerAlt /> In Loc</button>
+              <button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`, "_blank")} className="bg-blue-100 text-blue-800 px-3 py-1.5 text-xs rounded-full hover:bg-blue-200 flex gap-1"><FaMapMarkerAlt /> In Location</button>
             )}
             {todayLog?.punchOutLocation && (
-              <button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`, "_blank")} className="bg-red-100 text-red-800 px-3 py-1.5 text-xs rounded-full hover:bg-red-200 flex gap-1"><FaMapMarkerAlt /> Out Loc</button>
+              <button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`, "_blank")} className="bg-red-100 text-red-800 px-3 py-1.5 text-xs rounded-full hover:bg-red-200 flex gap-1"><FaMapMarkerAlt /> Out Location</button>
             )}
           </div>
           <button onClick={() => navigate("/employee/my-attendence")} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">View Attendance History →</button>

@@ -26,8 +26,9 @@ import {
   FaExclamationTriangle,
   FaBusinessTime,
   FaStarHalfAlt,
-  FaHourglassHalf,
-  FaFilter
+  FaTimesCircle, 
+  FaFilter,
+  FaUserCheck // Added for Punch In count
 } from "react-icons/fa";
 
 // --- Register Chart.js components ---
@@ -53,7 +54,6 @@ const TableRowSkeleton = () => (
   </tr>
 );
 
-// The main component
 const EmployeeDailyAttendance = () => {
   const { user } = useContext(AuthContext);
   const [attendance, setAttendance] = useState([]);
@@ -62,11 +62,14 @@ const EmployeeDailyAttendance = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
 
+  // --- Fetch Attendance ---
   const loadAttendance = useCallback(async (empId) => {
     setLoading(true);
     try {
       const data = await getAttendanceForEmployee(empId);
-      setAttendance(Array.isArray(data) ? data : []);
+      // Handle response format (array or object with data property)
+      const attendanceData = Array.isArray(data) ? data : (data.data || []);
+      setAttendance(attendanceData);
     } catch (err) {
       console.error("Error fetching attendance:", err);
       setAttendance([]);
@@ -83,23 +86,20 @@ const EmployeeDailyAttendance = () => {
     }
   }, [user, loadAttendance]);
 
+  // --- Extract Available Years ---
   const availableYears = useMemo(() => {
     if (attendance.length === 0) return [new Date().getFullYear()];
     const years = new Set(attendance.map(a => new Date(a.date).getFullYear()));
     return Array.from(years).sort((a, b) => b - a);
   }, [attendance]);
 
-  const isPresent = (record) => {
-    if (!record || !record.status) return false;
-    const status = record.status.toLowerCase();
-    return status === 'completed' || status === 'working';
-  };
-
+  // --- Helpers matching Dashboard Logic ---
   const formatWorkedStatus = (status) => {
     if (!status || status === "NOT_APPLICABLE") return "--";
-    return status.replace("_", " ").toLowerCase();
+    return status.replace(/_/g, " ").toLowerCase();
   };
-  
+
+  // --- Filter & Sort Data ---
   const monthlyFilteredAttendance = useMemo(() => {
     let data = attendance.filter(item => {
       const recordDate = new Date(item.date);
@@ -128,23 +128,39 @@ const EmployeeDailyAttendance = () => {
     return data;
   }, [attendance, selectedDate, searchTerm, sortConfig]);
 
+  // --- Calculate Stats (Synced with Dashboard Logic) ---
   const summaryStats = useMemo(() => {
     const data = monthlyFilteredAttendance;
-    const totalDays = data.filter(isPresent).length;
-    const lateCount = data.filter(a => isPresent(a) && a.loginStatus === 'LATE').length;
-    const onTimeCount = data.filter(a => isPresent(a) && a.loginStatus !== 'LATE').length;
+    
+    // 1. Calculate basic statuses
     const fullDays = data.filter(a => a.workedStatus === 'FULL_DAY').length;
     const halfDays = data.filter(a => a.workedStatus === 'HALF_DAY').length;
-    const quarterDays = data.filter(a => a.workedStatus === 'QUARTER_DAY').length;
-    return { totalDays, onTimeCount, lateCount, fullDays, halfDays, quarterDays };
+    const absentDays = data.filter(a => a.status === 'ABSENT' || a.workedStatus === 'ABSENT').length;
+    
+    // 2. Calculate Punched In Count (If they have a punchIn time, they are present)
+    const punchedInCount = data.filter(a => a.punchIn).length;
+
+    const lateCount = data.filter(a => a.loginStatus === 'LATE').length;
+    const onTimeCount = data.filter(a => a.loginStatus === 'ON_TIME' || (a.punchIn && a.loginStatus !== 'LATE')).length;
+
+    return { 
+      totalPresent: punchedInCount, // Updated to use punch-in count
+      punchedInCount, 
+      onTimeCount, 
+      lateCount, 
+      fullDays, 
+      halfDays, 
+      absentDays 
+    };
   }, [monthlyFilteredAttendance]);
 
-  // --- ✅ ENHANCED UI: Chart Options and Data ---
+  // --- Chart Data ---
   const graphData = useMemo(() => {
     const monthlyCounts = Array(12).fill(0);
     attendance.forEach(a => {
       const recordDate = new Date(a.date);
-      if (recordDate.getFullYear() === selectedDate.getFullYear() && isPresent(a)) {
+      // Count as present if Punch In exists (matching the new logic)
+      if (recordDate.getFullYear() === selectedDate.getFullYear() && a.punchIn) {
         monthlyCounts[recordDate.getMonth()] += 1;
       }
     });
@@ -154,11 +170,10 @@ const EmployeeDailyAttendance = () => {
       datasets: [{
         label: `Present Days in ${selectedDate.getFullYear()}`,
         data: monthlyCounts,
-        // ✅ UI UPGRADE: Using a function to create gradients
         backgroundColor: context => {
             const chart = context.chart;
             const { ctx, chartArea } = chart;
-            if (!chartArea) return null; // Gradient will be created on update
+            if (!chartArea) return null;
 
             const isSelectedMonth = context.dataIndex === selectedDate.getMonth();
             const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
@@ -184,7 +199,6 @@ const EmployeeDailyAttendance = () => {
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      // ✅ UI UPGRADE: Custom tooltips
       tooltip: {
         enabled: true,
         backgroundColor: '#111827',
@@ -194,7 +208,7 @@ const EmployeeDailyAttendance = () => {
         borderWidth: 1,
         padding: 10,
         cornerRadius: 8,
-        displayColors: false, // Hides the color box
+        displayColors: false,
         callbacks: {
             label: (context) => `${context.raw} present day(s)`
         }
@@ -204,7 +218,6 @@ const EmployeeDailyAttendance = () => {
       y: {
         beginAtZero: true,
         ticks: { precision: 0, color: '#6b7280' },
-        // ✅ UI UPGRADE: Lighter, dashed grid lines
         grid: { color: '#e5e7eb', borderDash: [3, 4] },
         border: { display: false },
       },
@@ -224,6 +237,7 @@ const EmployeeDailyAttendance = () => {
     return sortConfig.direction === 'ascending' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />;
   };
 
+  // --- UI Components ---
   const StatCard = ({ icon, title, value, colorClass }) => (
     <div className="flex-1 p-4 bg-white rounded-xl shadow-md flex items-center gap-4 transition-transform transform hover:scale-105">
       <div className={`p-3 rounded-full ${colorClass}`}>{icon}</div>
@@ -234,7 +248,6 @@ const EmployeeDailyAttendance = () => {
     </div>
   );
 
-  // --- ✅ ENHANCED UI: WorkedStatusItem now uses icons without backgrounds ---
   const WorkedStatusItem = ({ icon, title, value, iconColorClass }) => (
     <div className="flex items-center gap-4 transition-all duration-200 p-2 rounded-lg hover:bg-gray-50">
       {React.cloneElement(icon, { className: `text-3xl flex-shrink-0 ${iconColorClass}` })}
@@ -250,9 +263,10 @@ const EmployeeDailyAttendance = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center mb-6 gap-3">
           <FaRegClock className="text-blue-600 text-3xl" />
-          <h1 className="font-bold text-3xl text-gray-800">Your Attendance</h1>
+          <h1 className="font-bold text-3xl text-gray-800">Your Attendance History</h1>
         </div>
         
+        {/* Filters */}
         <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-col md:flex-row items-center gap-4 md:gap-6">
             <div className="flex items-center gap-2 text-gray-700 font-semibold">
               <FaFilter />
@@ -270,15 +284,18 @@ const EmployeeDailyAttendance = () => {
             </div>
         </div>
 
+        {/* Stats & Chart Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+          {/* Summary Column */}
           <div className="lg:col-span-2 p-6 bg-white rounded-xl shadow-md flex flex-col justify-center">
-            <h3 className="font-semibold text-lg mb-6 text-gray-800">Worked Status Summary</h3>
+            <h3 className="font-semibold text-lg mb-6 text-gray-800">Monthly Summary</h3>
             <div className="space-y-4">
+              {/* ✅ Added: Days Punched In Count */}
               <WorkedStatusItem
                 icon={<FaBusinessTime />}
                 title="Full Days"
                 value={summaryStats.fullDays}
-                iconColorClass="text-indigo-500"
+                iconColorClass="text-green-500"
               />
               <WorkedStatusItem
                 icon={<FaStarHalfAlt />}
@@ -287,28 +304,32 @@ const EmployeeDailyAttendance = () => {
                 iconColorClass="text-yellow-500"
               />
               <WorkedStatusItem
-                icon={<FaHourglassHalf />}
-                title="Quarter Days"
-                value={summaryStats.quarterDays}
-                iconColorClass="text-purple-500"
+                icon={<FaTimesCircle />}
+                title="Absent"
+                value={summaryStats.absentDays}
+                iconColorClass="text-red-500"
               />
             </div>
           </div>
           
+          {/* Graph Column */}
           <div className="lg:col-span-3 p-4 bg-white rounded-xl shadow-md">
-            <h3 className="font-semibold text-lg mb-2 text-gray-800">Monthly Overview - {selectedDate.getFullYear()}</h3>
+            <h3 className="font-semibold text-lg mb-2 text-gray-800">Yearly Overview - {selectedDate.getFullYear()}</h3>
             <div className="relative h-64">
               <Bar options={graphOptions} data={graphData} />
             </div>
           </div>
         </div>
 
+        {/* Quick Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <StatCard icon={<FaCalendarCheck className="text-white"/>} title={`Present Days in ${graphData.labels[selectedDate.getMonth()]}`} value={summaryStats.totalDays} colorClass="bg-blue-500" />
-            <StatCard icon={<FaUserClock className="text-white"/>} title="On Time Days" value={summaryStats.onTimeCount} colorClass="bg-green-500" />
-            <StatCard icon={<FaExclamationTriangle className="text-white"/>} title="Late Days" value={summaryStats.lateCount} colorClass="bg-red-500" />
+            {/* ✅ Updated: Uses Punched In count for Total Present */}
+            <StatCard icon={<FaCalendarCheck className="text-white"/>} title={`Days Punched In (${graphData.labels[selectedDate.getMonth()]})`} value={summaryStats.totalPresent} colorClass="bg-blue-500" />
+            <StatCard icon={<FaUserClock className="text-white"/>} title="On Time Arrivals" value={summaryStats.onTimeCount} colorClass="bg-green-500" />
+            <StatCard icon={<FaExclamationTriangle className="text-white"/>} title="Late Arrivals" value={summaryStats.lateCount} colorClass="bg-red-500" />
         </div>
 
+        {/* Table Section */}
         <div className="bg-white rounded-xl shadow-md">
             <div className="p-4 border-b border-gray-200">
                 <div className="relative">
@@ -335,8 +356,10 @@ const EmployeeDailyAttendance = () => {
                         {loading ? (
                            Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} />)
                         ) : monthlyFilteredAttendance.length > 0 ? (
-                           monthlyFilteredAttendance.map((a) => (
-                               <tr key={a.date} className="text-gray-800 hover:bg-blue-50/50 transition-colors duration-200 border-b border-gray-100 last:border-b-0">
+                           monthlyFilteredAttendance.map((a) => {
+                               const isAbsent = a.status === 'ABSENT' || a.workedStatus === 'ABSENT';
+                               return (
+                               <tr key={a.date} className={`text-gray-800 hover:bg-blue-50/50 transition-colors duration-200 border-b border-gray-100 last:border-b-0 ${isAbsent ? "bg-red-50/30" : ""}`}>
                                    <td className="px-4 py-3 font-medium text-left whitespace-nowrap">{new Date(a.date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</td>
                                    <td className="px-4 py-3 text-left whitespace-nowrap">{a.punchIn ? new Date(a.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-400">--</span>}</td>
                                    <td className="px-4 py-3 text-left whitespace-nowrap">{a.punchOut ? new Date(a.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-400">--</span>}</td>
@@ -350,11 +373,17 @@ const EmployeeDailyAttendance = () => {
                                        </span>
                                      ) : <span className="text-gray-400">--</span>}
                                    </td>
-                                   <td className="px-4 py-3 capitalize text-left whitespace-nowrap">
-                                     {formatWorkedStatus(a.workedStatus)}
+                                   <td className="px-4 py-3 capitalize text-left whitespace-nowrap font-medium">
+                                     <span className={
+                                         isAbsent ? "text-red-600" : 
+                                         a.workedStatus === "HALF_DAY" ? "text-yellow-600" : 
+                                         a.workedStatus === "FULL_DAY" ? "text-green-600" : "text-gray-600"
+                                     }>
+                                         {formatWorkedStatus(a.workedStatus)}
+                                     </span>
                                    </td>
                                </tr>
-                           ))
+                           )})
                         ) : (
                             <tr><td colSpan="7" className="text-center py-16 text-gray-500">
                                 <p className="font-semibold text-lg">No Records Found</p>
