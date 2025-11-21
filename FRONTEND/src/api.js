@@ -1,5 +1,3 @@
-// --- START OF FILE api.js ---
-
 import axios from "axios";
 
 // Automatically determine API base URL depending on environment
@@ -59,7 +57,7 @@ export const activateEmployeeById = async (id) => (await api.patch(`/api/employe
 ============================================================================ */
 export const sendIdleActivity = async (data) => {
   try {
-    const response = await api.post("/idletime", data); // ✔ Correct route
+    const response = await api.post("/idletime", data); 
     return response.data;
   } catch (error) {
     console.error("Idle time API error:", error.response?.data || error.message);
@@ -72,7 +70,7 @@ export const sendIdleActivity = async (data) => {
 ============================================================================ */
 export const getAllIdleTimeRecords = async () => {
   try {
-    const res = await api.get("/idletime/all"); // ✔ Correct backend route
+    const res = await api.get("/idletime/all"); 
     return res.data;
   } catch (error) {
     console.error("Get all idle time error:", error.response?.data || error.message);
@@ -140,6 +138,17 @@ export const getAttendanceByDateRange = async (startDate, endDate) =>
 export const punchIn = async (data) => (await api.post("/api/attendance/punch-in", data)).data;
 export const punchOut = async (data) => (await api.post("/api/attendance/punch-out", data)).data;
 
+// ✅ ADDED: Fetch ALL attendance records for admin/tracking
+export const getAllAttendanceRecords = async () => {
+  try {
+    const response = await api.get("/api/attendance/all");
+    return response.data;
+  } catch (error) {
+    console.error("Get all attendance error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 /* ============================================================================
    USER PROFILE
 ============================================================================ */
@@ -205,10 +214,6 @@ export const getAllProfiles = async () => {
 /* ============================================================================
    SHIFT MANAGEMENT
 ============================================================================ */
-
-/**
- * Create or update shift for an employee
- */
 export const createOrUpdateShift = async (shiftData) => {
   try {
     const response = await api.post("/api/shifts/create", shiftData);
@@ -219,13 +224,9 @@ export const createOrUpdateShift = async (shiftData) => {
   }
 };
 
-/**
- * Get all shifts (Admin only)
- */
 export const getAllShifts = async () => {
   try {
     const response = await api.get("/api/shifts/all");
-    // Assuming backend returns { success: true, data: [...] }
     return response.data.data || response.data; 
   } catch (error) {
     console.error('Get all shifts error:', error.response?.data || error.message);
@@ -233,9 +234,6 @@ export const getAllShifts = async () => {
   }
 };
 
-/**
- * Get shift for a specific employee
- */
 export const getShiftByEmployeeId = async (employeeId) => {
   try {
     const response = await api.get(`/api/shifts/${employeeId}`);
@@ -246,9 +244,6 @@ export const getShiftByEmployeeId = async (employeeId) => {
   }
 };
 
-/**
- * Delete/Reset shift to default
- */
 export const deleteShift = async (employeeId) => {
   try {
     const response = await api.delete(`/api/shifts/${employeeId}`);
@@ -259,9 +254,6 @@ export const deleteShift = async (employeeId) => {
   }
 };
 
-/**
- * Bulk create/update shifts for multiple employees
- */
 export const bulkCreateShifts = async (employeeIds, shiftData) => {
   try {
     const response = await api.post("/api/shifts/bulk-create", { employeeIds, shiftData });
@@ -272,7 +264,4 @@ export const bulkCreateShifts = async (employeeIds, shiftData) => {
   }
 };
 
-/* ============================================================================
-   EXPORT
-============================================================================ */
 export default api;

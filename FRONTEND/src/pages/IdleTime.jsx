@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import {
   FaSearch,
   FaSyncAlt,
   FaUserClock,
   FaExclamationCircle,
   FaCheckCircle,
-  FaTimesCircle,
   FaCalendarAlt,
   FaChartLine,
   FaTimes,
   FaClock,
-  FaChartPie // Added Icon
+  FaChartPie 
 } from "react-icons/fa";
 import {
   Chart as ChartJS,
@@ -23,9 +21,12 @@ import {
   Tooltip,
   Legend,
   Filler,
-  ArcElement // ✅ Added for Pie Chart
+  ArcElement 
 } from 'chart.js';
-import { Line, Pie } from 'react-chartjs-2'; // ✅ Added Pie
+import { Line, Pie } from 'react-chartjs-2';
+
+// Import from centralized API
+import { getAllAttendanceRecords } from "../api"; 
 
 // Register ChartJS
 ChartJS.register(
@@ -37,7 +38,7 @@ ChartJS.register(
   Tooltip,
   Legend,
   Filler,
-  ArcElement // ✅ Register Pie Element
+  ArcElement
 );
 
 const IdleTimeTracking = () => {
@@ -51,23 +52,21 @@ const IdleTimeTracking = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 🔧 API URL
-  const API_URL = "http://localhost:5000/api/attendance/all"; 
-
   const fetchIdleData = async () => {
     if(employees.length === 0) setLoading(true);
     
     try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get(API_URL, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // ✅ Uses api.js function (which handles sessionStorage token automatically)
+      const responseData = await getAllAttendanceRecords();
 
       let allRecords = [];
-      if (response.data && Array.isArray(response.data.data)) {
-        allRecords = response.data.data;
-      } else if (Array.isArray(response.data)) {
-        allRecords = response.data;
+      // Robust check for response structure
+      if (responseData && Array.isArray(responseData.data)) {
+        allRecords = responseData.data;
+      } else if (Array.isArray(responseData)) {
+        allRecords = responseData;
+      } else if (responseData && responseData.success && Array.isArray(responseData.data)) {
+        allRecords = responseData.data;
       }
 
       const now = new Date().getTime();
@@ -75,6 +74,7 @@ const IdleTimeTracking = () => {
       const processedData = allRecords.map((record) => {
         const history = record.attendance || [];
         
+        // Robust date matching
         const log = history.find((l) => {
             if (!l.date) return false;
             return l.date === selectedDate || l.date.split("T")[0] === selectedDate;
@@ -121,7 +121,7 @@ const IdleTimeTracking = () => {
           grossDurationMs = Math.max(0, endTime - punchInTime);
         }
 
-        // ✅ NEW CALCULATION: Net Worked Time = Gross - Idle
+        // NEW CALCULATION: Net Worked Time = Gross - Idle
         const netWorkedMs = Math.max(0, grossDurationMs - totalIdleMs);
 
         return {
@@ -134,8 +134,8 @@ const IdleTimeTracking = () => {
           displayIdle: formatDuration(totalIdleMs),
           grossDurationMs,
           displayWork: formatDuration(grossDurationMs), // Gross
-          netWorkedMs, // Raw Net Time
-          displayNetWork: formatDuration(netWorkedMs), // ✅ Display Net Time
+          netWorkedMs, 
+          displayNetWork: formatDuration(netWorkedMs), // Display Net Time
           isCurrentlyIdle,
           idleSegments,
           date: selectedDate
@@ -188,7 +188,7 @@ const IdleTimeTracking = () => {
 
   return (
     <div className="p-4 md:p-8 bg-slate-50 min-h-screen font-sans">
-      {/* Header (Unchanged) */}
+      {/* Header */}
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 p-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
@@ -213,7 +213,7 @@ const IdleTimeTracking = () => {
         </div>
       </div>
 
-      {/* Table (Unchanged) */}
+      {/* Table */}
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-left">
@@ -276,9 +276,9 @@ const IdleTimeTracking = () => {
   );
 };
 
-// 📊 UPDATED MODAL COMPONENT
+// 📊 MODAL COMPONENT
 const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
-  // ✅ State to toggle between Graph and Pie Chart
+  // State to toggle between Graph and Pie Chart
   const [activeTab, setActiveTab] = useState('line'); 
 
   if (!isOpen || !employee) return null;
@@ -322,7 +322,7 @@ const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
     };
   };
 
-  // --- ✅ PIE CHART DATA ---
+  // --- PIE CHART DATA ---
   const getPieChartData = () => {
     // Convert MS to Minutes for better chart proportion
     const workedMinutes = Math.floor(employee.netWorkedMs / 60000);
@@ -369,7 +369,7 @@ const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1">
           
-          {/* ✅ UPDATED: 4 Stats Cards (Added Net Worked) */}
+          {/* 4 Stats Cards (Added Net Worked) */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
                <p className="text-xs font-bold text-blue-500 uppercase">Gross Hours</p>
@@ -380,7 +380,7 @@ const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
                <p className="text-2xl font-bold text-slate-800 mt-1">{employee.displayIdle}</p>
             </div>
             
-            {/* ✅ NEW: Net Worked Card (Worked - Idle) */}
+            {/* Net Worked Card (Worked - Idle) */}
             <div className="p-4 bg-green-50 border border-green-100 rounded-xl">
                <p className="text-xs font-bold text-green-600 uppercase">Net Worked</p>
                <p className="text-2xl font-bold text-slate-800 mt-1">{employee.displayNetWork}</p>
@@ -394,7 +394,7 @@ const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
             </div>
           </div>
 
-          {/* ✅ TABS for Navigation */}
+          {/* TABS for Navigation */}
           <div className="flex gap-2 mb-4 border-b border-slate-100 pb-1">
              <button 
                onClick={() => setActiveTab('line')}
@@ -426,7 +426,7 @@ const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
                 </div>
               </>
             ) : (
-              // ✅ PIE CHART VIEW
+              // PIE CHART VIEW
               <div className="flex flex-col md:flex-row items-center justify-center h-full gap-8">
                 <div className="h-64 w-64">
                    <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
@@ -444,7 +444,7 @@ const EmployeeGraphModal = ({ isOpen, onClose, employee }) => {
               </div>
             )}
 
-            {/* ✅ CALCULATION FOOTER */}
+            {/* CALCULATION FOOTER */}
             <div className="mt-auto pt-4 border-t border-slate-100 text-center text-sm text-slate-500 font-mono bg-slate-50 p-2 rounded-lg">
                <span className="font-bold text-blue-600">{employee.displayWork} (Gross)</span> 
                <span className="mx-2">-</span> 
