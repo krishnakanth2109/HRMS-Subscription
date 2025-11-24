@@ -550,7 +550,7 @@ const EmployeeDashboard = () => {
         <div className="relative group">
           <img
             src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
-            alt="Profile"
+            alt="Profile Img"
             crossOrigin="anonymous"
             referrerPolicy="no-referrer"
             className="w-28 h-28 rounded-full border-4 border-white shadow-md object-cover"

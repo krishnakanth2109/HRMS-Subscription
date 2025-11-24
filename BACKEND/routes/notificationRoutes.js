@@ -1,7 +1,11 @@
 import express from "express";
 import Notification from "../models/notificationModel.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// Apply protect middleware to ALL notification routes that need user info
+router.use(protect);
 
 /*
 ===================================================================
@@ -10,20 +14,17 @@ const router = express.Router();
 */
 router.patch("/mark-all", async (req, res) => {
   try {
-    // Extract employee’s MongoDB ID from authenticated request
     const userId = req.user?._id;
 
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized user" });
     }
 
-    // Mark ONLY this employee’s notifications as read
     await Notification.updateMany(
-      { userId: userId },
+      { userId },
       { isRead: true }
     );
 
-    // Optional socket event
     const io = req.app.get("io");
     if (io) io.emit("notificationsAllRead", { userId });
 
@@ -36,7 +37,7 @@ router.patch("/mark-all", async (req, res) => {
 
 /*
 ===================================================================
- 🔹 MARK SINGLE NOTIFICATION READ / UPDATE
+ 🔹 MARK SINGLE NOTIFICATION READ
 ===================================================================
 */
 router.patch("/:id", async (req, res) => {
@@ -59,7 +60,7 @@ router.patch("/:id", async (req, res) => {
 
 /*
 ===================================================================
- 🔹 GET ALL NOTIFICATIONS (Admin / System Fetch)
+ 🔹 GET ALL NOTIFICATIONS (Admin only? Optional)
 ===================================================================
 */
 router.get("/", async (req, res) => {
@@ -69,52 +70,6 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error("GET error:", err);
     res.status(500).json({ message: "Failed to fetch notifications" });
-  }
-});
-
-/*
-===================================================================
- 🔹 CREATE NEW NOTIFICATION + SOCKET EMIT
-===================================================================
-*/
-router.post("/", async (req, res) => {
-  try {
-    const { userId, title, message, type } = req.body;
-
-    if (!userId || !title || !message) {
-      return res.status(400).json({
-        message: "userId, title and message are required",
-      });
-    }
-
-    const allowedTypes = [
-      "leave",
-      "attendance",
-      "general",
-      "notice",
-      "leave-status",
-      "overtime",
-    ];
-
-    const finalType = allowedTypes.includes(type) ? type : "general";
-
-    const newNotification = await Notification.create({
-      userId,
-      title,
-      message,
-      type: finalType,
-      isRead: false,
-      date: new Date(),
-    });
-
-    // Emit socket
-    const io = req.app.get("io");
-    if (io) io.emit("newNotification", newNotification);
-
-    res.status(201).json(newNotification);
-  } catch (err) {
-    console.error("POST error:", err);
-    res.status(500).json({ message: "Failed to create notification" });
   }
 });
 

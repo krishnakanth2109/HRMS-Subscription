@@ -13,7 +13,7 @@ const SOCKET_URL =
     ? import.meta.env.VITE_API_URL_PRODUCTION
     : import.meta.env.VITE_API_URL_DEVELOPMENT;
 
-// Load logged-in employee from storage
+// Load logged-in employee
 const loadUser = () => {
   try {
     const raw =
@@ -24,21 +24,17 @@ const loadUser = () => {
   }
 };
 
-// LocalStorage key for READ NOTICES
 const NOTICE_READ_KEY = "employee_read_notices";
 
 const CurrentEmployeeNotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0); // 🔥 FIX 1 — NEW STATE
   const [toasts, setToasts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sound] = useState(() => new Audio("/notification.mp3"));
   const [loggedUser] = useState(loadUser);
 
-  /*
-  ==============================================================
-    LocalStorage helpers for notices (admin broadcast messages)
-  ==============================================================
-  */
+  // Read notices from local storage
   const getReadNotices = () => {
     try {
       return JSON.parse(localStorage.getItem(NOTICE_READ_KEY)) || [];
@@ -63,13 +59,12 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
     localStorage.setItem(NOTICE_READ_KEY, JSON.stringify(allNoticeIds));
   };
 
-  const getUserId = () =>
-    loggedUser ? String(loggedUser._id) : null;
+  const getUserId = () => (loggedUser ? String(loggedUser._id) : null);
 
   /*
-  ==============================================================
-    FETCH PERSONAL + NOTICE NOTIFICATIONS
-  ==============================================================
+  ==================================================================
+    FETCH ALL NOTIFICATIONS
+  ==================================================================
   */
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -78,13 +73,11 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
       const userId = getUserId();
       const readNotices = getReadNotices();
 
-      // Personal notifications from DB
       const dbNotifications = await getNotifications();
       const personal = dbNotifications.filter(
         (n) => String(n.userId) === userId
       );
 
-      // Fetch admin notices
       const notices = await getNotices();
       const noticeItems = notices.map((n) => ({
         _id: n._id,
@@ -117,21 +110,16 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   }, [fetchNotifications]);
 
   /*
-  ==============================================================
-    SOCKET.IO LISTENERS
-  ==============================================================
+  ==================================================================
+    SOCKETS
+  ==================================================================
   */
   useEffect(() => {
     const userId = getUserId();
     if (!userId) return;
 
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
-    });
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
 
-    console.log("📡 Employee Socket Connected:", socket.id);
-
-    // Real-time personal notification
     socket.on("newNotification", (n) => {
       if (String(n.userId) !== userId) return;
       setNotifications((prev) => [n, ...prev]);
@@ -139,7 +127,6 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
       showToast(n.message);
     });
 
-    // Real-time admin notice
     socket.on("newNotice", (notice) => {
       const newNotice = {
         _id: Date.now(),
@@ -160,9 +147,18 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   }, []);
 
   /*
-  ==============================================================
+  ==================================================================
+    UNREAD COUNT AUTO-UPDATE  🔥 FIX 2
+  ==================================================================
+  */
+  useEffect(() => {
+    setUnreadCount(notifications.filter((n) => !n.isRead).length);
+  }, [notifications]);
+
+  /*
+  ==================================================================
     SOUND + TOAST
-  ==============================================================
+  ==================================================================
   */
   const playSound = () => {
     try {
@@ -174,34 +170,26 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   const showToast = (message) => {
     const id = Date.now();
     setToasts((prev) => [{ id, message }, ...prev]);
-    setTimeout(
-      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
-      4000
-    );
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
   };
 
   /*
-  ==============================================================
-    MARK AS READ (Single)
-  ==============================================================
+  ==================================================================
+    MARK SINGLE READ
+  ==================================================================
   */
   const markAsRead = async (id) => {
     try {
       const target = notifications.find((n) => String(n._id) === String(id));
 
-      // If it's a NOTICE, store in localStorage only
       if (target.userId === "ALL") {
         markNoticeAsReadLocally(id);
-        setNotifications((prev) =>
-          prev.map((n) =>
-            String(n._id) === String(id) ? { ...n, isRead: true } : n
-          )
-        );
-        return;
+      } else {
+        await markNotificationAsRead(id);
       }
 
-      // Personal notification stored in DB
-      await markNotificationAsRead(id);
       setNotifications((prev) =>
         prev.map((n) =>
           String(n._id) === String(id) ? { ...n, isRead: true } : n
@@ -213,18 +201,21 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   };
 
   /*
-  ==============================================================
-    MARK ALL AS READ
-  ==============================================================
+  ==================================================================
+    MARK ALL READ  🔥 FIX 3
+  ==================================================================
   */
   const markAllAsRead = async () => {
     try {
-      await markAllNotificationsAsRead(); // DB update
-      markAllNoticesAsReadLocally(); // LocalStorage update
+      await markAllNotificationsAsRead();
+      markAllNoticesAsReadLocally();
 
       setNotifications((prev) =>
         prev.map((n) => ({ ...n, isRead: true }))
       );
+
+      setUnreadCount(0); // IMPORTANT
+
     } catch (err) {
       console.error("❌ Failed to mark all as read:", err);
     }
@@ -237,7 +228,7 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
         loading,
         markAsRead,
         markAllAsRead,
-        unreadCount: notifications.filter((n) => !n.isRead).length,
+        unreadCount, // 🔥 FIX 4
       }}
     >
       {children}

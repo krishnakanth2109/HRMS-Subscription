@@ -14,8 +14,7 @@ import EmployeeManagement from "./pages/EmployeeManagement";
 import AddEmployee from "./pages/AddEmployee";
 import ReactivateEmployee from "./pages/ReactivateEmployee";
 import EditEmployee from "./pages/EditEmployee";
-// ✅ Corrected import name for clarity
-import AdminViewAttendance from "./pages/AdminviewAttendance"; 
+import AdminViewAttendance from "./pages/AdminviewAttendance";
 import LeaveManagement from "./pages/LeaveManagement";
 import AdminLeaveSummary from "./pages/AdminLeaveSummary";
 import AdminProfile from "./pages/AdminProfile";
@@ -31,7 +30,7 @@ import ChangePasswordPage from "./pages/ChangePasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import Payroll from "./pages/Payroll";
 
-// New Attendance Features
+// Attendance Features
 import OvertimeManagement from "./pages/OvertimeManagement";
 import PermissionHoursManagement from "./pages/PermissionHoursManagement";
 import { OvertimeProvider } from "./context/OvertimeProvider";
@@ -40,17 +39,19 @@ import { PermissionHoursProvider } from "./context/PermissionHoursProvider";
 // Providers
 import { NoticeProvider } from "./context/NoticeProvider";
 import HolidayCalendarProvider from "./context/HolidayCalendarProvider";
+import CurrentEmployeeNotificationProvider from "./EmployeeContext/CurrentEmployeeNotificationProvider";
 
 // Employee pages
 import EmployeeDashboard from "./EmployeePages/EmployeeDashboard";
 import CurrentEmployeeAttendanceProfile from "./EmployeePages/CurrentEmployeeAttendanceProfile";
-// ✅ Corrected import to match the component file name
-import LeaveWithModal from "./EmployeePages/EmployeeLeavemanagement"; 
+import LeaveWithModal from "./EmployeePages/EmployeeLeavemanagement";
 import CurrentEmployeeHolidayCalendar from "./EmployeePages/CurrentEmployeeHolidayCalendar";
 import CurrentEmployeeProfile from "./EmployeePages/CurrentEmployeeProfile";
 import CurrentEmployeeNoticeBoard from "./EmployeePages/CurrentEmployeeNoticeBoard";
 import OvertimeForm from "./EmployeePages/EmployeeOvertimeForm";
 import NewEmployeeAttendance from "./EmployeePages/EmployeeAttendance";
+import EmployeeDailyAttendance from "./EmployeePages/EmployeeDailyAttendance";
+import EmployeeNotifications from "./pages/EmployeeNotifications";
 
 // Admin pages
 import OvertimeAdmin from "./pages/OvertimeAdmin";
@@ -58,10 +59,7 @@ import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
 
 // Route protection
 import ProtectedRoute from "./components/ProtectedRoute";
-import EmployeeDailyAttendance from "./EmployeePages/EmployeeDailyAttendance";
-import EmployeeNotifications from "./pages/EmployeeNotifications";
 import IdleTime from "./pages/IdleTime";
-
 
 function App() {
   return (
@@ -86,6 +84,7 @@ function App() {
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
         <Route path="/attendance" element={<AdminViewAttendance />} />
+        
         <Route
           path="/attendance/overtime"
           element={
@@ -94,6 +93,7 @@ function App() {
             </OvertimeProvider>
           }
         />
+
         <Route
           path="/attendance/permissions"
           element={
@@ -102,6 +102,7 @@ function App() {
             </PermissionHoursProvider>
           }
         />
+
         <Route path="/attendance/profile/:employeeId" element={<EmployeeAttendanceProfile />} />
         <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
@@ -110,21 +111,31 @@ function App() {
         <Route path="/admin/payroll" element={<Payroll />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
         <Route path="/admin/on-leave-today" element={<EmployeesOnLeaveToday />} />
-        <Route path="/admin/notices" element={<NoticeProvider><AdminNotices /></NoticeProvider>} />
+
+        <Route
+          path="/admin/notices"
+          element={
+            <NoticeProvider>
+              <AdminNotices />
+            </NoticeProvider>
+          }
+        />
+
         <Route path="/admin/change-password" element={<ChangePasswordPage />} />
         <Route path="/admin/holiday-calendar" element={<AdminHolidayCalendarPage />} />
-        <Route path="/admin/admin-overtime" element={<OvertimeAdmin/>} />
-        <Route path="/admin/admin-Leavemanage" element={<AdminLeavePanel/>} />
-        
+        <Route path="/admin/admin-overtime" element={<OvertimeAdmin />} />
+        <Route path="/admin/admin-Leavemanage" element={<AdminLeavePanel />} />
       </Route>
 
       {/* Employee protected routes */}
       <Route
         element={
           <ProtectedRoute role="employee">
-            <NoticeProvider>
-              <LayoutEmployee />
-            </NoticeProvider>
+            <CurrentEmployeeNotificationProvider>   {/* 🔥 FIX ADDED HERE */}
+              <NoticeProvider>
+                <LayoutEmployee />
+              </NoticeProvider>
+            </CurrentEmployeeNotificationProvider>
           </ProtectedRoute>
         }
       >
@@ -132,14 +143,21 @@ function App() {
         <Route path="/employee/profile" element={<CurrentEmployeeProfile />} />
         <Route path="/employee/attendance" element={<CurrentEmployeeAttendanceProfile />} />
         <Route path="/employee/notifications" element={<EmployeeNotifications />} />
-        {/* ✅ Corrected element to use the imported component */}
         <Route path="/employee/leave-management" element={<LeaveWithModal />} />
-        <Route path="/employee/empovertime" element={<OvertimeForm/>} />
-        <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance/>} />
-        {/* ✅ Renamed this route to match its component name */}
-        <Route path="/employee/leave-request" element={<LeaveWithModal />} />  
-        <Route path="/employee/new-attendence" element={<NewEmployeeAttendance/>} />     
-        <Route path="/employee/holiday-calendar" element={<HolidayCalendarProvider><CurrentEmployeeHolidayCalendar /></HolidayCalendarProvider>} />
+        <Route path="/employee/empovertime" element={<OvertimeForm />} />
+        <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
+        <Route path="/employee/leave-request" element={<LeaveWithModal />} />
+        <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
+
+        <Route
+          path="/employee/holiday-calendar"
+          element={
+            <HolidayCalendarProvider>
+              <CurrentEmployeeHolidayCalendar />
+            </HolidayCalendarProvider>
+          }
+        />
+
         <Route path="/employee/notices" element={<CurrentEmployeeNoticeBoard />} />
         <Route path="/employee/leave-summary" element={<EmployeeLeaveSummary />} />
         <Route path="/employee/change-password" element={<ChangePasswordPage />} />

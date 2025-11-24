@@ -1,14 +1,15 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useContext } from "react";
-import { 
-  FaHome, 
-  FaClock, 
-  FaClipboardList, 
-  FaBullhorn, 
-  FaUser, 
-  FaBars, 
-  FaTimes 
+import {
+  FaHome,
+  FaClock,
+  FaClipboardList,
+  FaBullhorn,
+  FaUser,
+  FaBars,
+  FaTimes,
 } from "react-icons/fa";
+
 import { CurrentEmployeeNotificationContext } from "../../EmployeeContext/CurrentEmployeeNotificationContext";
 
 const navLinks = [
@@ -31,7 +32,7 @@ const navLinks = [
     to: "/employee/notices",
     label: "Notice Board",
     icon: <FaBullhorn className="mr-2" />,
-    isNotice: true, // 🔥 Indicator flag
+    isNotice: true,
   },
   {
     to: "/employee/empovertime",
@@ -51,12 +52,17 @@ const SidebarEmployee = () => {
   const [open, setOpen] = useState(window.innerWidth >= 768);
   const [collapsed, setCollapsed] = useState(false);
 
-  // 🔴 Get unread notices from context
-  const { notifications } = useContext(CurrentEmployeeNotificationContext);
+  // Notifications context (employee)
+  const { notifications, loadNotifications } = useContext(
+    CurrentEmployeeNotificationContext
+  );
+
+  // Unread notices count (only userId === "ALL")
   const unreadNotices = notifications.filter(
     (n) => n.userId === "ALL" && !n.isRead
   ).length;
 
+  // Resize listener (open/close on mobile)
   useEffect(() => {
     const handleResize = () => {
       setOpen(window.innerWidth >= 768);
@@ -64,6 +70,24 @@ const SidebarEmployee = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Clear unread notices when clicking Notice Board
+  const handleNoticeClick = async () => {
+    try {
+      await fetch(
+        `${import.meta.env.VITE_API_URL}/notifications/mark-all`,
+        {
+          method: "PATCH",
+          credentials: "include",
+        }
+      );
+
+      // Refresh notifications list
+      loadNotifications();
+    } catch (err) {
+      console.error("Error clearing unread notices:", err);
+    }
+  };
 
   return (
     <>
@@ -87,10 +111,10 @@ const SidebarEmployee = () => {
       >
         {/* Collapse toggle */}
         <button
-          className="hidden md:block absolute top-4 right-4 text-white text-xl bg-blue-700 rounded-full p-2 shadow hover:bg-blue-800"
+          className="hidden md:block absolute top-4 right-6 text-white text-xl bg-blue-700 rounded-full p-2 shadow hover:bg-blue-800"
           onClick={() => setCollapsed((v) => !v)}
         >
-          {collapsed ? <FaBars /> : <FaTimes />}
+          <FaBars />
         </button>
 
         {/* Mobile close */}
@@ -109,7 +133,7 @@ const SidebarEmployee = () => {
             collapsed ? "justify-center" : ""
           }`}
         >
-          {!collapsed && <FaUser className="text-3xl" />}
+          {!collapsed && <FaUser className="text-3xl " />}
           {!collapsed && (
             <span className="text-lg font-bold tracking-wide">
               Employee Panel
@@ -131,20 +155,21 @@ const SidebarEmployee = () => {
                       ? "bg-blue-600 text-white shadow-lg"
                       : "hover:bg-blue-700 hover:text-blue-300 text-gray-200"
                   } ${collapsed ? "justify-center px-2" : ""}`}
+                  onClick={() => {
+                    if (link.isNotice) handleNoticeClick();
+                  }}
                 >
                   <span className="text-xl">{link.icon}</span>
 
-                  {/* Text + RED DOT indicator */}
                   {!collapsed && (
                     <span className="flex items-center gap-2 relative">
                       {link.label}
 
-                      {/* 🔴 Pulsing Red Dot for unread notices */}
+                      {/* 🔴 Number Badge for unread notices */}
                       {link.isNotice && unreadNotices > 0 && (
-                        <span className="absolute -right-4 top-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
-                      )}
-                      {link.isNotice && unreadNotices > 0 && (
-                        <span className="absolute -right-4 top-1 w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+                        <span className="absolute -right-5 top-0 bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                          {unreadNotices}
+                        </span>
                       )}
                     </span>
                   )}

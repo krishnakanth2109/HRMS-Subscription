@@ -86,7 +86,12 @@ const addDays = (date, days) => {
 };
 
 const formatDate = (date) => {
-  return date.toISOString().split('T')[0];
+  if (!date) return null;
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return null; // ⛔ INVALID DATE FIX
+
+  return d.toISOString().split("T")[0];
 };
 
 const isDateInMonth = (dateStr, monthFilter) => {
@@ -329,8 +334,13 @@ const LeaveWithModal = () => {
     const newSandwichLeaves = new Map();
 
     holidays.forEach(holiday => {
-      const holidayDate = new Date(holiday.date);
-      const holidayStr = formatDate(holidayDate);
+  if (!holiday.date) return; // skip missing dates
+
+  const holidayDate = new Date(holiday.date);
+  if (isNaN(holidayDate.getTime())) return; // skip invalid dates
+
+  const holidayStr = formatDate(holidayDate);
+
       
       if (selectedMonth && !isDateInMonth(holidayStr, selectedMonth)) return;
 

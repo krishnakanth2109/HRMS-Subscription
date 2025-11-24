@@ -4,7 +4,7 @@ import { useContext, useEffect, useState } from "react";
 import { CurrentEmployeeNotificationContext } from "../EmployeeContext/CurrentEmployeeNotificationContext";
 import { FaBell, FaCheckCircle, FaTrash, FaUndo } from "react-icons/fa";
 
-const STORAGE_KEY = "employee_hidden_notifications";
+const STORAGE_KEY = "employee_hidden_notifications_session";
 
 const EmployeeNotifications = () => {
   const { notifications, loading, markAsRead, markAllAsRead } =
@@ -12,34 +12,23 @@ const EmployeeNotifications = () => {
 
   const [localNotifications, setLocalNotifications] = useState([]);
 
-  // -------------------- Local Storage Helpers --------------------
+  // -------------------- Session Storage Helpers --------------------
   const getHiddenIds = () => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || [];
     } catch {
       return [];
     }
   };
 
-  const hideLocally = (_id) => {
-    const hidden = getHiddenIds();
-    const updated = [...hidden, _id];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  };
-
   const clearHiddenList = () => {
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const removeNotification = (_id) => {
-    hideLocally(_id);
-    setLocalNotifications((prev) => prev.filter((n) => n._id !== _id));
+    sessionStorage.removeItem(STORAGE_KEY);
   };
 
   const clearAllLocal = () => {
-    const allIds = localNotifications.map((n) => n._id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allIds));
-    setLocalNotifications([]);
+    const allIds = notifications.map((n) => n._id);
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(allIds));
+    setLocalNotifications([]); // Hide all in UI
   };
 
   const restoreAll = () => {
@@ -47,7 +36,7 @@ const EmployeeNotifications = () => {
     setLocalNotifications(notifications);
   };
 
-  // -------------------- Build local display list --------------------
+  // -------------------- Build Local Visible List --------------------
   useEffect(() => {
     const hidden = getHiddenIds();
     const filtered = notifications.filter(
@@ -81,31 +70,33 @@ const EmployeeNotifications = () => {
           </h3>
 
           <div className="flex flex-col gap-3">
+
+            {/* MARK ALL READ */}
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
               onClick={() => {
-                markAllAsRead(); // backend + context
-                setLocalNotifications((prev) =>
-                  prev.map((n) => ({ ...n, isRead: true }))
-                ); // instant UI update
+                markAllAsRead(); // ✔ UPDATES CONTEXT + NAVBAR
               }}
             >
               <FaCheckCircle /> Mark All Read
             </button>
 
+            {/* HIDE ALL */}
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
               onClick={clearAllLocal}
             >
-              <FaTrash /> Clear All
+              <FaTrash /> Hide All
             </button>
 
+            {/* RESTORE */}
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 transition"
               onClick={restoreAll}
             >
               <FaUndo /> Restore Hidden
             </button>
+
           </div>
         </div>
 
@@ -117,7 +108,9 @@ const EmployeeNotifications = () => {
               <h2 className="text-2xl font-semibold text-gray-700">
                 Your Notifications
               </h2>
-              <p className="text-gray-500 text-sm">All alerts for your account</p>
+              <p className="text-gray-500 text-sm">
+                All alerts for your account
+              </p>
             </div>
 
             {localNotifications.filter((n) => !n.isRead).length > 0 && (
@@ -143,7 +136,9 @@ const EmployeeNotifications = () => {
                       ? "bg-blue-50 border-blue-300"
                       : "bg-white border-gray-200"
                   }`}
-                  onClick={() => markAsRead(n._id)}
+                  onClick={() => {
+                    markAsRead(n._id); // ✔ CONTEXT UPDATE = NAVBAR UPDATE
+                  }}
                 >
                   <div
                     className={`p-3 rounded-full ${
@@ -162,16 +157,6 @@ const EmployeeNotifications = () => {
                     </p>
                   </div>
 
-                  <button
-                    className="text-red-500 hover:text-red-700 p-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeNotification(n._id);
-                    }}
-                  >
-                    <FaTrash />
-                  </button>
-
                   {!n.isRead && (
                     <span className="ml-1 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
                       New
@@ -181,6 +166,7 @@ const EmployeeNotifications = () => {
               ))}
             </div>
           )}
+
         </div>
       </div>
     </div>

@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees } from "../api";
 import { getLeaveRequests } from "../api";
 
-// Helper functions
+// ===========================
+// Helper: Worked Status
+// ===========================
 const getWorkedStatus = (punchIn, punchOut) => {
   if (!punchIn || !punchOut) return "Working..";
   const workedMilliseconds = new Date(punchOut) - new Date(punchIn);
@@ -13,174 +15,226 @@ const getWorkedStatus = (punchIn, punchOut) => {
   return "N/A";
 };
 
-// Calculates the number of days between two dates, inclusive
+// ===========================
+// Leave Day Calculation
+// ===========================
 const calculateLeaveDays = (from, to) => {
   if (!from || !to) return 0;
   const fromDate = new Date(from);
   const toDate = new Date(to);
-  // Normalize to UTC midnight to avoid timezone issues in day calculation
+  if (isNaN(fromDate) || isNaN(toDate)) return 0;
+
   fromDate.setUTCHours(0, 0, 0, 0);
   toDate.setUTCHours(0, 0, 0, 0);
+
   const diffTime = Math.abs(toDate - fromDate);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  return diffDays;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 };
 
+// ===========================
+// Leave Year (Nov → Oct)
+// ===========================
 const LEAVE_YEAR_START_MONTH = 11;
 
 const getCurrentLeaveYear = () => {
   const today = new Date();
   const currentMonth = today.getMonth() + 1;
   const currentYear = today.getFullYear();
+
   let startYear = currentMonth < LEAVE_YEAR_START_MONTH ? currentYear - 1 : currentYear;
+
   const startDate = new Date(startYear, LEAVE_YEAR_START_MONTH - 1, 1);
   const endDate = new Date(startYear + 1, LEAVE_YEAR_START_MONTH - 1, 0);
+
   return { startDate, endDate };
 };
 
+// ===========================
+// Helpers
+// ===========================
 const addDays = (date, days) => {
   const result = new Date(date);
+  if (isNaN(result)) return result;
   result.setDate(result.getDate() + days);
   return result;
 };
 
-const formatDate = (date) => date.toISOString().split('T')[0];
-
-const isDateInMonth = (dateStr, monthFilter) => {
-  if (!dateStr || !monthFilter || monthFilter === "All") return true;
-  const date = new Date(dateStr);
-  const [year, month] = monthFilter.split('-');
-  return date.getFullYear() === parseInt(year) && (date.getMonth() + 1) === parseInt(month);
+const safeDate = (value) => {
+  const d = new Date(value);
+  return isNaN(d) ? null : d;
 };
 
-const calculateEmployeeSandwichLeaves = (employeeLeaves, month, holidays = []) => {
-  const approvedLeaves = employeeLeaves.filter(leave => 
-    leave.status === 'Approved' && 
-    (month === "All" || isDateInMonth(leave.from, month) || isDateInMonth(leave.to, month))
-  );
-  
-  if (approvedLeaves.length === 0 && holidays.length === 0) return { count: 0, days: 0 };
+const formatDate = (dateObj) => {
+  if (!dateObj || isNaN(dateObj)) return null;
+  return dateObj.toISOString().split("T")[0];
+};
 
-  const approvedLeaveDates = new Set();
-  approvedLeaves.forEach(leave => {
-    let currentDate = new Date(leave.from);
-    const endDate = new Date(leave.to);
-    while (currentDate <= endDate) {
-      approvedLeaveDates.add(formatDate(currentDate));
-      currentDate = addDays(currentDate, 1);
+const isDateInMonth = (dateStr, monthFilter) => {
+  if (!dateStr || monthFilter === "All") return true;
+  const d = new Date(dateStr);
+  if (isNaN(d)) return false;
+
+  const [year, month] = monthFilter.split("-");
+  return d.getFullYear() === Number(year) && d.getMonth() + 1 === Number(month);
+};
+
+// ===========================
+// FIXED SANDWICH LEAVE CALCULATION
+// Rule A: Only 2 days per holiday block
+// ===========================
+const calculateEmployeeSandwichLeaves = (employeeLeaves, month, holidays = []) => {
+  const approvedLeaves = employeeLeaves.filter(
+    (leave) =>
+      leave.status === "Approved" &&
+      (month === "All" || isDateInMonth(leave.from, month) || isDateInMonth(leave.to, month))
+  );
+
+  if (approvedLeaves.length === 0) return { count: 0, days: 0 };
+
+  const approvedDates = new Set();
+
+  approvedLeaves.forEach((leave) => {
+    const start = safeDate(leave.from);
+    const end = safeDate(leave.to);
+    if (!start || !end) return;
+
+    let current = new Date(start);
+    while (current <= end) {
+      approvedDates.add(formatDate(current));
+      current = addDays(current, 1);
     }
   });
 
-  if (approvedLeaveDates.size === 0) return { count: 0, days: 0 };
+  if (approvedDates.size === 0) return { count: 0, days: 0 };
 
   const sandwichLeaves = new Map();
 
-  holidays.forEach(holiday => {
-    const holidayDate = new Date(holiday.date);
-    const holidayStr = formatDate(holidayDate);
-    if (month !== "All" && !isDateInMonth(holidayStr, month)) return;
+  // 🔥 HOLIDAY SANDWICH RULE (Only 2 days per block)
+  holidays.forEach((holiday) => {
+    const start = safeDate(holiday.startDate);
+    const end = safeDate(holiday.endDate);
+    if (!start || !end) return;
 
-    const dayBefore = addDays(holidayDate, -1);
-    const dayAfter = addDays(holidayDate, 1);
+    const dayBefore = formatDate(addDays(start, -1));
+    const dayAfter = formatDate(addDays(end, 1));
 
-    if (approvedLeaveDates.has(formatDate(dayBefore)) && approvedLeaveDates.has(formatDate(dayAfter))) {
-      const key = `holiday-${formatDate(holidayDate)}`;
-      if (!sandwichLeaves.has(key)) {
-        sandwichLeaves.set(key, { type: 'holiday', days: 2 });
-      }
+    if (approvedDates.has(dayBefore) && approvedDates.has(dayAfter)) {
+      sandwichLeaves.set(`holiday-${holiday.startDate}`, {
+        type: "holiday",
+        days: 2, // Always 2 days (Rule A)
+      });
     }
   });
 
-  approvedLeaveDates.forEach(dateStr => {
-    const date = new Date(dateStr);
-    if (month !== "All" && !isDateInMonth(dateStr, month)) return;
-    if (date.getDay() === 6) { // Saturday
-      const followingMonday = addDays(date, 2);
-      const mondayStr = formatDate(followingMonday);
-      if (month !== "All" && !isDateInMonth(mondayStr, month)) return;
-      if (approvedLeaveDates.has(mondayStr)) {
-        const key = `weekend-${dateStr}`;
-        if (!sandwichLeaves.has(key)) {
-          sandwichLeaves.set(key, { type: 'weekend', days: 2 });
-        }
-      }
+  // WEEKEND SANDWICH (Saturday → Monday)
+  approvedDates.forEach((dateStr) => {
+    const d = safeDate(dateStr);
+    if (!d || d.getDay() !== 6) return; // Saturday
+
+    const monday = formatDate(addDays(d, 2));
+    if (approvedDates.has(monday)) {
+      sandwichLeaves.set(`weekend-${dateStr}`, { type: "weekend", days: 2 });
     }
   });
 
-  const count = sandwichLeaves.size;
-  const days = Array.from(sandwichLeaves.values()).reduce((total, item) => total + item.days, 0);
+  let count = sandwichLeaves.size;
+  let days = Array.from(sandwichLeaves.values()).reduce((acc, x) => acc + x.days, 0);
+
   return { count, days };
 };
 
+// ===========================
+// MAIN COMPONENT
+// ===========================
 const EmployeeDashboard = () => {
-  // States
   const [attendanceData, setAttendanceData] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
   const [overtimeData, setOvertimeData] = useState([]);
   const [allLeaveRequests, setAllLeaveRequests] = useState([]);
   const [employeesMap, setEmployeesMap] = useState(new Map());
   const [holidays, setHolidays] = useState([]);
+
+  const [attendanceStartDate, setAttendanceStartDate] = useState(
+    new Date(new Date().setDate(1)).toISOString().split("T")[0]
+  );
+  const [attendanceEndDate, setAttendanceEndDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
   const [attendanceLoading, setAttendanceLoading] = useState(true);
   const [leaveLoading, setLeaveLoading] = useState(true);
-  const [attendanceStartDate, setAttendanceStartDate] = useState(new Date(new Date().setDate(1)).toISOString().split("T")[0]);
-  const [attendanceEndDate, setAttendanceEndDate] = useState(new Date().toISOString().split("T")[0]);
+
   const [selectedMonth, setSelectedMonth] = useState("All");
 
-  // Fetch data functions
+  // ===========================
+  // Fetch Holidays
+  // ===========================
   const fetchHolidays = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/holidays");
-      const holidaysData = await response.json();
-      setHolidays(holidaysData);
-    } catch (error) {
-      console.error("Error fetching holidays:", error);
+      const res = await fetch("http://localhost:5000/api/holidays");
+      const data = await res.json();
+      setHolidays(data);
+    } catch (e) {
+      console.error("Holiday Fetch Error:", e);
       setHolidays([]);
     }
   };
 
+  // ===========================
+  // Fetch Employees
+  // ===========================
   const fetchAllEmployeeData = async () => {
     try {
       const employees = await getEmployees();
-      const activeEmployees = employees.filter(emp => emp.isActive !== false).map(emp => {
-        const currentExp = Array.isArray(emp.experienceDetails)
-          ? emp.experienceDetails.find(exp => exp.lastWorkingDate === "Present")
-          : null;
+      const activeEmployees = employees
+        .filter((emp) => emp.isActive !== false)
+        .map((emp) => {
+          const currentExp = Array.isArray(emp.experienceDetails)
+            ? emp.experienceDetails.find((exp) => exp.lastWorkingDate === "Present")
+            : null;
 
-        return {
-          employeeId: emp.employeeId,
-          employeeName: emp.name,
-          department: currentExp?.department || "N/A",
-          role: currentExp?.role || "N/A",
-          salary: currentExp?.salary ? `₹${Number(currentExp.salary).toLocaleString()}` : "N/A",
-          email: emp.email || "N/A",
-          phone: emp.phone || "N/A",
-          joiningDate: currentExp?.joiningDate || "N/A",
-          employmentType: currentExp?.employmentType || "N/A"
-        };
-      });
+          return {
+            employeeId: emp.employeeId,
+            employeeName: emp.name,
+            department: currentExp?.department || "N/A",
+            role: currentExp?.role || "N/A",
+            salary: currentExp?.salary ? `₹${Number(currentExp.salary).toLocaleString()}` : "N/A",
+            email: emp.email || "N/A",
+            phone: emp.phone || "N/A",
+            joiningDate: currentExp?.joiningDate || "N/A",
+            employmentType: currentExp?.employmentType || "N/A",
+          };
+        });
+
       setAllEmployees(activeEmployees);
     } catch (error) {
-      console.error("Error fetching employee data:", error);
+      console.error("Employee Fetch Error:", error);
       setAllEmployees([]);
     }
   };
 
+  // ===========================
+  // Fetch Attendance
+  // ===========================
   const fetchAttendanceData = async () => {
     setAttendanceLoading(true);
     try {
       const [attendance, overtime] = await Promise.all([
         getAttendanceByDateRange(attendanceStartDate, attendanceEndDate),
-        getAllOvertimeRequests()
+        getAllOvertimeRequests(),
       ]);
 
-      const processedAttendance = Array.isArray(attendance) 
-        ? attendance.map(item => ({ ...item, workedStatus: getWorkedStatus(item.punchIn, item.punchOut) }))
+      const processed = Array.isArray(attendance)
+        ? attendance.map((item) => ({
+            ...item,
+            workedStatus: getWorkedStatus(item.punchIn, item.punchOut),
+          }))
         : [];
 
-      setAttendanceData(processedAttendance);
+      setAttendanceData(processed);
       setOvertimeData(overtime);
-    } catch (error) {
-      console.error("Error fetching attendance data:", error);
+    } catch (e) {
+      console.error("Attendance Fetch Error:", e);
       setAttendanceData([]);
       setOvertimeData([]);
     } finally {
@@ -188,27 +242,28 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // ===========================
+  // Fetch Leave Data
+  // ===========================
   const fetchLeaveData = async () => {
     setLeaveLoading(true);
     try {
-      const [leaves, employees] = await Promise.all([
-        getLeaveRequests(),
-        getEmployees(),
-      ]);
+      const [leaves, employees] = await Promise.all([getLeaveRequests(), getEmployees()]);
 
       setAllLeaveRequests(leaves);
-      const empMap = new Map(employees.map((emp) => [emp.employeeId, emp.name]));
-      setEmployeesMap(empMap);
+      setEmployeesMap(new Map(employees.map((emp) => [emp.employeeId, emp.name])));
+
       await fetchHolidays();
-    } catch (error) {
-      console.error("Error fetching leave data:", error);
-      setAllLeaveRequests([]);
-      setEmployeesMap(new Map());
+    } catch (e) {
+      console.error("Leave Fetch Error:", e);
     } finally {
       setLeaveLoading(false);
     }
   };
 
+  // ===========================
+  // Use Effects
+  // ===========================
   useEffect(() => {
     fetchAttendanceData();
     fetchAllEmployeeData();
@@ -218,44 +273,57 @@ const EmployeeDashboard = () => {
     fetchLeaveData();
   }, []);
 
-  // Processed data
+  // ===========================
+  // Compute Attendance Stats
+  // ===========================
   const employeeAttendanceStats = useMemo(() => {
     if (!attendanceData.length) return [];
 
-    const approvedOTCounts = overtimeData.reduce((acc, ot) => {
-      if (ot.status === 'APPROVED') acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1;
+    const otApproved = overtimeData.reduce((acc, ot) => {
+      if (ot.status === "APPROVED") acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1;
       return acc;
     }, {});
 
-    const summary = attendanceData.reduce((acc, record) => {
-      if (!acc[record.employeeId]) {
-        acc[record.employeeId] = {
-          employeeId: record.employeeId,
-          employeeName: record.employeeName,
-          presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, quarterDays: 0,
+    const summary = attendanceData.reduce((acc, rec) => {
+      if (!acc[rec.employeeId]) {
+        acc[rec.employeeId] = {
+          employeeId: rec.employeeId,
+          employeeName: rec.employeeName,
+          presentDays: 0,
+          onTimeDays: 0,
+          lateDays: 0,
+          fullDays: 0,
+          halfDays: 0,
+          quarterDays: 0,
         };
       }
 
-      const empRec = acc[record.employeeId];
-      if (record.punchIn) {
-        empRec.presentDays++;
-        if (record.loginStatus === 'LATE') empRec.lateDays++;
-        else if (record.loginStatus === 'ON_TIME') empRec.onTimeDays++;
+      const emp = acc[rec.employeeId];
+
+      if (rec.punchIn) {
+        emp.presentDays++;
+        if (rec.loginStatus === "LATE") emp.lateDays++;
+        else emp.onTimeDays++;
       }
 
-      if (record.workedStatus === "Full Day") empRec.fullDays++;
-      else if (record.workedStatus === "Half Day") empRec.halfDays++;
-      else if (record.workedStatus === "Quarter Day") empRec.quarterDays++;
+      if (rec.workedStatus === "Full Day") emp.fullDays++;
+      else if (rec.workedStatus === "Half Day") emp.halfDays++;
+      else if (rec.workedStatus === "Quarter Day") emp.quarterDays++;
 
       return acc;
     }, {});
 
-    return Object.values(summary).map(employee => ({
-      ...employee,
-      approvedOT: approvedOTCounts[employee.employeeId] || 0
-    })).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+    return Object.values(summary)
+      .map((emp) => ({
+        ...emp,
+        approvedOT: otApproved[emp.employeeId] || 0,
+      }))
+      .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
   }, [attendanceData, overtimeData]);
 
+  // ===========================
+  // Attach Employee Names to Leaves
+  // ===========================
   const enrichedLeaveRequests = useMemo(() => {
     return allLeaveRequests.map((req) => ({
       ...req,
@@ -263,84 +331,95 @@ const EmployeeDashboard = () => {
     }));
   }, [allLeaveRequests, employeesMap]);
 
+  // ===========================
+  // Leave Stats
+  // ===========================
   const employeeLeaveStats = useMemo(() => {
     const stats = new Map();
-    const uniqueEmployees = Array.from(employeesMap.entries());
-    const today = new Date();
     const { startDate, endDate } = getCurrentLeaveYear();
+    const today = new Date();
 
-    uniqueEmployees.forEach(([empId, empName]) => {
-      const employeeLeaves = enrichedLeaveRequests.filter(req => req.employeeId === empId);
-      
-      const approvedLeavesThisYear = employeeLeaves.filter(leave => {
-        const leaveDate = new Date(leave.from);
-        return leave.status === 'Approved' && leaveDate >= startDate && leaveDate <= endDate;
+    employeesMap.forEach((name, empId) => {
+      const leaves = enrichedLeaveRequests.filter((l) => l.employeeId === empId);
+
+      const approvedThisYear = leaves.filter((l) => {
+        const d = safeDate(l.from);
+        return l.status === "Approved" && d && d >= startDate && d <= endDate;
       });
-      const usedLeavesDaysThisYear = approvedLeavesThisYear.reduce((total, leave) => total + calculateLeaveDays(leave.from, leave.to), 0);
 
-      let monthsPassed = 0;
-      if (today >= startDate) {
-        monthsPassed = (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth()) + 1;
-      }
-      const earnedLeavesThisYear = Math.max(0, monthsPassed);
-      const pendingLeaves = Math.max(0, earnedLeavesThisYear - usedLeavesDaysThisYear);
-
-      const monthFilteredLeaves = employeeLeaves.filter(leave => 
-        selectedMonth === "All" || 
-        isDateInMonth(leave.from, selectedMonth) || 
-        isDateInMonth(leave.to, selectedMonth)
+      const usedDays = approvedThisYear.reduce(
+        (sum, l) => sum + calculateLeaveDays(l.from, l.to),
+        0
       );
 
-      const approvedLeaves = monthFilteredLeaves.filter(leave => leave.status === 'Approved');
-      
-      const totalLeaveDays = approvedLeaves.reduce((total, leave) => {
-        return total + calculateLeaveDays(leave.from, leave.to);
-      }, 0);
+      let monthsPassed =
+        today >= startDate
+          ? today.getMonth() - startDate.getMonth() + 1 + (today.getFullYear() - startDate.getFullYear()) * 12
+          : 0;
+
+      const earned = Math.max(0, monthsPassed);
+      const pending = Math.max(0, earned - usedDays);
+
+      const leavesMonthFiltered = leaves.filter(
+        (l) => selectedMonth === "All" || isDateInMonth(l.from, selectedMonth)
+      );
+
+      const approvedFiltered = leavesMonthFiltered.filter((l) => l.status === "Approved");
+
+      const totalLeaveDays = approvedFiltered.reduce(
+        (sum, l) => sum + calculateLeaveDays(l.from, l.to),
+        0
+      );
 
       const extraLeaves = Math.max(0, totalLeaveDays - 1);
 
-      const sandwichData = calculateEmployeeSandwichLeaves(employeeLeaves, selectedMonth, holidays);
+      const sandwich = calculateEmployeeSandwichLeaves(leaves, selectedMonth, holidays);
 
       stats.set(empId, {
         employeeId: empId,
-        employeeName: empName,
-        pendingLeaves: pendingLeaves,
-        totalLeaveDays: totalLeaveDays,
-        extraLeaves: extraLeaves,
-        sandwichLeavesCount: sandwichData.count,
-        sandwichLeavesDays: sandwichData.days
+        employeeName: name,
+        pendingLeaves: pending,
+        totalLeaveDays,
+        extraLeaves,
+        sandwichLeavesCount: sandwich.count,
+        sandwichLeavesDays: sandwich.days,
       });
     });
 
     return Array.from(stats.values());
-  }, [enrichedLeaveRequests, employeesMap, selectedMonth, holidays]);
+  }, [enrichedLeaveRequests, selectedMonth, holidays, employeesMap]);
 
   const allMonths = useMemo(() => {
-    const months = new Set();
-    enrichedLeaveRequests.forEach((req) => {
-      if (req.from) months.add(req.from.slice(0, 7));
+    const set = new Set();
+    enrichedLeaveRequests.forEach((l) => {
+      if (l.from) set.add(l.from.slice(0, 7));
     });
-    return Array.from(months).sort().reverse();
+    return Array.from(set).sort().reverse();
   }, [enrichedLeaveRequests]);
 
-  const formatMonth = (monthStr) => {
-    if (!monthStr || monthStr === "All") return "All Months";
-    const [year, month] = monthStr.split("-");
+  const formatMonth = (m) => {
+    if (m === "All") return "All Months";
+    const [year, month] = m.split("-");
     return `${new Date(year, month - 1).toLocaleString("default", { month: "long" })} ${year}`;
   };
 
+  // ===========================
+  // UI Rendering
+  // ===========================
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
+
+        {/* Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Employee Dashboard</h1>
           <p className="text-gray-600">Complete overview of employee data</p>
         </div>
 
-        {/* Employee Details Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Employee Details</h2>
+        {/* EMPLOYEE DETAILS */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex justify-between mb-6">
+            <h2 className="text-xl font-bold">Employee Details</h2>
             <span className="text-gray-500">Total: {allEmployees.length}</span>
           </div>
 
@@ -348,66 +427,59 @@ const EmployeeDashboard = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Employee</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Department</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Salary</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Phone</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Joining Date</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Employment Type</th>
+                  <th className="px-4 py-3 text-left">Employee</th>
+                  <th className="px-4 py-3 text-left">Dept</th>
+                  <th className="px-4 py-3 text-left">Role</th>
+                  <th className="px-4 py-3 text-left">Salary</th>
+                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Phone</th>
+                  <th className="px-4 py-3 text-left">Joining</th>
+                  <th className="px-4 py-3 text-left">Type</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
-                {allEmployees.length > 0 ? (
-                  allEmployees.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{emp.employeeName}</div>
-                        <div className="text-sm text-gray-500">{emp.employeeId}</div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.department}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.role}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.salary}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.email}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.phone}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.joiningDate}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{emp.employmentType}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                      No employee data found
+              <tbody>
+                {allEmployees.map((e) => (
+                  <tr key={e.employeeId} className="border-b">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold">{e.employeeName}</div>
+                      <div className="text-gray-500 text-sm">{e.employeeId}</div>
                     </td>
+                    <td className="px-4 py-3">{e.department}</td>
+                    <td className="px-4 py-3">{e.role}</td>
+                    <td className="px-4 py-3">{e.salary}</td>
+                    <td className="px-4 py-3">{e.email}</td>
+                    <td className="px-4 py-3">{e.phone}</td>
+                    <td className="px-4 py-3">{e.joiningDate}</td>
+                    <td className="px-4 py-3">{e.employmentType}</td>
                   </tr>
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Attendance Summary Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Attendance Summary</h2>
+        {/* ATTENDANCE SUMMARY */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex justify-between mb-6">
+            <h2 className="text-xl font-bold">Attendance Summary</h2>
+
             <div className="flex gap-4">
               <div>
-                <label className="text-sm text-gray-600 mr-2">From:</label>
-                <input 
-                  type="date" 
-                  value={attendanceStartDate} 
+                <label>From: </label>
+                <input
+                  type="date"
+                  value={attendanceStartDate}
                   onChange={(e) => setAttendanceStartDate(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1"
+                  className="border rounded px-2 py-1"
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-600 mr-2">To:</label>
-                <input 
-                  type="date" 
-                  value={attendanceEndDate} 
+                <label>To: </label>
+                <input
+                  type="date"
+                  value={attendanceEndDate}
                   onChange={(e) => setAttendanceEndDate(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1"
+                  className="border rounded px-2 py-1"
                 />
               </div>
             </div>
@@ -417,113 +489,103 @@ const EmployeeDashboard = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Employee</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Present</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">On Time</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Late</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">OT Approved</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Full Days</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Half Days</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Quarter Days</th>
+                  <th className="px-4 py-3 text-left">Employee</th>
+                  <th className="px-4 py-3 text-center">Present</th>
+                  <th className="px-4 py-3 text-center">On Time</th>
+                  <th className="px-4 py-3 text-center">Late</th>
+                  <th className="px-4 py-3 text-center">OT Approved</th>
+                  <th className="px-4 py-3 text-center">Full</th>
+                  <th className="px-4 py-3 text-center">Half</th>
+                  <th className="px-4 py-3 text-center">Quarter</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {attendanceLoading ? (
                   <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                      Loading attendance data...
+                    <td colSpan="8" className="text-center py-6">
+                      Loading...
                     </td>
                   </tr>
-                ) : employeeAttendanceStats.length > 0 ? (
+                ) : (
                   employeeAttendanceStats.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-gray-50">
+                    <tr key={emp.employeeId} className="border-b">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{emp.employeeName}</div>
-                        <div className="text-sm text-gray-500">{emp.employeeId}</div>
+                        <div className="font-semibold">{emp.employeeName}</div>
+                        <div className="text-gray-500 text-sm">{emp.employeeId}</div>
                       </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.presentDays}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.onTimeDays}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.lateDays}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.approvedOT}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.fullDays}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.halfDays}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.quarterDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.presentDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.onTimeDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.lateDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.approvedOT}</td>
+                      <td className="px-4 py-3 text-center">{emp.fullDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.halfDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.quarterDays}</td>
                     </tr>
                   ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                      No attendance data found
-                    </td>
-                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Leave Summary Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Leave Summary</h2>
-            <div>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1"
-              >
-                <option value="All">All Months</option>
-                {allMonths.map((m) => (
-                  <option key={m} value={m}>{formatMonth(m)}</option>
-                ))}
-              </select>
-            </div>
+        {/* LEAVE SUMMARY */}
+        <div className="bg-white rounded-lg shadow-sm border p-6">
+          <div className="flex justify-between mb-6">
+            <h2 className="text-xl font-bold">Leave Summary</h2>
+
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="border rounded px-2 py-1"
+            >
+              <option value="All">All Months</option>
+              {allMonths.map((m) => (
+                <option key={m} value={m}>
+                  {formatMonth(m)}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Employee</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Pending Leaves</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Total Leave Days</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Extra Leaves (LOP)</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Sandwich Leaves</th>
-                  <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Sandwich Days</th>
+                  <th className="px-4 py-3 text-left">Employee</th>
+                  <th className="px-4 py-3 text-center">Pending</th>
+                  <th className="px-4 py-3 text-center">Days</th>
+                  <th className="px-4 py-3 text-center">Extra (LOP)</th>
+                  <th className="px-4 py-3 text-center">Sandwich</th>
+                  <th className="px-4 py-3 text-center">Sandwich Days</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {leaveLoading ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
-                      Loading leave data...
+                    <td colSpan="6" className="text-center py-6">
+                      Loading...
                     </td>
                   </tr>
-                ) : employeeLeaveStats.length > 0 ? (
+                ) : (
                   employeeLeaveStats.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-gray-50">
+                    <tr key={emp.employeeId} className="border-b">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{emp.employeeName}</div>
-                        <div className="text-sm text-gray-500">{emp.employeeId}</div>
+                        <div className="font-semibold">{emp.employeeName}</div>
+                        <div className="text-gray-500 text-sm">{emp.employeeId}</div>
                       </td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.pendingLeaves}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.totalLeaveDays}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.extraLeaves}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.sandwichLeavesCount}</td>
-                      <td className="px-4 py-3 text-center text-sm text-gray-900">{emp.sandwichLeavesDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.pendingLeaves}</td>
+                      <td className="px-4 py-3 text-center">{emp.totalLeaveDays}</td>
+                      <td className="px-4 py-3 text-center">{emp.extraLeaves}</td>
+                      <td className="px-4 py-3 text-center">{emp.sandwichLeavesCount}</td>
+                      <td className="px-4 py-3 text-center">{emp.sandwichLeavesDays}</td>
                     </tr>
                   ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
-                      No leave data found
-                    </td>
-                  </tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
       </div>
     </div>
   );

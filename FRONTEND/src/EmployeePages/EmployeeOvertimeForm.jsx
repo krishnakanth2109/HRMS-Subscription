@@ -7,7 +7,6 @@ import {
   getOvertimeForEmployee,
   applyForOvertime,
   cancelOvertime,
-  deleteOvertime,
 } from "../api";
 
 const OvertimeWithModal = () => {
@@ -18,8 +17,7 @@ const OvertimeWithModal = () => {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
-  const [confirmOpen, setConfirmOpen] = useState(false); // Cancel confirm popup
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false); // Delete confirm popup
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedOT, setSelectedOT] = useState(null);
 
   const [error, setError] = useState("");
@@ -34,9 +32,9 @@ const OvertimeWithModal = () => {
     try {
       setLoading(true);
       const otData = await getOvertimeForEmployee(user.employeeId);
-
-      // NEWEST FIRST ✔
-      setOvertimeList(otData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+      setOvertimeList(
+        otData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      );
     } catch (err) {
       console.error("Error fetching overtime data:", err);
       setError("Could not load your overtime requests.");
@@ -95,27 +93,20 @@ const OvertimeWithModal = () => {
     }
   };
 
-  // ============================
-  // DELETE OT CONFIRM
-  // ============================
-  const confirmDelete = async () => {
-    try {
-      await deleteOvertime(selectedOT);
-      setDeleteConfirmOpen(false);
-      fetchOvertimeData();
-    } catch (err) {
-      console.error("Delete failed:", err);
-      setError("Failed to delete overtime request.");
-    }
-  };
-
   if (loading) return <div className="p-6 text-center">Loading...</div>;
-  if (!user) return <div className="text-red-600 p-6 text-center">Could not find employee data. Please log in again.</div>;
+  if (!user)
+    return (
+      <div className="text-red-600 p-6 text-center">
+        Could not find employee data. Please log in again.
+      </div>
+    );
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-indigo-900">My Overtime Requests</h2>
+        <h2 className="text-3xl font-bold text-indigo-900">
+          My Overtime Requests
+        </h2>
         <button
           onClick={() => setModalOpen(true)}
           className="bg-indigo-600 hover:bg-indigo-800 text-white px-6 py-2 rounded-lg shadow-lg"
@@ -143,7 +134,6 @@ const OvertimeWithModal = () => {
 
                   <td className="px-4 py-2 border text-center">
                     <div className="flex justify-center items-center gap-3">
-
                       {/* STATUS BADGE */}
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -159,7 +149,7 @@ const OvertimeWithModal = () => {
                         {ot.status}
                       </span>
 
-                      {/* CANCEL FOR PENDING ONLY */}
+                      {/* CANCEL ONLY FOR PENDING */}
                       {ot.status === "PENDING" && (
                         <button
                           onClick={() => {
@@ -171,26 +161,16 @@ const OvertimeWithModal = () => {
                           Cancel
                         </button>
                       )}
-
-                      {/* DELETE FOR CANCELED/REJECTED/APPROVED */}
-                      {["CANCELLED", "REJECTED", "APPROVED"].includes(ot.status) && (
-                        <button
-                          onClick={() => {
-                            setSelectedOT(ot._id);
-                            setDeleteConfirmOpen(true);
-                          }}
-                          className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-800"
-                        >
-                          Delete
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="3" className="text-center p-4 text-gray-500">
+                <td
+                  colSpan="3"
+                  className="text-center p-4 text-gray-500"
+                >
                   No Overtime Requests Found
                 </td>
               </tr>
@@ -216,11 +196,17 @@ const OvertimeWithModal = () => {
               animate={{ scale: 1 }}
               exit={{ scale: 0.7 }}
             >
-              <h3 className="text-xl font-bold mb-4 text-indigo-700">Apply Overtime</h3>
+              <h3 className="text-xl font-bold mb-4 text-indigo-700">
+                Apply Overtime
+              </h3>
 
               <div className="mb-4 p-3 rounded bg-indigo-50 text-sm">
-                <p><b>Name:</b> {user.name}</p>
-                <p><b>ID:</b> {user.employeeId}</p>
+                <p>
+                  <b>Name:</b> {user.name}
+                </p>
+                <p>
+                  <b>ID:</b> {user.employeeId}
+                </p>
               </div>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -276,7 +262,7 @@ const OvertimeWithModal = () => {
       <AnimatePresence>
         {confirmOpen && (
           <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center з-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -287,7 +273,9 @@ const OvertimeWithModal = () => {
               animate={{ scale: 1 }}
               exit={{ scale: 0.7 }}
             >
-              <h3 className="text-xl font-bold mb-4 text-red-600">Confirm Cancel</h3>
+              <h3 className="text-xl font-bold mb-4 text-red-600">
+                Confirm Cancel
+              </h3>
 
               <p className="text-gray-700 mb-6">
                 Are you sure you want to cancel this overtime request?
@@ -303,49 +291,6 @@ const OvertimeWithModal = () => {
 
                 <button
                   onClick={() => setConfirmOpen(false)}
-                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded"
-                >
-                  No, Keep it
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ============================
-          DELETE CONFIRM MODAL
-      ============================ */}
-      <AnimatePresence>
-        {deleteConfirmOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="bg-white w-80 p-6 rounded-xl shadow-xl"
-              initial={{ scale: 0.7 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.7 }}
-            >
-              <h3 className="text-xl font-bold mb-4 text-red-600">Delete Overtime</h3>
-
-              <p className="text-gray-700 mb-6">
-                Are you sure you want to permanently delete this overtime request?
-              </p>
-
-              <div className="flex justify-between">
-                <button
-                  onClick={confirmDelete}
-                  className="bg-red-600 hover:bg-red-800 text-white px-4 py-2 rounded"
-                >
-                  Yes, Delete
-                </button>
-
-                <button
-                  onClick={() => setDeleteConfirmOpen(false)}
                   className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded"
                 >
                   No, Keep it

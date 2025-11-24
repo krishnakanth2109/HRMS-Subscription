@@ -99,7 +99,7 @@ const Sidebar = () => {
           <span className="text-xl font-bold tracking-wide text-slate-200">HRMS</span>
         </div>
         <button
-          className="p-2 rounded-lg text-slate-400 focus:outline-none hover:bg-slate-800"
+          className="p-2 me-2 rounded-lg text-slate-400 focus:outline-none hover:bg-slate-800"
           onClick={() => setCollapsed((prev) => !prev)}
           aria-label="Toggle Sidebar"
         >
