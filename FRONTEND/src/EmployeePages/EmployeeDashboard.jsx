@@ -36,7 +36,7 @@ import {
   uploadProfilePic,
   getProfilePic,
   deleteProfilePic,
-  sendIdleActivity, // ✅ idle API helper
+  sendIdleActivity,
 } from "../api";
 import { useNavigate } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
@@ -52,7 +52,7 @@ ChartJS.register(
 );
 
 // 🔵 IDLE TRACKING CONFIG
-// 10 seconds idle timeout (you can increase later, e.g., 60 * 1000 for 1 minute)
+// 10 seconds idle timeout (adjustable)
 const IDLE_TIMEOUT_MS = 10 * 1000;
 
 const EmployeeDashboard = () => {
@@ -77,10 +77,10 @@ const EmployeeDashboard = () => {
 
   const today = new Date().toISOString().split("T")[0];
 
-  // 🔵 NEW IDLE TRACKING REFS
-  const idleStartRef = useRef(null);         // when idle started
-  const lastActivityRef = useRef(Date.now()); // last time user was active
-  const isIdleRef = useRef(false);            // current idle state
+  // 🔵 IDLE TRACKING REFS
+  const idleStartRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
+  const isIdleRef = useRef(false);
 
   // --- Voice Feedback ---
   const speak = (text) => {
@@ -120,6 +120,8 @@ const EmployeeDashboard = () => {
               break;
             case error.TIMEOUT:
               errorMessage = "Location request timed out.";
+              break;
+            default:
               break;
           }
 
@@ -350,7 +352,7 @@ const EmployeeDashboard = () => {
   };
 
   // =============================
-  // 🔵 NEW IDLE TIME TRACKING LOGIC
+  // 🔵 IDLE TIME TRACKING LOGIC
   // =============================
   useEffect(() => {
     if (!user || !user.employeeId) return;
@@ -464,17 +466,19 @@ const EmployeeDashboard = () => {
       </div>
     );
 
+  // ✅ UPDATED: Render chart based on new 'workedStatus' from backend
   const leaveBarData = {
     labels: ["Full Day", "Half Day", "Absent"],
     datasets: [
       {
         label: "Attendance",
         data: [
+          attendance.filter((a) => a.workedStatus === "FULL_DAY").length,
+          attendance.filter((a) => a.workedStatus === "HALF_DAY").length,
+          // 'Absent' can be checked via status 'ABSENT' or workedStatus 'ABSENT'
           attendance.filter(
-            (a) => a.status === "Present" && !a.isHalfDay
+            (a) => a.status === "ABSENT" || a.workedStatus === "ABSENT"
           ).length,
-          attendance.filter((a) => a.isHalfDay).length,
-          attendance.filter((a) => a.status === "Absent").length,
         ],
         backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
         borderRadius: 6,
@@ -507,7 +511,7 @@ const EmployeeDashboard = () => {
 
   const formatWorkedStatus = (status) => {
     if (!status || status === "NOT_APPLICABLE") return "--";
-    return status.replace("_", " ").toLowerCase();
+    return status.replace(/_/g, " ").toLowerCase(); // Improved regex replace
   };
 
   const getPunchButtonContent = (action) => {
@@ -554,7 +558,9 @@ const EmployeeDashboard = () => {
                 uploadingImage ? "opacity-50 cursor-not-allowed" : ""
               }`}
               title={
-                profileImage ? "Change Profile Picture" : "Upload Profile Picture"
+                profileImage
+                  ? "Change Profile Picture"
+                  : "Upload Profile Picture"
               }
             >
               {uploadingImage ? (

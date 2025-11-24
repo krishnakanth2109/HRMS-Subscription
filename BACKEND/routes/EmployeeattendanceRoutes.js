@@ -51,7 +51,7 @@ router.post("/punch-in", async (req, res) => {
     // ✅ Get address from coordinates
     const address = await reverseGeocode(latitude, longitude);
 
-    // ✅ Set cutoff time for late login
+    // ✅ Set cutoff time for late login (10:15 AM)
     const lateCutoff = new Date();
     lateCutoff.setHours(10, 15, 0, 0);
 
@@ -166,12 +166,19 @@ router.post("/punch-out", async (req, res) => {
     } else if (work.floatHours >= 4) {
       todayEntry.workedStatus = "HALF_DAY";
     } else {
+      // If less than 4 hours, you had it as QUARTER_DAY
       todayEntry.workedStatus = "QUARTER_DAY";
     }
 
-    if (work.floatHours >= 7) todayEntry.attendanceCategory = "FULL_DAY";
-    else if (work.floatHours >= 4) todayEntry.attendanceCategory = "HALF_DAY";
-    else todayEntry.attendanceCategory = "ABSENT";
+    // ✅ Logic for Attendance Category
+    // This was missing from your Schema, causing potential confusion if saved
+    if (work.floatHours >= 7) {
+      todayEntry.attendanceCategory = "FULL_DAY";
+    } else if (work.floatHours >= 4) {
+      todayEntry.attendanceCategory = "HALF_DAY";
+    } else {
+      todayEntry.attendanceCategory = "ABSENT";
+    }
 
     await record.save();
     res.json(record.attendance);

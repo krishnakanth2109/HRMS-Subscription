@@ -12,7 +12,7 @@ const DailySchema = new mongoose.Schema({
   punchIn: { type: Date, default: null },
   punchOut: { type: Date, default: null },
 
-  // ✅ ADDED: Location tracking for punch in/out
+  // Location tracking
   punchInLocation: { type: LocationSchema, default: null },
   punchOutLocation: { type: LocationSchema, default: null },
 
@@ -24,7 +24,7 @@ const DailySchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["NOT_STARTED", "WORKING", "COMPLETED"],
+    enum: ["NOT_STARTED", "WORKING", "COMPLETED", "ABSENT"],
     default: "NOT_STARTED",
   },
 
@@ -34,14 +34,23 @@ const DailySchema = new mongoose.Schema({
     default: "NOT_APPLICABLE",
   },
 
+  // ✅ FIXED: Added "ABSENT" to the enum list to prevent crash
   workedStatus: {
     type: String,
-    enum: ["FULL_DAY", "HALF_DAY", "QUARTER_DAY", "NOT_APPLICABLE"],
+    enum: ["FULL_DAY", "HALF_DAY", "QUARTER_DAY", "ABSENT", "NOT_APPLICABLE"],
     default: "NOT_APPLICABLE",
   },
+
+  // ✅ ADDED: Because your route tries to save this field
+  attendanceCategory: {
+    type: String,
+    enum: ["FULL_DAY", "HALF_DAY", "ABSENT", "NOT_APPLICABLE"],
+    default: "NOT_APPLICABLE"
+  }
 });
 
 const AttendanceSchema = new mongoose.Schema({
+  // ✅ FIXED: unique: true is sufficient. Do not add index:true here to avoid duplicate warning.
   employeeId: { type: String, required: true, unique: true },
   employeeName: { type: String, required: true },
   attendance: [DailySchema],
