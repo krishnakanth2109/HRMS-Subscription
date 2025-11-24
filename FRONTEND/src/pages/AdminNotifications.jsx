@@ -11,10 +11,10 @@ const AdminNotifications = () => {
 
   const [localNotifications, setLocalNotifications] = useState([]);
 
-  // Local Storage Helpers
+  // Session Storage Helpers
   const getHiddenIds = () => {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+      return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || [];
     } catch {
       return [];
     }
@@ -23,11 +23,11 @@ const AdminNotifications = () => {
   const hideNotificationLocally = (_id) => {
     const hidden = getHiddenIds();
     const updated = [...hidden, _id];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
   const clearHiddenList = () => {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   };
 
   const removeNotification = (_id) => {
@@ -37,7 +37,7 @@ const AdminNotifications = () => {
 
   const clearAllLocal = () => {
     const allIds = localNotifications.map((n) => n._id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allIds));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(allIds));
     setLocalNotifications([]);
   };
 
@@ -55,6 +55,7 @@ const AdminNotifications = () => {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-6xl mx-auto flex gap-6 h-screen overflow-hidden">
+        
         {/* ----------------- SIDE PANEL ----------------- */}
         <div className="w-60 bg-white shadow-md rounded-xl p-5 border">
           <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -88,7 +89,6 @@ const AdminNotifications = () => {
 
         {/* ----------------- MAIN CONTENT ----------------- */}
         <div className="flex-1 bg-white rounded-xl shadow-md p-6 border overflow-y-auto">
-
           <div className="flex justify-between items-center mb-5">
             <div>
               <h2 className="text-2xl font-semibold text-gray-700">
