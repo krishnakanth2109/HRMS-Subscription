@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { NoticeContext } from "../context/NoticeContext";
-import { Bar, Pie } from "react-chartjs-2";
+import { Bar, Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -22,13 +22,13 @@ import {
 import {
   FaRegClock,
   FaUserCircle,
-  FaBell,
   FaCalendarAlt,
   FaChartPie,
   FaCamera,
   FaMapMarkerAlt,
   FaEdit,
   FaTrash,
+  FaChevronDown,
 } from "react-icons/fa";
 // ✅ Imported 'api' default export for custom requests
 import api, {
@@ -76,6 +76,11 @@ const EmployeeDashboard = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [punchStatus, setPunchStatus] = useState("IDLE");
   const [shiftTimings, setShiftTimings] = useState(null);
+  
+  // Toggle for Shift Dropdown
+  const [isShiftDropdownOpen, setIsShiftDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const navigate = useNavigate();
 
   // Crop modal states
@@ -210,6 +215,19 @@ const EmployeeDashboard = () => {
     bootstrap();
   }, [user, loadAttendance, loadShiftTimings]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsShiftDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const { name, email, phone, employeeId } = user || {};
   const latestExp = user?.experienceDetails?.[user.experienceDetails.length - 1];
   const role = latestExp?.role || user?.role || "N/A";
@@ -227,6 +245,9 @@ const EmployeeDashboard = () => {
       };
       updateTimer();
       interval = setInterval(updateTimer, 1000);
+    } else if (todayLog?.workedHours) {
+        // If already punched out, set fixed time
+        setWorkedTime(todayLog.workedHours * 3600);
     }
     return () => { if (interval) clearInterval(interval); };
   }, [todayLog]);
@@ -496,7 +517,50 @@ const EmployeeDashboard = () => {
     return dayNumbers.map(day => days[day]).join(', ') || 'None';
   };
 
-  // ✅ New Helper Function to calculate visual status
+  // ✅ New Helper: Calculate difference between shift times in Seconds
+  const getShiftDurationInSeconds = (startTime, endTime) => {
+    if(!startTime || !endTime) return 8 * 3600; // Default 8 hrs
+    
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+
+    let diffMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    // Handle overnight shifts (e.g. 10 PM to 6 AM)
+    if (diffMinutes < 0) {
+        diffMinutes += 24 * 60;
+    }
+    
+    return diffMinutes * 60;
+  };
+
+  // ✅ New Helper: Worked Status Badge Logic
+  const getWorkedStatusBadge = () => {
+    if (!todayLog?.punchIn) return { label: "--", color: "text-gray-500" };
+
+    // 1. If actively working (Not punched out)
+    if (!todayLog.punchOut) {
+        return { label: "Working...", color: "bg-blue-100 text-blue-800 animate-pulse" };
+    }
+
+    // 2. If punched out, calculate final status
+    // Use total shift seconds from shift details
+    const totalShiftSeconds = shiftTimings ? getShiftDurationInSeconds(shiftTimings.shiftStartTime, shiftTimings.shiftEndTime) : 8 * 3600;
+    
+    // workedTime state holds the seconds, ensure it's accurate
+    const currentWorkedSeconds = workedTime; 
+    const fiveHoursSeconds = 5 * 3600;
+
+    if (currentWorkedSeconds >= totalShiftSeconds) {
+        return { label: "Full Day", color: "bg-green-100 text-green-800" };
+    } else if (currentWorkedSeconds > fiveHoursSeconds) {
+        return { label: "Half Day", color: "bg-yellow-100 text-yellow-800" };
+    } else {
+        // Less than or equal to 5 hours
+        return { label: "Absent", color: "bg-red-100 text-red-800" };
+    }
+  };
+
+  // ✅ New Helper Function to calculate visual Login status
   const getDisplayLoginStatus = () => {
     if (!todayLog?.punchIn || !shiftTimings) return todayLog?.loginStatus || "--";
     
@@ -523,10 +587,72 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // --- Dynamic Meter Chart Calculation ---
+  const workMeterData = useMemo(() => {
+    // 1. Determine Total Shift Seconds (Based on Start & End Time)
+    let totalShiftSeconds = 8 * 3600; // default
+    if (shiftTimings?.shiftStartTime && shiftTimings?.shiftEndTime) {
+        totalShiftSeconds = getShiftDurationInSeconds(shiftTimings.shiftStartTime, shiftTimings.shiftEndTime);
+    } else if (shiftTimings?.fullDayHours) {
+        totalShiftSeconds = shiftTimings.fullDayHours * 3600;
+    }
+
+    // 2. Determine Current Worked Seconds (Live or Static)
+    // workedTime is updated every second by useEffect if punched in
+    // Ensure we don't go below 0
+    const currentWorked = Math.max(0, workedTime);
+    
+    // 3. Determine Remaining
+    const remaining = Math.max(0, totalShiftSeconds - currentWorked);
+
+    return {
+      labels: ["Worked", "Pending"],
+      datasets: [
+        {
+          data: [currentWorked, remaining],
+          backgroundColor: ["#3b82f6", "#e5e7eb"], // Blue for work, Gray for pending
+          borderWidth: 0,
+          cutout: "75%", // Thin line for meter look
+          circumference: 180, // Half circle
+          rotation: -90, // Rotate to start from left
+        },
+      ],
+      // Store raw values for external use if needed
+      rawValues: { currentWorked, remaining, totalShiftSeconds }
+    };
+  }, [workedTime, shiftTimings]);
+
+  // Chart Options for UI consistency
+  const commonChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { position: 'bottom' },
+        tooltip: { enabled: true }
+    }
+  };
+
+  const meterChartOptions = {
+    ...commonChartOptions,
+    plugins: {
+        legend: { display: false }, // Hide legend for meter, use custom text below
+        tooltip: { 
+            callbacks: {
+                label: function(context) {
+                    const val = context.raw;
+                    const h = Math.floor(val / 3600);
+                    const m = Math.floor((val % 3600) / 60);
+                    return `${context.label}: ${h}h ${m}m`;
+                }
+            }
+        }
+    }
+  };
+
   const leaveBarData = useMemo(() => ({
     labels: ["Full Day", "Half Day", "Absent"],
     datasets: [{
-        label: "Attendance",
+        label: "Days",
         data: [
           attendance.filter((a) => a.workedStatus === "FULL_DAY").length,
           attendance.filter((a) => a.workedStatus === "HALF_DAY").length,
@@ -537,27 +663,27 @@ const EmployeeDashboard = () => {
     }],
   }), [attendance]);
 
-  const workPieData = useMemo(() => ({
-    labels: ["Worked Hours", "Remaining"],
-    datasets: [{
-        data: [
-          todayLog?.workedHours || 0,
-          Math.max(0, (shiftTimings?.fullDayHours || 8) - (todayLog?.workedHours || 0)),
-        ],
-        backgroundColor: ["#3b82f6", "#e5e7eb"],
-    }],
-  }), [todayLog, shiftTimings]);
-
   if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Dashboard...</div>;
   if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
 
   // Calculate status for display
   const displayStatus = getDisplayLoginStatus();
+  const workedStatusBadge = getWorkedStatusBadge();
+  
+  // ✅ UPDATED: Format calculated Shift Hours to "Xh Ym" instead of decimal
+  const getFormattedShiftDuration = () => {
+      if(!shiftTimings) return "8h 0m";
+      const totalSeconds = getShiftDurationInSeconds(shiftTimings.shiftStartTime, shiftTimings.shiftEndTime);
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      return `${h}h ${m}m`;
+  };
+  const calculatedShiftHours = getFormattedShiftDuration();
 
   return (
     <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
       {/* Profile Section */}
-      <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6">
+      <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6 relative">
         <div className="relative group">
           <img
             src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
@@ -578,27 +704,47 @@ const EmployeeDashboard = () => {
           </div>
           <input id="profile-upload" type="file" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
         </div>
-        <div className="flex-1">
-          <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2"><FaUserCircle /> {name}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-700 mt-2">
-            <div><b>ID:</b> {employeeId}</div>
-            <div><b>Email:</b> {email}</div>
-            <div><b>Phone:</b> {phone || "N/A"}</div>
-            <div><b>Department:</b> {department}</div>
-            <div><b>Role:</b> {role}</div>
+        
+        <div className="flex-1 w-full">
+          <div className="flex justify-between items-start w-full">
+             <div>
+                <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2"><FaUserCircle /> {name}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-gray-700 mt-2 text-sm">
+                    <div><b>ID:</b> {employeeId}</div>
+                    <div><b>Email:</b> {email}</div>
+                    <div><b>Department:</b> {department}</div>
+                    <div><b>Role:</b> {role}</div>
+                </div>
+             </div>
+
+             {/* Dynamic Dropdown for Shift Timings */}
+             {shiftTimings && (
+                <div className="relative" ref={dropdownRef}>
+                    <button 
+                        onClick={() => setIsShiftDropdownOpen(!isShiftDropdownOpen)}
+                        className="flex items-center gap-2 bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition-all text-sm font-semibold"
+                    >
+                        <FaRegClock /> Shift Details <FaChevronDown className={`transform transition-transform ${isShiftDropdownOpen ? 'rotate-180' : ''}`} size={12}/>
+                    </button>
+
+                    {isShiftDropdownOpen && (
+                        <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-4 animate-fade-in-down">
+                            <h4 className="font-bold text-blue-800 border-b pb-2 mb-3">Assigned Shift</h4>
+                            <div className="space-y-3 text-sm text-gray-700">
+                                <div className="flex justify-between"><span>Start Time:</span> <span className="font-semibold text-gray-900">{formatTimeDisplay(shiftTimings.shiftStartTime)}</span></div>
+                                <div className="flex justify-between"><span>End Time:</span> <span className="font-semibold text-gray-900">{formatTimeDisplay(shiftTimings.shiftEndTime)}</span></div>
+                                <div className="flex justify-between"><span>Late Grace:</span> <span className="font-semibold text-gray-900">{shiftTimings.lateGracePeriod} mins</span></div>
+                                <div className="flex justify-between"><span>Calc Work Hrs:</span> <span className="font-semibold text-gray-900">{calculatedShiftHours}</span></div>
+                                <div className="pt-2 border-t mt-2">
+                                    <span className="block text-xs text-gray-500 mb-1">Weekly Offs:</span>
+                                    <div className="font-medium text-blue-600">{getDayNames(shiftTimings.weeklyOffDays)}</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+             )}
           </div>
-          
-          {shiftTimings && (
-            <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
-              <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2"><FaRegClock /> Your Shift Timings</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div><span className="text-gray-600">Start:</span><div className="font-semibold">{formatTimeDisplay(shiftTimings.shiftStartTime)}</div></div>
-                <div><span className="text-gray-600">End:</span><div className="font-semibold">{formatTimeDisplay(shiftTimings.shiftEndTime)}</div></div>
-                <div><span className="text-gray-600">Grace:</span><div className="font-semibold">{shiftTimings.lateGracePeriod} mins</div></div>
-                <div><span className="text-gray-600">Weekly Off:</span><div className="font-semibold text-xs">{getDayNames(shiftTimings.weeklyOffDays)}</div></div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -636,7 +782,14 @@ const EmployeeDashboard = () => {
                   ) : "--"}
                 </td>
                 <td className="px-4 py-3 capitalize">
-                  {todayLog?.punchIn && !todayLog?.punchOut ? <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">Working...</span> : formatWorkedStatus(todayLog?.workedStatus)}
+                    {/* Updated Status Logic */}
+                    {todayLog?.punchIn ? (
+                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${workedStatusBadge.color}`}>
+                             {workedStatusBadge.label}
+                         </span>
+                    ) : (
+                        <span className="text-gray-500">--</span>
+                    )}
                 </td>
                 <td className="px-4 py-3 font-mono font-bold text-orange-600">
                   {todayLog?.punchIn ? getTodayIdleTimeStr() : "--"}
@@ -667,15 +820,46 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      {/* Charts & Notices */}
+      {/* Graphs Section - Equal Size */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
-          <Bar data={leaveBarData} />
+        
+        {/* Attendance Summary Bar Chart */}
+        <div className="bg-white rounded-2xl shadow p-6 h-80 flex flex-col">
+          <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-700"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
+          <div className="flex-1 relative">
+            <Bar data={leaveBarData} options={commonChartOptions} />
+          </div>
         </div>
-        <div className="bg-white rounded-2xl shadow p-4">
-          <h2 className="font-bold flex items-center gap-2 mb-2"><FaChartPie className="text-yellow-500" /> Work Hours Today</h2>
-          <Pie data={workPieData} />
+
+        {/* Work Hours Meter Chart */}
+        <div className="bg-white rounded-2xl shadow p-6 h-80 flex flex-col">
+          <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-700"><FaChartPie className="text-yellow-500" /> Today Progress</h2>
+          
+          {/* Chart Container */}
+          <div className="flex-1 relative flex flex-col items-center justify-center">
+            <div className="w-full h-full max-h-40 relative">
+                 <Doughnut data={workMeterData} options={meterChartOptions} />
+                 
+                 {/* Center Text for Meter */}
+                 <div className="absolute inset-0 flex items-end justify-center pb-2 pointer-events-none">
+                     <span className="text-2xl font-bold text-gray-700">
+                         {Math.floor((workMeterData.rawValues.currentWorked / workMeterData.rawValues.totalShiftSeconds) * 100)}%
+                     </span>
+                 </div>
+            </div>
+
+            {/* Bottom Stats Text */}
+            <div className="flex justify-between w-full px-8 mt-4 border-t pt-3">
+                <div className="text-center">
+                    <p className="text-xs text-gray-500 uppercase font-semibold">Worked Hrs</p>
+                    <p className="text-lg font-bold text-blue-600">{formatWorkedTime(workMeterData.rawValues.currentWorked)}</p>
+                </div>
+                <div className="text-center">
+                    <p className="text-xs text-gray-500 uppercase font-semibold">Total Shift</p>
+                    <p className="text-lg font-bold text-gray-400">{formatWorkedTime(workMeterData.rawValues.totalShiftSeconds)}</p>
+                </div>
+            </div>
+          </div>
         </div>
       </div>
 
