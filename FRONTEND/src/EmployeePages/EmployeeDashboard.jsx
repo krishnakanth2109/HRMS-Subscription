@@ -167,13 +167,15 @@ const EmployeeDashboard = () => {
         const data = await getAttendanceForEmployee(empId);
         const attendanceData = Array.isArray(data) ? data : (data.data || []);
         setAttendance(attendanceData);
-        const todayEntry = attendanceData.find((d) => d.date === today);
+        // Find today's entry based on date string match
+        const todayStr = new Date().toISOString().split("T")[0];
+        const todayEntry = attendanceData.find((d) => d.date === todayStr);
         setTodayLog(todayEntry || null);
       } catch (err) {
         console.error("Attendance fetch error:", err);
       }
     },
-    [today]
+    []
   );
 
   // --- Fetch Profile Picture ---
@@ -377,35 +379,26 @@ const EmployeeDashboard = () => {
   useEffect(() => {
     if (!user || !user.employeeId || !todayLog?.punchIn || todayLog?.punchOut) return;
 
-    // 1. Sync with DB on Load
-    // If DB says we are idle (null idleEnd), ensure the Ref knows it!
     if (todayLog.idleActivity && todayLog.idleActivity.length > 0) {
       const lastEntry = todayLog.idleActivity[todayLog.idleActivity.length - 1];
       if (lastEntry && !lastEntry.idleEnd && !isIdleRef.current) {
-          console.log("🔄 Syncing: DB says user is idle. Updating Ref.");
           isIdleRef.current = true;
           idleStartTimeRef.current = lastEntry.idleStart;
       }
     }
 
     const handleActivity = () => {
-      // Sync LocalStorage
       const now = Date.now();
       const lastSaved = parseInt(localStorage.getItem(LOCAL_STORAGE_KEY) || 0);
       if (now - lastSaved > 1000) {
           localStorage.setItem(LOCAL_STORAGE_KEY, now);
       }
 
-      // 2. If Idle -> Stop Idle
       if (isIdleRef.current && idleStartTimeRef.current) {
         const startT = idleStartTimeRef.current;
-        
-        // Reset immediately
         isIdleRef.current = false;
         idleStartTimeRef.current = null;
         idleNotifiedRef.current = false;
-
-        console.log("🟢 User Active. Sending STOP IDLE to DB...");
         
         recordIdleActivityLocally({
             employeeId: user.employeeId,
@@ -413,11 +406,8 @@ const EmployeeDashboard = () => {
             isIdle: false,
             idleStart: startT 
         })
-        .then(() => {
-           console.log("✅ DB Updated: Idle Stopped.");
-           loadAttendance(user.employeeId); 
-        })
-        .catch(err => console.error("❌ Failed to stop idle:", err));
+        .then(() => { loadAttendance(user.employeeId); })
+        .catch(err => console.error(err));
       }
     };
 
@@ -434,12 +424,9 @@ const EmployeeDashboard = () => {
       const lastActive = parseInt(localStorage.getItem(LOCAL_STORAGE_KEY) || Date.now());
       const diff = now - lastActive;
 
-      // 3. If Inactive -> Start Idle
       if (diff >= INACTIVITY_LIMIT_MS && !isIdleRef.current) {
         isIdleRef.current = true;
         idleStartTimeRef.current = new Date().toISOString();
-        
-        console.log("🔴 User Inactive. Sending START IDLE to DB...");
         
         try {
           await recordIdleActivityLocally({
@@ -447,10 +434,8 @@ const EmployeeDashboard = () => {
             idleStart: idleStartTimeRef.current,
             isIdle: true,
           });
-          
           if (!idleNotifiedRef.current) {
             idleNotifiedRef.current = true;
-            // Optional: Send notification
             await sendIdleActivity({
               employeeId: user.employeeId,
               name: user.name,
@@ -461,11 +446,7 @@ const EmployeeDashboard = () => {
           }
         } catch (error) { console.error("Failed to record idle start:", error); }
       }
-
-      // Force re-render for live timer updates
-      if (isIdleRef.current) {
-         setWorkedTime(prev => prev); 
-      }
+      if (isIdleRef.current) setWorkedTime(prev => prev); 
     }, 1000);
 
     return () => {
@@ -515,6 +496,33 @@ const EmployeeDashboard = () => {
     return dayNumbers.map(day => days[day]).join(', ') || 'None';
   };
 
+  // ✅ New Helper Function to calculate visual status
+  const getDisplayLoginStatus = () => {
+    if (!todayLog?.punchIn || !shiftTimings) return todayLog?.loginStatus || "--";
+    
+    // If backend says LATE, believe it
+    if (todayLog.loginStatus === "LATE") return "LATE";
+
+    // Double check on frontend in case backend time was off
+    try {
+      const punchTime = new Date(todayLog.punchIn);
+      const [sHour, sMin] = shiftTimings.shiftStartTime.split(':').map(Number);
+      
+      const shiftTime = new Date(punchTime);
+      shiftTime.setHours(sHour, sMin, 0, 0);
+      
+      // Add Grace
+      shiftTime.setMinutes(shiftTime.getMinutes() + (shiftTimings.lateGracePeriod || 15));
+
+      if (punchTime > shiftTime) {
+        return "LATE";
+      }
+      return "On Time";
+    } catch (e) {
+      return todayLog.loginStatus || "On Time";
+    }
+  };
+
   const leaveBarData = useMemo(() => ({
     labels: ["Full Day", "Half Day", "Absent"],
     datasets: [{
@@ -543,9 +551,12 @@ const EmployeeDashboard = () => {
   if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Dashboard...</div>;
   if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
 
+  // Calculate status for display
+  const displayStatus = getDisplayLoginStatus();
+
   return (
     <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
-      {/* Profile Section (With Cloudinary Fix) */}
+      {/* Profile Section */}
       <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6">
         <div className="relative group">
           <img
@@ -577,7 +588,6 @@ const EmployeeDashboard = () => {
             <div><b>Role:</b> {role}</div>
           </div>
           
-          {/* Shift Timings (Preserved) */}
           {shiftTimings && (
             <div className="mt-4 p-3 bg-white rounded-lg border border-blue-200">
               <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2"><FaRegClock /> Your Shift Timings</h4>
@@ -592,7 +602,7 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      {/* Attendance Table (With IDLE TIME Column) */}
+      {/* Attendance Table */}
       <div className="bg-gradient-to-br from-gray-50 to-blue-100 rounded-2xl shadow-lg p-6 mb-8 animate-fade-in">
         <div className="flex items-center mb-6 gap-3 border-b border-gray-200 pb-4">
           <FaRegClock className="text-blue-600 text-2xl" />
@@ -620,8 +630,8 @@ const EmployeeDashboard = () => {
                 <td className="px-4 py-3 font-mono">{todayLog?.punchIn && !todayLog?.punchOut ? formatWorkedTime(workedTime) : todayLog?.displayTime || "0h 0m 0s"}</td>
                 <td className="px-4 py-3">
                   {todayLog?.punchIn ? (
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${todayLog.loginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
-                      {todayLog.loginStatus === "LATE" ? "Late" : "On Time"}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${displayStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+                      {displayStatus === "LATE" ? "Late" : "On Time"}
                     </span>
                   ) : "--"}
                 </td>
