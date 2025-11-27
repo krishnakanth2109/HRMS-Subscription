@@ -50,7 +50,17 @@ const EmployeeSchema = new mongoose.Schema({
   address: String,
   emergency: String, // Emergency Name
   emergencyPhone: String, // Emergency Phone
+  
+  // ✅ UPDATED: Status, Deactivation AND Reactivation Details
   isActive: { type: Boolean, default: true },
+  status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
+  
+  deactivationDate: { type: String, default: null },
+  deactivationReason: { type: String, default: null },
+
+  reactivationDate: { type: String, default: null },
+  reactivationReason: { type: String, default: null },
+
   bankDetails: bankSchema,
   personalDetails: personalSchema,
   experienceDetails: [experienceSchema],

@@ -1,9 +1,7 @@
-// --- START OF FILE EmployeeattendanceRoutes.js ---
-
 import express from 'express';
 import Attendance from '../models/Attendance.js';
-import Shift from '../models/shiftModel.js'; 
-import { reverseGeocode, validateCoordinates } from '../Services/locationService.js'; 
+import Shift from '../models/shiftModel.js'; // From File 1
+import { reverseGeocode, validateCoordinates } from '../Services/locationService.js'; // From File 2
 
 const router = express.Router();
 
@@ -13,11 +11,13 @@ const router = express.Router();
 
 const getToday = () => new Date().toISOString().split("T")[0];
 
+// Helper to parse time string "HH:MM" to minutes
 const timeToMinutes = (timeStr) => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
 };
 
+// Helper to add minutes to a time string
 const addMinutesToTime = (timeStr, minutesToAdd) => {
   const totalMinutes = timeToMinutes(timeStr) + minutesToAdd;
   const hours = Math.floor(totalMinutes / 60) % 24;
@@ -25,6 +25,7 @@ const addMinutesToTime = (timeStr, minutesToAdd) => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
+// Helper to calculate time difference in minutes
 const getTimeDifferenceInMinutes = (punchInTime, shiftStartTime) => {
   const punchInDate = new Date(punchInTime);
   const punchInMinutes = punchInDate.getHours() * 60 + punchInDate.getMinutes();
@@ -36,10 +37,12 @@ const getTimeDifferenceInMinutes = (punchInTime, shiftStartTime) => {
 // ROUTES
 // ============================================================
 
-// ✅ GET ALL RECORDS 
+// ✅ GET ALL RECORDS (Must be at the top to avoid conflict with /:employeeId)
 router.get('/all', async (req, res) => {
   try {
+    console.log("✅ Backend: Fetching ALL attendance records...");
     const records = await Attendance.find({});
+    // Sorting by date descending (newest first)
     const sortedRecords = records.map(rec => {
         rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
         return rec;
@@ -55,7 +58,7 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// ✅ PUNCH IN 
+// ✅ PUNCH IN (Merges Shift Logic with Location Validation)
 router.post('/punch-in', async (req, res) => {
   try {
     const { employeeId, employeeName, latitude, longitude } = req.body;
@@ -64,14 +67,17 @@ router.post('/punch-in', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Employee ID and Name are required' });
     }
 
+    // 1. Validate Location (From File 2)
     if (!latitude || !longitude) return res.status(400).json({ error: "Location data required." });
     if (!validateCoordinates(latitude, longitude)) return res.status(400).json({ error: "Invalid coordinates." });
 
     const today = getToday();
     const now = new Date();
 
+    // 2. Fetch Shift Configuration (From File 1)
     let shift = await Shift.findOne({ employeeId, isActive: true });
     
+    // Default shift if not configured
     if (!shift) {
       shift = {
         shiftStartTime: "09:00",
@@ -84,6 +90,7 @@ router.post('/punch-in', async (req, res) => {
       };
     }
 
+    // 3. Get Address
     let address = 'Unknown Location';
     try {
       address = await reverseGeocode(latitude, longitude);
@@ -91,6 +98,7 @@ router.post('/punch-in', async (req, res) => {
       console.error("Geocode failed, using default", err);
     }
 
+    // 4. Find or create attendance record
     let attendance = await Attendance.findOne({ employeeId });
 
     if (!attendance) {
@@ -101,12 +109,14 @@ router.post('/punch-in', async (req, res) => {
       });
     }
 
+    // 5. Check if already punched in
     let todayRecord = attendance.attendance.find(a => a.date === today);
 
     if (todayRecord && todayRecord.punchIn) {
       return res.status(400).json({ success: false, message: 'Already punched in today' });
     }
 
+    // 6. Calculate LATE status based on Shift (From File 1)
     const timeDiffMinutes = getTimeDifferenceInMinutes(now, shift.shiftStartTime);
     const isLate = timeDiffMinutes > shift.lateGracePeriod;
     
@@ -115,6 +125,7 @@ router.post('/punch-in', async (req, res) => {
 
     if (isLate) {
       loginStatus = 'LATE';
+      // Auto-extend shift if enabled
       if (shift.autoExtendShift) {
         const lateMinutes = timeDiffMinutes - shift.lateGracePeriod;
         adjustedShiftEnd = addMinutesToTime(shift.shiftEndTime, lateMinutes);
@@ -141,22 +152,26 @@ router.post('/punch-in', async (req, res) => {
         workedStatus: 'NOT_APPLICABLE',
         attendanceCategory: 'NOT_APPLICABLE',
         
+        // Shift details
         shiftStartTime: shift.shiftStartTime,
         shiftEndTime: adjustedShiftEnd,
         originalShiftEnd: shift.shiftEndTime,
         lateMinutes: isLate ? Math.max(0, timeDiffMinutes - shift.lateGracePeriod) : 0,
         
+        // Initialize Idle Activity (From File 2)
         idleActivity: [] 
     };
 
     if (!todayRecord) {
       attendance.attendance.push(punchInData);
     } else {
+      // If record existed but punchIn was null (rare edge case)
       Object.assign(todayRecord, punchInData);
     }
 
     await attendance.save();
 
+    // Return the specific today record and shift info
     const savedRecord = attendance.attendance.find(a => a.date === today);
     
     return res.status(200).json({
@@ -164,8 +179,8 @@ router.post('/punch-in', async (req, res) => {
       message: isLate 
         ? `Punched in (Late). Shift extended to ${adjustedShiftEnd}` 
         : 'Punched in successfully',
-      data: savedRecord, 
-      attendance: attendance.attendance,
+      data: savedRecord, // Return just the object, or attendance array if preferred
+      attendance: attendance.attendance, // For compatibility with File 2 frontend
       shift: {
         original: shift.shiftEndTime,
         adjusted: adjustedShiftEnd,
@@ -179,7 +194,7 @@ router.post('/punch-in', async (req, res) => {
   }
 });
 
-// ✅ PUNCH OUT (Employee Side)
+// ✅ PUNCH OUT (Merges Idle Check + Shift Calculation)
 router.post('/punch-out', async (req, res) => {
   try {
     const { employeeId, latitude, longitude } = req.body;
@@ -190,16 +205,18 @@ router.post('/punch-out', async (req, res) => {
     const today = getToday();
     const now = new Date();
 
+    // 1. Fetch Shift Configuration
     let shift = await Shift.findOne({ employeeId, isActive: true });
     if (!shift) {
       shift = {
         fullDayHours: 8,
         halfDayHours: 4,
         quarterDayHours: 2,
-        breakTimeMinutes: 60 
+        breakTimeMinutes: 60 // Default break deduction
       };
     }
 
+    // 2. Get Address
     let address = 'Unknown Location';
     try {
       address = await reverseGeocode(latitude, longitude);
@@ -217,9 +234,11 @@ router.post('/punch-out', async (req, res) => {
     }
 
     if (todayRecord.punchOut) {
+        // If already punched out, just return current state
         return res.json({ success: true, data: todayRecord, attendance: attendance.attendance });
     }
 
+    // 3. CLOSE IDLE SESSION IF ACTIVE (From File 2 Logic)
     if (todayRecord.idleActivity && todayRecord.idleActivity.length > 0) {
         const lastIdle = todayRecord.idleActivity[todayRecord.idleActivity.length - 1];
         if (!lastIdle.idleEnd) {
@@ -227,10 +246,12 @@ router.post('/punch-out', async (req, res) => {
         }
     }
 
+    // 4. Calculate Worked Time (Subtracting Break - From File 1 Logic)
     const punchInTime = new Date(todayRecord.punchIn);
     const diffMs = now - punchInTime;
     const totalSeconds = Math.floor(diffMs / 1000);
 
+    // Subtract break time defined in Shift
     const breakSeconds = (shift.breakTimeMinutes || 0) * 60;
     const effectiveSeconds = Math.max(0, totalSeconds - breakSeconds);
 
@@ -238,6 +259,7 @@ router.post('/punch-out', async (req, res) => {
     const minutes = Math.floor((effectiveSeconds % 3600) / 60);
     const seconds = effectiveSeconds % 60;
 
+    // 5. Determine Status based on Shift Thresholds (From File 1 Logic)
     let workedStatus = 'NOT_APPLICABLE';
     let attendanceCategory = 'NOT_APPLICABLE';
 
@@ -249,12 +271,13 @@ router.post('/punch-out', async (req, res) => {
       attendanceCategory = 'HALF_DAY';
     } else if (hours >= shift.quarterDayHours) {
       workedStatus = 'QUARTER_DAY';
-      attendanceCategory = 'HALF_DAY'; 
+      attendanceCategory = 'HALF_DAY'; // Quarter day counts as half usually
     } else {
       workedStatus = 'ABSENT';
       attendanceCategory = 'ABSENT';
     }
 
+    // 6. Update Record
     todayRecord.punchOut = now;
     todayRecord.punchOutLocation = {
       latitude,
@@ -276,7 +299,7 @@ router.post('/punch-out', async (req, res) => {
       success: true,
       message: `Punched out successfully. Worked: ${hours}h ${minutes}m (${workedStatus})`,
       data: todayRecord,
-      attendance: attendance.attendance 
+      attendance: attendance.attendance // Support both response formats
     });
 
   } catch (error) {
@@ -285,7 +308,7 @@ router.post('/punch-out', async (req, res) => {
   }
 });
 
-// ✅ RECORD IDLE ACTIVITY
+// ✅ RECORD IDLE ACTIVITY (From File 2)
 router.post("/record-idle-activity", async (req, res) => {
   try {
     const { employeeId, idleStart, idleEnd, isIdle } = req.body;
@@ -300,15 +323,19 @@ router.post("/record-idle-activity", async (req, res) => {
     if (!todayEntry.idleActivity) todayEntry.idleActivity = [];
 
     if (isIdle) {
+      // Start Idle
       const lastEntry = todayEntry.idleActivity[todayEntry.idleActivity.length - 1];
+      // Only start new if previous is finished or array is empty
       if (!lastEntry || lastEntry.idleEnd) {
          todayEntry.idleActivity.push({ idleStart: new Date(idleStart) });
       }
     } else {
+      // End Idle
       const lastEntry = todayEntry.idleActivity[todayEntry.idleActivity.length - 1];
       if (lastEntry && !lastEntry.idleEnd) {
         lastEntry.idleEnd = new Date(idleEnd);
       } else if (idleStart && idleEnd) {
+        // Case where complete block is sent
         todayEntry.idleActivity.push({
            idleStart: new Date(idleStart),
            idleEnd: new Date(idleEnd)
@@ -324,106 +351,7 @@ router.post("/record-idle-activity", async (req, res) => {
   }
 });
 
-// ✅ ADMIN MANUAL PUNCH OUT (Using POST to fix CORS/Network issues)
-router.post('/admin-punch-out', async (req, res) => {
-  try {
-    const { employeeId, date, punchOutTime } = req.body; // punchOutTime should be full ISO string
-
-    if (!employeeId || !date || !punchOutTime) {
-      return res.status(400).json({ success: false, message: 'Employee ID, Date and Punch Out Time are required.' });
-    }
-
-    const attendance = await Attendance.findOne({ employeeId });
-    if (!attendance) return res.status(404).json({ success: false, message: 'Employee record not found.' });
-
-    const record = attendance.attendance.find(a => a.date === date);
-    if (!record) return res.status(404).json({ success: false, message: 'Attendance record for this date not found.' });
-    if (!record.punchIn) return res.status(400).json({ success: false, message: 'Employee has not punched in yet.' });
-
-    // Calculate Times
-    const punchIn = new Date(record.punchIn);
-    const punchOut = new Date(punchOutTime);
-
-    if (punchOut <= punchIn) {
-      return res.status(400).json({ success: false, message: 'Punch out time must be after punch in time.' });
-    }
-
-    // Fetch Shift Config for Calculation
-    let shift = await Shift.findOne({ employeeId, isActive: true });
-    if (!shift) {
-      shift = {
-        fullDayHours: 8,
-        halfDayHours: 4,
-        quarterDayHours: 2,
-        breakTimeMinutes: 60 
-      };
-    }
-
-    // Close any open idle sessions automatically
-    if (record.idleActivity && record.idleActivity.length > 0) {
-      const lastIdle = record.idleActivity[record.idleActivity.length - 1];
-      if (!lastIdle.idleEnd) {
-        lastIdle.idleEnd = punchOut;
-      }
-    }
-
-    // Calculate Duration
-    const diffMs = punchOut - punchIn;
-    const totalSeconds = Math.floor(diffMs / 1000);
-    const breakSeconds = (shift.breakTimeMinutes || 0) * 60;
-    const effectiveSeconds = Math.max(0, totalSeconds - breakSeconds);
-
-    const hours = Math.floor(effectiveSeconds / 3600);
-    const minutes = Math.floor((effectiveSeconds % 3600) / 60);
-    const seconds = effectiveSeconds % 60;
-
-    // Determine Status
-    let workedStatus = 'ABSENT';
-    let attendanceCategory = 'ABSENT';
-
-    if (hours >= shift.fullDayHours) {
-      workedStatus = 'FULL_DAY';
-      attendanceCategory = 'FULL_DAY';
-    } else if (hours >= shift.halfDayHours) {
-      workedStatus = 'HALF_DAY';
-      attendanceCategory = 'HALF_DAY';
-    } else if (hours >= shift.quarterDayHours) {
-      workedStatus = 'QUARTER_DAY';
-      attendanceCategory = 'HALF_DAY'; 
-    }
-
-    // Update Record
-    record.punchOut = punchOut;
-    // Set a dummy Admin Location (Schema requires location)
-    record.punchOutLocation = {
-      latitude: 0,
-      longitude: 0,
-      address: 'Admin Manual Action',
-      timestamp: new Date()
-    };
-    record.workedHours = hours;
-    record.workedMinutes = minutes;
-    record.workedSeconds = seconds;
-    record.displayTime = `${hours}h ${minutes}m ${seconds}s`;
-    record.status = 'COMPLETED';
-    record.workedStatus = workedStatus;
-    record.attendanceCategory = attendanceCategory;
-
-    await attendance.save(); // ✅ Saves to DB
-
-    return res.status(200).json({
-      success: true,
-      message: 'Admin punch out successful.',
-      data: record
-    });
-
-  } catch (error) {
-    console.error('Admin punch out error:', error);
-    return res.status(500).json({ success: false, message: 'Server error during admin punch out.', error: error.message });
-  }
-});
-
-// ✅ GET SINGLE EMPLOYEE ATTENDANCE 
+// ✅ GET SINGLE EMPLOYEE ATTENDANCE (Must be at bottom)
 router.get('/:employeeId', async (req, res) => {
   try {
     const { employeeId } = req.params;
@@ -433,6 +361,7 @@ router.get('/:employeeId', async (req, res) => {
       return res.status(200).json({ success: true, data: [] });
     }
 
+    // Sort desc
     const sortedData = attendance.attendance.sort((a, b) => 
         new Date(b.date) - new Date(a.date)
     );

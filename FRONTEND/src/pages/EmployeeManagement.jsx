@@ -1,5 +1,7 @@
+// --- START OF FILE EmployeeManagement.jsx ---
+
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react"; // ✅ useRef is added
+import { useState, useMemo, useEffect, useCallback, useRef } from "react"; 
 import { FaUser, FaEdit, FaTrash, FaRedo, FaDownload } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -38,7 +40,7 @@ const downloadExcelReport = (data, filename) => {
 };
 
 
-// ✅ START: UPDATED EmployeeRow Component
+// ✅ ACTIVE EmployeeRow Component
 const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
   const isEven = idx % 2 === 0;
   const currentDepartment = getCurrentDepartment(emp);
@@ -123,32 +125,35 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick }) => {
     </tr>
   );
 };
-// ✅ END: UPDATED EmployeeRow Component
 
-// Inactive Employee Row
-const InactiveEmployeeRow = ({ emp, navigate, onReactivate }) => {
+// ✅ INACTIVE Employee Row (Colored differently and at bottom)
+const InactiveEmployeeRow = ({ emp, navigate, onReactivateClick }) => {
   const currentDepartment = getCurrentDepartment(emp);
+  
   return (
-    <tr className="border-t transition duration-150 bg-gray-300 opacity-60 hover:bg-gray-400">
-      <td className="p-4 font-mono font-semibold text-gray-600">{emp.employeeId}</td>
+    <tr className="border-t transition duration-150 bg-gray-300 opacity-75 hover:opacity-100 hover:bg-gray-400">
+      <td className="p-4 font-mono font-semibold text-gray-700">{emp.employeeId}</td>
       <td className="p-4 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-gray-600 font-bold border border-gray-400">
+        <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold border border-gray-600">
           {emp.name?.split(" ").map((n) => n[0]).join("")}
         </div>
-        <span className="font-semibold text-gray-600">{emp.name} (Inactive)</span>
+        <div className="flex flex-col">
+          <span className="font-semibold text-gray-800">{emp.name}</span>
+          <span className="text-xs text-red-700 font-bold uppercase">Deactivated</span>
+        </div>
       </td>
       <td className="p-4">
         <span className={`px-2 py-1 rounded text-xs font-bold ${DEPARTMENT_COLORS[currentDepartment]?.bg || "bg-gray-400"} ${DEPARTMENT_COLORS[currentDepartment]?.text || "text-gray-700"}`}>
           {currentDepartment || "Unknown"}
         </span>
       </td>
-      <td className="p-4 text-gray-600">{emp.email}</td>
+      <td className="p-4 text-gray-800">{emp.email}</td>
       <td className="p-4">
         <div className="flex flex-row items-center gap-2">
-          <button onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="bg-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-300 flex items-center gap-1 font-semibold shadow">
+          <button onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="bg-gray-100 text-gray-700 px-2 py-1 rounded hover:bg-gray-200 flex items-center gap-1 font-semibold shadow">
             <FaUser /> Profile
           </button>
-          <button onClick={() => onReactivate(emp)} className="bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 flex items-center gap-1 font-semibold shadow">
+          <button onClick={() => onReactivateClick(emp)} className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 flex items-center gap-1 font-semibold shadow">
             <FaRedo /> Reactivate
           </button>
         </div>
@@ -178,14 +183,108 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h3 className="text-xl font-bold mb-4">Deactivate {employee.name}</h3>
+        <h3 className="text-xl font-bold mb-2">Deactivate Employee</h3>
+        <p className="mb-4 text-gray-600">You are deactivating <b>{employee.name}</b>. This will disable their login access.</p>
+        
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full" required />
-          <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full" rows={3} placeholder="Reason for deactivation" required />
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Deactivation Date</label>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={(e) => setEndDate(e.target.value)} 
+              className="border border-gray-300 px-3 py-2 rounded w-full mt-1" 
+              required 
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Reason</label>
+            <textarea 
+              value={reason} 
+              onChange={(e) => setReason(e.target.value)} 
+              className="border border-gray-300 px-3 py-2 rounded w-full mt-1" 
+              rows={3} 
+              placeholder="e.g. Resigned, Terminated, Absconded" 
+              required 
+            />
+          </div>
+
           {error && <div className="text-red-600 text-sm">{error}</div>}
-          <div className="flex gap-2 justify-end mt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700">Deactivate</button>
+          
+          <div className="flex gap-2 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 font-semibold text-gray-700">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 font-semibold">Deactivate</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ✅ NEW: Reactivate Modal
+function ReactivateModal({ open, employee, onClose, onSubmit }) {
+  // Initialize with today's date
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (open) {
+      setDate(new Date().toISOString().split("T")[0]);
+      setReason("");
+      setError("");
+    }
+  }, [open]);
+
+  if (!open || !employee) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!date || !reason.trim()) {
+      setError("All fields are required.");
+      return;
+    }
+    setError("");
+    onSubmit({ date, reason });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <h3 className="text-xl font-bold mb-2">Reactivate Employee</h3>
+        <p className="mb-4 text-gray-600">You are reactivating <b>{employee.name}</b>. They will regain access to the system.</p>
+        
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Reactivation Date</label>
+            <input 
+              type="date" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)} 
+              className="border border-gray-300 px-3 py-2 rounded w-full mt-1" 
+              required 
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Reason for Reactivation</label>
+            <textarea 
+              value={reason} 
+              onChange={(e) => setReason(e.target.value)} 
+              className="border border-gray-300 px-3 py-2 rounded w-full mt-1" 
+              rows={3} 
+              placeholder="e.g. Rejoined, Returned from leave, Contract renewed" 
+              required 
+            />
+          </div>
+
+          {error && <div className="text-red-600 text-sm">{error}</div>}
+          
+          <div className="flex gap-2 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 font-semibold text-gray-700">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 font-semibold">Reactivate</button>
           </div>
         </form>
       </div>
@@ -199,7 +298,10 @@ const EmployeeManagement = () => {
   const [employees, setEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
-  const [modalOpen, setModalOpen] = useState(false);
+  
+  // Modal States
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
+  const [reactivateModalOpen, setReactivateModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
   // Fetch employees using the centralized API
@@ -216,27 +318,42 @@ const EmployeeManagement = () => {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  // Deactivate employee using the centralized API
+  // Deactivate employee submit handler
   const handleDeactivateSubmit = async ({ endDate, reason }) => {
     try {
       await deactivateEmployeeById(selectedEmployee.employeeId, { endDate, reason });
-      fetchEmployees(); // Re-fetch data to update the UI
-      setModalOpen(false);
+      fetchEmployees(); 
+      setDeactivateModalOpen(false);
+      setSelectedEmployee(null);
     } catch (e) {
       alert("❌ Error deactivating employee");
       console.error(e);
     }
   };
 
-  // Reactivate handler using the centralized API
-  const handleReactivate = async (emp) => {
+  // ✅ Reactivate employee submit handler
+  const handleReactivateSubmit = async ({ date, reason }) => {
     try {
-      await activateEmployeeById(emp.employeeId);
-      fetchEmployees(); // Re-fetch data to update the UI
+      // Calls API with id, date, and reason
+      await activateEmployeeById(selectedEmployee.employeeId, { date, reason });
+      fetchEmployees(); 
+      setReactivateModalOpen(false);
+      setSelectedEmployee(null);
     } catch (e) {
       alert("❌ Error reactivating employee");
       console.error(e);
     }
+  };
+
+  // Open Handlers
+  const openDeactivateModal = (emp) => {
+    setSelectedEmployee(emp);
+    setDeactivateModalOpen(true);
+  };
+
+  const openReactivateModal = (emp) => {
+    setSelectedEmployee(emp);
+    setReactivateModalOpen(true);
   };
 
   // Filters
@@ -252,16 +369,12 @@ const EmployeeManagement = () => {
       const matchesDept = selectedDept === "All" || currentDepartment === selectedDept;
       return matchesSearch && matchesDept;
     });
+    
     return {
       activeEmployees: filtered.filter((emp) => emp.isActive !== false),
       inactiveEmployees: filtered.filter((emp) => emp.isActive === false),
     };
   }, [employees, searchQuery, selectedDept]);
-
-  const openDeactivateModal = (emp) => {
-    setSelectedEmployee(emp);
-    setModalOpen(true);
-  };
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center justify-center py-0">
@@ -305,11 +418,19 @@ const EmployeeManagement = () => {
             <tbody>
               {activeEmployees.length > 0 || inactiveEmployees.length > 0 ? (
                 <>
+                  {/* Active Employees First */}
                   {activeEmployees.map((emp, idx) => (
                     <EmployeeRow key={`${emp.employeeId}-${emp.email}`} emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} />
                   ))}
+                  
+                  {/* Separator if both exist */}
+                  {activeEmployees.length > 0 && inactiveEmployees.length > 0 && (
+                     <tr><td colSpan="5" className="bg-gray-200 p-2 text-center font-bold text-gray-600">INACTIVE EMPLOYEES</td></tr>
+                  )}
+
+                  {/* Inactive Employees at the Bottom */}
                   {inactiveEmployees.map((emp) => (
-                    <InactiveEmployeeRow key={`${emp.employeeId}-${emp.email}-inactive`} emp={emp} navigate={navigate} onReactivate={handleReactivate} />
+                    <InactiveEmployeeRow key={`${emp.employeeId}-${emp.email}-inactive`} emp={emp} navigate={navigate} onReactivateClick={openReactivateModal} />
                   ))}
                 </>
               ) : (
@@ -319,10 +440,25 @@ const EmployeeManagement = () => {
           </table>
         </div>
 
-        <DeactivateModal open={modalOpen} employee={selectedEmployee} onClose={() => setModalOpen(false)} onSubmit={handleDeactivateSubmit} />
+        {/* Deactivate Modal */}
+        <DeactivateModal 
+          open={deactivateModalOpen} 
+          employee={selectedEmployee} 
+          onClose={() => setDeactivateModalOpen(false)} 
+          onSubmit={handleDeactivateSubmit} 
+        />
+
+        {/* ✅ Reactivate Modal */}
+        <ReactivateModal 
+          open={reactivateModalOpen} 
+          employee={selectedEmployee} 
+          onClose={() => setReactivateModalOpen(false)} 
+          onSubmit={handleReactivateSubmit} 
+        />
       </div>
     </div>
   );
 };
 
 export default EmployeeManagement;
+// --- END OF FILE EmployeeManagement.jsx ---

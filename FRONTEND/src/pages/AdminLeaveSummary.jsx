@@ -4,8 +4,9 @@ import { saveAs } from "file-saver";
 import { getLeaveRequests, getEmployees, getHolidays } from "../api";
 
 // --- LEAVE YEAR CONFIGURATION ---
-// Updated: Starts in January (1) as per requirement "from jan newly start"
-const LEAVE_YEAR_START_MONTH = 1;
+// Set to 0 for January, 3 for April, etc.
+// The code now uses this to determine when the leave cycle begins.
+const LEAVE_YEAR_START_MONTH = 10;
 
 // --- HELPER FUNCTIONS ---
 
@@ -22,12 +23,22 @@ const calculateLeaveDays = (from, to) => {
   return diffDays;
 };
 
+// Updated to use LEAVE_YEAR_START_MONTH
 const getCurrentLeaveYear = () => {
   const today = new Date();
-  // Current requirement is Calendar Year (Jan 1 - Dec 31)
+  const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
-  const startDate = new Date(currentYear, 0, 1); // Jan 1st
-  const endDate = new Date(currentYear, 11, 31); // Dec 31st
+
+  // If today is before the start month (e.g., today is Jan, start is Apr),
+  // then the leave year started in the previous calendar year.
+  let startYear = currentYear;
+  if (currentMonth < LEAVE_YEAR_START_MONTH) {
+    startYear = currentYear - 1;
+  }
+
+  const startDate = new Date(startYear, LEAVE_YEAR_START_MONTH, 1);
+  // End date is 12 months after start, minus 1 day
+  const endDate = new Date(startYear, LEAVE_YEAR_START_MONTH + 12, 0);
 
   return { startDate, endDate };
 };
@@ -39,7 +50,6 @@ const addDays = (date, days) => {
 };
 
 const formatDate = (date) => {
-  // Safe guard: avoid "Invalid time value"
   if (!(date instanceof Date) || isNaN(date.getTime())) return null;
   return date.toISOString().split("T")[0];
 };
@@ -61,12 +71,11 @@ const isDateInMonth = (dateStr, monthFilter) => {
   );
 };
 
-// Check if a date range (startDate–endDate) overlaps a given month (YYYY-MM)
 const doesRangeOverlapMonth = (startDate, endDate, monthStr) => {
   if (!monthStr || monthStr === "All") return true;
   const [year, month] = monthStr.split("-");
   const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
-  const monthEnd = new Date(parseInt(year), parseInt(month), 0); // last day of month
+  const monthEnd = new Date(parseInt(year), parseInt(month), 0);
   return startDate <= monthEnd && endDate >= monthStart;
 };
 
@@ -103,7 +112,6 @@ const AdminLeaveSummary = () => {
   const fetchHolidays = async () => {
     try {
       const data = await getHolidays();
-      // Optional: filter out invalid holidays
       const valid = data.filter((h) => {
         const start = new Date(h.startDate);
         const end = new Date(h.endDate);
@@ -158,7 +166,6 @@ const AdminLeaveSummary = () => {
     return Array.from(months).sort().reverse();
   }, [enrichedRequests]);
 
-  // --- Sandwich Leave Calculation ---
   const calculateEmployeeSandwichLeaves = (employeeLeaves, month) => {
     const approvedLeaves = employeeLeaves.filter(
       (leave) =>
@@ -172,7 +179,6 @@ const AdminLeaveSummary = () => {
       return { count: 0, days: 0 };
     }
 
-    // Collect all approved leave dates (across entire year, not only filtered month)
     const approvedLeaveDates = new Set();
     employeeLeaves
       .filter((leave) => leave.status === "Approved")
@@ -194,14 +200,12 @@ const AdminLeaveSummary = () => {
 
     const sandwichLeaves = new Map();
 
-    // --- Holiday-based Sandwich (Option 2: each holiday block counts as 2 days max) ---
     holidays.forEach((holiday) => {
       const start = new Date(holiday.startDate);
       const end = new Date(holiday.endDate);
 
       if (isNaN(start.getFullYear()) || isNaN(end.getFullYear())) return;
 
-      // Month filter: only consider holiday blocks that overlap the selected month
       if (month !== "All" && !doesRangeOverlapMonth(start, end, month)) return;
 
       const beforeDate = addDays(start, -1);
@@ -218,13 +222,11 @@ const AdminLeaveSummary = () => {
       if (hasBeforeLeave && hasAfterLeave) {
         const key = `holiday-${formatDate(start)}-${formatDate(end)}`;
         if (!sandwichLeaves.has(key)) {
-          // Option 2: fixed 2 days (1 before + 1 after), regardless of holiday length
           sandwichLeaves.set(key, { type: "holiday", days: 2 });
         }
       }
     });
 
-    // --- Weekend-based Sandwich (Saturday + Monday) ---
     approvedLeaveDates.forEach((dateStr) => {
       if (month !== "All" && !isDateInMonth(dateStr, month)) return;
 
@@ -232,13 +234,12 @@ const AdminLeaveSummary = () => {
       if (isNaN(date.getTime())) return;
 
       if (date.getDay() === 6) {
-        // Saturday
         const followingMonday = addDays(date, 2);
         const mondayStr = formatDate(followingMonday);
         if (mondayStr && approvedLeaveDates.has(mondayStr)) {
           const key = `weekend-${dateStr}`;
           if (!sandwichLeaves.has(key)) {
-            sandwichLeaves.set(key, { type: "weekend", days: 2 }); // Sat + Mon
+            sandwichLeaves.set(key, { type: "weekend", days: 2 });
           }
         }
       }
@@ -253,7 +254,6 @@ const AdminLeaveSummary = () => {
     return { count, days };
   };
 
-  // Detailed reasons per leave for sandwich detection
   const getSandwichLeaveReasons = (employeeId, leaveFrom, leaveTo) => {
     const reasons = [];
     const employeeLeaves = enrichedRequests.filter(
@@ -281,7 +281,6 @@ const AdminLeaveSummary = () => {
     const leaveCoversDate = (dateObj) =>
       dateObj >= leaveFromDate && dateObj <= leaveToDate;
 
-    // --- Holiday Sandwich Reasons (Option 2 semantics) ---
     holidays.forEach((holiday) => {
       const start = new Date(holiday.startDate);
       const end = new Date(holiday.endDate);
@@ -306,7 +305,6 @@ const AdminLeaveSummary = () => {
       }
     });
 
-    // --- Weekend Sandwich Reasons (Saturday + Monday) ---
     let currentDate = new Date(leaveFrom);
     const endDate = new Date(leaveTo);
     if (isNaN(currentDate.getTime()) || isNaN(endDate.getTime()))
@@ -317,7 +315,6 @@ const AdminLeaveSummary = () => {
       const dayOfWeek = currentDate.getDay();
 
       if (dayOfWeek === 6 && dateStr) {
-        // Saturday
         const followingMonday = addDays(currentDate, 2);
         const mondayStr = formatDate(followingMonday);
         const mondayInThisLeave =
@@ -343,32 +340,42 @@ const AdminLeaveSummary = () => {
     const stats = new Map();
     const uniqueEmployees = Array.from(employeesMap.entries());
 
-    // Use current calendar year for the iteration loop (Jan - Dec)
+    // --- UPDATED LOGIC: Use LEAVE_YEAR_START_MONTH ---
     const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonthIndex = today.getMonth(); // 0 = Jan, 11 = Dec
+    // Normalize "today" for calculation loop
+    const calculationEndDate = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    // Determine the start year based on the configured start month
+    let startYear = today.getFullYear();
+    if (today.getMonth() < LEAVE_YEAR_START_MONTH) {
+      startYear = startYear - 1;
+    }
 
     uniqueEmployees.forEach(([empId, empName]) => {
       const employeeLeaves = enrichedRequests.filter(
         (req) => req.employeeId === empId
       );
 
-      // --- NEW LOGIC: Monthly Accrual with specific Carry Forward Rules ---
       let runningPendingLeaves = 0;
 
-      // Iterate from January (0) to the current month
-      for (let m = 0; m <= currentMonthIndex; m++) {
+      // Start the loop from the configured Start Month/Year
+      let loopDate = new Date(startYear, LEAVE_YEAR_START_MONTH, 1);
+
+      // Iterate month by month until we pass the current month
+      while (loopDate <= calculationEndDate) {
+        const loopYear = loopDate.getFullYear();
+        const loopMonth = loopDate.getMonth();
+
         // 1. Give 1 assigned leave per month
         runningPendingLeaves += 1;
 
-        // 2. Calculate leaves approved & taken specifically in this month 'm' of current year
+        // 2. Calculate leaves Approved in this specific loop month
         const leavesInThisMonth = employeeLeaves.filter((leave) => {
           const leaveDate = new Date(leave.from);
-          // Check if leave is in current year, matching month 'm', and is Approved
           return (
             leave.status === "Approved" &&
-            leaveDate.getFullYear() === currentYear &&
-            leaveDate.getMonth() === m
+            leaveDate.getFullYear() === loopYear &&
+            leaveDate.getMonth() === loopMonth
           );
         });
 
@@ -384,6 +391,9 @@ const AdminLeaveSummary = () => {
         if (runningPendingLeaves < 0) {
           runningPendingLeaves = 0;
         }
+
+        // Move to next month
+        loopDate.setMonth(loopDate.getMonth() + 1);
       }
 
       // The final result after the loop is the current available pending leaves
@@ -401,13 +411,11 @@ const AdminLeaveSummary = () => {
         (leave) => leave.status === "Approved"
       );
 
-      // Calculate total approved *days*
       const totalLeaveDays = approvedLeaves.reduce(
         (total, leave) => total + calculateLeaveDays(leave.from, leave.to),
         0
       );
 
-      // Extra leaves are days beyond 1 in a month
       const extraLeaves = Math.max(0, totalLeaveDays - 1);
 
       const sandwichData = calculateEmployeeSandwichLeaves(
@@ -458,27 +466,6 @@ const AdminLeaveSummary = () => {
 
     return filtered;
   }, [employeeStats, searchQuery, sortConfig]);
-
-  const totals = useMemo(
-    () =>
-      filteredEmployeeStats.reduce(
-        (acc, emp) => ({
-          pendingLeaves: acc.pendingLeaves + emp.pendingLeaves,
-          totalLeaveDays: acc.totalLeaveDays + emp.totalLeaveDays,
-          extraLeaves: acc.extraLeaves + emp.extraLeaves,
-          sandwichLeavesCount: acc.sandwichLeavesCount + emp.sandwichLeavesCount,
-          sandwichLeavesDays: acc.sandwichLeavesDays + emp.sandwichLeavesDays,
-        }),
-        {
-          pendingLeaves: 0,
-          totalLeaveDays: 0,
-          extraLeaves: 0,
-          sandwichLeavesCount: 0,
-          sandwichLeavesDays: 0,
-        }
-      ),
-    [filteredEmployeeStats]
-  );
 
   const handleSort = (key) => {
     setSortConfig((prev) => ({
@@ -873,7 +860,6 @@ const AdminLeaveSummary = () => {
                 <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
                 <span>
                   <strong>Pending Leaves:</strong> Remaining leaves for the year
-                  (Jan-Dec)
                 </span>
               </div>
               <div className="flex items-center">

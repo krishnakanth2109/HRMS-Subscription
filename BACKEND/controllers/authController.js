@@ -18,18 +18,30 @@ export const login = async (req, res, next) => {
   }
 
   try {
+    // 1. Check Admin
     let user = await Admin.findOne({ email }).select("+password");
     let role = "admin";
 
+    // 2. Check Employee if not Admin
     if (!user) {
       user = await Employee.findOne({ email }).select("+password");
       role = "employee";
     }
 
+    // 3. Verify User and Password
     if (!user || !(await user.correctPassword(password, user.password))) {
       return res.status(401).json({ message: "Incorrect email or password." });
     }
 
+    // ✅ 4. CHECK IF ACCOUNT IS DEACTIVATED
+    // Logic: If user is an employee and isActive is false
+    if (role === "employee" && user.isActive === false) {
+      return res.status(403).json({ 
+        message: "Your account is Deactivate please contact supprt team" 
+      });
+    }
+
+    // 5. Generate Token
     const token = signToken(user._id);
     user.password = undefined;
 
@@ -44,7 +56,7 @@ export const login = async (req, res, next) => {
   }
 };
 
-// This middleware is critical for securing your user-specific routes
+// Protect Middleware
 export const protect = async (req, res, next) => {
   let token;
   if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
@@ -66,11 +78,16 @@ export const protect = async (req, res, next) => {
     if (!currentUser) {
         return res.status(401).json({ message: "The user belonging to this token no longer exists." });
     }
+    
+    // Optional: Check if user was deactivated while logged in
+    if (currentUser.isActive === false) {
+       return res.status(401).json({ message: "User is deactivated." });
+    }
 
-    // Attach the full user object to the request for use in subsequent controllers
     req.user = currentUser;
     next();
   } catch (error) {
     return res.status(401).json({ message: "Invalid token. Please log in again." });
   }
 };
+// --- END OF FILE controllers/authController.js ---

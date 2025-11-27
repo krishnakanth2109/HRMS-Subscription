@@ -3,19 +3,18 @@
 import express from "express";
 import Employee from "../models/employeeModel.js";
 import Notification from "../models/notificationModel.js";
-import { upload } from "../config/cloudinary.js"; // ✅ Import Cloudinary config
+import { upload } from "../config/cloudinary.js"; 
 
 const router = express.Router();
 
 // ============================================================================
-// 📂 1. FILE UPLOAD ROUTE (NEW - For Documents)
+// 📂 1. FILE UPLOAD ROUTE
 // ============================================================================
 router.post("/upload-doc", upload.single("file"), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
-    // Cloudinary automatically returns the secure URL in req.file.path
     res.status(200).json({ url: req.file.path });
   } catch (error) {
     console.error("Upload error:", error);
@@ -81,38 +80,55 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Employee.findOneAndDelete({ employeeId: req.params.id });
-
     if (!deleted) return res.status(404).json({ message: "Employee not found" });
-
     res.status(200).json({ message: "Employee deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DEACTIVATE employee
-router.patch("/deactivate/:id", async (req, res) => {
+// ✅ DEACTIVATE employee
+router.patch("/:id/deactivate", async (req, res) => {
   const { endDate, reason } = req.body;
   try {
     const emp = await Employee.findOneAndUpdate(
       { employeeId: req.params.id },
-      { isActive: false, endDate, reason },
+      { 
+        isActive: false, 
+        status: "Inactive", 
+        deactivationDate: endDate, 
+        deactivationReason: reason 
+      },
       { new: true }
     );
+
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+
     res.json(emp);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// REACTIVATE employee
-router.patch("/reactivate/:id", async (req, res) => {
+// ✅ REACTIVATE employee (Updated to store Date & Reason)
+router.patch("/:id/reactivate", async (req, res) => {
+  const { date, reason } = req.body; // Capture data from frontend
   try {
     const emp = await Employee.findOneAndUpdate(
       { employeeId: req.params.id },
-      { isActive: true, endDate: "", reason: "" },
+      { 
+        isActive: true, 
+        status: "Active", 
+        reactivationDate: date,   // Store in DB
+        reactivationReason: reason, // Store in DB
+        // Optionally keep deactivation history, or clear it. 
+        // Here we keep deactivation history but change status.
+      },
       { new: true }
     );
+
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+
     res.json(emp);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122,7 +138,7 @@ router.patch("/reactivate/:id", async (req, res) => {
 
 /*  
 ==========================================================
- 🔥 FINAL IDLE DETECTION ROUTE — FULLY FIXED
+ 🔥 IDLE DETECTION ROUTE
 ==========================================================
 */
 router.post("/idle-activity", async (req, res) => {
@@ -131,32 +147,25 @@ router.post("/idle-activity", async (req, res) => {
 
     console.log("📥 Idle Activity:", req.body);
 
-    // 1️⃣ Build message
     const msg = `${name} (${employeeId}) from ${department} is idle since ${new Date(
       lastActiveAt
     ).toLocaleTimeString()}.`;
 
-    // 2️⃣ Save notification to DB (MATCHES YOUR MODEL)
     const notification = await Notification.create({
-      userId: "admin",              // Admin receives notification
-      title: "Employee Idle Alert", // REQUIRED
-      message: msg,                 // REQUIRED
-      type: "attendance",           // ✔ Valid enum value
+      userId: "admin",
+      title: "Employee Idle Alert",
+      message: msg,
+      type: "attendance",
       isRead: false
     });
 
-    // 3️⃣ Socket emit
     const io = req.app.get("io");
     const userSocketMap = req.app.get("userSocketMap");
-
     const adminSocket = userSocketMap.get("admin");
 
     if (adminSocket) {
       io.to(adminSocket).emit("admin-notification", notification);
-      console.log("📢 Idle Alert sent → Admin Socket:", adminSocket);
-    } else {
-      console.log("⚠️ No admin socket connected");
-    }
+    } 
 
     res.json({ success: true, notification });
 

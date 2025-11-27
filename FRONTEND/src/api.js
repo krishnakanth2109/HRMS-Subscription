@@ -15,7 +15,7 @@ console.log("🌐 API Base URL:", baseURL);
 // Create a single, consistent Axios instance
 const api = axios.create({
   baseURL,
-  timeout: 500000, // Extended timeout for large requests
+  timeout: 500000, 
   headers: { "Content-Type": "application/json" },
 });
 
@@ -51,13 +51,18 @@ export const getEmployees = async () => (await api.get("/api/employees")).data;
 export const getEmployeeById = async (id) => (await api.get(`/api/employees/${id}`)).data;
 export const addEmployee = async (data) => (await api.post("/api/employees", data)).data;
 export const updateEmployeeById = async (id, data) => (await api.put(`/api/employees/${id}`, data)).data;
-export const deactivateEmployeeById = async (id, data) => (await api.patch(`/api/employees/${id}/deactivate`, data)).data;
-export const activateEmployeeById = async (id) => (await api.patch(`/api/employees/${id}/activate`)).data;
+
+// Deactivate
+export const deactivateEmployeeById = async (id, data) => 
+  (await api.patch(`/api/employees/${id}/deactivate`, data)).data;
+
+// ✅ Reactivate (Now accepts data for date/reason)
+export const activateEmployeeById = async (id, data) => 
+  (await api.patch(`/api/employees/${id}/reactivate`, data)).data;
 
 /* ============================================================================
    IDLE TIME TRACKING
 ============================================================================ */
-// For Employee: Send idle activity (start/end)
 export const sendIdleActivity = async (data) => {
   try {
     const response = await api.post("/idletime", data); 
@@ -68,7 +73,6 @@ export const sendIdleActivity = async (data) => {
   }
 };
 
-// For Admin: Get all idle records (Legacy route)
 export const getAllIdleTimeRecords = async () => {
   try {
     const res = await api.get("/idletime/all"); 
@@ -151,7 +155,6 @@ export const getAttendanceByDateRange = async (startDate, endDate) =>
 export const punchIn = async (data) => (await api.post("/api/attendance/punch-in", data)).data;
 export const punchOut = async (data) => (await api.post("/api/attendance/punch-out", data)).data;
 
-// ✅ NEW: Fetch ALL attendance records for Admin Dashboard (Idle Tracking)
 export const getAllAttendanceRecords = async () => {
   try {
     const response = await api.get("/api/attendance/all");
@@ -225,7 +228,7 @@ export const getAllProfiles = async () => {
 };
 
 /* ============================================================================
-   SHIFT MANAGEMENT (FINAL & FIXED)
+   SHIFT MANAGEMENT
 ============================================================================ */
 export const getAllShifts = async () =>
   (await api.get("/api/shifts/all")).data;
@@ -246,10 +249,6 @@ export const createOrUpdateShift = async (shiftData) =>
 export const deleteShift = async (employeeId) =>
   (await api.delete(`/api/shifts/${employeeId}`)).data;
 
-/*  
-  ✔ FIXED: Proper structure for backend bulk-create
-  ✔ Backend expects employeeIds[], shiftData{}, category
-*/
 export const bulkCreateShifts = async (employeeIds, shiftData, category) =>
   (await api.post("/api/shifts/bulk-create", {
     employeeIds,
@@ -274,13 +273,8 @@ export const updateEmployeeCategory = async (employeeId, category) => {
   }
 };
 
-
-
-
-
-
 /* ============================================================================
-   CATEGORY MANAGEMENT (Backend Driven)
+   CATEGORY MANAGEMENT
 ============================================================================ */
 export const getCategories = async () => {
   try {
@@ -312,9 +306,6 @@ export const deleteCategoryApi = async (id) => {
   }
 };
 
-
-
-
 export const addMemberToShift = async (category, employee) => {
   try {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/shifts/add-member`, {
@@ -336,10 +327,5 @@ export const addMemberToShift = async (category, employee) => {
   }
 };
 
-
-
-
-
-
-// Export default for backward compatibility with components using `api.get()` directly
 export default api;
+// --- END OF FILE api.js ---

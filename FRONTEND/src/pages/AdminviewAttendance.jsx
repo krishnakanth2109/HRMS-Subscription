@@ -1,27 +1,26 @@
-// --- START OF FILE AdminviewAttendance.jsx ---
-
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
-import axios from "axios"; 
 import { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees, getAllShifts } from "../api"; 
-import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaEdit } from "react-icons/fa";
+import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash } from "react-icons/fa";
 
-// ✅ HELPER: Calculate Shift Duration
+// ✅ HELPER: Calculate Shift Duration in Hours (Handles overnight shifts)
 const getShiftDurationInHours = (startTime, endTime) => {
-  if (!startTime || !endTime) return 9; 
+  if (!startTime || !endTime) return 9; // Default to 9 hours if undefined
   
   const [startH, startM] = startTime.split(':').map(Number);
   const [endH, endM] = endTime.split(':').map(Number);
 
   let diffMinutes = (endH * 60 + endM) - (startH * 60 + startM);
   if (diffMinutes < 0) {
-      diffMinutes += 24 * 60; 
+      diffMinutes += 24 * 60; // Handle overnight (e.g., 10 PM to 6 AM)
   }
+  
+  // Return formatted number (e.g. 9 or 8.5)
   return Math.round((diffMinutes / 60) * 10) / 10;
 };
 
-// ✅ HELPER: Convert Decimal Hours
+// ✅ HELPER: Convert Decimal Hours to "Xh Ym" format (e.g., 8.5 -> 8h 30m)
 const formatDecimalHours = (decimalHours) => {
   if (decimalHours === undefined || decimalHours === null || isNaN(decimalHours)) return "--";
   const hours = Math.floor(decimalHours);
@@ -30,27 +29,32 @@ const formatDecimalHours = (decimalHours) => {
   return `${hours}h ${minutes}m`;
 };
 
-// ✅ HELPER: Dynamic Worked Status
+// ✅ HELPER: Dynamic Worked Status based on Employee's specific Shift Hours
 const getWorkedStatus = (punchIn, punchOut, apiStatus, targetWorkHours) => {
   if (apiStatus === "ABSENT") return "Absent";
-  if (punchIn && !punchOut) return "Working..";
+  
+  // If actively working
+  if (punchIn && !punchOut) {
+    return "Working..";
+  }
+
+  // If missing punches
   if (!punchIn || !punchOut) return "Absent";
 
   const workedMilliseconds = new Date(punchOut) - new Date(punchIn);
   const workedHours = workedMilliseconds / (1000 * 60 * 60);
 
+  // Dynamic Logic based on individual shift
   if (workedHours >= targetWorkHours) return "Full Day";
   if (workedHours > 5) return "Half Day";
+  
   return "Absent(<5)";
 };
 
-// Location Button
+// Location Button Component
 const LocationViewButton = ({ location }) => {
-  if (!location || (!location.latitude && !location.address)) {
+  if (!location || !location.latitude || !location.longitude) {
     return <span className="text-slate-400">--</span>;
-  }
-  if (location.address === "Admin Manual Action") {
-    return <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-1 rounded">Admin Action</span>;
   }
   const mapUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
   return (
@@ -60,7 +64,7 @@ const LocationViewButton = ({ location }) => {
   );
 };
 
-// ✅ HELPER: Login Status
+// ✅ HELPER: Calculate Login Status (LATE / ON_TIME)
 const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
   if (!punchInTime) return "--";
   if (apiStatus === "LATE") return "LATE";
@@ -69,12 +73,16 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
     try {
       const punchDate = new Date(punchInTime);
       const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number);
+      
       const shiftDate = new Date(punchDate);
       shiftDate.setHours(sHour, sMin, 0, 0);
+      
       const grace = shiftData.lateGracePeriod || 15;
       shiftDate.setMinutes(shiftDate.getMinutes() + grace);
 
-      if (punchDate > shiftDate) return "LATE";
+      if (punchDate > shiftDate) {
+        return "LATE";
+      }
     } catch (e) {
       console.error("Date calc error", e);
     }
@@ -82,77 +90,24 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
   return "ON_TIME";
 };
 
-// Admin Manual Punch Out Modal
-const AdminPunchOutModal = ({ isOpen, onClose, employee, onConfirm }) => {
-  const [punchOutTime, setPunchOutTime] = useState("");
-
-  useEffect(() => {
-    if (isOpen && employee) {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      setPunchOutTime(now.toISOString().slice(0, 16));
-    }
-  }, [isOpen, employee]);
-
-  if (!isOpen || !employee) return null;
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onConfirm(punchOutTime);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-xl">
-          <h3 className="text-lg font-bold text-slate-800">Admin Punch Out</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-800"><FaTimes /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-             <p className="text-sm text-blue-800 font-semibold">Employee: {employee.employeeName}</p>
-             <p className="text-xs text-blue-600 mt-1">Date: {new Date(employee.date).toDateString()}</p>
-             <p className="text-xs text-blue-600">Punch In: {new Date(employee.punchIn).toLocaleTimeString()}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Select Punch Out Time</label>
-            <input 
-              type="datetime-local" 
-              required
-              className="w-full border border-slate-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
-              value={punchOutTime}
-              onChange={(e) => setPunchOutTime(e.target.value)}
-            />
-            <p className="text-xs text-slate-500 mt-2">
-              Note: This will calculate working hours based on the selected time and update the status automatically. Location will be marked as "Admin Manual Action".
-            </p>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-             <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg">Cancel</button>
-             <button type="submit" className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md flex items-center gap-2">
-               <FaSignOutAlt /> Confirm Punch Out
-             </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 // Attendance Detail Modal
 const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => {
   if (!isOpen || !employeeData) return null;
   const sortedRecords = [...employeeData.records].sort((a, b) => new Date(b.date) - new Date(a.date));
   const shift = shiftsMap[employeeData.employeeId];
+  
+  // Calculate Shift Hours for this employee
   const shiftHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
 
   const downloadIndividualReport = () => {
     if (sortedRecords.length === 0) return;
     const fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
     const fileExtension = ".xlsx";
+    
     const formattedData = sortedRecords.map(item => {
         const realStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
         const dynamicWorkedStatus = getWorkedStatus(item.punchIn, item.punchOut, item.status, shiftHours);
+
         return {
             "Date": new Date(item.date).toLocaleDateString(),
             "Punch In": item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--",
@@ -163,6 +118,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => 
             "Worked Status": dynamicWorkedStatus
         };
     });
+
     const ws = XLSX.utils.json_to_sheet(formattedData);
     const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -188,6 +144,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => 
                 const realStatus = calculateLoginStatus(record.punchIn, shift, record.loginStatus);
                 const dynamicWorkedStatus = getWorkedStatus(record.punchIn, record.punchOut, record.status, shiftHours);
                 const isAbsent = record.status === "ABSENT" || dynamicWorkedStatus.includes("Absent");
+                
                 return (
                 <tr key={idx} className={`hover:bg-slate-50 ${isAbsent ? "bg-red-50" : ""}`}>
                   <td className="px-4 py-3 font-semibold text-slate-700">{new Date(record.date).toLocaleDateString()}</td>
@@ -207,7 +164,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => 
   );
 };
 
-// Generic Status List Modal
+// ✅ Generic Status List Modal (Used for Working, Completed, and Absent)
 const StatusListModal = ({ isOpen, onClose, title, employees }) => {
   if (!isOpen) return null;
   return (
@@ -229,6 +186,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
                         <p className="text-sm text-slate-500 font-mono">{emp.employeeId}</p>
                     </div>
                 </div>
+                {/* Optional Status Badge */}
                 {emp.displayLoginStatus && <span className={`text-xs px-2 py-1 rounded-full ${emp.displayLoginStatus === 'LATE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{emp.displayLoginStatus}</span>}
             </li>
           ))}</ul>) : (<p className="text-center text-slate-500 py-8">No employees in this category.</p>)}
@@ -238,7 +196,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
   );
 };
 
-// Pagination
+// Pagination Component
 const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setItemsPerPage }) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -258,28 +216,29 @@ const AdminAttendance = () => {
   const todayISO = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState(todayISO);
   const [endDate, setEndDate] = useState(todayISO);
-  const [rawDailyData, setRawDailyData] = useState([]); 
+  const [rawDailyData, setRawDailyData] = useState([]); // Store raw API response
   const [loading, setLoading] = useState(true);
   const [allEmployees, setAllEmployees] = useState([]);
   const [summaryStartDate, setSummaryStartDate] = useState(new Date(new Date().setDate(1)).toISOString().split("T")[0]);
   const [summaryEndDate, setSummaryEndDate] = useState(todayISO);
-  const [rawSummaryData, setRawSummaryData] = useState([]); 
+  const [rawSummaryData, setRawSummaryData] = useState([]); // Store raw summary response
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [overtimeData, setOvertimeData] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   
-  // ✅ States for Admin Punch Out
-  const [punchOutModalOpen, setPunchOutModalOpen] = useState(false);
-  const [punchOutTarget, setPunchOutTarget] = useState(null);
-  
+  // ✅ New State for Status List Modal
   const [statusListModal, setStatusListModal] = useState({ isOpen: false, title: "", employees: [] });
+
+  // Shifts Map to store employee-specific shift details
   const [shiftsMap, setShiftsMap] = useState({});
+
   const [dailyCurrentPage, setDailyCurrentPage] = useState(1);
   const [dailyItemsPerPage, setDailyItemsPerPage] = useState(10);
   const [summaryCurrentPage, setSummaryCurrentPage] = useState(1);
   const [summaryItemsPerPage, setSummaryItemsPerPage] = useState(10);
 
+  // ✅ 1. Fetch Shifts and map them by Employee ID
   const fetchShifts = useCallback(async () => {
     try {
       const response = await getAllShifts();
@@ -296,32 +255,43 @@ const AdminAttendance = () => {
 
   const fetchAllEmployees = useCallback(async () => { try { const data = await getEmployees(); setAllEmployees(data.filter(emp => emp.isActive !== false)); } catch (error) { console.error("Error fetching all employees:", error); setAllEmployees([]); } }, []);
   const fetchOvertimeData = useCallback(async () => { try { const data = await getAllOvertimeRequests(); setOvertimeData(data); } catch (error) { console.error("Error fetching overtime data:", error); setOvertimeData([]); } }, []);
+  
+  // Fetch Raw Daily Data
   const fetchDailyData = useCallback(async (start, end) => { setLoading(true); try { const data = await getAttendanceByDateRange(start, end); setRawDailyData(Array.isArray(data) ? data : []); } catch (error) { console.error("Error fetching daily attendance data:", error); setRawDailyData([]); } finally { setLoading(false); } }, []);
+  
+  // Fetch Raw Summary Data
   const fetchSummaryData = useCallback(async (start, end) => { setSummaryLoading(true); try { const data = await getAttendanceByDateRange(start, end); setRawSummaryData(Array.isArray(data) ? data : []); } catch (error) { console.error("Error fetching summary attendance data:", error); setRawSummaryData([]); } finally { setSummaryLoading(false); } }, []);
 
-  useEffect(() => { fetchShifts(); fetchDailyData(startDate, endDate); }, [startDate, endDate, fetchDailyData, fetchShifts]);
+  useEffect(() => { 
+    fetchShifts();
+    fetchDailyData(startDate, endDate); 
+  }, [startDate, endDate, fetchDailyData, fetchShifts]);
+
   useEffect(() => { fetchAllEmployees(); fetchSummaryData(summaryStartDate, summaryEndDate); fetchOvertimeData(); }, [summaryStartDate, summaryEndDate, fetchSummaryData, fetchOvertimeData, fetchAllEmployees]);
 
+  // ✅ Process Daily Data dynamically
   const processedDailyData = useMemo(() => {
     return rawDailyData.map(item => {
         const shift = shiftsMap[item.employeeId];
         const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
+        
         return {
             ...item,
-            assignedHours: targetHours,
+            assignedHours: targetHours, // Store for table
             workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours),
             displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
         };
     });
   }, [rawDailyData, shiftsMap]);
 
+  // ✅ Process Summary Data dynamically
   const processedSummaryData = useMemo(() => {
     return rawSummaryData.map(item => {
         const shift = shiftsMap[item.employeeId];
         const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
         return {
             ...item,
-            assignedHours: targetHours,
+            assignedHours: targetHours, // Store for summary
             workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours),
             displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
         };
@@ -334,27 +304,45 @@ const AdminAttendance = () => {
     return allEmployees.filter(emp => !presentEmployeeIds.has(emp.employeeId));
   }, [allEmployees, processedDailyData, loading, startDate, endDate]);
 
+  // ✅ Calculate specific lists for Modal
   const dailyStats = useMemo(() => {
       const working = processedDailyData.filter(item => item.punchIn && !item.punchOut);
       const completed = processedDailyData.filter(item => item.punchIn && item.punchOut);
-      return { workingList: working, workingCount: working.length, completedList: completed, completedCount: completed.length, absentCount: startDate === endDate ? absentEmployees.length : 0 };
+      return {
+          workingList: working,
+          workingCount: working.length,
+          completedList: completed,
+          completedCount: completed.length,
+          absentCount: startDate === endDate ? absentEmployees.length : 0,
+      };
   }, [processedDailyData, absentEmployees, startDate, endDate]);
 
+  // Summary Stats Logic
   const employeeSummaryStats = useMemo(() => {
     if (!processedSummaryData.length) return [];
     const approvedOTCounts = overtimeData.reduce((acc, ot) => { if (ot.status === 'APPROVED') { acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1; } return acc; }, {});
+    
     const summary = processedSummaryData.reduce((acc, record) => {
       if (!acc[record.employeeId]) { 
-          acc[record.employeeId] = { employeeId: record.employeeId, employeeName: record.employeeName, assignedHours: record.assignedHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0 }; 
+          acc[record.employeeId] = { 
+              employeeId: record.employeeId, 
+              employeeName: record.employeeName, 
+              assignedHours: record.assignedHours, // Capture assigned hours
+              presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, 
+          }; 
       }
       const empRec = acc[record.employeeId];
+      
       if (record.punchIn) { 
           empRec.presentDays++;
-          if (record.displayLoginStatus === 'LATE') empRec.lateDays++; else empRec.onTimeDays++; 
+          if (record.displayLoginStatus === 'LATE') empRec.lateDays++; 
+          else empRec.onTimeDays++; 
       }
+
       if (record.workedStatus === "Full Day") empRec.fullDays++; 
       else if (record.workedStatus === "Half Day") empRec.halfDays++; 
       else if (record.status === "ABSENT" || record.workedStatus.includes("Absent")) empRec.absentDays++;
+
       return acc;
     }, {});
     return Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 })).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
@@ -363,65 +351,53 @@ const AdminAttendance = () => {
   const paginatedDailyData = useMemo(() => processedDailyData.slice((dailyCurrentPage - 1) * dailyItemsPerPage, dailyCurrentPage * dailyItemsPerPage), [processedDailyData, dailyCurrentPage, dailyItemsPerPage]);
   const paginatedSummaryData = useMemo(() => employeeSummaryStats.slice((summaryCurrentPage - 1) * summaryItemsPerPage, summaryCurrentPage * summaryItemsPerPage), [employeeSummaryStats, summaryCurrentPage, summaryItemsPerPage]);
 
-  const exportDailyLogToExcel = () => {
-      if (processedDailyData.length === 0) { alert("No data to export."); return; }
-      const fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-      const fileExtension = ".xlsx";
-      const formattedData = processedDailyData.map(item => ({
-        "Employee Name": item.employeeName, "Employee ID": item.employeeId, "Date": new Date(item.date).toLocaleDateString(),
-        "Punch In": item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--", "Punch Out": item.punchOut ? new Date(item.punchOut).toLocaleTimeString() : "--",
-        "Assigned Work Hours": formatDecimalHours(item.assignedHours), "Duration": item.displayTime || "0h 0m", "Login Status": item.displayLoginStatus, "Worked Status": item.workedStatus, "Status": item.punchOut ? "Completed" : "Working"
-      }));
-      const ws = XLSX.utils.json_to_sheet(formattedData);
-      const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
-      const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      FileSaver.saveAs(new Blob([excelBuffer], { type: fileType }), `Daily_Log_${startDate}_to_${endDate}${fileExtension}`);
+  const exportToExcel = (data, fileName, fields) => {
+    if (data.length === 0) { alert("No data to export."); return; }
+    const fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
+    const fileExtension = ".xlsx";
+    const formattedData = data.map(item => fields.reduce((obj, field) => { obj[field.label] = field.value(item); return obj; }, {}));
+    const ws = XLSX.utils.json_to_sheet(formattedData);
+    const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
+    const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    FileSaver.saveAs(new Blob([excelBuffer], { type: fileType }), `${fileName}${fileExtension}`);
   };
 
-  const exportSummaryToExcel = () => {
-      if (employeeSummaryStats.length === 0) { alert("No data to export."); return; }
-      const fileType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-      const fileExtension = ".xlsx";
-      const formattedData = employeeSummaryStats.map(item => ({
-        "Employee ID": item.employeeId, "Employee Name": item.employeeName, "Assigned Work Hours": formatDecimalHours(item.assignedHours),
-        "Present Days": item.presentDays, "On-Time Days": item.onTimeDays, "Late Days": item.lateDays, "Approved OT": item.approvedOT, "Full Days": item.fullDays, "Half Days": item.halfDays, "Absent Days": item.absentDays,
-      }));
-      const ws = XLSX.utils.json_to_sheet(formattedData);
-      const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
-      const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      FileSaver.saveAs(new Blob([excelBuffer], { type: fileType }), `Attendance_Summary_${summaryStartDate}_to_${summaryEndDate}${fileExtension}`);
-  };
+  const exportDailyLogToExcel = () => exportToExcel(processedDailyData, `Daily_Log_${startDate}_to_${endDate}`, [
+    { label: "Employee Name", value: item => item.employeeName }, 
+    { label: "Employee ID", value: item => item.employeeId }, 
+    { label: "Date", value: item => new Date(item.date).toLocaleDateString() },
+    { label: "Punch In", value: item => item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" }, 
+    { label: "Punch Out", value: item => item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" }, 
+    { label: "Assigned Work Hours", value: item => formatDecimalHours(item.assignedHours) }, // ✅ Formatted
+    { label: "Duration", value: item => item.displayTime || "0h 0m" }, 
+    { label: "Login Status", value: item => item.displayLoginStatus }, 
+    { label: "Worked Status", value: item => item.workedStatus }, 
+    { label: "Status", value: item => item.punchOut ? "Completed" : "Working" },
+  ]);
+
+  const exportSummaryToExcel = () => exportToExcel(employeeSummaryStats, `Attendance_Summary_${summaryStartDate}_to_${summaryEndDate}`, [
+    { label: "Employee ID", value: item => item.employeeId }, 
+    { label: "Employee Name", value: item => item.employeeName }, 
+    { label: "Assigned Work Hours", value: item => formatDecimalHours(item.assignedHours) }, // ✅ Formatted
+    { label: "Present Days", value: item => item.presentDays },
+    { label: "On-Time Days", value: item => item.onTimeDays }, 
+    { label: "Late Days", value: item => item.lateDays }, 
+    { label: "Approved OT", value: item => item.approvedOT },
+    { label: "Full Days", value: item => item.fullDays }, 
+    { label: "Half Days", value: item => item.halfDays }, 
+    { label: "Absent Days", value: item => item.absentDays },
+  ]);
 
   const handleViewDetails = (employeeId, employeeName) => { const records = rawSummaryData.filter(r => r.employeeId === employeeId); setSelectedEmployee({ name: employeeName, records, employeeId }); setIsModalOpen(true); };
   
+  // ✅ Handler for Stat Cards
   const handleOpenStatusModal = (type) => {
-      if (type === 'WORKING') setStatusListModal({ isOpen: true, title: "Currently Working", employees: dailyStats.workingList });
-      else if (type === 'COMPLETED') setStatusListModal({ isOpen: true, title: "Shift Completed", employees: dailyStats.completedList });
-      else if (type === 'ABSENT' && startDate === endDate) setStatusListModal({ isOpen: true, title: "Not Logged In", employees: absentEmployees });
-  };
-
-  const initiateAdminPunchOut = (employeeRecord) => { setPunchOutTarget(employeeRecord); setPunchOutModalOpen(true); };
-
-  // ✅ Updated to use POST (Fixed CORS Issue)
-  const handleAdminPunchOutConfirm = async (punchOutTime) => {
-      if(!punchOutTarget) return;
-      try {
-          const payload = {
-              employeeId: punchOutTarget.employeeId,
-              date: punchOutTarget.date,
-              punchOutTime: new Date(punchOutTime).toISOString()
-          };
-          
-          // Using POST instead of PUT to avoid strict CORS preflight issues
-          await axios.post("https://hr-management-1-b258.onrender.com/api/attendance/admin-punch-out", payload); 
-          
-          alert("Punch Out successful!");
-          setPunchOutModalOpen(false);
-          setPunchOutTarget(null);
-          fetchDailyData(startDate, endDate);
-      } catch (error) {
-          console.error("Admin Punch Out Error:", error);
-          alert(error.response?.data?.message || "Failed to punch out employee.");
+      if (type === 'WORKING') {
+          setStatusListModal({ isOpen: true, title: "Currently Working", employees: dailyStats.workingList });
+      } else if (type === 'COMPLETED') {
+          setStatusListModal({ isOpen: true, title: "Shift Completed", employees: dailyStats.completedList });
+      } else if (type === 'ABSENT' && startDate === endDate) {
+          setStatusListModal({ isOpen: true, title: "Not Logged In", employees: absentEmployees });
       }
   };
 
@@ -430,6 +406,7 @@ const AdminAttendance = () => {
   return (
     <div className="p-4 md:p-8 bg-slate-100 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
+        {/* Daily Log Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -442,9 +419,29 @@ const AdminAttendance = () => {
             </div>
           </div>
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
-            <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" onClick={() => handleOpenStatusModal('WORKING')} />
-            <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" onClick={() => handleOpenStatusModal('COMPLETED')}/>
-            {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-3xl"/>} title="Not Logged In" value={loading ? '...' : dailyStats.absentCount} colorClass="border-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />)}
+            <StatCard 
+                icon={<FaClock className="text-orange-500 text-3xl"/>} 
+                title="Currently Working" 
+                value={dailyStats.workingCount} 
+                colorClass="border-orange-500"
+                onClick={() => handleOpenStatusModal('WORKING')} 
+            />
+            <StatCard 
+                icon={<FaCheckCircle className="text-green-500 text-3xl"/>} 
+                title="Shift Completed" 
+                value={dailyStats.completedCount} 
+                colorClass="border-green-500" 
+                onClick={() => handleOpenStatusModal('COMPLETED')}
+            />
+            {startDate === endDate && (
+                <StatCard 
+                    icon={<FaUserSlash className="text-red-500 text-3xl"/>} 
+                    title="Not Logged In" 
+                    value={loading ? '...' : dailyStats.absentCount} 
+                    colorClass="border-red-500" 
+                    onClick={() => handleOpenStatusModal('ABSENT')} 
+                />
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -456,18 +453,17 @@ const AdminAttendance = () => {
                       <th className="px-6 py-4 text-left font-semibold">In Location</th>
                       <th className="px-6 py-4 text-left font-semibold">Punch Out</th>
                       <th className="px-6 py-4 text-left font-semibold">Out Location</th>
-                      <th className="px-6 py-4 text-left font-semibold">Work Hrs</th>
+                      <th className="px-6 py-4 text-left font-semibold">Work Hrs</th> {/* ✅ Added */}
                       <th className="px-6 py-4 text-left font-semibold">Duration</th>
                       <th className="px-6 py-4 text-left font-semibold">Login Status</th>
                       <th className="px-6 py-4 text-left font-semibold">Worked Status</th>
-                      <th className="px-6 py-4 text-center font-semibold">Actions</th>
+                      <th className="px-6 py-4 text-left font-semibold">Status</th>
                   </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {loading ? (<tr><td colSpan="11" className="text-center p-10 text-slate-500 font-medium">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="11" className="text-center p-10 text-slate-500">No records found for this date range.</td></tr>) : (
                   paginatedDailyData.map((item, idx) => {
                     const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
-                    const canPunchOut = item.punchIn && !item.punchOut; 
                     return (
                     <tr key={item._id || idx} className={`hover:bg-blue-50/60 transition-colors ${isAbsent ? "bg-red-50" : ""}`}>
                       <td className="px-6 py-4 whitespace-nowrap"><div className="font-semibold text-slate-800">{item.employeeName}</div><div className="text-slate-500 font-mono text-xs">{item.employeeId}</div></td>
@@ -476,19 +472,15 @@ const AdminAttendance = () => {
                       <td className="px-6 py-4"><LocationViewButton location={item.punchInLocation} /></td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-red-600">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
                       <td className="px-6 py-4"><LocationViewButton location={item.punchOutLocation} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-600">{formatDecimalHours(item.assignedHours)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-600">{formatDecimalHours(item.assignedHours)}</td> {/* ✅ Formatted */}
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">{item.displayTime || "0h 0m"}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.displayLoginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{item.displayLoginStatus}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{item.workedStatus}</span>
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>
+                              {item.workedStatus}
+                          </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {canPunchOut ? (
-                            <button onClick={() => initiateAdminPunchOut(item)} className="bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1 transition mx-auto border border-red-200" title="Admin Force Punch Out"><FaSignOutAlt /> Punch Out</button>
-                        ) : item.punchOut ? (
-                            <span className="text-green-600 font-bold text-xs flex items-center justify-center gap-1"><FaCheckCircle/> Done</span>
-                        ) : (<span className="text-slate-400 text-xs">--</span>)}
-                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${item.punchOut ? "bg-slate-100 text-slate-600" : isAbsent ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700 animate-pulse"}`}>{item.punchOut ? "Completed" : isAbsent ? "Absent" : "Working"}</span></td>
                     </tr>
                   )}))}
               </tbody>
@@ -496,6 +488,8 @@ const AdminAttendance = () => {
           </div>
           <Pagination totalItems={processedDailyData.length} itemsPerPage={dailyItemsPerPage} currentPage={dailyCurrentPage} onPageChange={setDailyCurrentPage} setItemsPerPage={setDailyItemsPerPage} />
         </div>
+
+        {/* Summary Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -512,7 +506,7 @@ const AdminAttendance = () => {
               <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider">
                   <tr>
                       <th className="px-6 py-4 text-left font-semibold">Employee</th>
-                      <th className="px-6 py-4 text-center font-semibold">Assigned Hrs</th>
+                      <th className="px-6 py-4 text-center font-semibold">Assigned Hrs</th> {/* ✅ Added */}
                       <th className="px-6 py-4 text-center font-semibold">Present</th>
                       <th className="px-6 py-4 text-center font-semibold">On Time</th>
                       <th className="px-6 py-4 text-center font-semibold">Late</th>
@@ -528,7 +522,7 @@ const AdminAttendance = () => {
                   paginatedSummaryData.map((emp) => (
                     <tr key={emp.employeeId} className="hover:bg-purple-50/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap"><div className="font-semibold text-slate-800">{emp.employeeName}</div><div className="text-slate-500 font-mono text-xs">{emp.employeeId}</div></td>
-                      <td className="px-6 py-4 text-center font-medium text-slate-600">{formatDecimalHours(emp.assignedHours)}</td>
+                      <td className="px-6 py-4 text-center font-medium text-slate-600">{formatDecimalHours(emp.assignedHours)}</td> {/* ✅ Formatted */}
                       <td className="px-6 py-4 text-center font-bold text-blue-600">{emp.presentDays}</td><td className="px-6 py-4 text-center font-semibold text-green-600">{emp.onTimeDays}</td>
                       <td className="px-6 py-4 text-center font-semibold text-red-600">{emp.lateDays}</td><td className="px-6 py-4 text-center font-semibold text-indigo-600">{emp.approvedOT}</td>
                       <td className="px-6 py-4 text-center">{emp.fullDays}</td><td className="px-6 py-4 text-center">{emp.halfDays}</td>
@@ -543,7 +537,6 @@ const AdminAttendance = () => {
       </div>
       <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} />
       <StatusListModal isOpen={statusListModal.isOpen} onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} title={statusListModal.title} employees={statusListModal.employees} />
-      <AdminPunchOutModal isOpen={punchOutModalOpen} onClose={() => setPunchOutModalOpen(false)} employee={punchOutTarget} onConfirm={handleAdminPunchOutConfirm} />
     </div>
   );
 };
