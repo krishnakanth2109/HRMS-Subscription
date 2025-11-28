@@ -67,6 +67,6 @@ const AttendanceSchema = new mongoose.Schema({
   employeeId: { type: String, required: true, unique: true },
   employeeName: { type: String, required: true },
   attendance: [DailySchema],
-});a
+});
 
 export default mongoose.model("Attendance", AttendanceSchema);

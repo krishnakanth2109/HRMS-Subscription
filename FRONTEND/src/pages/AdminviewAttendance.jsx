@@ -82,6 +82,7 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
   useEffect(() => {
     if (isOpen) {
       const now = new Date();
+      // Adjust to local timezone for the input value
       const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16);
@@ -130,12 +131,13 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
 
     setLoading(true);
     try {
-      // ✅ Pass the record date to the handler
       await onPunchOut(employee.employeeId, selectedTime.toISOString(), currentLocation, employee.date);
       onClose();
     } catch (error) {
       console.error('Punch out error:', error);
-      alert('Failed to punch out: ' + (error.response?.data?.message || error.message));
+      // Detailed error message handling
+      const errorMsg = error.response?.data?.message || error.message;
+      alert('Failed to punch out: ' + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -352,19 +354,28 @@ const AdminAttendance = () => {
     try { const data = await getAttendanceByDateRange(start, end); setRawSummaryData(Array.isArray(data) ? data : []); } catch (error) { setRawSummaryData([]); } finally { setSummaryLoading(false); } 
   }, []);
 
-  // ✅ UPDATED: Pass dateOfRecord to backend to handle past dates
+  // ✅ UPDATED: Added Console Logging to debug Network Errors
   const handleAdminPunchOut = async (employeeId, punchOutTime, location, dateOfRecord) => {
     try {
+      // Determine base URL (Priority: Env Variable > Localhost)
       let baseUrl = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || 'http://localhost:5000/api';
-      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
       
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
+      }
+      
+      // LOG THE URL to the browser console so you can see what is being hit
+      console.log("🚀 Attempting Admin Punch Out...");
+      console.log("🌐 API URL being used:", baseUrl);
+      console.log("📦 Payload:", { employeeId, punchOutTime, location, date: dateOfRecord });
+
       const response = await axios.post(`${baseUrl}/attendance/admin-punch-out`, {
         employeeId,
         punchOutTime,
         latitude: location.latitude,
         longitude: location.longitude,
         adminId: 'Admin',
-        date: dateOfRecord // ✅ Send specific record date
+        date: dateOfRecord
       });
 
       if (response.data.success) {
@@ -373,8 +384,8 @@ const AdminAttendance = () => {
         await fetchSummaryData(summaryStartDate, summaryEndDate);
       }
     } catch (error) {
-      console.error('Admin punch out error:', error);
-      throw error;
+      console.error('❌ Admin punch out error:', error);
+      throw error; // Re-throw to be caught by the modal
     }
   };
 
@@ -504,7 +515,6 @@ const AdminAttendance = () => {
               <tbody className="divide-y divide-slate-200">
                 {loading ? (<tr><td colSpan="12" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="12" className="text-center p-10 text-slate-500">No records found for this date range.</td></tr>) : paginatedDailyData.map((item, idx) => {
                   const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
-                  // ✅ MODIFIED: Allow punch out for ANY date if they haven't punched out yet
                   const canPunchOut = item.punchIn && !item.punchOut;
                   return (
                     <tr key={item._id || idx} className={`hover:bg-blue-50/60 transition-colors ${isAbsent ? "bg-red-50" : ""}`}>

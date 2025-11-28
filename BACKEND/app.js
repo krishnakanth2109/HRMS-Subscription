@@ -25,18 +25,29 @@ import idleTimeRoutes from "./routes/idleTimeRoutes.js";
 import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
 
-
-
 const app = express();
 const server = http.createServer(app);
 
+// -------------------- CORS CONFIGURATION --------------------
+// ✅ Defined globally so both Express and Socket.io use the same list
+const allowedOrigins = [
+  "https://hrms-420.netlify.app",    // Your Production Frontend
+  "http://localhost:5173",           // Your Local Frontend
+  "https://hrms-ask.onrender.com",   // Your Self/Backend
+  "http://localhost:5000"            // Local Backend
+];
+
 // ===================================================================
-// ✅ SOCKET.IO WITH USER MAPPING FOR TARGETED MESSAGING
+// ✅ SOCKET.IO SETUP
 // ===================================================================
 const userSocketMap = new Map(); // Stores { userId -> socketId }
 
 const io = new Server(server, {
-  cors: { origin: "*" },
+  cors: {
+    origin: allowedOrigins, // ✅ Updated to match Express CORS for security
+    methods: ["GET", "POST"],
+    credentials: true
+  },
 });
 
 // Make io instance and the user map available to all routes
@@ -46,7 +57,6 @@ app.set("userSocketMap", userSocketMap);
 io.on("connection", (socket) => {
   console.log("🔥 User connected:", socket.id);
 
-  // Listen for a 'register' event from the client to map their user ID to their socket ID
   socket.on('register', (userId) => {
     if (userId) {
       console.log(`✍️  Registering user ${userId} with socket ${socket.id}`);
@@ -54,34 +64,29 @@ io.on("connection", (socket) => {
     }
   });
 
-  // When a user disconnects, find them in the map and remove them
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
     for (let [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
         userSocketMap.delete(userId);
-        console.log(`🗑️  Unregistered user ${userId}`);
         break;
       }
     }
   });
 });
 
-// -------------------- CORS & MIDDLEWARE --------------------
-const allowedOrigins = [
-  "https://hrms-420.netlify.app",
-  "http://localhost:5173",
-  "https://hrms-ask.onrender.com",
-  "http://localhost:5000"
-];
+// -------------------- EXPRESS MIDDLEWARE --------------------
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+        return callback(new Error(msg), false);
       }
-      return callback(new Error("Not allowed by CORS"));
+      return callback(null, true);
     },
     credentials: true,
   })
@@ -109,7 +114,7 @@ mongoose
 
 // -------------------- Health Check --------------------
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
+  res.status(200).json({ status: "OK", message: "Server is running" });
 });
 
 // -------------------- ROUTES --------------------
@@ -123,11 +128,10 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/attendance", EmployeeattendanceRoutes);
 app.use("/api/admin/attendance", AdminAttendanceRoutes);
 app.use("/api/profile", profilePicRoutes);
-app.use("/api/notifications", notificationRoutes); // ✅ Corrected route prefix
-app.use("/idletime", idleTimeRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/idletime", idleTimeRoutes); // ✅ Added /api/ prefix for consistency
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
-
 
 // -------------------- 404 Handler --------------------
 app.use("*", (req, res) => {
@@ -139,7 +143,7 @@ app.use((err, req, res, next) => {
   console.error("🚨 Global Error Handler:", err.stack);
   res.status(err.status || 500).json({
     success: false,
-    message: process.env.NODE_ENV === "production" ? "An unexpected error occurred" : err.message,
+    message: err.message || "An unexpected error occurred",
   });
 });
 
