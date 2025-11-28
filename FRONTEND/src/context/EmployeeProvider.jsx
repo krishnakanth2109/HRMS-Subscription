@@ -1,25 +1,31 @@
 // --- START OF FILE EmployeeProvider.jsx ---
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import { EmployeeContext } from "./EmployeeContext";
+import { AuthContext } from "../context/AuthContext";   // ⭐ Added
 import {
   getEmployees,
   addEmployee as addEmployeeAPI,
   updateEmployeeById,
   deactivateEmployeeById,
   activateEmployeeById,
-} from "../api"; // Make sure this path is correct
+} from "../api";
 
 export const EmployeeProvider = ({ children }) => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const { user } = useContext(AuthContext);      // ⭐ User available after login
+  const token = sessionStorage.getItem("hrms-token"); // ⭐ Read token
+
   const fetchEmployees = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getEmployees();
+
+      const data = await getEmployees();   // This will now include token
       setEmployees(data);
+
     } catch (err) {
       console.error("Error fetching employees:", err);
       setError("Failed to fetch employee data");
@@ -28,9 +34,11 @@ export const EmployeeProvider = ({ children }) => {
     }
   }, []);
 
+  // ⭐ FIX — Only fetch when token + user are loaded
   useEffect(() => {
+    if (!token || !user) return;
     fetchEmployees();
-  }, [fetchEmployees]);
+  }, [token, user, fetchEmployees]);
 
   const addEmployee = async (employee) => {
     try {
@@ -38,7 +46,7 @@ export const EmployeeProvider = ({ children }) => {
       setEmployees((prev) => [...prev, newEmployee]);
     } catch (err) {
       console.error("Error adding employee:", err);
-      alert("Failed to add employee. Check console for details.");
+      alert("Failed to add employee.");
     }
   };
 
@@ -49,8 +57,7 @@ export const EmployeeProvider = ({ children }) => {
         prev.map((emp) => (emp.employeeId === employeeId ? updatedEmployee : emp))
       );
     } catch (err) {
-      console.error("Error editing employee:", err);
-      alert("Failed to update employee.");
+      console.error("Error updating employee:", err);
     }
   };
 
@@ -74,8 +81,7 @@ export const EmployeeProvider = ({ children }) => {
       setEmployees((prev) =>
         prev.map((emp) => (emp.employeeId === employeeId ? activatedEmployee : emp))
       );
-    // ✅ FIXED: Added the missing opening curly brace for the catch block
-    } catch (err) { 
+    } catch (err) {
       console.error("Error activating employee:", err);
     }
   };
@@ -103,3 +109,5 @@ export const EmployeeProvider = ({ children }) => {
     </EmployeeContext.Provider>
   );
 };
+
+// --- END OF FILE EmployeeProvider.jsx ---

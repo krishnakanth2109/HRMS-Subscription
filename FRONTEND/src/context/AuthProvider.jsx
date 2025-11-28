@@ -10,6 +10,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const savedUser = sessionStorage.getItem("hrmsUser");
     const savedToken = sessionStorage.getItem("hrms-token");
+
     if (savedUser && savedToken) {
       setUser(JSON.parse(savedUser));
     }
@@ -19,22 +20,27 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await loginUser(email, password);
 
-      // ✔ FIXED: Extract correctly
+      console.log("LOGIN RAW RESPONSE:", response.data);
+
       const token = response.data.token;
+
+      // ⭐ The backend ALWAYS returns "data" 
       const userData = response.data.data;
 
-      if (!userData) {
+      // 🔥 No more false error throws
+      if (!token || !userData) {
+        console.error("⚠ INVALID LOGIN RESPONSE STRUCTURE", response.data);
         throw new Error("Invalid login response");
       }
 
-      // ✔ Save session
+      // Save session data
       sessionStorage.setItem("hrms-token", token);
       sessionStorage.setItem("hrmsUser", JSON.stringify(userData));
 
       setUser(userData);
 
-      // Return role to Login.jsx to redirect
-      return userData.role;
+      // Return FULL RESPONSE so Login.jsx can redirect using role
+      return response;
 
     } catch (error) {
       console.error("Login failed:", error);
@@ -50,9 +56,9 @@ export const AuthProvider = ({ children }) => {
 
   const updateUser = useCallback((newUserData) => {
     setUser(prevUser => {
-        const updatedUser = { ...prevUser, ...newUserData };
-        sessionStorage.setItem("hrmsUser", JSON.stringify(updatedUser));
-        return updatedUser;
+      const updatedUser = { ...prevUser, ...newUserData };
+      sessionStorage.setItem("hrmsUser", JSON.stringify(updatedUser));
+      return updatedUser;
     });
   }, []);
 

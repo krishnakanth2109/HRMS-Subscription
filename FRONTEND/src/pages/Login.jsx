@@ -21,7 +21,7 @@ const Login = () => {
   const [error, setError] = useState("");
 
   /* ---------------------------------------------------------------------------
-      FIXED USEEFFECT → Prevent infinite redirect loop
+      PREVENT INFINITE REDIRECT LOOP
   --------------------------------------------------------------------------- */
   useEffect(() => {
     if (!user) return;
@@ -36,7 +36,7 @@ const Login = () => {
   }, [user]);
 
   /* ---------------------------------------------------------------------------
-      LOGIN SUBMIT HANDLER
+      LOGIN SUBMIT HANDLER  (FIXED TOKEN + USER SAVE)
   --------------------------------------------------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,9 +51,21 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const role = await login(email, password);
+      const res = await login(email, password);
 
-      // ⭐ Manager & Admin go to ADMIN dashboard
+      // ⭐ SAVE TOKEN
+      if (res?.data?.token) {
+        sessionStorage.setItem("hrms-token", res.data.token);
+      }
+
+      // ⭐ SAVE USER DETAILS
+      if (res?.data?.user) {
+        sessionStorage.setItem("hrmsUser", JSON.stringify(res.data.user));
+      }
+
+      const role = res?.data?.user?.role;
+
+      // Redirect based on role
       if (role === "admin" || role === "manager") {
         navigate("/admin/dashboard", { replace: true });
       } else {
@@ -67,7 +79,7 @@ const Login = () => {
         errorMessage.toLowerCase().includes("deactivate") ||
         errorMessage.toLowerCase().includes("disabled")
       ) {
-        setError("Your account is Deactivated please contact support team");
+        setError("Your account is Deactivated, please contact support team");
       } else {
         setError(errorMessage || "Invalid credentials.");
       }
@@ -79,7 +91,7 @@ const Login = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-white">
 
-      {/* Animated Background Gradient Blobs */}
+      {/* Animated Background Blobs */}
       <motion.div
         className="absolute top-[-120px] left-[-120px] w-96 h-96 bg-purple-300 rounded-full opacity-30 blur-3xl"
         animate={{ x: [0, 30, -20, 0], y: [0, 20, -15, 0] }}
@@ -91,7 +103,7 @@ const Login = () => {
         transition={{ repeat: Infinity, duration: 14, ease: "easeInOut" }}
       />
 
-      {/* Main Login Card */}
+      {/* Login Card */}
       <motion.div
         initial={{ opacity: 0, y: 35 }}
         animate={{ opacity: 1, y: 0 }}
@@ -102,9 +114,7 @@ const Login = () => {
           <h1 className="text-3xl font-bold text-purple-700 tracking-tight">
             Welcome Back
           </h1>
-          <p className="text-gray-500 mt-1">
-            Login to your workspace
-          </p>
+          <p className="text-gray-500 mt-1">Login to your workspace</p>
         </div>
 
         {error && (
@@ -118,8 +128,8 @@ const Login = () => {
           {/* Email */}
           <div>
             <label className="text-gray-700 text-sm font-medium">Email</label>
-            <div className="group flex items-center bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 mt-1 transition focus-within:border-purple-500 focus-within:shadow-[0_0_0_3px_rgba(168,85,247,0.25)]">
-              <FaEnvelope className="text-gray-400 mr-3 group-focus-within:text-purple-600 transition" />
+            <div className="group flex items-center bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 mt-1">
+              <FaEnvelope className="text-gray-400 mr-3" />
               <input
                 type="email"
                 className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400"
@@ -134,8 +144,8 @@ const Login = () => {
           {/* Password */}
           <div>
             <label className="text-gray-700 text-sm font-medium">Password</label>
-            <div className="group flex items-center bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 mt-1 transition focus-within:border-purple-500 focus-within:shadow-[0_0_0_3px_rgba(168,85,247,0.25)]">
-              <FaLock className="text-gray-400 mr-3 group-focus-within:text-purple-600 transition" />
+            <div className="group flex items-center bg-gray-50 border border-gray-300 rounded-xl px-3 py-2 mt-1">
+              <FaLock className="text-gray-400 mr-3" />
               <input
                 type={showPassword ? "text" : "password"}
                 className="w-full bg-transparent outline-none text-gray-900 placeholder-gray-400"
@@ -145,7 +155,7 @@ const Login = () => {
                 onChange={(e) => setPassword(e.target.value)}
               />
               <span
-                className="text-gray-400 cursor-pointer hover:text-purple-600 transition"
+                className="text-gray-400 cursor-pointer hover:text-purple-600"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -158,7 +168,7 @@ const Login = () => {
             <button
               type="button"
               onClick={() => navigate("/forgot-password")}
-              className="text-purple-600 text-sm hover:text-purple-800 transition font-medium"
+              className="text-purple-600 text-sm hover:text-purple-800 font-medium"
             >
               Forgot Password?
             </button>
@@ -170,16 +180,8 @@ const Login = () => {
             disabled={loading}
             whileTap={{ scale: 0.97 }}
             whileHover={{ scale: 1.02 }}
-            className="relative w-full bg-purple-600 text-white py-3 rounded-xl font-semibold shadow-md hover:bg-purple-700 transition overflow-hidden"
+            className="relative w-full bg-purple-600 text-white py-3 rounded-xl font-semibold shadow-md hover:bg-purple-700"
           >
-            {loading && (
-              <motion.div
-                className="absolute inset-0 bg-white/20"
-                animate={{ x: ["-150%", "150%"] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-              />
-            )}
-
             {loading ? "Signing In…" : "Sign In"}
           </motion.button>
         </form>
