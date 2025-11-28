@@ -14,9 +14,9 @@ import { CurrentEmployeeNotificationContext } from "../../EmployeeContext/Curren
 
 const NavbarEmployee = () => {
   const { logout } = useContext(AuthContext);
-  const {
-    unreadCount,
-  } = useContext(CurrentEmployeeNotificationContext);
+
+  // FIX: Use unreadNotifications from context
+  const { unreadNotifications } = useContext(CurrentEmployeeNotificationContext);
 
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
@@ -52,12 +52,12 @@ const NavbarEmployee = () => {
 
   return (
     <nav className="h-16 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 flex items-center justify-between px-6 shadow-lg relative z-10">
+
       {/* Logo */}
       <div
         className="flex items-center gap-3 cursor-pointer"
         onClick={() => navigate("/employee/dashboard")}
       >
-        
         <h1 className="ps-5 text-2xl font-bold text-white tracking-wide drop-shadow">
           HRMS
         </h1>
@@ -71,14 +71,15 @@ const NavbarEmployee = () => {
           <FaBell
             className="text-2xl text-white group-hover:text-yellow-300 transition"
             onClick={(e) => {
-              e.stopPropagation(); // IMPORTANT FIX
+              e.stopPropagation();
               navigate("/employee/notifications");
             }}
           />
 
-          {unreadCount > 0 && (
+          {/* FIXED BADGE */}
+          {unreadNotifications > 0 && (
             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold">
-              {unreadCount}
+              {unreadNotifications}
             </span>
           )}
         </div>
@@ -99,7 +100,6 @@ const NavbarEmployee = () => {
             }`}
           />
 
-          {/* Dropdown Menu */}
           {showMenu && (
             <div className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-44 z-50 text-base animate-fade-in">
 
@@ -143,6 +143,7 @@ const NavbarEmployee = () => {
               >
                 <FaSignOutAlt /> Logout
               </div>
+
             </div>
           )}
         </div>

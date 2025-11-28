@@ -15,9 +15,9 @@ const OvertimeWithModal = () => {
   const [form, setForm] = useState({ date: "", type: "INCENTIVE_OT" });
   const [overtimeList, setOvertimeList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
 
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [confirmCancelModal, setConfirmCancelModal] = useState(false);
   const [selectedOT, setSelectedOT] = useState(null);
 
   const [error, setError] = useState("");
@@ -27,61 +27,52 @@ const OvertimeWithModal = () => {
   // BLOCK SUNDAY VALIDATION
   // ============================
   const validateDate = (selectedDate) => {
-    const chosen = new Date(selectedDate);
-    chosen.setHours(0, 0, 0, 0);
-
-    // Block Sunday (0)
-    if (chosen.getDay() === 0) {
-      return "You cannot apply overtime on Sundays.";
+    const d = new Date(selectedDate);
+    if (d.getDay() === 0) {
+      return "❌ You cannot apply overtime on Sundays.";
     }
-
     return null;
   };
 
-  const fetchOvertimeData = useCallback(async () => {
-    if (!user?.employeeId) {
-      setLoading(false);
-      return;
-    }
-
+  // Load OT Data
+  const fetchOT = useCallback(async () => {
     try {
-      setLoading(true);
-      const otData = await getOvertimeForEmployee(user.employeeId);
+      const res = await getOvertimeForEmployee(user.employeeId);
       setOvertimeList(
-        otData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        res.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       );
     } catch (err) {
-      console.error("Error fetching overtime data:", err);
-      setError("Could not load your overtime requests.");
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [user?.employeeId]);
+  }, [user.employeeId]);
 
   useEffect(() => {
-    fetchOvertimeData();
-  }, [fetchOvertimeData]);
+    fetchOT();
+  }, [fetchOT]);
 
+  // Handle Change
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
     setSuccess("");
   };
 
+  // Submit OT
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!form.date || !form.type) {
-      setError("Please fill all fields.");
+    if (!form.date) {
+      setError("Please select a date.");
       return;
     }
 
-    // === Validate Sunday ===
-    const validationMessage = validateDate(form.date);
-    if (validationMessage) {
-      setError(validationMessage);
+    const msg = validateDate(form.date);
+    if (msg) {
+      setError(msg);
       return;
     }
 
@@ -95,103 +86,103 @@ const OvertimeWithModal = () => {
 
       setSuccess("Overtime submitted successfully!");
       setForm({ date: "", type: "INCENTIVE_OT" });
-      fetchOvertimeData();
+      fetchOT();
 
-      setTimeout(() => setModalOpen(false), 1500);
+      setTimeout(() => setApplyModalOpen(false), 1200);
     } catch (err) {
-      console.error("Failed to submit OT:", err);
-      setError("Failed to submit OT. Please try again.");
+      console.error(err);
+      setError("Failed to submit overtime. Try again.");
     }
   };
 
-  // ============================
-  // CANCEL OT CONFIRM
-  // ============================
-  const confirmCancel = async () => {
+  // Cancel OT
+  const handleCancel = async () => {
     try {
       await cancelOvertime(selectedOT);
-      setConfirmOpen(false);
-      fetchOvertimeData();
+      setConfirmCancelModal(false);
+      fetchOT();
     } catch (err) {
-      console.error("Cancel failed:", err);
-      setError("Failed to cancel overtime request.");
+      setError("Failed to cancel overtime.");
     }
   };
 
-  if (loading) return <div className="p-6 text-center">Loading...</div>;
-  if (!user)
-    return (
-      <div className="text-red-600 p-6 text-center">
-        Could not find employee data. Please log in again.
-      </div>
-    );
+  if (loading) return <div className="p-6 text-center text-lg">Loading...</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-indigo-900">
+    <div className="p-6 max-w-6xl mx-auto">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-4xl font-extrabold text-indigo-900 tracking-wide">
           My Overtime Requests
         </h2>
+
         <button
-          onClick={() => setModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-800 text-white px-6 py-2 rounded-lg shadow-lg"
+          onClick={() => setApplyModalOpen(true)}
+          className="bg-gradient-to-r from-indigo-600 to-indigo-800 hover:opacity-90 text-white px-6 py-2.5 rounded-lg shadow-lg transition-all font-semibold"
         >
-          Apply For Overtime
+          + Apply Overtime
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg overflow-x-auto border">
-        <table className="min-w-full text-sm">
-          <thead className="bg-indigo-100 text-indigo-900">
+      {/* TABLE */}
+      <div className="bg-white shadow-xl rounded-xl overflow-hidden border">
+        <table className="w-full text-sm">
+          <thead className="bg-indigo-600 text-white">
             <tr>
-              <th className="px-4 py-3 border">Date</th>
-              <th className="px-4 py-3 border">Type</th>
-              <th className="px-4 py-3 border">Status / Actions</th>
+              <th className="px-6 py-3 border-r">Date</th>
+              <th className="px-6 py-3 border-r">Type</th>
+              <th className="px-6 py-3">Status / Action</th>
             </tr>
           </thead>
 
           <tbody>
             {overtimeList.length > 0 ? (
               overtimeList.map((ot) => (
-                <tr key={ot._id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-2 border text-center">{ot.date}</td>
-                  <td className="px-4 py-2 border text-center">{ot.type}</td>
+                <tr
+                  key={ot._id}
+                  className="hover:bg-indigo-50 transition border-b"
+                >
+                  <td className="px-6 py-3 border-r text-center">{ot.date}</td>
+                  <td className="px-6 py-3 border-r text-center">
+                    {ot.type.replace("_", " ")}
+                  </td>
 
-                  <td className="px-4 py-2 border text-center">
-                    <div className="flex justify-center items-center gap-3">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          ot.status === "APPROVED"
-                            ? "bg-green-200 text-green-800"
-                            : ot.status === "REJECTED"
-                            ? "bg-red-200 text-red-800"
-                            : ot.status === "CANCELLED"
-                            ? "bg-gray-300 text-gray-700"
-                            : "bg-yellow-200 text-yellow-800"
-                        }`}
+                  <td className="px-6 py-3 text-center">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        ot.status === "APPROVED"
+                          ? "bg-green-100 text-green-700"
+                          : ot.status === "REJECTED"
+                          ? "bg-red-100 text-red-700"
+                          : ot.status === "CANCELLED"
+                          ? "bg-gray-200 text-gray-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {ot.status}
+                    </span>
+
+                    {ot.status === "PENDING" && (
+                      <button
+                        onClick={() => {
+                          setSelectedOT(ot._id);
+                          setConfirmCancelModal(true);
+                        }}
+                        className="ml-3 text-xs bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded-md shadow transition"
                       >
-                        {ot.status}
-                      </span>
-
-                      {ot.status === "PENDING" && (
-                        <button
-                          onClick={() => {
-                            setSelectedOT(ot._id);
-                            setConfirmOpen(true);
-                          }}
-                          className="text-xs bg-red-500 text-white px-2 py-1 rounded hover:bg-red-700"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
+                        Cancel
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="3" className="text-center p-4 text-gray-500">
-                  No Overtime Requests Found
+                <td
+                  className="p-6 text-center text-gray-600"
+                  colSpan="3"
+                >
+                  No overtime requests found.
                 </td>
               </tr>
             )}
@@ -199,37 +190,31 @@ const OvertimeWithModal = () => {
         </table>
       </div>
 
-      {/* ============================
-          APPLY OT MODAL
-      ============================ */}
+      {/* ----------------------- APPLY OT MODAL ----------------------- */}
       <AnimatePresence>
-        {modalOpen && (
+        {applyModalOpen && (
           <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white w-96 p-6 rounded-xl shadow-xl"
+              className="bg-white w-96 p-6 rounded-xl shadow-2xl"
               initial={{ scale: 0.7 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.7 }}
             >
-              <h3 className="text-xl font-bold mb-4 text-indigo-700">
+              <h3 className="text-2xl font-bold mb-4 text-indigo-700">
                 Apply Overtime
               </h3>
 
-              <div className="mb-4 p-3 rounded bg-indigo-50 text-sm">
-                <p>
-                  <b>Name:</b> {user.name}
-                </p>
-                <p>
-                  <b>ID:</b> {user.employeeId}
-                </p>
+              <div className="bg-indigo-50 p-3 rounded mb-4 text-sm">
+                <p><b>Name:</b> {user.name}</p>
+                <p><b>ID:</b> {user.employeeId}</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block mb-1 font-medium">Date</label>
                   <input
@@ -241,7 +226,6 @@ const OvertimeWithModal = () => {
                       const selected = e.target.value;
                       const d = new Date(selected);
 
-                      // Block Sunday Immediately
                       if (d.getDay() === 0) {
                         setError("Sundays are not allowed for overtime.");
                         setForm({ ...form, date: "" });
@@ -251,7 +235,7 @@ const OvertimeWithModal = () => {
                       setError("");
                       handleChange(e);
                     }}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-indigo-400"
                   />
                 </div>
 
@@ -261,26 +245,26 @@ const OvertimeWithModal = () => {
                     name="type"
                     value={form.type}
                     onChange={handleChange}
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-indigo-400"
                   >
                     <option value="INCENTIVE_OT">Incentive OT</option>
                     <option value="PENDING_OT">Pending OT</option>
                   </select>
                 </div>
 
-                {error && <div className="text-red-600">{error}</div>}
-                {success && <div className="text-green-600">{success}</div>}
+                {error && <p className="text-red-600">{error}</p>}
+                {success && <p className="text-green-600">{success}</p>}
 
                 <button
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-800 text-white px-4 py-2 rounded shadow"
+                  className="w-full bg-indigo-600 hover:bg-indigo-800 text-white py-2 rounded-lg font-semibold shadow"
                 >
                   Submit
                 </button>
               </form>
 
               <button
-                onClick={() => setModalOpen(false)}
+                onClick={() => setApplyModalOpen(false)}
                 className="mt-4 text-sm text-gray-500 underline w-full text-center"
               >
                 Close
@@ -290,19 +274,17 @@ const OvertimeWithModal = () => {
         )}
       </AnimatePresence>
 
-      {/* ============================
-          CANCEL CONFIRM MODAL
-      ============================ */}
+      {/* ----------------------- CANCEL MODAL ----------------------- */}
       <AnimatePresence>
-        {confirmOpen && (
+        {confirmCancelModal && (
           <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-white w-80 p-6 rounded-xl shadow-xl"
+              className="bg-white w-80 p-6 rounded-xl shadow-2xl"
               initial={{ scale: 0.7 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.7 }}
@@ -311,23 +293,23 @@ const OvertimeWithModal = () => {
                 Confirm Cancel
               </h3>
 
-              <p className="text-gray-700 mb-6">
+              <p className="mb-6 text-gray-700">
                 Are you sure you want to cancel this overtime request?
               </p>
 
               <div className="flex justify-between">
                 <button
-                  onClick={confirmCancel}
-                  className="bg-red-600 hover:bg-red-800 text-white px-4 py-2 rounded"
+                  onClick={handleCancel}
+                  className="bg-red-600 hover:bg-red-800 text-white px-4 py-2 rounded shadow"
                 >
                   Yes, Cancel
                 </button>
 
                 <button
-                  onClick={() => setConfirmOpen(false)}
-                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded"
+                  onClick={() => setConfirmCancelModal(false)}
+                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded shadow"
                 >
-                  No, Keep it
+                  No, Keep
                 </button>
               </div>
             </motion.div>

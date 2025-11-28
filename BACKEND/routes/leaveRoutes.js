@@ -1,4 +1,4 @@
-// --- START OF FILE routes/leaveRoutes.js ---
+// --- UPDATED FILE: routes/leaveRoutes.js ---
 
 import express from "express";
 import {
@@ -9,48 +9,58 @@ import {
   updateLeaveStatus,
   cancelLeave,
 } from "../controllers/leaveController.js";
-import { protect } from "../controllers/authController.js"; // Import your security middleware
+
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-// All leave routes require a user to be logged in, so we apply the 'protect' middleware globally.
+// 🔐 All routes require login
 router.use(protect);
 
-// GET /api/leaves
-// This is the route for the Admin Panel to fetch ALL leave requests.
+/* ============================================================================
+   📌 ADMIN → GET ALL LEAVES
+   (Managers CANNOT access this, only admin)
+============================================================================ */
 router.get("/", adminListAllLeaves);
 
-// POST /api/leaves/apply
-// This is the route for an employee to submit a new leave request.
+/* ============================================================================
+   📝 EMPLOYEE/MANAGER → APPLY FOR LEAVE
+============================================================================ */
 router.post("/apply", createLeave);
 
-// GET /api/leaves/my-leaves (A more secure endpoint for employees)
-// This lets an employee get ONLY their own leave history.
+/* ============================================================================
+   👤 EMPLOYEE/MANAGER → GET THEIR OWN LEAVES
+============================================================================ */
 router.get("/my-leaves", listLeavesForEmployee);
 
-// GET /api/leaves/:id/details
-// Gets the day-by-day details for a specific leave request.
+/* ============================================================================
+   📄 GET LEAVE DETAILS (Admin + Employee who owns leave)
+============================================================================ */
 router.get("/:id/details", getLeaveDetails);
 
-// PATCH /api/leaves/:id/approve
-// PATCH /api/leaves/:id/reject
-// These routes are for an admin to update the status of a request.
-router.patch("/:id/approve", (req, res) => {
-    req.body.status = "Approved";
-    updateLeaveStatus(req, res);
-});
-router.patch("/:id/reject", (req, res) => {
-    req.body.status = "Rejected";
-    updateLeaveStatus(req, res);
+/* ============================================================================
+   🟩 ADMIN → APPROVE or REJECT LEAVE (Manager cannot)
+============================================================================ */
+router.patch("/:id/approve", onlyAdmin, (req, res) => {
+  req.body.status = "Approved";
+  updateLeaveStatus(req, res);
 });
 
-// DELETE /api/leaves/cancel/:id
-// This is for an employee to cancel their own PENDING leave request.
+router.patch("/:id/reject", onlyAdmin, (req, res) => {
+  req.body.status = "Rejected";
+  updateLeaveStatus(req, res);
+});
+
+/* ============================================================================
+   ❌ EMPLOYEE/MANAGER → CANCEL THEIR OWN LEAVE (if pending)
+============================================================================ */
 router.delete("/cancel/:id", cancelLeave);
 
-// This route must be last to avoid conflicts with other routes like 'apply'
-// GET /api/leaves/:employeeId (Legacy support if needed, but /my-leaves is better)
+/* ============================================================================
+   🔁 Legacy Route → Get leaves of specific employee
+   (Admin only)
+============================================================================ */
 router.get("/:employeeId", listLeavesForEmployee);
-
 
 export default router;

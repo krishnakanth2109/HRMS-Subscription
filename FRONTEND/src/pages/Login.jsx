@@ -20,11 +20,24 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  /* ---------------------------------------------------------------------------
+      FIXED USEEFFECT → Prevent infinite redirect loop
+  --------------------------------------------------------------------------- */
   useEffect(() => {
-    if (user?.role === "admin") navigate("/admin/dashboard");
-    if (user?.role === "employee") navigate("/employee/dashboard");
+    if (!user) return;
+
+    const currentPath = window.location.pathname;
+
+    if ((user.role === "admin" || user.role === "manager") && currentPath !== "/admin/dashboard") {
+      navigate("/admin/dashboard", { replace: true });
+    } else if (user.role === "employee" && currentPath !== "/employee/dashboard") {
+      navigate("/employee/dashboard", { replace: true });
+    }
   }, [user]);
 
+  /* ---------------------------------------------------------------------------
+      LOGIN SUBMIT HANDLER
+  --------------------------------------------------------------------------- */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -40,15 +53,17 @@ const Login = () => {
     try {
       const role = await login(email, password);
 
-      if (role === "admin") navigate("/admin/dashboard");
-      else navigate("/employee/dashboard");
+      // ⭐ Manager & Admin go to ADMIN dashboard
+      if (role === "admin" || role === "manager") {
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        navigate("/employee/dashboard", { replace: true });
+      }
+
     } catch (err) {
-      // ✅ UPDATED: Specific check for Deactivated Account
       const errorMessage = err.response?.data?.message || "";
-      
-      // If the backend returns a message containing "Inactive" or "Deactivate"
       if (
-        errorMessage.toLowerCase().includes("inactive") || 
+        errorMessage.toLowerCase().includes("inactive") ||
         errorMessage.toLowerCase().includes("deactivate") ||
         errorMessage.toLowerCase().includes("disabled")
       ) {
@@ -63,7 +78,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-white">
-      
+
       {/* Animated Background Gradient Blobs */}
       <motion.div
         className="absolute top-[-120px] left-[-120px] w-96 h-96 bg-purple-300 rounded-full opacity-30 blur-3xl"
@@ -99,6 +114,7 @@ const Login = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
           {/* Email */}
           <div>
             <label className="text-gray-700 text-sm font-medium">Email</label>
@@ -156,7 +172,6 @@ const Login = () => {
             whileHover={{ scale: 1.02 }}
             className="relative w-full bg-purple-600 text-white py-3 rounded-xl font-semibold shadow-md hover:bg-purple-700 transition overflow-hidden"
           >
-            {/* Loading shimmer */}
             {loading && (
               <motion.div
                 className="absolute inset-0 bg-white/20"

@@ -1,15 +1,22 @@
-// --- START OF FILE overtimeRoutes.js ---
+// --- UPDATED FILE: routes/overtimeRoutes.js ---
 
 import express from "express";
 import Overtime from "../models/Overtime.js";
 import Admin from "../models/adminModel.js";
 import Employee from "../models/employeeModel.js";
 import Notification from "../models/notificationModel.js";
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
 /* ======================================================
-   🔥 EMPLOYEE APPLIES FOR OVERTIME
+   🔐 All Overtime routes require authentication
+====================================================== */
+router.use(protect);
+
+/* ======================================================
+   🧑‍💼 EMPLOYEE/MANAGER → APPLY FOR OVERTIME
 ====================================================== */
 router.post("/apply", async (req, res) => {
   try {
@@ -33,7 +40,7 @@ router.post("/apply", async (req, res) => {
 
     const io = req.app.get("io");
 
-    // 🔥 REAL-TIME broadcast to admin sidebar
+    // 🔥 Notify admins in real-time
     if (io) io.emit("overtime:new", newOT);
 
     // 🔔 Notify all admins
@@ -59,7 +66,7 @@ router.post("/apply", async (req, res) => {
 });
 
 /* ======================================================
-   🔥 ADMIN: GET ALL OVERTIME REQUESTS
+   🟥 ADMIN ONLY → GET ALL OVERTIME REQUESTS
 ====================================================== */
 router.get("/all", async (req, res) => {
   try {
@@ -72,9 +79,9 @@ router.get("/all", async (req, res) => {
 });
 
 /* ======================================================
-   🔥 ADMIN UPDATES OVERTIME STATUS
+   🟥 ADMIN ONLY → UPDATE OVERTIME STATUS
 ====================================================== */
-router.put("/update-status/:id", async (req, res) => {
+router.put("/update-status/:id", onlyAdmin, async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -94,7 +101,7 @@ router.put("/update-status/:id", async (req, res) => {
 
     const io = req.app.get("io");
 
-    // 🔥 REAL-TIME update for sidebar
+    // 🔥 Real-time for admin panel
     if (io) io.emit("overtime:updated", updated);
 
     // 🔔 Notify employee
@@ -129,7 +136,7 @@ router.put("/update-status/:id", async (req, res) => {
 });
 
 /* ======================================================
-   🔥 EMPLOYEE CANCEL OVERTIME (ONLY IF PENDING)
+   ❌ EMPLOYEE/MANAGER → CANCEL THEIR OWN PENDING OT
 ====================================================== */
 router.patch("/cancel/:id", async (req, res) => {
   try {
@@ -137,6 +144,12 @@ router.patch("/cancel/:id", async (req, res) => {
 
     if (!overtime)
       return res.status(404).json({ message: "Overtime not found" });
+
+    if (overtime.employeeId !== req.user.employeeId) {
+      return res.status(403).json({
+        message: "You can only cancel your own overtime",
+      });
+    }
 
     if (overtime.status !== "PENDING") {
       return res.status(400).json({
@@ -148,7 +161,6 @@ router.patch("/cancel/:id", async (req, res) => {
 
     const io = req.app.get("io");
 
-    // 🔥 REAL-TIME decrease on sidebar
     if (io) io.emit("overtime:cancelled", { _id: req.params.id });
 
     // 🔔 Notify admins
@@ -173,10 +185,16 @@ router.patch("/cancel/:id", async (req, res) => {
 });
 
 /* ======================================================
-   EMPLOYEE OVERTIME HISTORY
+   👤 EMPLOYEE/MANAGER → GET THEIR OWN OVERTIME HISTORY
 ====================================================== */
 router.get("/:employeeId", async (req, res) => {
   try {
+    if (req.user.employeeId !== req.params.employeeId && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "You can only view your own overtime history",
+      });
+    }
+
     const list = await Overtime.find({
       employeeId: req.params.employeeId,
     }).sort({ date: -1 });
@@ -189,9 +207,9 @@ router.get("/:employeeId", async (req, res) => {
 });
 
 /* ======================================================
-   DELETE OVERTIME REQUEST
+   🟥 ADMIN ONLY → DELETE OVERTIME REQUEST
 ====================================================== */
-router.delete("/delete/:id", async (req, res) => {
+router.delete("/delete/:id", onlyAdmin, async (req, res) => {
   try {
     const removed = await Overtime.findByIdAndDelete(req.params.id);
 
@@ -208,4 +226,4 @@ router.delete("/delete/:id", async (req, res) => {
 
 export default router;
 
-// --- END OF FILE overtimeRoutes.js ---
+// --- END ---

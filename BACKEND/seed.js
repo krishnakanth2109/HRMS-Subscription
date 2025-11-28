@@ -8,32 +8,61 @@ dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
 
-const seedAdmin = async () => {
+const seedAdminAndManager = async () => {
   try {
+    console.log("⏳ Connecting to database...");
     await mongoose.connect(MONGO_URI);
-    console.log("Database connected for seeding.");
+    console.log("✅ Database connected.");
 
-    // Check if the admin already exists
-    const existingAdmin = await Admin.findOne({ email: "ajay.arahinfotech@gmail.com" });
-    if (existingAdmin) {
-      console.log("Admin user already exists. No action taken.");
-      process.exit();
+    // ---------------------------
+    // 1️⃣ CREATE ADMIN ACCOUNT
+    // ---------------------------
+    const adminEmail = "ajay.arahinfotech@gmail.com";
+
+    let admin = await Admin.findOne({ email: adminEmail });
+    if (!admin) {
+      await Admin.create({
+        name: "Ajay Arah",
+        email: adminEmail,
+        password: "Arah@142", // hashed automatically
+        phone: "1234567890",
+        role: "admin",
+        department: "Administration",
+      });
+
+      console.log("✅ Admin account created.");
+    } else {
+      console.log("ℹ️ Admin already exists. Skipping...");
     }
 
-    // Create the new admin
-    await Admin.create({
-      name: "Ajay Arah",
-      email: "ajay.arahinfotech@gmail.com",
-      password: "Arah@142", // The model will hash this automatically
-      phone: "1234567890", // Add a placeholder phone
-    });
+    // ---------------------------
+    // 2️⃣ CREATE MANAGER ACCOUNT
+    // ---------------------------
+    const managerEmail = "manager@arahinfotech.com";
 
-    console.log("✅ Admin user created successfully!");
-    process.exit();
+    let manager = await Admin.findOne({ email: managerEmail });
+    if (!manager) {
+      await Admin.create({
+        name: "Manager User",
+        email: managerEmail,
+        password: "Manager@123", // hashed automatically
+        phone: "9876543210",
+        role: "manager",
+        department: "Management",
+      });
+
+      console.log("✅ Manager account created.");
+    } else {
+      console.log("ℹ️ Manager already exists. Skipping...");
+    }
+
+    console.log("\n🎉 Seeding completed successfully!");
+    process.exit(0);
+
   } catch (error) {
-    console.error("❌ Error seeding admin:", error);
+    console.error("❌ Error during seeding:", error);
     process.exit(1);
   }
 };
 
-seedAdmin();
+seedAdminAndManager();

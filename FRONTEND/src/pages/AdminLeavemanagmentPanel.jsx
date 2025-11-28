@@ -33,18 +33,17 @@ const AdminLeavePanel = () => {
   const [showMoreId, setShowMoreId] = useState(null);
   const [snackbar, setSnackbar] = useState("");
 
-  // --- Confirm Popup States ---
+  // Confirm Popup
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [selectedLeaveId, setSelectedLeaveId] = useState(null);
 
-  // Snackbar
   const showSnackbar = (msg) => {
     setSnackbar(msg);
     setTimeout(() => setSnackbar(""), 1800);
   };
 
-  // Fetch leaves & employees
+  // Fetch all data
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
@@ -55,9 +54,13 @@ const AdminLeavePanel = () => {
 
       setLeaveList(leavesData);
 
-      const map = new Map(
-        employeesData.map((emp) => [emp.employeeId, emp])
-      );
+      // FIX: Create map using BOTH employeeId & _id
+      const map = new Map();
+      employeesData.forEach((emp) => {
+        if (emp.employeeId) map.set(emp.employeeId, emp);
+        if (emp._id) map.set(emp._id, emp);
+      });
+
       setEmployeesMap(map);
     } catch (err) {
       console.error("Admin Panel Data Fetch Error:", err);
@@ -70,25 +73,31 @@ const AdminLeavePanel = () => {
     fetchAllData();
   }, [fetchAllData]);
 
-  // Enriched leave list
+  // FIX: Get department from experienceDetails[0].department
   const enrichedLeaveList = useMemo(() => {
     return leaveList.map((leave) => {
       const emp = employeesMap.get(leave.employeeId);
+
       return {
         ...leave,
         employeeName: emp?.name || "Unknown",
-        department: emp?.department || "Unassigned",
+        department:
+          emp?.experienceDetails?.[0]?.department || "Unassigned",
       };
     });
   }, [leaveList, employeesMap]);
 
   const allDepartments = useMemo(() => {
     return Array.from(
-      new Set(Array.from(employeesMap.values()).map((emp) => emp.department))
+      new Set(
+        Array.from(employeesMap.values()).map(
+          (emp) => emp?.experienceDetails?.[0]?.department
+        )
+      )
     ).filter(Boolean);
   }, [employeesMap]);
 
-  // 🔥 TABLE FILTER LOGIC (INCLUDING TODAY FILTER)
+  // Filter logic (including today)
   const filteredRequests = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -105,14 +114,14 @@ const AdminLeavePanel = () => {
           today <= req.to);
 
       const matchSearch =
-        req.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        req.employeeName.toLowerCase().includes(searchQuery.toLowerCase());
+        req.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase());
 
       return matchDept && matchStatus && matchSearch;
     });
   }, [enrichedLeaveList, filterDept, filterStatus, searchQuery]);
 
-  // 🔥 COUNT TODAY'S ON-LEAVE EMPLOYEES
+  // Today on leave count
   const todayOnLeave = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
 
@@ -124,7 +133,7 @@ const AdminLeavePanel = () => {
     ).length;
   }, [enrichedLeaveList]);
 
-  // Approve/Reject
+  // Approve / Reject
   const openConfirm = (id, actionType) => {
     setSelectedLeaveId(id);
     setConfirmAction(actionType);
@@ -172,47 +181,38 @@ const AdminLeavePanel = () => {
         Leave Management (Admin Panel)
       </h2>
 
-      {/* --- STAT CARDS --- */}
+      {/* STAT CARDS */}
       <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* TODAY */}
         <div className="bg-white shadow-lg rounded-xl p-6 flex items-center gap-4 border-l-8 border-red-600">
           <div className="bg-red-100 text-red-600 p-3 rounded-full text-2xl">
             <FaCalendarAlt />
           </div>
           <div>
-            <h3 className="text-gray-600 font-semibold text-sm">
-              On Leave Today
-            </h3>
+            <h3 className="text-gray-600 font-semibold text-sm">On Leave Today</h3>
             <p className="text-3xl font-extrabold text-gray-800">
               {todayOnLeave}
             </p>
           </div>
         </div>
 
-        {/* APPROVED */}
         <div className="bg-white shadow-lg rounded-xl p-6 flex items-center gap-4 border-l-8 border-green-600">
           <div className="bg-green-100 text-green-600 p-3 rounded-full text-2xl">
             ✔
           </div>
           <div>
-            <h3 className="text-gray-600 font-semibold text-sm">
-              Approved
-            </h3>
+            <h3 className="text-gray-600 font-semibold text-sm">Approved</h3>
             <p className="text-3xl font-extrabold text-gray-800">
               {filteredRequests.filter((r) => r.status === "Approved").length}
             </p>
           </div>
         </div>
 
-        {/* PENDING */}
         <div className="bg-white shadow-lg rounded-xl p-6 flex items-center gap-4 border-l-8 border-yellow-600">
           <div className="bg-yellow-100 text-yellow-600 p-3 rounded-full text-2xl">
             ⏳
           </div>
           <div>
-            <h3 className="text-gray-600 font-semibold text-sm">
-              Pending
-            </h3>
+            <h3 className="text-gray-600 font-semibold text-sm">Pending</h3>
             <p className="text-3xl font-extrabold text-gray-800">
               {filteredRequests.filter((r) => r.status === "Pending").length}
             </p>
@@ -220,7 +220,7 @@ const AdminLeavePanel = () => {
         </div>
       </div>
 
-      {/* --- FILTERS --- */}
+      {/* FILTERS */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <FaFilter className="text-blue-600" />
 
@@ -235,7 +235,6 @@ const AdminLeavePanel = () => {
           ))}
         </select>
 
-        {/* FILTER BUTTONS */}
         {["All", "Pending", "Approved", "Rejected", "Today"].map((s) => (
           <button
             key={s}
@@ -260,7 +259,7 @@ const AdminLeavePanel = () => {
         onChange={(e) => setSearchQuery(e.target.value)}
       />
 
-      {/* --- SUMMARY BAR --- */}
+      {/* SUMMARY */}
       <div className="mb-4 bg-gray-50 p-3 rounded-xl shadow flex gap-6 text-sm font-semibold">
         <span>Total: {filteredRequests.length}</span>
         <span>Approved: {filteredRequests.filter((r) => r.status === "Approved").length}</span>
@@ -269,7 +268,7 @@ const AdminLeavePanel = () => {
         <span>On Leave Today: {todayOnLeave}</span>
       </div>
 
-      {/* --- TABLE --- */}
+      {/* TABLE */}
       <div className="overflow-x-auto bg-white rounded-xl shadow">
         <table className="min-w-full text-sm">
           <thead>
@@ -373,7 +372,7 @@ const AdminLeavePanel = () => {
         </table>
       </div>
 
-      {/* --- CONFIRM POPUP --- */}
+      {/* CONFIRM POPUP */}
       <AnimatePresence>
         {confirmOpen && (
           <motion.div
@@ -428,5 +427,4 @@ const AdminLeavePanel = () => {
 };
 
 export default AdminLeavePanel;
-
 // --- END OF FILE AdminLeaveManagementPanel.jsx ---

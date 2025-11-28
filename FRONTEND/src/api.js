@@ -69,13 +69,15 @@ api.interceptors.response.use(
 ============================================================================= */
 export const loginUser = async (email, password) => {
   try {
+    // MUST return the full axios response, NOT response.data
     const response = await api.post("/api/auth/login", { email, password });
-    return response.data;
+    return response;  // ⭐ FIX: return whole axios response
   } catch (error) {
     console.error("Login failed:", error.response?.data || error.message);
     throw error;
   }
 };
+
 
 /* =============================================================================
    EMPLOYEE MANAGEMENT

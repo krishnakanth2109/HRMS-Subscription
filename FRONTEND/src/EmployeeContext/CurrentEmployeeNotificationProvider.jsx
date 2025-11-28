@@ -15,42 +15,45 @@ const SOCKET_URL =
     ? import.meta.env.VITE_API_URL_PRODUCTION
     : import.meta.env.VITE_API_URL_DEVELOPMENT;
 
-// Load logged-in employee
+// Load employee from SESSION STORAGE
 const loadUser = () => {
   try {
-    const raw =
-      localStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+    const raw = sessionStorage.getItem("hrmsUser");
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 };
 
+// Read notices stored in SESSION STORAGE
 const READ_NOTICE_KEY = "employee_read_notices";
 
 const CurrentEmployeeNotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
   const [notices, setNotices] = useState([]);
   const [unreadNotices, setUnreadNotices] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [loggedUser] = useState(loadUser);
 
   const getUserId = () => (loggedUser ? String(loggedUser._id) : null);
 
-  // Read notices from localStorage
+  // Load saved read notice IDs
   const loadReadNoticeIds = () => {
     try {
-      return JSON.parse(localStorage.getItem(READ_NOTICE_KEY)) || [];
+      return JSON.parse(sessionStorage.getItem(READ_NOTICE_KEY)) || [];
     } catch {
       return [];
     }
   };
 
   const saveReadNoticeIds = (ids) => {
-    localStorage.setItem(READ_NOTICE_KEY, JSON.stringify(ids));
+    sessionStorage.setItem(READ_NOTICE_KEY, JSON.stringify(ids));
   };
 
-  // Load employee notifications
+  // ----- LOAD EMPLOYEE NOTIFICATIONS -----
   const loadNotifications = useCallback(async () => {
     try {
       const all = await getNotifications();
@@ -59,18 +62,21 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
         (n) => String(n.userId) === String(getUserId())
       );
 
+      // Sort newest → oldest
       filtered.sort(
         (a, b) =>
-          new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
+          new Date(b.date || b.createdAt) -
+          new Date(a.date || a.createdAt)
       );
 
       setNotifications(filtered);
+      setUnreadNotifications(filtered.filter((n) => !n.isRead).length);
     } catch (err) {
-      console.error("❌ Error fetching employee notifications:", err);
+      console.error("❌ Error loading notifications:", err);
     }
-  }, []);
+  }, [loggedUser]);
 
-  // Load notices
+  // ----- LOAD NOTICES -----
   const loadNotices = useCallback(async () => {
     try {
       const list = await getNotices();
@@ -89,11 +95,11 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
       setNotices(mapped);
       setUnreadNotices(mapped.filter((n) => !n.isRead).length);
     } catch (err) {
-      console.error("❌ Error fetching notices:", err);
+      console.error("❌ Error loading notices:", err);
     }
   }, []);
 
-  // Mark all notices read
+  // ----- MARK ALL NOTICES READ -----
   const markAllNoticesRead = () => {
     const allIds = notices.map((n) => n._id);
     saveReadNoticeIds(allIds);
@@ -103,7 +109,7 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
     setUnreadNotices(0);
   };
 
-  // 🚫 DISABLE ALL SOCKET NOTIFICATIONS
+  // ----- SOCKET DISABLED -----
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
 
@@ -117,32 +123,37 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
     return () => socket.disconnect();
   }, []);
 
-  // Mark single notification read
+  // ----- MARK SINGLE NOTIFICATION READ -----
   const markAsRead = async (id) => {
     try {
       await markNotificationAsRead(id);
 
-      setNotifications((prev) =>
-        prev.map((n) =>
+      setNotifications((prev) => {
+        const updated = prev.map((n) =>
           String(n._id) === String(id) ? { ...n, isRead: true } : n
-        )
-      );
+        );
+
+        setUnreadNotifications(updated.filter((n) => !n.isRead).length);
+        return updated;
+      });
     } catch (err) {
-      console.error("❌ Mark read failed:", err);
+      console.error("❌ Failed to mark notification read:", err);
     }
   };
 
-  // Mark all notifications read
+  // ----- MARK ALL NOTIFICATIONS READ -----
   const markAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
+
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadNotifications(0);
     } catch (err) {
-      console.error("❌ Mark all read failed:", err);
+      console.error("❌ Failed to mark all notifications read:", err);
     }
   };
 
-  // Initial load
+  // ----- INITIAL LOAD -----
   useEffect(() => {
     (async () => {
       await loadNotifications();
@@ -155,6 +166,7 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
     <CurrentEmployeeNotificationContext.Provider
       value={{
         notifications,
+        unreadNotifications, // <-- NEW
         notices,
         unreadNotices,
         loading,

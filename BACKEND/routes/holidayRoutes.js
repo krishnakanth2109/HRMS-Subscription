@@ -1,12 +1,19 @@
 import express from "express";
 import Holiday from "../models/Holiday.js";
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
 /* ============================================================
-   ADD NEW HOLIDAY (Start Date + End Date)
-   ============================================================ */
-router.post("/", async (req, res) => {
+   🔐 ALL ROUTES REQUIRE LOGIN
+============================================================ */
+router.use(protect);
+
+/* ============================================================
+   🟥 ADMIN ONLY — ADD HOLIDAY
+============================================================ */
+router.post("/", onlyAdmin, async (req, res) => {
   try {
     const { name, description, startDate, endDate } = req.body;
 
@@ -14,14 +21,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const newHoliday = new Holiday({
-      name,
-      description,
-      startDate,
-      endDate,
-    });
-
-    await newHoliday.save();
+    await Holiday.create({ name, description, startDate, endDate });
 
     res.status(201).json({ message: "Holiday added successfully" });
   } catch (error) {
@@ -31,8 +31,8 @@ router.post("/", async (req, res) => {
 });
 
 /* ============================================================
-   GET ALL HOLIDAYS (sorted by startDate)
-   ============================================================ */
+   👤 ADMIN + MANAGER + EMPLOYEE — VIEW ALL HOLIDAYS
+============================================================ */
 router.get("/", async (req, res) => {
   try {
     const holidays = await Holiday.find().sort({ startDate: 1 });
@@ -44,9 +44,9 @@ router.get("/", async (req, res) => {
 });
 
 /* ============================================================
-   DELETE HOLIDAY
-   ============================================================ */
-router.delete("/:id", async (req, res) => {
+   🟥 ADMIN ONLY — DELETE HOLIDAY
+============================================================ */
+router.delete("/:id", onlyAdmin, async (req, res) => {
   try {
     await Holiday.findByIdAndDelete(req.params.id);
     res.json({ message: "Holiday deleted successfully" });

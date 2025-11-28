@@ -5,89 +5,131 @@ import jwt from "jsonwebtoken";
 import Admin from "../models/adminModel.js";
 import Employee from "../models/employeeModel.js";
 
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
+// Create JWT
+const signToken = (id, role) => {
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,
   });
 };
 
+// ----------------------------------------------
+// LOGIN CONTROLLER
+// ----------------------------------------------
 export const login = async (req, res, next) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ message: "Please provide both email and password." });
-  }
+
+  if (!email || !password)
+    return res.status(400).json({
+      message: "Please provide both email and password.",
+    });
 
   try {
-    // 1. Check Admin
-    let user = await Admin.findOne({ email }).select("+password");
-    let role = "admin";
+    let user = null;
+    let role = null;
 
-    // 2. Check Employee if not Admin
+    // 1️⃣ CHECK ADMIN (includes manager)
+    user = await Admin.findOne({ email }).select("+password +role");
+    if (user) {
+      role = user.role; // "admin" or "manager"
+    }
+
+    // 2️⃣ IF NOT ADMIN → CHECK EMPLOYEE
     if (!user) {
       user = await Employee.findOne({ email }).select("+password");
-      role = "employee";
+      if (user) role = "employee";
     }
 
-    // 3. Verify User and Password
+    // 3️⃣ USER NOT FOUND OR PASSWORD WRONG
     if (!user || !(await user.correctPassword(password, user.password))) {
-      return res.status(401).json({ message: "Incorrect email or password." });
+      return res
+        .status(401)
+        .json({ message: "Incorrect email or password." });
     }
 
-    // ✅ 4. CHECK IF ACCOUNT IS DEACTIVATED
-    // Logic: If user is an employee and isActive is false
+    // 4️⃣ BLOCK DEACTIVATED EMPLOYEES
     if (role === "employee" && user.isActive === false) {
-      return res.status(403).json({ 
-        message: "Your account is Deactivate please contact supprt team" 
+      return res.status(403).json({
+        message: "Your account is deactivated. Please contact support team.",
       });
     }
 
-    // 5. Generate Token
-    const token = signToken(user._id);
+    // 5️⃣ CREATE TOKEN WITH ROLE
+    const token = signToken(user._id, role);
     user.password = undefined;
 
-    res.status(200).json({
+    return res.status(200).json({
       status: "success",
       token,
-      data: { ...user.toObject(), role: role },
+      data: {
+        ...user.toObject(),
+        role: role, // Include user role in response
+      },
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
-    res.status(500).json({ message: "An internal server error occurred." });
+    res
+      .status(500)
+      .json({ message: "An internal server error occurred." });
   }
 };
 
-// Protect Middleware
+// ----------------------------------------------
+// PROTECT MIDDLEWARE
+// ----------------------------------------------
 export const protect = async (req, res, next) => {
   let token;
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+
+  // 1️⃣ Extract token
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer")
+  ) {
     token = req.headers.authorization.split(" ")[1];
   }
 
-  if (!token) {
-    return res.status(401).json({ message: "You are not logged in! Please log in to get access." });
-  }
+  if (!token)
+    return res.status(401).json({
+      message: "You are not logged in! Please log in to get access.",
+    });
 
   try {
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+    // 2️⃣ Verify token
+    const decoded = await promisify(jwt.verify)(
+      token,
+      process.env.JWT_SECRET
+    );
 
-    let currentUser = await Admin.findById(decoded.id);
+    // decoded contains: { id, role, iat, exp }
+
+    // 3️⃣ Check in Admin collection
+    let currentUser = await Admin.findById(decoded.id).select("+role");
+
+    // 4️⃣ If not admin → check employee
     if (!currentUser) {
-        currentUser = await Employee.findById(decoded.id);
+      currentUser = await Employee.findById(decoded.id);
     }
-    
+
     if (!currentUser) {
-        return res.status(401).json({ message: "The user belonging to this token no longer exists." });
+      return res.status(401).json({
+        message:
+          "The user belonging to this token no longer exists.",
+      });
     }
-    
-    // Optional: Check if user was deactivated while logged in
+
+    // 5️⃣ Block deactivated employees
     if (currentUser.isActive === false) {
-       return res.status(401).json({ message: "User is deactivated." });
+      return res.status(401).json({ message: "User is deactivated." });
     }
 
-    req.user = currentUser;
+    // 6️⃣ Attach user to request
+    req.user = currentUser; // includes role for admin/manager
+
     next();
   } catch (error) {
-    return res.status(401).json({ message: "Invalid token. Please log in again." });
+    return res
+      .status(401)
+      .json({ message: "Invalid token. Please log in again." });
   }
 };
+
 // --- END OF FILE controllers/authController.js ---

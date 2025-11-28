@@ -1,83 +1,84 @@
+// --- UPDATED FILE: routes/attendanceRoutes.js ---
+
 import express from 'express';
 import Attendance from '../models/Attendance.js';
-import Shift from '../models/shiftModel.js'; // From File 1
-import { reverseGeocode, validateCoordinates } from '../Services/locationService.js'; // From File 2
+import Shift from '../models/shiftModel.js';
+import { reverseGeocode, validateCoordinates } from '../Services/locationService.js';
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-// ============================================================
-// HELPER FUNCTIONS
-// ============================================================
+/* ======================================================
+   🔐 ALL ROUTES REQUIRE AUTH
+====================================================== */
+router.use(protect);
 
-const getToday = () => new Date().toISOString().split("T")[0];
-
-// Helper to parse time string "HH:MM" to minutes
-const timeToMinutes = (timeStr) => {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  return hours * 60 + minutes;
-};
-
-// Helper to add minutes to a time string
-const addMinutesToTime = (timeStr, minutesToAdd) => {
-  const totalMinutes = timeToMinutes(timeStr) + minutesToAdd;
-  const hours = Math.floor(totalMinutes / 60) % 24;
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-};
-
-// Helper to calculate time difference in minutes
-const getTimeDifferenceInMinutes = (punchInTime, shiftStartTime) => {
-  const punchInDate = new Date(punchInTime);
-  const punchInMinutes = punchInDate.getHours() * 60 + punchInDate.getMinutes();
-  const shiftStartMinutes = timeToMinutes(shiftStartTime);
-  return punchInMinutes - shiftStartMinutes;
-};
-
-// ============================================================
-// ROUTES
-// ============================================================
-
-// ✅ GET ALL RECORDS (Must be at the top to avoid conflict with /:employeeId)
-router.get('/all', async (req, res) => {
+/* ======================================================
+   🟥 ADMIN ONLY → GET ALL ATTENDANCE RECORDS
+====================================================== */
+router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    console.log("✅ Backend: Fetching ALL attendance records...");
+    console.log("Fetching ALL attendance records...");
     const records = await Attendance.find({});
-    // Sorting by date descending (newest first)
+
     const sortedRecords = records.map(rec => {
-        rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
-        return rec;
+      rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return rec;
     });
+
     res.status(200).json({
       success: true,
       count: sortedRecords.length,
-      data: sortedRecords
+      data: sortedRecords,
     });
+
   } catch (err) {
     console.error("Error fetching all attendance:", err);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ PUNCH IN (Merges Shift Logic with Location Validation)
+/* ======================================================
+   INTERNAL UTILITIES
+====================================================== */
+
+const getToday = () => new Date().toISOString().split("T")[0];
+
+const timeToMinutes = (timeStr) => {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
+};
+
+const addMinutesToTime = (timeStr, minutesToAdd) => {
+  const total = timeToMinutes(timeStr) + minutesToAdd;
+  const h = Math.floor(total / 60) % 24;
+  const m = total % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+};
+
+const getTimeDifferenceInMinutes = (punchIn, shiftStart) => {
+  const t = new Date(punchIn);
+  return t.getHours() * 60 + t.getMinutes() - timeToMinutes(shiftStart);
+};
+
+/* ======================================================
+   👤 EMPLOYEE / MANAGER → PUNCH IN
+====================================================== */
 router.post('/punch-in', async (req, res) => {
   try {
     const { employeeId, employeeName, latitude, longitude } = req.body;
 
-    if (!employeeId || !employeeName) {
-      return res.status(400).json({ success: false, message: 'Employee ID and Name are required' });
-    }
+    if (!employeeId || !employeeName)
+      return res.status(400).json({ message: 'Employee ID & Name required' });
 
-    // 1. Validate Location (From File 2)
-    if (!latitude || !longitude) return res.status(400).json({ error: "Location data required." });
-    if (!validateCoordinates(latitude, longitude)) return res.status(400).json({ error: "Invalid coordinates." });
+    if (!validateCoordinates(latitude, longitude))
+      return res.status(400).json({ message: "Invalid coordinates" });
 
     const today = getToday();
     const now = new Date();
 
-    // 2. Fetch Shift Configuration (From File 1)
     let shift = await Shift.findOne({ employeeId, isActive: true });
-    
-    // Default shift if not configured
     if (!shift) {
       shift = {
         shiftStartTime: "09:00",
@@ -86,295 +87,186 @@ router.post('/punch-in', async (req, res) => {
         autoExtendShift: true,
         fullDayHours: 8,
         halfDayHours: 4,
-        quarterDayHours: 2
+        quarterDayHours: 2,
       };
     }
 
-    // 3. Get Address
-    let address = 'Unknown Location';
+    let address = "Unknown Location";
     try {
       address = await reverseGeocode(latitude, longitude);
-    } catch (err) {
-      console.error("Geocode failed, using default", err);
-    }
+    } catch {}
 
-    // 4. Find or create attendance record
     let attendance = await Attendance.findOne({ employeeId });
-
     if (!attendance) {
-      attendance = new Attendance({
-        employeeId,
-        employeeName,
-        attendance: []
-      });
+      attendance = new Attendance({ employeeId, employeeName, attendance: [] });
     }
 
-    // 5. Check if already punched in
     let todayRecord = attendance.attendance.find(a => a.date === today);
+    if (todayRecord?.punchIn)
+      return res.status(400).json({ message: "Already punched in" });
 
-    if (todayRecord && todayRecord.punchIn) {
-      return res.status(400).json({ success: false, message: 'Already punched in today' });
-    }
+    const diffMin = getTimeDifferenceInMinutes(now, shift.shiftStartTime);
+    const isLate = diffMin > shift.lateGracePeriod;
 
-    // 6. Calculate LATE status based on Shift (From File 1)
-    const timeDiffMinutes = getTimeDifferenceInMinutes(now, shift.shiftStartTime);
-    const isLate = timeDiffMinutes > shift.lateGracePeriod;
-    
-    let loginStatus = 'ON_TIME';
     let adjustedShiftEnd = shift.shiftEndTime;
-
-    if (isLate) {
-      loginStatus = 'LATE';
-      // Auto-extend shift if enabled
-      if (shift.autoExtendShift) {
-        const lateMinutes = timeDiffMinutes - shift.lateGracePeriod;
-        adjustedShiftEnd = addMinutesToTime(shift.shiftEndTime, lateMinutes);
-      }
+    if (isLate && shift.autoExtendShift) {
+      adjustedShiftEnd = addMinutesToTime(shift.shiftEndTime, diffMin - shift.lateGracePeriod);
     }
 
     const punchInData = {
-        date: today,
-        punchIn: now,
-        punchInLocation: {
-          latitude,
-          longitude,
-          address,
-          timestamp: now
-        },
-        punchOut: null,
-        punchOutLocation: null,
-        workedHours: 0,
-        workedMinutes: 0,
-        workedSeconds: 0,
-        displayTime: '0h 0m 0s',
-        status: 'WORKING',
-        loginStatus: loginStatus,
-        workedStatus: 'NOT_APPLICABLE',
-        attendanceCategory: 'NOT_APPLICABLE',
-        
-        // Shift details
-        shiftStartTime: shift.shiftStartTime,
-        shiftEndTime: adjustedShiftEnd,
-        originalShiftEnd: shift.shiftEndTime,
-        lateMinutes: isLate ? Math.max(0, timeDiffMinutes - shift.lateGracePeriod) : 0,
-        
-        // Initialize Idle Activity (From File 2)
-        idleActivity: [] 
+      date: today,
+      punchIn: now,
+      punchInLocation: { latitude, longitude, address, timestamp: now },
+      punchOut: null,
+      workedHours: 0,
+      workedMinutes: 0,
+      displayTime: "0h 0m 0s",
+      status: "WORKING",
+      loginStatus: isLate ? "LATE" : "ON_TIME",
+      shiftStartTime: shift.shiftStartTime,
+      shiftEndTime: adjustedShiftEnd,
+      originalShiftEnd: shift.shiftEndTime,
+      lateMinutes: isLate ? Math.max(0, diffMin - shift.lateGracePeriod) : 0,
+      idleActivity: [],
     };
 
-    if (!todayRecord) {
-      attendance.attendance.push(punchInData);
-    } else {
-      // If record existed but punchIn was null (rare edge case)
-      Object.assign(todayRecord, punchInData);
-    }
+    if (!todayRecord) attendance.attendance.push(punchInData);
+    else Object.assign(todayRecord, punchInData);
 
     await attendance.save();
 
-    // Return the specific today record and shift info
-    const savedRecord = attendance.attendance.find(a => a.date === today);
-    
-    return res.status(200).json({
+    return res.json({
       success: true,
-      message: isLate 
-        ? `Punched in (Late). Shift extended to ${adjustedShiftEnd}` 
-        : 'Punched in successfully',
-      data: savedRecord, // Return just the object, or attendance array if preferred
-      attendance: attendance.attendance, // For compatibility with File 2 frontend
-      shift: {
-        original: shift.shiftEndTime,
-        adjusted: adjustedShiftEnd,
-        isExtended: isLate && shift.autoExtendShift
-      }
+      message: isLate ? `Late. Shift extended to ${adjustedShiftEnd}` : "Punched in successfully",
+      data: attendance.attendance.find(a => a.date === today),
     });
 
-  } catch (error) {
-    console.error('Punch-in error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to punch in', error: error.message });
-  }
-});
-
-// ✅ PUNCH OUT (Merges Idle Check + Shift Calculation)
-router.post('/punch-out', async (req, res) => {
-  try {
-    const { employeeId, latitude, longitude } = req.body;
-
-    if (!employeeId) return res.status(400).json({ success: false, message: 'Employee ID is required' });
-    if (!latitude || !longitude) return res.status(400).json({ error: "Location data required." });
-
-    const today = getToday();
-    const now = new Date();
-
-    // 1. Fetch Shift Configuration
-    let shift = await Shift.findOne({ employeeId, isActive: true });
-    if (!shift) {
-      shift = {
-        fullDayHours: 8,
-        halfDayHours: 4,
-        quarterDayHours: 2,
-        breakTimeMinutes: 60 // Default break deduction
-      };
-    }
-
-    // 2. Get Address
-    let address = 'Unknown Location';
-    try {
-      address = await reverseGeocode(latitude, longitude);
-    } catch (err) {
-       console.error("Geocode error", err);
-    }
-
-    const attendance = await Attendance.findOne({ employeeId });
-    if (!attendance) return res.status(404).json({ success: false, message: 'No attendance record found' });
-
-    const todayRecord = attendance.attendance.find(a => a.date === today);
-
-    if (!todayRecord || !todayRecord.punchIn) {
-      return res.status(400).json({ success: false, message: 'No punch-in record found for today' });
-    }
-
-    if (todayRecord.punchOut) {
-        // If already punched out, just return current state
-        return res.json({ success: true, data: todayRecord, attendance: attendance.attendance });
-    }
-
-    // 3. CLOSE IDLE SESSION IF ACTIVE (From File 2 Logic)
-    if (todayRecord.idleActivity && todayRecord.idleActivity.length > 0) {
-        const lastIdle = todayRecord.idleActivity[todayRecord.idleActivity.length - 1];
-        if (!lastIdle.idleEnd) {
-          lastIdle.idleEnd = now;
-        }
-    }
-
-    // 4. Calculate Worked Time (Subtracting Break - From File 1 Logic)
-    const punchInTime = new Date(todayRecord.punchIn);
-    const diffMs = now - punchInTime;
-    const totalSeconds = Math.floor(diffMs / 1000);
-
-    // Subtract break time defined in Shift
-    const breakSeconds = (shift.breakTimeMinutes || 0) * 60;
-    const effectiveSeconds = Math.max(0, totalSeconds - breakSeconds);
-
-    const hours = Math.floor(effectiveSeconds / 3600);
-    const minutes = Math.floor((effectiveSeconds % 3600) / 60);
-    const seconds = effectiveSeconds % 60;
-
-    // 5. Determine Status based on Shift Thresholds (From File 1 Logic)
-    let workedStatus = 'NOT_APPLICABLE';
-    let attendanceCategory = 'NOT_APPLICABLE';
-
-    if (hours >= shift.fullDayHours) {
-      workedStatus = 'FULL_DAY';
-      attendanceCategory = 'FULL_DAY';
-    } else if (hours >= shift.halfDayHours) {
-      workedStatus = 'HALF_DAY';
-      attendanceCategory = 'HALF_DAY';
-    } else if (hours >= shift.quarterDayHours) {
-      workedStatus = 'QUARTER_DAY';
-      attendanceCategory = 'HALF_DAY'; // Quarter day counts as half usually
-    } else {
-      workedStatus = 'ABSENT';
-      attendanceCategory = 'ABSENT';
-    }
-
-    // 6. Update Record
-    todayRecord.punchOut = now;
-    todayRecord.punchOutLocation = {
-      latitude,
-      longitude,
-      address,
-      timestamp: now
-    };
-    todayRecord.workedHours = hours;
-    todayRecord.workedMinutes = minutes;
-    todayRecord.workedSeconds = seconds;
-    todayRecord.displayTime = `${hours}h ${minutes}m ${seconds}s`;
-    todayRecord.status = 'COMPLETED';
-    todayRecord.workedStatus = workedStatus;
-    todayRecord.attendanceCategory = attendanceCategory;
-
-    await attendance.save();
-
-    return res.status(200).json({
-      success: true,
-      message: `Punched out successfully. Worked: ${hours}h ${minutes}m (${workedStatus})`,
-      data: todayRecord,
-      attendance: attendance.attendance // Support both response formats
-    });
-
-  } catch (error) {
-    console.error('Punch-out error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to punch out', error: error.message });
-  }
-});
-
-// ✅ RECORD IDLE ACTIVITY (From File 2)
-router.post("/record-idle-activity", async (req, res) => {
-  try {
-    const { employeeId, idleStart, idleEnd, isIdle } = req.body;
-    const today = getToday();
-
-    let record = await Attendance.findOne({ employeeId });
-    if (!record) return res.status(404).json({ message: "Record not found." });
-
-    let todayEntry = record.attendance.find((a) => a.date === today);
-    if (!todayEntry) return res.status(400).json({ message: "Punch in first." });
-
-    if (!todayEntry.idleActivity) todayEntry.idleActivity = [];
-
-    if (isIdle) {
-      // Start Idle
-      const lastEntry = todayEntry.idleActivity[todayEntry.idleActivity.length - 1];
-      // Only start new if previous is finished or array is empty
-      if (!lastEntry || lastEntry.idleEnd) {
-         todayEntry.idleActivity.push({ idleStart: new Date(idleStart) });
-      }
-    } else {
-      // End Idle
-      const lastEntry = todayEntry.idleActivity[todayEntry.idleActivity.length - 1];
-      if (lastEntry && !lastEntry.idleEnd) {
-        lastEntry.idleEnd = new Date(idleEnd);
-      } else if (idleStart && idleEnd) {
-        // Case where complete block is sent
-        todayEntry.idleActivity.push({
-           idleStart: new Date(idleStart),
-           idleEnd: new Date(idleEnd)
-        });
-      }
-    }
-
-    await record.save();
-    res.json({ message: "Idle updated", attendance: record.attendance });
   } catch (err) {
-    console.error("Idle record error:", err);
+    console.error("Punch-in error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ✅ GET SINGLE EMPLOYEE ATTENDANCE (Must be at bottom)
-router.get('/:employeeId', async (req, res) => {
+/* ======================================================
+   👤 EMPLOYEE / MANAGER → PUNCH OUT
+====================================================== */
+router.post('/punch-out', async (req, res) => {
   try {
-    const { employeeId } = req.params;
-    const attendance = await Attendance.findOne({ employeeId });
+    const { employeeId, latitude, longitude } = req.body;
+    if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
 
-    if (!attendance) {
-      return res.status(200).json({ success: true, data: [] });
-    }
+    const today = getToday();
+    const now = new Date();
 
-    // Sort desc
-    const sortedData = attendance.attendance.sort((a, b) => 
-        new Date(b.date) - new Date(a.date)
-    );
+    let attendance = await Attendance.findOne({ employeeId });
+    if (!attendance) return res.status(404).json({ message: "No record found" });
 
-    return res.status(200).json({
+    let todayRecord = attendance.attendance.find(a => a.date === today);
+    if (!todayRecord?.punchIn)
+      return res.status(400).json({ message: "Punch in first" });
+
+    if (todayRecord.punchOut)
+      return res.json({ success: true, data: todayRecord });
+
+    let shift = await Shift.findOne({ employeeId });
+    if (!shift) shift = { fullDayHours: 8, halfDayHours: 4, quarterDayHours: 2, breakTimeMinutes: 60 };
+
+    let punchInTime = new Date(todayRecord.punchIn);
+    const diffMs = now - punchInTime;
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const breakSeconds = (shift.breakTimeMinutes || 0) * 60;
+
+    const effective = Math.max(0, totalSeconds - breakSeconds);
+
+    const h = Math.floor(effective / 3600);
+    const m = Math.floor((effective % 3600) / 60);
+    const s = effective % 60;
+
+    let attendanceCategory = "ABSENT";
+    if (h >= shift.fullDayHours) attendanceCategory = "FULL_DAY";
+    else if (h >= shift.halfDayHours) attendanceCategory = "HALF_DAY";
+    else if (h >= shift.quarterDayHours) attendanceCategory = "HALF_DAY";
+
+    todayRecord.punchOut = now;
+    todayRecord.punchOutLocation = { latitude, longitude, timestamp: now };
+    todayRecord.workedHours = h;
+    todayRecord.workedMinutes = m;
+    todayRecord.workedSeconds = s;
+    todayRecord.displayTime = `${h}h ${m}m ${s}s`;
+    todayRecord.status = "COMPLETED";
+    todayRecord.attendanceCategory = attendanceCategory;
+
+    await attendance.save();
+
+    res.json({
       success: true,
-      data: sortedData
+      message: `Punched out (${attendanceCategory})`,
+      data: todayRecord,
     });
 
-  } catch (error) {
-    console.error('Get attendance error:', error);
-    return res.status(500).json({ success: false, message: 'Failed to fetch attendance', error: error.message });
+  } catch (err) {
+    console.error("Punch-out error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ======================================================
+   👤 EMPLOYEE → RECORD IDLE
+====================================================== */
+router.post('/record-idle-activity', async (req, res) => {
+  try {
+    const { employeeId, idleStart, idleEnd, isIdle } = req.body;
+
+    const today = getToday();
+    const record = await Attendance.findOne({ employeeId });
+    if (!record) return res.status(404).json({ message: "Not found" });
+
+    const todayEntry = record.attendance.find(a => a.date === today);
+    if (!todayEntry) return res.status(400).json({ message: "Punch in first" });
+
+    if (!todayEntry.idleActivity) todayEntry.idleActivity = [];
+
+    if (isIdle) todayEntry.idleActivity.push({ idleStart: new Date(idleStart) });
+    else {
+      const last = todayEntry.idleActivity[todayEntry.idleActivity.length - 1];
+      if (last && !last.idleEnd) last.idleEnd = new Date(idleEnd);
+    }
+
+    await record.save();
+    res.json({ success: true, data: todayEntry });
+
+  } catch (err) {
+    console.error("Idle error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ======================================================
+   👤 EMPLOYEE / MANAGER → ONLY VIEW OWN ATTENDANCE
+   🟥 ADMIN → CAN VIEW ANY EMPLOYEE
+====================================================== */
+router.get('/:employeeId', async (req, res) => {
+  try {
+    const requestedId = req.params.employeeId;
+    const loggedUser = req.user;
+
+    if (loggedUser.role !== "admin" && loggedUser.employeeId !== requestedId) {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    const record = await Attendance.findOne({ employeeId: requestedId });
+    if (!record) return res.json({ success: true, data: [] });
+
+    const sorted = record.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    res.json({ success: true, data: sorted });
+
+  } catch (err) {
+    console.error("Fetch error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 export default router;
+
+// --- END ---

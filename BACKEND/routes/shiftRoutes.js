@@ -1,11 +1,22 @@
+// --- UPDATED FILE: routes/shiftRoutes.js ---
+
 import express from 'express';
 import Shift from '../models/shiftModel.js';
 import Employee from '../models/employeeModel.js';
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-// @route   POST /api/shifts/create
-router.post('/create', async (req, res) => {
+/* ============================================================
+   🔐 ALL ROUTES REQUIRE LOGIN
+============================================================ */
+router.use(protect);
+
+/* ============================================================
+   🟥 ADMIN ONLY → CREATE / UPDATE SHIFT
+============================================================ */
+router.post('/create', onlyAdmin, async (req, res) => {
   try {
     const {
       employeeId,
@@ -49,7 +60,7 @@ router.post('/create', async (req, res) => {
       weeklyOffDays: weeklyOffDays || [0],
       department,
       role,
-      timezone: "Asia/Kolkata", // FORCE IST Timezone
+      timezone: "Asia/Kolkata",
       employeeName: employee.name,
       updatedBy: currentUserEmail,
       isActive: true
@@ -75,8 +86,10 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// @route   GET /api/shifts/all
-router.get('/all', async (req, res) => {
+/* ============================================================
+   🟥 ADMIN ONLY → GET ALL SHIFTS
+============================================================ */
+router.get('/all', onlyAdmin, async (req, res) => {
   try {
     const shifts = await Shift.find({ isActive: true }).sort({ employeeName: 1 });
     return res.status(200).json({ success: true, count: shifts.length, data: shifts });
@@ -85,17 +98,26 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// @route   GET /api/shifts/:employeeId
+/* ============================================================
+   👤 ADMIN → ANY EMPLOYEE SHIFT
+   👤 MANAGER/EMPLOYEE → ONLY THEIR OWN SHIFT
+============================================================ */
 router.get('/:employeeId', async (req, res) => {
   try {
-    const shift = await Shift.findOne({ employeeId: req.params.employeeId, isActive: true });
-    
-    // If no specific shift found, return default logic structure
+    const requestedId = req.params.employeeId;
+
+    // Manager/Employee cannot access other employees' shifts
+    if (req.user.role !== "admin" && req.user.employeeId !== requestedId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const shift = await Shift.findOne({ employeeId: requestedId, isActive: true });
+
     if (!shift) {
       return res.status(200).json({
         success: true,
         data: {
-          employeeId: req.params.employeeId,
+          employeeId: requestedId,
           shiftStartTime: "09:00",
           shiftEndTime: "18:00",
           lateGracePeriod: 15,
@@ -108,14 +130,18 @@ router.get('/:employeeId', async (req, res) => {
         }
       });
     }
+
     return res.status(200).json({ success: true, data: shift });
+
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// @route   DELETE /api/shifts/:employeeId
-router.delete('/:employeeId', async (req, res) => {
+/* ============================================================
+   🟥 ADMIN ONLY → DELETE SHIFT
+============================================================ */
+router.delete('/:employeeId', onlyAdmin, async (req, res) => {
   try {
     await Shift.findOneAndDelete({ employeeId: req.params.employeeId });
     return res.status(200).json({ success: true, message: 'Shift reset to default' });
@@ -124,11 +150,12 @@ router.delete('/:employeeId', async (req, res) => {
   }
 });
 
-// @route   POST /api/shifts/bulk-create
-router.post('/bulk-create', async (req, res) => {
+/* ============================================================
+   🟥 ADMIN ONLY → BULK SHIFT ASSIGN
+============================================================ */
+router.post('/bulk-create', onlyAdmin, async (req, res) => {
   try {
     const { employeeIds, shiftData } = req.body;
-    const currentUserEmail = req.user?.email || 'Admin';
 
     if (!employeeIds || !Array.isArray(employeeIds)) {
       return res.status(400).json({ success: false, message: 'Invalid Employee IDs' });
@@ -139,15 +166,17 @@ router.post('/bulk-create', async (req, res) => {
       lateGracePeriod: Number(shiftData.lateGracePeriod),
       fullDayHours: Number(shiftData.fullDayHours),
       halfDayHours: Number(shiftData.halfDayHours),
-      timezone: "Asia/Kolkata" // FORCE IST Timezone
+      timezone: "Asia/Kolkata"
     };
+
+    const currentUserEmail = req.user?.email || "Admin";
 
     const promises = employeeIds.map(async (empId) => {
       const cleanId = empId.trim();
       const employee = await Employee.findOne({ employeeId: cleanId });
       if (!employee) return;
 
-      const shiftUpdate = {
+      const updateData = {
         ...cleanShiftData,
         employeeName: employee.name,
         email: employee.email,
@@ -157,16 +186,20 @@ router.post('/bulk-create', async (req, res) => {
 
       await Shift.findOneAndUpdate(
         { employeeId: cleanId },
-        { $set: shiftUpdate, $setOnInsert: { createdBy: currentUserEmail } },
-        { upsert: true, new: true }
+        { $set: updateData, $setOnInsert: { createdBy: currentUserEmail } },
+        { upsert: true }
       );
     });
 
     await Promise.all(promises);
+
     return res.status(200).json({ success: true, message: 'Bulk update successful' });
+
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
 export default router;
+
+// --- END ---
