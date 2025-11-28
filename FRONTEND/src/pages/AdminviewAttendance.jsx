@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees, getAllShifts } from "../api"; 
-import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt } from "react-icons/fa";
+import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch } from "react-icons/fa";
 import axios from 'axios';
+import { toBlob } from 'html-to-image'; 
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -135,7 +136,6 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
       onClose();
     } catch (error) {
       console.error('Punch out error:', error);
-      // Detailed error message handling
       const errorMsg = error.response?.data?.message || error.message;
       alert('Failed to punch out: ' + errorMsg);
     } finally {
@@ -197,6 +197,8 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
 };
 
 const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => {
+  const contentRef = useRef(null);
+
   if (!isOpen || !employeeData) return null;
   const sortedRecords = [...employeeData.records].sort((a, b) => new Date(b.date) - new Date(a.date));
   const shift = shiftsMap[employeeData.employeeId];
@@ -223,37 +225,75 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => 
     FileSaver.saveAs(new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" }), `${employeeData.name.replace(/\s+/g, '_')}_Attendance_Report.xlsx`);
   };
 
+  const handleShareImage = async () => {
+    if (contentRef.current) {
+        try {
+            const blob = await toBlob(contentRef.current, { backgroundColor: '#ffffff' });
+            
+            if (blob) {
+                const file = new File([blob], "attendance_summary.png", { type: "image/png" });
+                
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: 'Attendance Summary',
+                            text: `Attendance history for ${employeeData.name}`,
+                        });
+                    } catch (err) {
+                        console.error('Error sharing:', err);
+                    }
+                } else {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `Attendance_${employeeData.name}.png`;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }
+            }
+        } catch (error) {
+            console.error("Error generating image:", error);
+        }
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70 rounded-t-2xl">
           <div><h3 className="text-xl font-bold text-slate-800">Attendance History</h3><p className="text-slate-600 font-semibold">{employeeData.name}</p></div>
           <div className="flex items-center gap-3">
+            <button onClick={handleShareImage} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-full hover:bg-blue-700">
+                <FaShareAlt /> Share
+            </button>
             <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-full hover:bg-green-700"><FaFileExcel /> Download</button>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2"><FaTimes size={20} /></button>
           </div>
         </div>
-        <div className="p-2 sm:p-5 overflow-y-auto">
-          <table className="min-w-full text-sm border border-slate-200">
-            <thead className="bg-slate-100 text-slate-600 uppercase text-xs"><tr><th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Punch In</th><th className="px-4 py-3 text-left">Punch Out</th><th className="px-4 py-3 text-left">Assigned Hrs</th><th className="px-4 py-3 text-left">Duration</th><th className="px-4 py-3 text-left">Login Status</th><th className="px-4 py-3 text-left">Worked Status</th></tr></thead>
-            <tbody className="divide-y divide-slate-200">
-              {sortedRecords.length > 0 ? (sortedRecords.map((record, idx) => {
-                const realStatus = calculateLoginStatus(record.punchIn, shift, record.loginStatus);
-                const dynamicWorkedStatus = getWorkedStatus(record.punchIn, record.punchOut, record.status, shiftHours);
-                const isAbsent = record.status === "ABSENT" || dynamicWorkedStatus.includes("Absent");
-                return (
-                <tr key={idx} className={`hover:bg-slate-50 ${isAbsent ? "bg-red-50" : ""}`}>
-                  <td className="px-4 py-3 font-semibold text-slate-700">{new Date(record.date).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-green-600">{record.punchIn ? new Date(record.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                  <td className="px-4 py-3 text-red-600">{record.punchOut ? new Date(record.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                  <td className="px-4 py-3 font-medium text-slate-600">{formatDecimalHours(shiftHours)}</td>
-                  <td className="px-4 py-3 font-mono">{record.displayTime || "0h 0m"}</td>
-                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${realStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{realStatus}</span></td>
-                  <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${dynamicWorkedStatus === "Full Day" ? "bg-green-100 text-green-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{dynamicWorkedStatus}</span></td>
-                </tr>
-              )})) : (<tr><td colSpan="7" className="text-center p-10">No records.</td></tr>)}
-            </tbody>
-          </table>
+        
+        <div className="p-2 sm:p-5 overflow-y-auto" ref={contentRef}> 
+          <div className="bg-white p-2">
+            <table className="min-w-full text-sm border border-slate-200">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-xs"><tr><th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Punch In</th><th className="px-4 py-3 text-left">Punch Out</th><th className="px-4 py-3 text-left">Assigned Hrs</th><th className="px-4 py-3 text-left">Duration</th><th className="px-4 py-3 text-left">Login Status</th><th className="px-4 py-3 text-left">Worked Status</th></tr></thead>
+                <tbody className="divide-y divide-slate-200">
+                {sortedRecords.length > 0 ? (sortedRecords.map((record, idx) => {
+                    const realStatus = calculateLoginStatus(record.punchIn, shift, record.loginStatus);
+                    const dynamicWorkedStatus = getWorkedStatus(record.punchIn, record.punchOut, record.status, shiftHours);
+                    const isAbsent = record.status === "ABSENT" || dynamicWorkedStatus.includes("Absent");
+                    return (
+                    <tr key={idx} className={`hover:bg-slate-50 ${isAbsent ? "bg-red-50" : ""}`}>
+                    <td className="px-4 py-3 font-semibold text-slate-700">{new Date(record.date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-green-600">{record.punchIn ? new Date(record.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                    <td className="px-4 py-3 text-red-600">{record.punchOut ? new Date(record.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                    <td className="px-4 py-3 font-medium text-slate-600">{formatDecimalHours(shiftHours)}</td>
+                    <td className="px-4 py-3 font-mono">{record.displayTime || "0h 0m"}</td>
+                    <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${realStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{realStatus}</span></td>
+                    <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${dynamicWorkedStatus === "Full Day" ? "bg-green-100 text-green-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{dynamicWorkedStatus}</span></td>
+                    </tr>
+                )})) : (<tr><td colSpan="7" className="text-center p-10">No records.</td></tr>)}
+                </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -278,7 +318,18 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
                     </div>
                     <div><p className="font-semibold text-slate-800">{emp.name || emp.employeeName}</p><p className="text-sm text-slate-500 font-mono">{emp.employeeId}</p></div>
                 </div>
-                {emp.displayLoginStatus && <span className={`text-xs px-2 py-1 rounded-full ${emp.displayLoginStatus === 'LATE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{emp.displayLoginStatus}</span>}
+                <div className="flex flex-col items-end gap-1">
+                    {emp.displayLoginStatus && <span className={`text-xs px-2 py-1 rounded-full ${emp.displayLoginStatus === 'LATE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{emp.displayLoginStatus}</span>}
+                    {emp.workedStatus && (
+                         <span className={`text-xs px-2 py-1 rounded-full font-bold ${
+                            emp.workedStatus === 'Full Day' ? 'bg-green-100 text-green-800' :
+                            emp.workedStatus === 'Half Day' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                        }`}>
+                            {emp.workedStatus}
+                        </span>
+                    )}
+                </div>
             </li>
           ))}</ul>) : (<p className="text-center text-slate-500 py-8">No employees in this category.</p>)}
         </div>
@@ -326,6 +377,10 @@ const AdminAttendance = () => {
   const [summaryItemsPerPage, setSummaryItemsPerPage] = useState(10);
   const [punchOutModal, setPunchOutModal] = useState({ isOpen: false, employee: null });
 
+  // Search States
+  const [dailySearchTerm, setDailySearchTerm] = useState("");
+  const [summarySearchTerm, setSummarySearchTerm] = useState("");
+
   const fetchShifts = useCallback(async () => {
     try {
       const response = await getAllShifts();
@@ -354,21 +409,17 @@ const AdminAttendance = () => {
     try { const data = await getAttendanceByDateRange(start, end); setRawSummaryData(Array.isArray(data) ? data : []); } catch (error) { setRawSummaryData([]); } finally { setSummaryLoading(false); } 
   }, []);
 
-  // ✅ UPDATED: Added Console Logging to debug Network Errors
   const handleAdminPunchOut = async (employeeId, punchOutTime, location, dateOfRecord) => {
     try {
-      // Determine base URL (Priority: Env Variable > Localhost)
-      let baseUrl = (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || 'http://localhost:5000/api';
+      const LIVE_BACKEND = 'https://hrms-ask.onrender.com/api';
+      let baseUrl = import.meta.env?.VITE_API_URL || 
+                    (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || 
+                    LIVE_BACKEND;
       
       if (baseUrl.endsWith('/')) {
         baseUrl = baseUrl.slice(0, -1);
       }
       
-      // LOG THE URL to the browser console so you can see what is being hit
-      console.log("🚀 Attempting Admin Punch Out...");
-      console.log("🌐 API URL being used:", baseUrl);
-      console.log("📦 Payload:", { employeeId, punchOutTime, location, date: dateOfRecord });
-
       const response = await axios.post(`${baseUrl}/attendance/admin-punch-out`, {
         employeeId,
         punchOutTime,
@@ -384,8 +435,10 @@ const AdminAttendance = () => {
         await fetchSummaryData(summaryStartDate, summaryEndDate);
       }
     } catch (error) {
-      console.error('❌ Admin punch out error:', error);
-      throw error; // Re-throw to be caught by the modal
+      console.error('Admin punch out error:', error);
+      const errMsg = error.response?.data?.message || error.message;
+      alert(`Failed to punch out: ${errMsg}`);
+      throw error; 
     }
   };
 
@@ -393,7 +446,7 @@ const AdminAttendance = () => {
   useEffect(() => { fetchAllEmployees(); fetchSummaryData(summaryStartDate, summaryEndDate); fetchOvertimeData(); }, [summaryStartDate, summaryEndDate, fetchSummaryData, fetchOvertimeData, fetchAllEmployees]);
 
   const processedDailyData = useMemo(() => {
-    return rawDailyData.map(item => {
+    const mapped = rawDailyData.map(item => {
         const shift = shiftsMap[item.employeeId];
         const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
         return {
@@ -403,8 +456,23 @@ const AdminAttendance = () => {
             displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
         };
     });
-  }, [rawDailyData, shiftsMap]);
 
+    // Sort: Recent Punch In on Top (Descending)
+    mapped.sort((a, b) => {
+        const timeA = a.punchIn ? new Date(a.punchIn).getTime() : 0;
+        const timeB = b.punchIn ? new Date(b.punchIn).getTime() : 0;
+        return timeB - timeA;
+    });
+
+    if (!dailySearchTerm) return mapped;
+    const lowerTerm = dailySearchTerm.toLowerCase();
+    return mapped.filter(item => 
+        (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) ||
+        (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm))
+    );
+  }, [rawDailyData, shiftsMap, dailySearchTerm]);
+
+  // ✅ RESTORED: This useMemo was missing in the previous version causing the error
   const processedSummaryData = useMemo(() => {
     return rawSummaryData.map(item => {
         const shift = shiftsMap[item.employeeId];
@@ -413,21 +481,10 @@ const AdminAttendance = () => {
     });
   }, [rawSummaryData, shiftsMap]);
 
-  const absentEmployees = useMemo(() => {
-    if (allEmployees.length === 0 || loading || startDate !== endDate) return [];
-    const presentIds = new Set(processedDailyData.map(att => att.employeeId));
-    return allEmployees.filter(emp => !presentIds.has(emp.employeeId));
-  }, [allEmployees, processedDailyData, loading, startDate, endDate]);
-
-  const dailyStats = useMemo(() => {
-      const working = processedDailyData.filter(item => item.punchIn && !item.punchOut);
-      const completed = processedDailyData.filter(item => item.punchIn && item.punchOut);
-      return { workingList: working, workingCount: working.length, completedList: completed, completedCount: completed.length, absentCount: startDate === endDate ? absentEmployees.length : 0 };
-  }, [processedDailyData, absentEmployees, startDate, endDate]);
-
   const employeeSummaryStats = useMemo(() => {
     if (!processedSummaryData.length) return [];
     const approvedOTCounts = overtimeData.reduce((acc, ot) => { if (ot.status === 'APPROVED') { acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1; } return acc; }, {});
+    
     const summary = processedSummaryData.reduce((acc, record) => {
       if (!acc[record.employeeId]) { acc[record.employeeId] = { employeeId: record.employeeId, employeeName: record.employeeName, assignedHours: record.assignedHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0 }; }
       const empRec = acc[record.employeeId];
@@ -435,8 +492,38 @@ const AdminAttendance = () => {
       if (record.workedStatus === "Full Day") empRec.fullDays++; else if (record.workedStatus === "Half Day") empRec.halfDays++; else if (record.status === "ABSENT" || record.workedStatus.includes("Absent")) empRec.absentDays++;
       return acc;
     }, {});
-    return Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 })).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
-  }, [processedSummaryData, overtimeData]);
+
+    const resultArray = Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 })).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+
+    if (!summarySearchTerm) return resultArray;
+    const lowerTerm = summarySearchTerm.toLowerCase();
+    return resultArray.filter(item => 
+        (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) ||
+        (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm))
+    );
+  }, [processedSummaryData, overtimeData, summarySearchTerm]);
+
+  const absentEmployees = useMemo(() => {
+    if (allEmployees.length === 0 || loading || startDate !== endDate) return [];
+    const presentIds = new Set(rawDailyData.map(att => att.employeeId));
+    return allEmployees.filter(emp => !presentIds.has(emp.employeeId));
+  }, [allEmployees, rawDailyData, loading, startDate, endDate]);
+
+  const dailyStats = useMemo(() => {
+      const fullList = rawDailyData.map(item => {
+        const shift = shiftsMap[item.employeeId];
+        const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
+        return {
+            ...item,
+            workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours),
+            displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
+        };
+      });
+
+      const working = fullList.filter(item => item.punchIn && !item.punchOut);
+      const completed = fullList.filter(item => item.punchIn && item.punchOut);
+      return { workingList: working, workingCount: working.length, completedList: completed, completedCount: completed.length, absentCount: startDate === endDate ? absentEmployees.length : 0 };
+  }, [rawDailyData, shiftsMap, absentEmployees, startDate, endDate]);
   
   const paginatedDailyData = useMemo(() => processedDailyData.slice((dailyCurrentPage - 1) * dailyItemsPerPage, dailyCurrentPage * dailyItemsPerPage), [processedDailyData, dailyCurrentPage, dailyItemsPerPage]);
   const paginatedSummaryData = useMemo(() => employeeSummaryStats.slice((summaryCurrentPage - 1) * summaryItemsPerPage, summaryCurrentPage * summaryItemsPerPage), [employeeSummaryStats, summaryCurrentPage, summaryItemsPerPage]);
@@ -495,9 +582,23 @@ const AdminAttendance = () => {
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            {/* Header Layout for Daily Log */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="flex items-center gap-3"><FaCalendarAlt className="text-2xl text-blue-600"/><h2 className="text-xl font-bold text-slate-800">Daily Attendance Log</h2></div>
-              <div className="flex flex-wrap items-center gap-3">
+              
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                {/* Search Input for Daily Log */}
+                <div className="relative group">
+                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <input 
+                        type="text" 
+                        placeholder="Search Name or ID..." 
+                        value={dailySearchTerm}
+                        onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }}
+                        className="pl-10 pr-3 py-2 w-full lg:w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+                    />
+                </div>
+
                 <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">From</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
                 <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">To</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
                 <button onClick={exportDailyLogToExcel} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-transform hover:scale-105"><FaFileExcel/><span>Export</span></button>
@@ -513,7 +614,7 @@ const AdminAttendance = () => {
             <table className="min-w-full text-sm">
               <thead className="bg-slate-800 text-slate-100 uppercase tracking-wider"><tr><th className="px-6 py-4 text-left">Employee</th><th className="px-6 py-4 text-left">Date</th><th className="px-6 py-4 text-left">Punch In</th><th className="px-6 py-4 text-left">In Location</th><th className="px-6 py-4 text-left">Punch Out</th><th className="px-6 py-4 text-left">Out Location</th><th className="px-6 py-4 text-left">Work Hrs</th><th className="px-6 py-4 text-left">Duration</th><th className="px-6 py-4 text-left">Login Status</th><th className="px-6 py-4 text-left">Worked Status</th><th className="px-6 py-4 text-left">Status</th><th className="px-6 py-4 text-left">Actions</th></tr></thead>
               <tbody className="divide-y divide-slate-200">
-                {loading ? (<tr><td colSpan="12" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="12" className="text-center p-10 text-slate-500">No records found for this date range.</td></tr>) : paginatedDailyData.map((item, idx) => {
+                {loading ? (<tr><td colSpan="12" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="12" className="text-center p-10 text-slate-500">No records found.</td></tr>) : paginatedDailyData.map((item, idx) => {
                   const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
                   const canPunchOut = item.punchIn && !item.punchOut;
                   return (
@@ -547,9 +648,23 @@ const AdminAttendance = () => {
         {/* Summary Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            {/* Header Layout for Summary */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="flex items-center gap-3"><FaUsers className="text-2xl text-purple-600"/><h2 className="text-xl font-bold text-slate-800">Employee Attendance Summary</h2></div>
-              <div className="flex flex-wrap items-center gap-3">
+              
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                 {/* Search Input for Summary */}
+                 <div className="relative group">
+                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
+                    <input 
+                        type="text" 
+                        placeholder="Search Name or ID..." 
+                        value={summarySearchTerm}
+                        onChange={(e) => { setSummarySearchTerm(e.target.value); setSummaryCurrentPage(1); }}
+                        className="pl-10 pr-3 py-2 w-full lg:w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-sm"
+                    />
+                </div>
+
                 <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">From</span><input type="date" value={summaryStartDate} onChange={(e) => setSummaryStartDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
                 <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">To</span><input type="date" value={summaryEndDate} onChange={(e) => setSummaryEndDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
                 <button onClick={exportSummaryToExcel} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-transform hover:scale-105"><FaFileExcel/><span>Export Summary</span></button>

@@ -3,7 +3,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import { getHolidays, addHoliday, deleteHolidayById, getEmployees } from "../api";
-import { FaCalendarDay, FaStar } from "react-icons/fa";
+// Added FaChevronLeft, FaChevronRight for navigation
+import { FaCalendarDay, FaStar, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 
 const AdminHolidayCalendarPage = () => {
   const [holidayData, setHolidayData] = useState({
@@ -18,6 +19,9 @@ const AdminHolidayCalendarPage = () => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeDate, setActiveDate] = useState(new Date());
+
+  // NEW STATE: To track which month is selected for the Birthday List
+  const [birthdayCursor, setBirthdayCursor] = useState(new Date());
 
   // Normalize Date (Fix timezone issues)
   const normalizeDate = (date) => {
@@ -53,19 +57,16 @@ const AdminHolidayCalendarPage = () => {
           dob: new Date(emp.personalDetails.dob),
         }));
 
-      // Today's date (ignore time)
+      // Sort logic remains mostly for the main calendar, 
+      // but we will filter by month for the list view later.
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Sort birthdays: upcoming first, past last
       result.sort((a, b) => {
         const aNext = new Date(today.getFullYear(), a.dob.getMonth(), a.dob.getDate());
         const bNext = new Date(today.getFullYear(), b.dob.getMonth(), b.dob.getDate());
-
-        // If birthday already passed this year → shift to next year
         if (aNext < today) aNext.setFullYear(today.getFullYear() + 1);
         if (bNext < today) bNext.setFullYear(today.getFullYear() + 1);
-
         return aNext - bNext;
       });
 
@@ -127,6 +128,27 @@ const AdminHolidayCalendarPage = () => {
       setMessage("❌ Failed to delete holiday.");
     }
   };
+
+  /* =========================================================
+      BIRTHDAY LIST LOGIC (NEW)
+  ==========================================================*/
+  // 1. Move Month
+  const changeBirthdayMonth = (increment) => {
+    setBirthdayCursor((prev) => {
+      const newDate = new Date(prev);
+      newDate.setMonth(newDate.getMonth() + increment);
+      return newDate;
+    });
+  };
+
+  // 2. Filter birthdays based on the cursor month
+  const currentMonthBirthdays = birthdays.filter((b) => {
+    return b.dob.getMonth() === birthdayCursor.getMonth();
+  });
+
+  // 3. Sort by day of the month (1st to 31st)
+  currentMonthBirthdays.sort((a, b) => a.dob.getDate() - b.dob.getDate());
+
 
   /* =========================================================
       COUNT HOLIDAY DAYS THIS MONTH
@@ -340,7 +362,7 @@ const AdminHolidayCalendarPage = () => {
               <div
                 className="space-y-6 overflow-y-auto"
                 style={{
-                  maxHeight: "420px",  // shows approx 2 cards
+                  maxHeight: "420px",
                   paddingRight: "10px"
                 }}
               >
@@ -381,44 +403,71 @@ const AdminHolidayCalendarPage = () => {
 
             )}
 
-            {/* BIRTHDAY LIST */}
+            {/* BIRTHDAY LIST - UPDATED BY REQUEST */}
             <div className="mt-16">
-              <h3 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-                Employee Birthdays 🎂
-              </h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-800">
+                  Employee Birthdays 🎂
+                </h3>
+              </div>
 
-              {birthdays.length === 0 ? (
+              {/* Month Navigation for Birthdays */}
+              <div className="bg-white rounded-2xl shadow-lg p-4 mb-4 flex items-center justify-between">
+                <button
+                  onClick={() => changeBirthdayMonth(-1)}
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                >
+                  <FaChevronLeft size={20} />
+                </button>
+                <span className="text-xl font-bold text-indigo-600">
+                  {birthdayCursor.toLocaleString("default", { month: "long", year: "numeric" })}
+                </span>
+                <button
+                  onClick={() => changeBirthdayMonth(1)}
+                  className="p-2 rounded-full hover:bg-gray-100 text-gray-600 transition"
+                >
+                  <FaChevronRight size={20} />
+                </button>
+              </div>
+
+              {currentMonthBirthdays.length === 0 ? (
                 <div className="text-center bg-white p-12 rounded-2xl shadow-lg">
                   <p className="text-2xl text-gray-400 mb-4">📭</p>
                   <p className="text-gray-600 font-semibold text-lg">
-                    No birthdays found.
+                    No birthdays in {birthdayCursor.toLocaleString("default", { month: "long" })}.
                   </p>
                 </div>
               ) : (
                 <div
                   className="space-y-5 overflow-y-auto"
                   style={{
-                    maxHeight: "300px",     // Shows around 3 cards
-                    paddingRight: "10px",   // Prevent scrollbar overlap
+                    maxHeight: "300px",
+                    paddingRight: "10px",
                   }}
                 >
-                  {birthdays.map((b, i) => (
+                  {currentMonthBirthdays.map((b, i) => (
                     <div
                       key={i}
-                      className="bg-white p-6 rounded-2xl shadow hover:shadow-xl transition"
+                      className="bg-white p-6 rounded-2xl shadow hover:shadow-xl transition flex justify-between items-center"
                     >
-                      <h4 className="text-xl font-bold text-orange-600">
-                        {b.name}
-                      </h4>
-                      <p className="text-gray-600">
-                        🎂 {b.dob.toLocaleDateString("en-US")}
-                      </p>
+                      <div>
+                        <h4 className="text-xl font-bold text-orange-600">
+                          {b.name}
+                        </h4>
+                        <p className="text-gray-500 text-sm">
+                          {/* Show just Day and Month for privacy/simplicity or full date if preferred */}
+                          {b.dob.toLocaleString("default", { month: "long", day: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="text-2xl bg-orange-100 text-orange-600 p-3 rounded-xl font-bold">
+                        {b.dob.getDate()}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
+            {/* END OF BIRTHDAY LIST UPDATE */}
 
           </div>
         </div>

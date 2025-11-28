@@ -423,6 +423,27 @@ const EmployeeDashboard = () => {
   const handlePunch = async (action) => {
     if (!user) return;
 
+    // ✅ REQ UPDATE: Check if employee punched out previous day
+    if (action === "IN") {
+        const yesterdayDate = new Date();
+        yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+        const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
+
+        // Find log for yesterday
+        const yesterdayLog = attendance.find(d => d.date === yesterdayStr);
+
+        // If they punched in yesterday but NOT punched out
+        if (yesterdayLog && yesterdayLog.punchIn && !yesterdayLog.punchOut) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Punch In Disabled',
+                text: 'You not punch out yesterday please contact admin team',
+                confirmButtonColor: '#d33',
+            });
+            return; // ⛔ STOP PUNCH IN
+        }
+    }
+
     // Check Logic for Punch Out
     if (action === "OUT") {
         const totalShiftSeconds = shiftTimings ? getShiftDurationInSeconds(shiftTimings.shiftStartTime, shiftTimings.shiftEndTime) : 8 * 3600;

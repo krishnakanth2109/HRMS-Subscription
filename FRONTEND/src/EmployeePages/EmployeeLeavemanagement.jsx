@@ -12,7 +12,7 @@ import {
 const REASON_LIMIT = 50;
 
 // --- LEAVE YEAR CONFIGURATION ---
-const LEAVE_YEAR_START_MONTH = 11; // Nov
+const LEAVE_YEAR_START_MONTH = 1; // Nov
 
 // --- HELPER FUNCTIONS ---
 

@@ -52,7 +52,7 @@ const Login = () => {
         errorMessage.toLowerCase().includes("deactivate") ||
         errorMessage.toLowerCase().includes("disabled")
       ) {
-        setError("Your account is Deactivate please contact supprt team");
+        setError("Your account is Deactivated please contact support team");
       } else {
         setError(errorMessage || "Invalid credentials.");
       }

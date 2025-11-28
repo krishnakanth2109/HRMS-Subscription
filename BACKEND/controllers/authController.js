@@ -37,7 +37,7 @@ export const login = async (req, res, next) => {
     // Logic: If user is an employee and isActive is false
     if (role === "employee" && user.isActive === false) {
       return res.status(403).json({ 
-        message: "Your account is Deactivate please contact supprt team" 
+        message: "Your account is Deactivated please contact support team" 
       });
     }
 

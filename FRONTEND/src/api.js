@@ -89,8 +89,10 @@ export const updateEmployeeById = async (id, data) =>
   (await api.put(`/api/employees/${id}`, data)).data;
 export const deactivateEmployeeById = async (id, data) =>
   (await api.patch(`/api/employees/${id}/deactivate`, data)).data;
-export const activateEmployeeById = async (id) =>
-  (await api.patch(`/api/employees/${id}/activate`)).data;
+
+// ✅ FIXED: Added 'data' parameter so date/reason are sent to the backend
+export const activateEmployeeById = async (id, data) =>
+  (await api.patch(`/api/employees/${id}/reactivate`, data)).data;
 
 /* =============================================================================
    IDLE TIME TRACKING

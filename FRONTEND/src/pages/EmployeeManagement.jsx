@@ -340,7 +340,7 @@ const EmployeeManagement = () => {
       setReactivateModalOpen(false);
       setSelectedEmployee(null);
     } catch (e) {
-      alert("❌ Error reactivating employee");
+      alert("❌ Error reactivating employee.");
       console.error(e);
     }
   };
