@@ -179,7 +179,7 @@ const Navbar = () => {
                   }}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition border-t"
                 >
-                  <FaCog className="text-blue-600" /> Application Settings
+                  <FaCog className="text-blue-600" /> Shift Settings
                 </div>
 
                 {/* THEME COLORS */}

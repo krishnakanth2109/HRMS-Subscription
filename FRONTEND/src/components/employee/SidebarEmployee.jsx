@@ -18,7 +18,7 @@ const navLinks = [
   { to: "/employee/holiday-calendar", label: "Holiday Calendar", icon: <FaClipboardList /> },
   { to: "/employee/notices", label: "Notice Board", icon: <FaBullhorn />, isNotice: true },
   { to: "/employee/empovertime", label: "Request Overtime", icon: <FaClock /> },
-  { to: "/employee/leave-request", label: "Leave Requests", icon: <FaClipboardList /> },
+  { to: "/employee/leave-management", label: "Leave Requests", icon: <FaClipboardList /> },
 ];
 
 const SidebarEmployee = () => {
