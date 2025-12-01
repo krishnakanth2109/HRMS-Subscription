@@ -25,6 +25,7 @@ import idleTimeRoutes from "./routes/idleTimeRoutes.js";
 import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import requestWorkModeRoutes from "./routes/requestWorkModeRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -134,6 +135,9 @@ app.use("/api/idletime", idleTimeRoutes); // ✅ Added /api/ prefix for consiste
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/work-mode", requestWorkModeRoutes);
+
+
 
 // -------------------- 404 Handler --------------------
 app.use("*", (req, res) => {

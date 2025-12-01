@@ -1,6 +1,7 @@
 import express from "express";
 import OfficeSettings from "../models/OfficeSettings.js";
 import Employee from "../models/Employee.js";
+import WorkModeRequest from "../models/WorkModeRequest.js"; // ✅ Added Import
 
 const router = express.Router();
 
@@ -44,21 +45,19 @@ router.put("/settings/office", async (req, res) => {
 });
 
 // =========================================================================
-// 2. EMPLOYEE WORK MODE ROUTES (UPDATED)
+// 2. EMPLOYEE WORK MODE ROUTES
 // =========================================================================
 
-// -------------------------------------------------------------------------
-// PUT: Update Single Employee Work Mode (Advanced Schedules)
-// -------------------------------------------------------------------------
+// Update Single Employee Work Mode (Advanced Schedules)
 router.put("/settings/employee-mode", async (req, res) => {
   try {
     const { 
       employeeId, 
-      ruleType,       // "Global", "Permanent", "Temporary", "Recurring"
-      mode,           // The mode (WFO/WFH)
-      fromDate,       // For Temporary
-      toDate,         // For Temporary
-      days            // For Recurring ([1,2,3])
+      ruleType,       
+      mode,           
+      fromDate,       
+      toDate,         
+      days            
     } = req.body;
     
     if (!employeeId || !ruleType) {
@@ -71,7 +70,6 @@ router.put("/settings/employee-mode", async (req, res) => {
     let settings = await OfficeSettings.findOne({ type: "Global" });
     if (!settings) settings = new OfficeSettings({ type: "Global" });
 
-    // Construct the new config object
     const newConfig = {
       employeeId: employee.employeeId,
       employeeName: employee.name,
@@ -79,7 +77,6 @@ router.put("/settings/employee-mode", async (req, res) => {
       updatedAt: new Date()
     };
 
-    // Populate fields based on Rule Type
     if (ruleType === "Permanent") {
       newConfig.permanentMode = mode;
     } else if (ruleType === "Temporary") {
@@ -87,9 +84,7 @@ router.put("/settings/employee-mode", async (req, res) => {
     } else if (ruleType === "Recurring") {
       newConfig.recurring = { mode, days };
     }
-    // If Global, we basically just save the ruleType as Global and clear others.
 
-    // Find and Replace or Push
     const existingIndex = settings.employeeWorkModes.findIndex(e => e.employeeId === employeeId);
     if (existingIndex !== -1) {
       settings.employeeWorkModes[existingIndex] = newConfig;
@@ -105,9 +100,7 @@ router.put("/settings/employee-mode", async (req, res) => {
   }
 });
 
-// -------------------------------------------------------------------------
-// POST: Bulk Update (Simple Permanent Override)
-// -------------------------------------------------------------------------
+// Bulk Update
 router.post("/settings/employee-mode/bulk", async (req, res) => {
   try {
     const { employeeIds, mode } = req.body; 
@@ -127,7 +120,6 @@ router.post("/settings/employee-mode/bulk", async (req, res) => {
         employeeId: emp.employeeId,
         employeeName: emp.name,
         updatedAt: new Date(),
-        // Bulk update sets Permanent or resets to Global
         ruleType: mode === 'Global' ? 'Global' : 'Permanent',
         permanentMode: mode === 'Global' ? undefined : mode
       };
@@ -144,9 +136,7 @@ router.post("/settings/employee-mode/bulk", async (req, res) => {
   }
 });
 
-// -------------------------------------------------------------------------
-// POST: Reset All
-// -------------------------------------------------------------------------
+// Reset All
 router.post("/settings/employee-mode/reset", async (req, res) => {
   try {
     await OfficeSettings.findOneAndUpdate(
@@ -221,40 +211,35 @@ router.put("/settings/categories/remove-employee", async (req, res) => {
 // 4. DATA FETCHING (LOGIC FOR EFFECTIVE MODE)
 // =========================================================================
 
-// Helper to determine active mode
 const calculateEffectiveMode = (settings, empId) => {
   const config = settings.employeeWorkModes.find(e => e.employeeId === empId);
   if (!config || config.ruleType === "Global") return "Global";
 
   const today = new Date();
   
-  // 1. Check Temporary Date Range
   if (config.ruleType === "Temporary" && config.temporary) {
     const from = new Date(config.temporary.fromDate);
     const to = new Date(config.temporary.toDate);
-    // Normalize time to compare dates only
     today.setHours(0,0,0,0);
     from.setHours(0,0,0,0);
     to.setHours(23,59,59,999);
 
     if (today >= from && today <= to) {
-      return config.temporary.mode; // Active Temporary Mode
+      return config.temporary.mode; 
     } else {
-      return "Global"; // Expired -> Fallback to Global
+      return "Global"; 
     }
   }
 
-  // 2. Check Recurring Days
   if (config.ruleType === "Recurring" && config.recurring) {
-    const currentDay = new Date().getDay(); // 0-6
+    const currentDay = new Date().getDay(); 
     if (config.recurring.days.includes(currentDay)) {
-      return config.recurring.mode; // Active Recurring Mode
+      return config.recurring.mode; 
     } else {
-      return "Global"; // Not the right day -> Fallback to Global
+      return "Global"; 
     }
   }
 
-  // 3. Check Permanent
   if (config.ruleType === "Permanent") {
     return config.permanentMode;
   }
@@ -279,12 +264,8 @@ router.get("/settings/employees-modes", async (req, res) => {
         name: emp.name,
         department: currentExp?.department || "",
         category: categoryEntry ? categoryEntry.name : "Uncategorized",
-        
-        // Return raw config for Admin UI editing
         ruleType: config?.ruleType || "Global",
         config: config || {},
-        
-        // Return calculated current status
         currentEffectiveMode: effectiveMode
       };
     });
@@ -299,7 +280,6 @@ router.get("/settings/employees-modes", async (req, res) => {
   }
 });
 
-// Used by Employee App
 router.get("/settings/employee-mode/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
@@ -308,7 +288,6 @@ router.get("/settings/employee-mode/:employeeId", async (req, res) => {
     if (!settings) return res.status(200).json({ workMode: "Global" });
 
     const mode = calculateEffectiveMode(settings, employeeId);
-    // If effective mode is "Global", return the actual Global Setting (WFO/WFH)
     const finalMode = mode === "Global" ? settings.globalWorkMode : mode;
 
     res.status(200).json({
@@ -316,6 +295,124 @@ router.get("/settings/employee-mode/:employeeId", async (req, res) => {
       workMode: finalMode,
       source: mode === "Global" ? "Global Settings" : "Custom Schedule"
     });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// =========================================================================
+// 5. WORK MODE REQUEST ROUTES (✅ NEWLY ADDED TO FIX 404)
+// =========================================================================
+
+// A. Submit Request (For Employee Side)
+router.post("/request", async (req, res) => {
+  try {
+    const { 
+      employeeId, employeeName, department, 
+      requestType, fromDate, toDate, recurringDays, requestedMode, reason 
+    } = req.body;
+
+    const newRequest = new WorkModeRequest({
+      employeeId, employeeName, department,
+      requestType, fromDate, toDate, recurringDays, requestedMode, reason
+    });
+
+    await newRequest.save();
+    res.status(201).json({ message: "Request submitted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// B. Get All Requests (For Admin - History & Pending)
+// Matches frontend: /api/admin/requests
+router.get("/requests", async (req, res) => {
+  try {
+    const requests = await WorkModeRequest.find().sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// C. Get Employee Requests (For Employee History)
+router.get("/requests/my/:employeeId", async (req, res) => {
+  try {
+    const requests = await WorkModeRequest.find({ employeeId: req.params.employeeId }).sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// D. Approve or Reject Request
+router.put("/requests/action", async (req, res) => {
+  try {
+    const { requestId, action } = req.body; // "Approved" or "Rejected"
+
+    const request = await WorkModeRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    if (action === "Rejected") {
+      request.status = "Rejected";
+      await request.save();
+      return res.status(200).json({ message: "Request rejected" });
+    }
+
+    if (action === "Approved") {
+      request.status = "Approved";
+      await request.save();
+
+      // Update Actual Office Settings based on request
+      let settings = await OfficeSettings.findOne({ type: "Global" });
+      if (!settings) settings = new OfficeSettings({ type: "Global" });
+
+      const newConfig = {
+        employeeId: request.employeeId,
+        employeeName: request.employeeName,
+        ruleType: request.requestType,
+        updatedAt: new Date()
+      };
+
+      if (request.requestType === "Permanent") {
+        newConfig.permanentMode = request.requestedMode;
+      } else if (request.requestType === "Temporary") {
+        newConfig.temporary = { 
+          mode: request.requestedMode, 
+          fromDate: request.fromDate, 
+          toDate: request.toDate 
+        };
+      } else if (request.requestType === "Recurring") {
+        newConfig.recurring = { 
+          mode: request.requestedMode, 
+          days: request.recurringDays 
+        };
+      }
+
+      const existingIndex = settings.employeeWorkModes.findIndex(e => e.employeeId === request.employeeId);
+      if (existingIndex !== -1) {
+        settings.employeeWorkModes[existingIndex] = newConfig;
+      } else {
+        settings.employeeWorkModes.push(newConfig);
+      }
+
+      await settings.save();
+      return res.status(200).json({ message: "Request approved and schedule updated" });
+    }
+
+    res.status(400).json({ message: "Invalid action" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// E. Delete Request
+router.delete("/requests/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await WorkModeRequest.findByIdAndDelete(id);
+    res.status(200).json({ message: "Request deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }

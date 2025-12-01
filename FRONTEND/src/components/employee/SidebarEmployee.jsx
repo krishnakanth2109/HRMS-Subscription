@@ -19,6 +19,9 @@ const navLinks = [
   { to: "/employee/notices", label: "Notice Board", icon: <FaBullhorn />, isNotice: true },
   { to: "/employee/empovertime", label: "Request Overtime", icon: <FaClock /> },
   { to: "/employee/leave-management", label: "Leave Requests", icon: <FaClipboardList /> },
+    { to: "/employee/reuestworkmode", label: "Request WorkMode", icon: <FaClock /> },
+
+
 ];
 
 const SidebarEmployee = () => {

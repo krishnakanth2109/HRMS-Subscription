@@ -62,6 +62,7 @@ import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
 import ProtectedRoute from "./components/ProtectedRoute";
 import IdleTime from "./pages/IdleTime";
 import AdminLocationSettings from "./components/AdminLocationSettings";
+import EmployeeWorkModeRequest from "./EmployeePages/EmployeeWorkModeRequest";
 
 function App() {
   return (
@@ -150,6 +151,7 @@ function App() {
         <Route path="/employee/notifications" element={<EmployeeNotifications />} />
         <Route path="/employee/leave-management" element={<LeaveWithModal />} />
         <Route path="/employee/empovertime" element={<OvertimeForm />} />
+        <Route path="/employee/reuestworkmode" element={<EmployeeWorkModeRequest/>} />
         <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
 
