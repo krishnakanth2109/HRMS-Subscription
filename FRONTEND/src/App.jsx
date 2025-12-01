@@ -60,6 +60,7 @@ import AdminLeavePanel from "./pages/AdminLeavemanagmentPanel";
 // Route protection
 import ProtectedRoute from "./components/ProtectedRoute";
 import IdleTime from "./pages/IdleTime";
+import AdminLocationSettings from "./components/AdminLocationSettings";
 
 function App() {
   return (
@@ -108,6 +109,7 @@ function App() {
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
         <Route path="/admin/idle-time" element={<IdleTime />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
+               <Route path="/admin/shifttype" element={<AdminLocationSettings/>} />
         <Route path="/admin/payroll" element={<Payroll />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
         <Route path="/admin/on-leave-today" element={<EmployeesOnLeaveToday />} />

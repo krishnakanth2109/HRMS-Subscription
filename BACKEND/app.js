@@ -24,6 +24,7 @@ import profilePicRoutes from "./routes/ProfilePicRoute.js";
 import idleTimeRoutes from "./routes/idleTimeRoutes.js";
 import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -132,6 +133,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/idletime", idleTimeRoutes); // ✅ Added /api/ prefix for consistency
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
+app.use("/api/admin", adminRoutes);
 
 // -------------------- 404 Handler --------------------
 app.use("*", (req, res) => {

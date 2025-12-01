@@ -45,6 +45,7 @@ const navLinks = [
     icon: <FaClipboardList />,
     isLeave: true,
   },
+  { to: "/admin/shifttype", label: "Location Settings", icon: <FaClipboardList /> },
 ];
 
 const Sidebar = () => {

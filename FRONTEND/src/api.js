@@ -405,7 +405,34 @@ export const addMemberToShift = async (category, employee) => {
   }
 };
 
+/* =============================================================================
+   ADMIN SETTINGS (WORK MODE)
+============================================================================= */
+
+// Get all employees with their work modes
+export const getAllEmployeesWithWorkModes = async () => {
+  try {
+    const response = await api.get("/api/admin/settings/employees-modes");
+    return response.data;
+  } catch (error) {
+    console.error("Get employees with work modes error:", error);
+    throw error;
+  }
+};
+
+// Update specific employee work mode
+export const updateEmployeeWorkMode = async (employeeId, mode) => {
+  try {
+    const response = await api.put("/api/admin/settings/employee-mode", { 
+      employeeId, 
+      mode 
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Update employee work mode error:", error);
+    throw error;
+  }
+};
+
 // Export default for backward compatibility
 export default api;
-
-// --- END OF FILE api.js ---
