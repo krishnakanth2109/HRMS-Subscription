@@ -1,8 +1,10 @@
+// --- START OF FILE AdminviewAttendance.jsx ---
+
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
-import { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees, getAllShifts } from "../api"; 
-import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch } from "react-icons/fa";
+import { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees, getAllShifts, getHolidays } from "../api"; 
+import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay } from "react-icons/fa";
 import axios from 'axios';
 import { toBlob } from 'html-to-image'; 
 
@@ -27,6 +29,7 @@ const formatDecimalHours = (decimalHours) => {
   return `${hours}h ${minutes}m`;
 };
 
+// Basic worked status based on punch data only
 const getWorkedStatus = (punchIn, punchOut, apiStatus, targetWorkHours) => {
   if (apiStatus === "ABSENT") return "Absent";
   if (punchIn && !punchOut) return "Working..";
@@ -69,8 +72,30 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
   return "ON_TIME";
 };
 
+// Date normalization for comparison (YYYY-MM-DD)
+const normalizeDateStr = (dateInput) => {
+  const d = new Date(dateInput);
+  return d.toISOString().split('T')[0];
+};
+
+// Check if a date is within a holiday range
+const isHoliday = (dateStr, holidays) => {
+  const target = new Date(dateStr);
+  target.setHours(0,0,0,0);
+  
+  if (!Array.isArray(holidays)) return null;
+
+  return holidays.find(h => {
+    const start = new Date(h.startDate);
+    const end = new Date(h.endDate || h.startDate);
+    start.setHours(0,0,0,0);
+    end.setHours(0,0,0,0);
+    return target >= start && target <= end;
+  });
+};
+
 // ==========================================
-// SUB-COMPONENTS (MODALS)
+// SUB-COMPONENTS (MODALS & PAGINATION)
 // ==========================================
 
 const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
@@ -83,22 +108,16 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
   useEffect(() => {
     if (isOpen) {
       const now = new Date();
-      // Adjust to local timezone for the input value
       const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
         .toISOString()
         .slice(0, 16);
       setPunchOutDateTime(localDateTime);
-      
       setLocationLoading(true);
       setLocationError('');
-      
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            setCurrentLocation({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            });
+            setCurrentLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
             setLocationLoading(false);
           },
           (error) => {
@@ -117,25 +136,17 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!punchOutDateTime) { alert('Please select a punch out time'); return; }
     if (locationLoading) { alert('Please wait while we get your location...'); return; }
     if (locationError || !currentLocation) { alert('Location is required. Please enable location services.'); return; }
-
     const selectedTime = new Date(punchOutDateTime);
     const punchInTime = new Date(employee.punchIn);
-
-    if (selectedTime <= punchInTime) {
-      alert('Punch out time must be after punch in time');
-      return;
-    }
-
+    if (selectedTime <= punchInTime) { alert('Punch out time must be after punch in time'); return; }
     setLoading(true);
     try {
       await onPunchOut(employee.employeeId, selectedTime.toISOString(), currentLocation, employee.date);
       onClose();
     } catch (error) {
-      console.error('Punch out error:', error);
       const errorMsg = error.response?.data?.message || error.message;
       alert('Failed to punch out: ' + errorMsg);
     } finally {
@@ -149,43 +160,22 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70 rounded-t-2xl">
-          <div>
-            <h3 className="text-xl font-bold text-slate-800">Admin Punch Out</h3>
-            <p className="text-sm text-slate-600 font-semibold">{employee.employeeName}</p>
-          </div>
+          <div><h3 className="text-xl font-bold text-slate-800">Admin Punch Out</h3><p className="text-sm text-slate-600 font-semibold">{employee.employeeName}</p></div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2"><FaTimes size={20} /></button>
         </div>
-
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600 font-medium">Record Date:</span>
-              <span className="text-slate-800 font-bold">{new Date(employee.date).toLocaleDateString()}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-600 font-medium">Punch In Time:</span>
-              <span className="text-green-700 font-semibold">{new Date(employee.punchIn).toLocaleString()}</span>
-            </div>
+            <div className="flex justify-between text-sm"><span className="text-slate-600 font-medium">Record Date:</span><span className="text-slate-800 font-bold">{new Date(employee.date).toLocaleDateString()}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-slate-600 font-medium">Punch In Time:</span><span className="text-green-700 font-semibold">{new Date(employee.punchIn).toLocaleString()}</span></div>
           </div>
-
           <div className="bg-slate-50 p-4 rounded-lg">
             <div className="flex items-center gap-2 mb-2"><FaMapMarkerAlt className="text-blue-600" /><span className="text-sm font-semibold text-slate-700">Location Status</span></div>
             {locationLoading ? <p className="text-sm text-slate-600">Getting location...</p> : locationError ? <p className="text-sm text-red-600">{locationError}</p> : <p className="text-sm text-green-600">✓ Location acquired</p>}
           </div>
-
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-slate-700">Select Punch Out Time <span className="text-red-500">*</span></label>
-            <input 
-              type="datetime-local" 
-              value={punchOutDateTime} 
-              onChange={(e) => setPunchOutDateTime(e.target.value)} 
-              max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} 
-              required 
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
-            />
-            <p className="text-xs text-slate-500">Note: Ensure the date matches the employee's work day if necessary.</p>
+            <input type="datetime-local" value={punchOutDateTime} onChange={(e) => setPunchOutDateTime(e.target.value)} max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} required className="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50" disabled={loading}>Cancel</button>
             <button type="submit" disabled={loading || locationLoading || !!locationError} className="flex-1 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-slate-400">{loading ? 'Processing...' : 'Confirm'}</button>
@@ -196,29 +186,120 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
   );
 };
 
-const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => {
+// Detailed Attendance Modal with Dynamic Stats and Complete Calendar Logic
+const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holidays, dateRange }) => {
   const contentRef = useRef(null);
 
+  // 1. Generate Complete Daily Data (merged with actual records)
+  const completeHistory = useMemo(() => {
+    if (!isOpen || !employeeData || !dateRange.startDate || !dateRange.endDate) return [];
+
+    const history = [];
+    const start = new Date(dateRange.startDate);
+    const end = new Date(dateRange.endDate);
+    const shift = shiftsMap[employeeData.employeeId];
+    const weeklyOffs = shift?.weeklyOffDays || [0]; // Default Sunday off
+    const shiftHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
+
+    // Iterate through every day in range
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        const dayOfWeek = d.getDay();
+        
+        // Find existing record
+        const record = employeeData.records.find(r => normalizeDateStr(r.date) === dateStr);
+        
+        // Determine Day Type
+        const holidayObj = isHoliday(dateStr, holidays);
+        const isWeeklyOff = weeklyOffs.includes(dayOfWeek);
+        const isWorkingDay = !holidayObj && !isWeeklyOff;
+
+        // Determine Statuses
+        let workedStatus = "--";
+        let loginStatus = "--";
+        let displayTime = "--";
+        let punchIn = null;
+        let punchOut = null;
+        let rowClass = "";
+        let shiftDuration = shiftHours;
+
+        if (record) {
+            // Employee Logged In
+            punchIn = record.punchIn;
+            punchOut = record.punchOut;
+            displayTime = record.displayTime;
+            loginStatus = calculateLoginStatus(record.punchIn, shift, record.loginStatus);
+            workedStatus = getWorkedStatus(record.punchIn, record.punchOut, record.status, shiftHours);
+            
+            // Logic: < 5 hours is Absent
+            if (workedStatus === "Absent(<5)") {
+                rowClass = "bg-red-50"; 
+            } else if (workedStatus === "Half Day") {
+                rowClass = "bg-yellow-50";
+            }
+        } else {
+            // No Record Found
+            if (isWorkingDay) {
+                // Absent (Not Logged In) - counts as Absent
+                workedStatus = "Absent (Not Logged In)";
+                rowClass = "bg-red-100";
+            } else if (holidayObj) {
+                workedStatus = `Holiday: ${holidayObj.name}`;
+                rowClass = "bg-purple-50 text-purple-700";
+                shiftDuration = 0;
+            } else if (isWeeklyOff) {
+                workedStatus = "Weekly Off";
+                rowClass = "bg-gray-50 text-gray-500";
+                shiftDuration = 0;
+            }
+        }
+
+        history.push({
+            date: dateStr,
+            punchIn,
+            punchOut,
+            shiftHours: shiftDuration,
+            displayTime,
+            loginStatus,
+            workedStatus,
+            isWorkingDay,
+            isAbsent: workedStatus.includes("Absent"),
+            isFullDay: workedStatus === "Full Day",
+            isHalfDay: workedStatus === "Half Day",
+            isPresent: !!punchIn,
+            rowClass
+        });
+    }
+    
+    // Return sorted newest first
+    return history.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [isOpen, employeeData, shiftsMap, holidays, dateRange]);
+
+  // 2. Calculate Stats from Complete History
+  const stats = useMemo(() => {
+      return completeHistory.reduce((acc, curr) => {
+          if (curr.isWorkingDay) acc.workingDays++;
+          if (curr.isPresent) acc.present++;
+          if (curr.isFullDay) acc.fullDays++;
+          if (curr.isHalfDay) acc.halfDays++;
+          if (curr.isAbsent) acc.absent++;
+          return acc;
+      }, { workingDays: 0, present: 0, fullDays: 0, halfDays: 0, absent: 0 });
+  }, [completeHistory]);
+
   if (!isOpen || !employeeData) return null;
-  const sortedRecords = [...employeeData.records].sort((a, b) => new Date(b.date) - new Date(a.date));
-  const shift = shiftsMap[employeeData.employeeId];
-  const shiftHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
 
   const downloadIndividualReport = () => {
-    if (sortedRecords.length === 0) return;
-    const formattedData = sortedRecords.map(item => {
-        const realStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
-        const dynamicWorkedStatus = getWorkedStatus(item.punchIn, item.punchOut, item.status, shiftHours);
-        return {
-            "Date": new Date(item.date).toLocaleDateString(),
-            "Punch In": item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--",
-            "Punch Out": item.punchOut ? new Date(item.punchOut).toLocaleTimeString() : "--",
-            "Assigned Hrs": formatDecimalHours(shiftHours),
-            "Duration": item.displayTime || "--",
-            "Login Status": realStatus,
-            "Worked Status": dynamicWorkedStatus
-        };
-    });
+    if (completeHistory.length === 0) return;
+    const formattedData = completeHistory.map(item => ({
+        "Date": new Date(item.date).toLocaleDateString(),
+        "Punch In": item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--",
+        "Punch Out": item.punchOut ? new Date(item.punchOut).toLocaleTimeString() : "--",
+        "Assigned Hrs": formatDecimalHours(item.shiftHours),
+        "Duration": item.displayTime || "--",
+        "Login Status": item.loginStatus,
+        "Worked Status": item.workedStatus
+    }));
     const ws = XLSX.utils.json_to_sheet(formattedData);
     const wb = { Sheets: { data: ws }, SheetNames: ["data"] };
     const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
@@ -229,20 +310,10 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => 
     if (contentRef.current) {
         try {
             const blob = await toBlob(contentRef.current, { backgroundColor: '#ffffff' });
-            
             if (blob) {
                 const file = new File([blob], "attendance_summary.png", { type: "image/png" });
-                
                 if (navigator.share) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: 'Attendance Summary',
-                            text: `Attendance history for ${employeeData.name}`,
-                        });
-                    } catch (err) {
-                        console.error('Error sharing:', err);
-                    }
+                    await navigator.share({ files: [file], title: 'Attendance Summary', text: `Attendance for ${employeeData.name}` });
                 } else {
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(blob);
@@ -251,49 +322,97 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap }) => 
                     URL.revokeObjectURL(link.href);
                 }
             }
-        } catch (error) {
-            console.error("Error generating image:", error);
-        }
+        } catch (error) { console.error("Error generating image:", error); }
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70 rounded-t-2xl">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        
+        {/* Header */}
+        <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl shrink-0">
           <div><h3 className="text-xl font-bold text-slate-800">Attendance History</h3><p className="text-slate-600 font-semibold">{employeeData.name}</p></div>
           <div className="flex items-center gap-3">
-            <button onClick={handleShareImage} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-full hover:bg-blue-700">
-                <FaShareAlt /> Share
-            </button>
+            <button onClick={handleShareImage} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-full hover:bg-blue-700"><FaShareAlt /> Share</button>
             <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-full hover:bg-green-700"><FaFileExcel /> Download</button>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2"><FaTimes size={20} /></button>
           </div>
         </div>
         
-        <div className="p-2 sm:p-5 overflow-y-auto" ref={contentRef}> 
-          <div className="bg-white p-2">
-            <table className="min-w-full text-sm border border-slate-200">
-                <thead className="bg-slate-100 text-slate-600 uppercase text-xs"><tr><th className="px-4 py-3 text-left">Date</th><th className="px-4 py-3 text-left">Punch In</th><th className="px-4 py-3 text-left">Punch Out</th><th className="px-4 py-3 text-left">Assigned Hrs</th><th className="px-4 py-3 text-left">Duration</th><th className="px-4 py-3 text-left">Login Status</th><th className="px-4 py-3 text-left">Worked Status</th></tr></thead>
-                <tbody className="divide-y divide-slate-200">
-                {sortedRecords.length > 0 ? (sortedRecords.map((record, idx) => {
-                    const realStatus = calculateLoginStatus(record.punchIn, shift, record.loginStatus);
-                    const dynamicWorkedStatus = getWorkedStatus(record.punchIn, record.punchOut, record.status, shiftHours);
-                    const isAbsent = record.status === "ABSENT" || dynamicWorkedStatus.includes("Absent");
-                    return (
-                    <tr key={idx} className={`hover:bg-slate-50 ${isAbsent ? "bg-red-50" : ""}`}>
-                    <td className="px-4 py-3 font-semibold text-slate-700">{new Date(record.date).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 text-green-600">{record.punchIn ? new Date(record.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                    <td className="px-4 py-3 text-red-600">{record.punchOut ? new Date(record.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                    <td className="px-4 py-3 font-medium text-slate-600">{formatDecimalHours(shiftHours)}</td>
-                    <td className="px-4 py-3 font-mono">{record.displayTime || "0h 0m"}</td>
-                    <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${realStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{realStatus}</span></td>
-                    <td className="px-4 py-3"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${dynamicWorkedStatus === "Full Day" ? "bg-green-100 text-green-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>{dynamicWorkedStatus}</span></td>
-                    </tr>
-                )})) : (<tr><td colSpan="7" className="text-center p-10">No records.</td></tr>)}
-                </tbody>
-            </table>
-          </div>
+        {/* Content Area */}
+        <div className="overflow-y-auto bg-gray-50 flex-1" ref={contentRef}>
+            
+            {/* Dynamic Stats Dashboard */}
+            <div className="p-5 grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                    <div className="flex items-center gap-2 text-blue-600 mb-1"><FaBriefcase /><span className="text-xs font-bold uppercase">Working Days</span></div>
+                    <p className="text-2xl font-bold text-slate-800">{stats.workingDays}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500">
+                    <div className="flex items-center gap-2 text-indigo-600 mb-1"><FaUsers /><span className="text-xs font-bold uppercase">Present</span></div>
+                    <p className="text-2xl font-bold text-slate-800">{stats.present}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
+                    <div className="flex items-center gap-2 text-green-600 mb-1"><FaCheckCircle /><span className="text-xs font-bold uppercase">Full Days</span></div>
+                    <p className="text-2xl font-bold text-slate-800">{stats.fullDays}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
+                    <div className="flex items-center gap-2 text-yellow-600 mb-1"><FaClock /><span className="text-xs font-bold uppercase">Half Days</span></div>
+                    <p className="text-2xl font-bold text-slate-800">{stats.halfDays}</p>
+                </div>
+                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
+                    <div className="flex items-center gap-2 text-red-600 mb-1"><FaUserTimes /><span className="text-xs font-bold uppercase">Absent</span></div>
+                    <p className="text-2xl font-bold text-slate-800">{stats.absent}</p>
+                </div>
+            </div>
+
+            {/* Attendance Table */}
+            <div className="px-5 pb-5">
+                <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
+                    <table className="min-w-full text-sm">
+                        <thead className="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                            <tr>
+                                <th className="px-4 py-3 text-left">Date</th>
+                                <th className="px-4 py-3 text-left">Punch In</th>
+                                <th className="px-4 py-3 text-left">Punch Out</th>
+                                <th className="px-4 py-3 text-left">Assigned</th>
+                                <th className="px-4 py-3 text-left">Duration</th>
+                                <th className="px-4 py-3 text-left">Login Status</th>
+                                <th className="px-4 py-3 text-left">Worked Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                        {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
+                            <tr key={idx} className={`hover:bg-slate-50 transition-colors ${item.rowClass}`}>
+                                <td className="px-4 py-3 font-semibold text-slate-700">{new Date(item.date).toLocaleDateString()}</td>
+                                <td className="px-4 py-3 text-green-600 font-medium">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                                <td className="px-4 py-3 text-red-600 font-medium">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                                <td className="px-4 py-3 text-slate-500">{formatDecimalHours(item.shiftHours)}</td>
+                                <td className="px-4 py-3 font-mono text-slate-600">{item.displayTime}</td>
+                                <td className="px-4 py-3">
+                                    {item.loginStatus !== "--" && (
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.loginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+                                            {item.loginStatus}
+                                        </span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-3 font-semibold">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                        item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : 
+                                        item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" :
+                                        item.isAbsent ? "bg-red-100 text-red-800" : 
+                                        "bg-slate-100 text-slate-600"
+                                    }`}>
+                                        {item.workedStatus}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))) : (<tr><td colSpan="7" className="text-center p-10 text-slate-500">No data for selected range.</td></tr>)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
       </div>
     </div>
@@ -338,6 +457,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
   );
 };
 
+// ✅ ADDED: Pagination Component
 const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setItemsPerPage }) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -362,8 +482,12 @@ const AdminAttendance = () => {
   const [rawDailyData, setRawDailyData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [allEmployees, setAllEmployees] = useState([]);
-  const [summaryStartDate, setSummaryStartDate] = useState(new Date(new Date().setDate(1)).toISOString().split("T")[0]);
+  
+  // Summary Date States
+  const [summaryStartDate, setSummaryStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]);
   const [summaryEndDate, setSummaryEndDate] = useState(todayISO);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
+
   const [rawSummaryData, setRawSummaryData] = useState([]);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [overtimeData, setOvertimeData] = useState([]);
@@ -371,6 +495,8 @@ const AdminAttendance = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [statusListModal, setStatusListModal] = useState({ isOpen: false, title: "", employees: [] });
   const [shiftsMap, setShiftsMap] = useState({});
+  const [holidays, setHolidays] = useState([]); 
+  
   const [dailyCurrentPage, setDailyCurrentPage] = useState(1);
   const [dailyItemsPerPage, setDailyItemsPerPage] = useState(10);
   const [summaryCurrentPage, setSummaryCurrentPage] = useState(1);
@@ -391,8 +517,20 @@ const AdminAttendance = () => {
     } catch (error) { console.error("Error fetching shifts:", error); }
   }, []);
 
+  const fetchHolidays = useCallback(async () => {
+    try {
+        const response = await getHolidays();
+        setHolidays(response || []);
+    } catch (error) {
+        console.error("Error fetching holidays:", error);
+    }
+  }, []);
+
   const fetchAllEmployees = useCallback(async () => { 
-    try { const data = await getEmployees(); setAllEmployees(data.filter(emp => emp.isActive !== false)); } catch (error) { setAllEmployees([]); } 
+    try { 
+      const data = await getEmployees(); 
+      setAllEmployees(data); 
+    } catch (error) { setAllEmployees([]); } 
   }, []);
 
   const fetchOvertimeData = useCallback(async () => { 
@@ -412,21 +550,11 @@ const AdminAttendance = () => {
   const handleAdminPunchOut = async (employeeId, punchOutTime, location, dateOfRecord) => {
     try {
       const LIVE_BACKEND = 'https://hrms-ask.onrender.com/api';
-      let baseUrl = import.meta.env?.VITE_API_URL || 
-                    (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || 
-                    LIVE_BACKEND;
-      
-      if (baseUrl.endsWith('/')) {
-        baseUrl = baseUrl.slice(0, -1);
-      }
+      let baseUrl = import.meta.env?.VITE_API_URL || (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL) || LIVE_BACKEND;
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
       
       const response = await axios.post(`${baseUrl}/attendance/admin-punch-out`, {
-        employeeId,
-        punchOutTime,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        adminId: 'Admin',
-        date: dateOfRecord
+        employeeId, punchOutTime, latitude: location.latitude, longitude: location.longitude, adminId: 'Admin', date: dateOfRecord
       });
 
       if (response.data.success) {
@@ -435,51 +563,74 @@ const AdminAttendance = () => {
         await fetchSummaryData(summaryStartDate, summaryEndDate);
       }
     } catch (error) {
-      console.error('Admin punch out error:', error);
       const errMsg = error.response?.data?.message || error.message;
       alert(`Failed to punch out: ${errMsg}`);
-      throw error; 
     }
   };
 
-  useEffect(() => { fetchShifts(); fetchDailyData(startDate, endDate); }, [startDate, endDate, fetchDailyData, fetchShifts]);
+  // Handle Month Change for Summary
+  const handleMonthChange = (e) => {
+    const val = e.target.value;
+    setSelectedMonth(val);
+    
+    if(val) {
+        const [year, month] = val.split('-').map(Number);
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0); // Last day of month
+        
+        // Adjust for local timezone to get correct YYYY-MM-DD
+        const startStr = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+        const endStr = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+        
+        setSummaryStartDate(startStr);
+        setSummaryEndDate(endStr);
+    }
+  };
+
+  useEffect(() => { fetchShifts(); fetchHolidays(); fetchDailyData(startDate, endDate); }, [startDate, endDate, fetchDailyData, fetchShifts, fetchHolidays]);
   useEffect(() => { fetchAllEmployees(); fetchSummaryData(summaryStartDate, summaryEndDate); fetchOvertimeData(); }, [summaryStartDate, summaryEndDate, fetchSummaryData, fetchOvertimeData, fetchAllEmployees]);
+
+  const empNameMap = useMemo(() => {
+    return allEmployees.reduce((acc, emp) => { acc[emp.employeeId] = emp.name; return acc; }, {});
+  }, [allEmployees]);
 
   const processedDailyData = useMemo(() => {
     const mapped = rawDailyData.map(item => {
         const shift = shiftsMap[item.employeeId];
         const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
+        const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
         return {
             ...item,
+            employeeName: realName,
             assignedHours: targetHours,
             workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours),
             displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
         };
     });
-
-    // Sort: Recent Punch In on Top (Descending)
     mapped.sort((a, b) => {
         const timeA = a.punchIn ? new Date(a.punchIn).getTime() : 0;
         const timeB = b.punchIn ? new Date(b.punchIn).getTime() : 0;
         return timeB - timeA;
     });
-
     if (!dailySearchTerm) return mapped;
     const lowerTerm = dailySearchTerm.toLowerCase();
-    return mapped.filter(item => 
-        (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) ||
-        (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm))
-    );
-  }, [rawDailyData, shiftsMap, dailySearchTerm]);
+    return mapped.filter(item => (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) || (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm)));
+  }, [rawDailyData, shiftsMap, dailySearchTerm, empNameMap]);
 
-  // ✅ RESTORED: This useMemo was missing in the previous version causing the error
   const processedSummaryData = useMemo(() => {
     return rawSummaryData.map(item => {
         const shift = shiftsMap[item.employeeId];
         const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
-        return { ...item, assignedHours: targetHours, workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours), displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus) };
+        const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
+        return { 
+          ...item, 
+          employeeName: realName, 
+          assignedHours: targetHours, 
+          workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours), 
+          displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus) 
+        };
     });
-  }, [rawSummaryData, shiftsMap]);
+  }, [rawSummaryData, shiftsMap, empNameMap]);
 
   const employeeSummaryStats = useMemo(() => {
     if (!processedSummaryData.length) return [];
@@ -493,37 +644,44 @@ const AdminAttendance = () => {
       return acc;
     }, {});
 
-    const resultArray = Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 })).sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+    const resultArray = Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 }))
+    
+    // ✅ Sort by Present Days Descending, then Name
+    .sort((a, b) => {
+        if (b.presentDays !== a.presentDays) {
+            return b.presentDays - a.presentDays; // Highest attendance first
+        }
+        return a.employeeName.localeCompare(b.employeeName);
+    });
 
     if (!summarySearchTerm) return resultArray;
     const lowerTerm = summarySearchTerm.toLowerCase();
-    return resultArray.filter(item => 
-        (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) ||
-        (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm))
-    );
+    return resultArray.filter(item => (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) || (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm)));
   }, [processedSummaryData, overtimeData, summarySearchTerm]);
 
   const absentEmployees = useMemo(() => {
     if (allEmployees.length === 0 || loading || startDate !== endDate) return [];
+    const activeOnly = allEmployees.filter(e => e.isActive !== false);
     const presentIds = new Set(rawDailyData.map(att => att.employeeId));
-    return allEmployees.filter(emp => !presentIds.has(emp.employeeId));
+    return activeOnly.filter(emp => !presentIds.has(emp.employeeId));
   }, [allEmployees, rawDailyData, loading, startDate, endDate]);
 
   const dailyStats = useMemo(() => {
       const fullList = rawDailyData.map(item => {
         const shift = shiftsMap[item.employeeId];
         const targetHours = shift ? getShiftDurationInHours(shift.shiftStartTime, shift.shiftEndTime) : 9;
+        const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
         return {
             ...item,
+            employeeName: realName,
             workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, targetHours),
             displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
         };
       });
-
       const working = fullList.filter(item => item.punchIn && !item.punchOut);
       const completed = fullList.filter(item => item.punchIn && item.punchOut);
       return { workingList: working, workingCount: working.length, completedList: completed, completedCount: completed.length, absentCount: startDate === endDate ? absentEmployees.length : 0 };
-  }, [rawDailyData, shiftsMap, absentEmployees, startDate, endDate]);
+  }, [rawDailyData, shiftsMap, absentEmployees, startDate, endDate, empNameMap]);
   
   const paginatedDailyData = useMemo(() => processedDailyData.slice((dailyCurrentPage - 1) * dailyItemsPerPage, dailyCurrentPage * dailyItemsPerPage), [processedDailyData, dailyCurrentPage, dailyItemsPerPage]);
   const paginatedSummaryData = useMemo(() => employeeSummaryStats.slice((summaryCurrentPage - 1) * summaryItemsPerPage, summaryCurrentPage * summaryItemsPerPage), [employeeSummaryStats, summaryCurrentPage, summaryItemsPerPage]);
@@ -563,7 +721,11 @@ const AdminAttendance = () => {
     FileSaver.saveAs(new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8" }), `${fileName}.xlsx`);
   };
 
-  const handleViewDetails = (employeeId, employeeName) => { const records = rawSummaryData.filter(r => r.employeeId === employeeId); setSelectedEmployee({ name: employeeName, records, employeeId }); setIsModalOpen(true); };
+  const handleViewDetails = (employeeId, employeeName) => { 
+      const records = rawSummaryData.filter(r => r.employeeId === employeeId); 
+      setSelectedEmployee({ name: employeeName, records, employeeId, startDate: summaryStartDate, endDate: summaryEndDate }); 
+      setIsModalOpen(true); 
+  };
   
   const handleOpenStatusModal = (type) => {
       if (type === 'WORKING') setStatusListModal({ isOpen: true, title: "Currently Working", employees: dailyStats.workingList });
@@ -580,25 +742,17 @@ const AdminAttendance = () => {
   return (
     <div className="p-4 md:p-8 bg-slate-100 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Daily Log Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-            {/* Header Layout for Daily Log */}
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div className="flex items-center gap-3"><FaCalendarAlt className="text-2xl text-blue-600"/><h2 className="text-xl font-bold text-slate-800">Daily Attendance Log</h2></div>
-              
               <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                {/* Search Input for Daily Log */}
                 <div className="relative group">
                     <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                    <input 
-                        type="text" 
-                        placeholder="Search Name or ID..." 
-                        value={dailySearchTerm}
-                        onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }}
-                        className="pl-10 pr-3 py-2 w-full lg:w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-                    />
+                    <input type="text" placeholder="Search Name or ID..." value={dailySearchTerm} onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }} className="pl-10 pr-3 py-2 w-full lg:w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm" />
                 </div>
-
                 <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">From</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
                 <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">To</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
                 <button onClick={exportDailyLogToExcel} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-transform hover:scale-105"><FaFileExcel/><span>Export</span></button>
@@ -645,50 +799,112 @@ const AdminAttendance = () => {
           </div>
           <Pagination totalItems={processedDailyData.length} itemsPerPage={dailyItemsPerPage} currentPage={dailyCurrentPage} onPageChange={setDailyCurrentPage} setItemsPerPage={setDailyItemsPerPage} />
         </div>
-        {/* Summary Section */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
-          <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-            {/* Header Layout for Summary */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-              <div className="flex items-center gap-3"><FaUsers className="text-2xl text-purple-600"/><h2 className="text-xl font-bold text-slate-800">Employee Attendance Summary</h2></div>
-              
-              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                 {/* Search Input for Summary */}
-                 <div className="relative group">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-purple-500 transition-colors" />
-                    <input 
-                        type="text" 
-                        placeholder="Search Name or ID..." 
-                        value={summarySearchTerm}
-                        onChange={(e) => { setSummarySearchTerm(e.target.value); setSummaryCurrentPage(1); }}
-                        className="pl-10 pr-3 py-2 w-full lg:w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-sm"
-                    />
+
+        {/* ✅ Employee Attendance Summary Section with New UI & Filters */}
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden mt-8">
+          <div className="p-6 border-b border-slate-200 bg-slate-50/50">
+            <div className="flex flex-col gap-6">
+                
+                <div className="flex items-center gap-3">
+                    <FaUsers className="text-2xl text-purple-600"/>
+                    <h2 className="text-xl font-bold text-slate-800">Employee Attendance Summary</h2>
                 </div>
 
-                <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">From</span><input type="date" value={summaryStartDate} onChange={(e) => setSummaryStartDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
-                <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">To</span><input type="date" value={summaryEndDate} onChange={(e) => setSummaryEndDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
-                <button onClick={exportSummaryToExcel} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-transform hover:scale-105"><FaFileExcel/><span>Export Summary</span></button>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                    
+                    {/* Search */}
+                    <div className="relative group w-full">
+                        <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Search Employee</label>
+                        <FaSearch className="absolute left-3 top-[34px] text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Name or ID..." 
+                            value={summarySearchTerm} 
+                            onChange={(e) => { setSummarySearchTerm(e.target.value); setSummaryCurrentPage(1); }} 
+                            className="pl-10 pr-3 py-2 w-full border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 transition-all shadow-sm"
+                        />
+                    </div>
+
+                    {/* ✅ New Month Filter */}
+                    <div className="w-full">
+                        <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">Select Month</label>
+                        <div className="relative">
+                            <FaCalendarDay className="absolute left-3 top-2.5 text-slate-400" />
+                            <input 
+                                type="month" 
+                                value={selectedMonth} 
+                                onChange={handleMonthChange} 
+                                className="pl-10 pr-3 py-2 w-full border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 shadow-sm" 
+                            />
+                        </div>
+                    </div>
+
+                    {/* From Date */}
+                    <div className="w-full">
+                        <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">From</label>
+                        <input 
+                            type="date" 
+                            value={summaryStartDate} 
+                            onChange={(e) => setSummaryStartDate(e.target.value)} 
+                            className="px-3 py-2 w-full border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 shadow-sm" 
+                        />
+                    </div>
+
+                    {/* To Date */}
+                    <div className="w-full">
+                        <label className="text-xs font-bold text-slate-500 uppercase ml-1 mb-1 block">To</label>
+                        <input 
+                            type="date" 
+                            value={summaryEndDate} 
+                            onChange={(e) => setSummaryEndDate(e.target.value)} 
+                            className="px-3 py-2 w-full border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 shadow-sm" 
+                        />
+                    </div>
+
+                    {/* Export Button */}
+                    <div className="w-full">
+                        <button 
+                            onClick={exportSummaryToExcel} 
+                            className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-transform active:scale-95 h-[42px]"
+                        >
+                            <FaFileExcel/> Export Summary
+                        </button>
+                    </div>
+                </div>
             </div>
           </div>
+
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider"><tr><th className="px-6 py-4 text-left font-semibold">Employee</th><th className="px-6 py-4 text-center font-semibold">Assigned Hrs</th><th className="px-6 py-4 text-center font-semibold">Present</th><th className="px-6 py-4 text-center font-semibold">On Time</th><th className="px-6 py-4 text-center font-semibold">Late</th><th className="px-6 py-4 text-center font-semibold">Approved OT</th><th className="px-6 py-4 text-center font-semibold">Full Days</th><th className="px-6 py-4 text-center font-semibold">Half Days</th><th className="px-6 py-4 text-center font-semibold">Absent</th><th className="px-6 py-4 text-center font-semibold">Actions</th></tr></thead>
+              <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider sticky top-0 z-10 shadow-sm">
+                  <tr>
+                      <th className="px-6 py-4 text-left font-semibold border-b">Employee</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Assigned Hrs</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b text-blue-700 bg-blue-50/50">Present</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">On Time</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Late</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Approved OT</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Full Days</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Half Days</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Absent</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b">Actions</th>
+                  </tr>
+              </thead>
               <tbody className="divide-y divide-slate-200">
                 {summaryLoading ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500 font-medium">Loading summary...</td></tr>) : paginatedSummaryData.length === 0 ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500">No summary data available.</td></tr>) : paginatedSummaryData.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-purple-50/50 transition-colors">
+                    <tr key={emp.employeeId} className="hover:bg-purple-50/30 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-semibold text-slate-800">{emp.employeeName}</div>
+                        <div className="font-bold text-slate-800">{emp.employeeName}</div>
                         <div className="text-slate-500 font-mono text-xs">{emp.employeeId}</div>
                       </td>
                       <td className="px-6 py-4 text-center font-medium text-slate-600">{formatDecimalHours(emp.assignedHours)}</td>
-                      <td className="px-6 py-4 text-center font-bold text-blue-600">{emp.presentDays}</td>
+                      <td className="px-6 py-4 text-center font-bold text-blue-600 bg-blue-50/30 text-lg">{emp.presentDays}</td>
                       <td className="px-6 py-4 text-center font-semibold text-green-600">{emp.onTimeDays}</td>
                       <td className="px-6 py-4 text-center font-semibold text-red-600">{emp.lateDays}</td>
                       <td className="px-6 py-4 text-center font-semibold text-indigo-600">{emp.approvedOT}</td>
                       <td className="px-6 py-4 text-center">{emp.fullDays}</td>
                       <td className="px-6 py-4 text-center">{emp.halfDays}</td>
-                      <td className="px-6 py-4 text-center text-red-500 font-semibold">{emp.absentDays}</td>
+                      <td className="px-6 py-4 text-center text-red-500 font-bold">{emp.absentDays}</td>
                       <td className="px-6 py-4 text-center"><button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"><FaEye /></button></td>
                     </tr>
                 ))}
@@ -699,7 +915,7 @@ const AdminAttendance = () => {
         </div>
       </div>
 
-      <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} />
+      <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} holidays={holidays} dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} />
       <StatusListModal isOpen={statusListModal.isOpen} onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} title={statusListModal.title} employees={statusListModal.employees} />
       <AdminPunchOutModal isOpen={punchOutModal.isOpen} onClose={() => setPunchOutModal({ isOpen: false, employee: null })} employee={punchOutModal.employee} onPunchOut={handleAdminPunchOut} />
     </div>
@@ -707,3 +923,4 @@ const AdminAttendance = () => {
 };
 
 export default AdminAttendance;
+// --- END OF FILE AdminviewAttendance.jsx ---
