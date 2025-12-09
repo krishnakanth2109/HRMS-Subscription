@@ -4,12 +4,25 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import api, { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees, getAllShifts, getHolidays } from "../api"; 
-import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay } from "react-icons/fa";
+import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaBell, FaCheck, FaBan, FaTrash, FaHistory } from "react-icons/fa";
 import { toBlob } from 'html-to-image'; 
 
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================
+
+// ✅ NEW: Helper for DD/MM/YYYY Format
+const formatDateDMY = (dateInput) => {
+  if (!dateInput) return "--";
+  const date = new Date(dateInput);
+  // Ensure valid date
+  if (isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
 
 const getShiftDurationInHours = (startTime, endTime) => {
   if (!startTime || !endTime) return 9;
@@ -28,40 +41,34 @@ const formatDecimalHours = (decimalHours) => {
   return `${hours}h ${minutes}m`;
 };
 
-// UPDATED: Worked status based on Admin Assigned Hours (Full Day / Half Day thresholds)
 const getWorkedStatus = (punchIn, punchOut, apiStatus, fullDayThreshold, halfDayThreshold) => {
   const statusUpper = (apiStatus || "").toUpperCase();
 
-  // 1. Check API Status for Leaves/Holidays first
   if (statusUpper === "LEAVE") return "Leave";
   if (statusUpper === "HOLIDAY") return "Holiday";
   if (statusUpper === "ABSENT" && !punchIn) return "Absent";
 
-  // 2. Check for currently working
   if (punchIn && !punchOut) return "Working..";
 
-  // 3. If no punches
   if (!punchIn) return "Absent";
 
-  // 4. Calculate Worked Hours
   const workedMilliseconds = new Date(punchOut) - new Date(punchIn);
   const workedHours = workedMilliseconds / (1000 * 60 * 60);
 
-  // 5. Determine Status based on Admin Settings
   if (workedHours >= fullDayThreshold) return "Full Day";
   if (workedHours >= halfDayThreshold) return "Half Day";
   
-  return "Absent"; // Worked less than half day threshold
+  return "Absent";
 };
 
 const LocationViewButton = ({ location }) => {
   if (!location || !location.latitude || !location.longitude) {
-    return <span className="text-slate-400">--</span>;
+    return <span className="text-slate-400 text-xs">No Loc</span>;
   }
   const mapUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
   return (
-    <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 text-slate-700 text-xs font-semibold rounded-md hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title={location.address || 'View on Google Maps'}>
-      <FaMapMarkerAlt /> <span>View</span>
+    <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-semibold mt-1" title={location.address || 'View on Google Maps'}>
+      <FaMapMarkerAlt /> View Map
     </a>
   );
 };
@@ -85,13 +92,11 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
   return "ON_TIME";
 };
 
-// Date normalization for comparison (YYYY-MM-DD)
 const normalizeDateStr = (dateInput) => {
   const d = new Date(dateInput);
   return d.toISOString().split('T')[0];
 };
 
-// Check if a date is within a holiday range
 const isHoliday = (dateStr, holidays) => {
   const target = new Date(dateStr);
   target.setHours(0,0,0,0);
@@ -105,6 +110,141 @@ const isHoliday = (dateStr, holidays) => {
     end.setHours(0,0,0,0);
     return target >= start && target <= end;
   });
+};
+
+const getCurrentLocation = () => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      console.warn("Geolocation not supported");
+      resolve({ latitude: 0, longitude: 0 });
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error("Location access denied or failed", error);
+          resolve({ latitude: 0, longitude: 0 });
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
+  });
+};
+
+// ==========================================
+// ✅ REQUEST APPROVAL MODAL
+// ==========================================
+const RequestApprovalModal = ({ isOpen, onClose, requests, onAction, onDelete }) => {
+  if (!isOpen) return null;
+
+  const sortedRequests = [...requests].sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate));
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col animate-fadeIn" onClick={e => e.stopPropagation()}>
+        
+        {/* Header */}
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-2xl">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-orange-100 rounded-full text-orange-600">
+              <FaBell size={20} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">Punch Out Requests</h3>
+              <p className="text-sm text-slate-500">{requests.filter(r => r.status === 'Pending').length} Pending Review</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2 hover:bg-slate-100 rounded-full transition-colors"><FaTimes size={20} /></button>
+        </div>
+        
+        {/* Body */}
+        <div className="p-6 overflow-y-auto bg-slate-50">
+          {sortedRequests.length === 0 ? (
+            <div className="text-center py-16 flex flex-col items-center justify-center text-slate-500">
+                <FaCheckCircle className="text-4xl text-green-300 mb-4" />
+                <p className="font-medium">No requests found.</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm bg-white">
+              <table className="min-w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 uppercase font-bold text-xs tracking-wider">
+                  <tr>
+                    <th className="px-6 py-4">Employee</th>
+                    <th className="px-6 py-4">Shift Date</th>
+                    <th className="px-6 py-4">Requested Time</th>
+                    <th className="px-6 py-4">Reason</th>
+                    <th className="px-6 py-4 text-center">Status / Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sortedRequests.map((req) => (
+                    <tr key={req._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-slate-800">{req.employeeName}</div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5">{req.employeeId}</div>
+                      </td>
+                      {/* ✅ DD/MM/YYYY */}
+                      <td className="px-6 py-4 text-slate-600 font-medium">
+                        {formatDateDMY(req.originalDate)}
+                      </td>
+                      <td className="px-6 py-4">
+                         <span className="bg-blue-50 text-blue-700 py-1 px-3 rounded-md font-mono font-semibold">
+                            {new Date(req.requestedPunchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 italic">"{req.reason}"</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-3">
+                          {req.status === 'Approved' ? (
+                            <span className="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-bold shadow-sm">
+                                <FaCheckCircle /> Approved
+                            </span>
+                          ) : req.status === 'Rejected' ? (
+                            <span className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-bold shadow-sm">
+                                <FaBan /> Rejected
+                            </span>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => onAction(req._id, 'Approved', req)}
+                                className="w-9 h-9 flex items-center justify-center bg-green-100 text-green-600 rounded-lg hover:bg-green-500 hover:text-white transition-all shadow-sm hover:shadow-md"
+                                title="Approve Request"
+                              >
+                                <FaCheck />
+                              </button>
+                              <button 
+                                onClick={() => onAction(req._id, 'Rejected', req)}
+                                className="w-9 h-9 flex items-center justify-center bg-red-100 text-red-600 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm hover:shadow-md"
+                                title="Reject Request"
+                              >
+                                <FaTimes />
+                              </button>
+                            </>
+                          )}
+                           {/* DELETE BUTTON */}
+                           <button 
+                                onClick={() => onDelete(req._id)}
+                                className="w-9 h-9 flex items-center justify-center bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-600 hover:text-white transition-all shadow-sm ml-2"
+                                title="Delete Request"
+                           >
+                                <FaTrash size={12} />
+                           </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ==========================================
@@ -177,7 +317,7 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-            <div className="flex justify-between text-sm"><span className="text-slate-600 font-medium">Record Date:</span><span className="text-slate-800 font-bold">{new Date(employee.date).toLocaleDateString()}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-slate-600 font-medium">Record Date:</span><span className="text-slate-800 font-bold">{formatDateDMY(employee.date)}</span></div>
             <div className="flex justify-between text-sm"><span className="text-slate-600 font-medium">Punch In Time:</span><span className="text-green-700 font-semibold">{new Date(employee.punchIn).toLocaleString()}</span></div>
           </div>
           <div className="bg-slate-50 p-4 rounded-lg">
@@ -198,11 +338,9 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
   );
 };
 
-// Detailed Attendance Modal with Dynamic Stats and Complete Calendar Logic
 const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holidays, dateRange }) => {
   const contentRef = useRef(null);
 
-  // 1. Generate Complete Daily Data (merged with actual records)
   const completeHistory = useMemo(() => {
     if (!isOpen || !employeeData || !dateRange.startDate || !dateRange.endDate) return [];
 
@@ -210,28 +348,22 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
     const start = new Date(dateRange.startDate);
     const end = new Date(dateRange.endDate);
     
-    // UPDATED: Get Admin Assigned Shift Hours
     const shift = shiftsMap[employeeData.employeeId];
-    const weeklyOffs = shift?.weeklyOffDays || [0]; // Default Sunday off
+    const weeklyOffs = shift?.weeklyOffDays || [0];
     
-    // Defaults matching Employee Dashboard
     const adminFullDayHours = shift?.fullDayHours || 9;
     const adminHalfDayHours = shift?.halfDayHours || 4.5;
 
-    // Iterate through every day in range
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
         const dayOfWeek = d.getDay();
         
-        // Find existing record
         const record = employeeData.records.find(r => normalizeDateStr(r.date) === dateStr);
         
-        // Determine Day Type
         const holidayObj = isHoliday(dateStr, holidays);
         const isWeeklyOff = weeklyOffs.includes(dayOfWeek);
         const isWorkingDay = !holidayObj && !isWeeklyOff;
 
-        // Determine Statuses
         let workedStatus = "--";
         let loginStatus = "--";
         let displayTime = "--";
@@ -241,34 +373,31 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
         let shiftDuration = adminFullDayHours;
 
         if (record) {
-            // Employee Logged In
             punchIn = record.punchIn;
             punchOut = record.punchOut;
             displayTime = record.displayTime;
             loginStatus = calculateLoginStatus(record.punchIn, shift, record.loginStatus);
             
-            // UPDATED: Use Admin Assigned Hours for calculation
             workedStatus = getWorkedStatus(record.punchIn, record.punchOut, record.status, adminFullDayHours, adminHalfDayHours);
             
-            // Logic for Row Coloring
             if (workedStatus === "Absent") {
-                rowClass = "bg-red-50"; 
+                rowClass = "bg-red-50/50 hover:bg-red-50"; 
             } else if (workedStatus === "Half Day") {
-                rowClass = "bg-yellow-50";
+                rowClass = "bg-yellow-50/50 hover:bg-yellow-50";
+            } else {
+                rowClass = "hover:bg-gray-50";
             }
         } else {
-            // No Record Found
             if (isWorkingDay) {
-                // Absent (Not Logged In) - counts as Absent
                 workedStatus = "Absent (Not Logged In)";
-                rowClass = "bg-red-100";
+                rowClass = "bg-red-100/30 hover:bg-red-50";
             } else if (holidayObj) {
                 workedStatus = `Holiday: ${holidayObj.name}`;
-                rowClass = "bg-purple-50 text-purple-700";
+                rowClass = "bg-purple-50/50 text-purple-700 hover:bg-purple-50";
                 shiftDuration = 0;
             } else if (isWeeklyOff) {
                 workedStatus = "Weekly Off";
-                rowClass = "bg-gray-50 text-gray-500";
+                rowClass = "bg-gray-100/50 text-gray-500 hover:bg-gray-100";
                 shiftDuration = 0;
             }
         }
@@ -290,11 +419,9 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
         });
     }
     
-    // Return sorted newest first
     return history.sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [isOpen, employeeData, shiftsMap, holidays, dateRange]);
 
-  // 2. Calculate Stats from Complete History
   const stats = useMemo(() => {
       return completeHistory.reduce((acc, curr) => {
           if (curr.isWorkingDay) acc.workingDays++;
@@ -311,7 +438,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
   const downloadIndividualReport = () => {
     if (completeHistory.length === 0) return;
     const formattedData = completeHistory.map(item => ({
-        "Date": new Date(item.date).toLocaleDateString(),
+        "Date": formatDateDMY(item.date),
         "Punch In": item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--",
         "Punch Out": item.punchOut ? new Date(item.punchOut).toLocaleTimeString() : "--",
         "Assigned Hrs": formatDecimalHours(item.shiftHours),
@@ -346,90 +473,113 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         
-        {/* Header */}
-        <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl shrink-0">
-          <div><h3 className="text-xl font-bold text-slate-800">Attendance History</h3><p className="text-slate-600 font-semibold">{employeeData.name}</p></div>
+        {/* Header - Fixed */}
+        <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-white shrink-0 z-20">
           <div className="flex items-center gap-3">
-            <button onClick={handleShareImage} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-full hover:bg-blue-700"><FaShareAlt /> Share</button>
-            <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-full hover:bg-green-700"><FaFileExcel /> Download</button>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2"><FaTimes size={20} /></button>
+             <div className="p-3 bg-blue-50 rounded-full text-blue-600">
+                <FaHistory size={20} />
+             </div>
+             <div>
+                <h3 className="text-xl font-bold text-slate-800">Attendance History</h3>
+                <p className="text-slate-500 font-medium text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    {employeeData.name} ({employeeData.employeeId})
+                </p>
+             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={handleShareImage} className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors"><FaShareAlt /> Share</button>
+            <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm"><FaFileExcel /> Download</button>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2 hover:bg-slate-50 rounded-full"><FaTimes size={20} /></button>
           </div>
         </div>
         
-        {/* Content Area */}
-        <div className="overflow-y-auto bg-gray-50 flex-1" ref={contentRef}>
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto bg-slate-50 custom-scrollbar" ref={contentRef}>
             
-            {/* Dynamic Stats Dashboard */}
-            <div className="p-5 grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
-                    <div className="flex items-center gap-2 text-blue-600 mb-1"><FaBriefcase /><span className="text-xs font-bold uppercase">Working Days</span></div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.workingDays}</p>
+            {/* Stats Cards */}
+            <div className="p-5 grid grid-cols-2 md:grid-cols-5 gap-4 sticky top-0 z-10 bg-slate-50/95 backdrop-blur-sm pb-6 border-b border-slate-200/50">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow">
+                    <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Working Days</span>
+                    <span className="text-2xl font-bold text-slate-800">{stats.workingDays}</span>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500">
-                    <div className="flex items-center gap-2 text-indigo-600 mb-1"><FaUsers /><span className="text-xs font-bold uppercase">Present</span></div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.present}</p>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-indigo-500">
+                    <span className="text-xs font-bold uppercase text-indigo-500 tracking-wider">Present</span>
+                    <span className="text-2xl font-bold text-slate-800">{stats.present}</span>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500">
-                    <div className="flex items-center gap-2 text-green-600 mb-1"><FaCheckCircle /><span className="text-xs font-bold uppercase">Full Days</span></div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.fullDays}</p>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-green-500">
+                    <span className="text-xs font-bold uppercase text-green-500 tracking-wider">Full Days</span>
+                    <span className="text-2xl font-bold text-slate-800">{stats.fullDays}</span>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500">
-                    <div className="flex items-center gap-2 text-yellow-600 mb-1"><FaClock /><span className="text-xs font-bold uppercase">Half Days</span></div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.halfDays}</p>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-yellow-500">
+                    <span className="text-xs font-bold uppercase text-yellow-600 tracking-wider">Half Days</span>
+                    <span className="text-2xl font-bold text-slate-800">{stats.halfDays}</span>
                 </div>
-                <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500">
-                    <div className="flex items-center gap-2 text-red-600 mb-1"><FaUserTimes /><span className="text-xs font-bold uppercase">Absent</span></div>
-                    <p className="text-2xl font-bold text-slate-800">{stats.absent}</p>
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-red-500">
+                    <span className="text-xs font-bold uppercase text-red-500 tracking-wider">Absent</span>
+                    <span className="text-2xl font-bold text-slate-800">{stats.absent}</span>
                 </div>
             </div>
 
-            {/* Attendance Table */}
-            <div className="px-5 pb-5">
-                <div className="bg-white rounded-lg shadow border border-slate-200 overflow-hidden">
-                    <table className="min-w-full text-sm">
-                        <thead className="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
-                            <tr>
-                                <th className="px-4 py-3 text-left">Date</th>
-                                <th className="px-4 py-3 text-left">Punch In</th>
-                                <th className="px-4 py-3 text-left">Punch Out</th>
-                                <th className="px-4 py-3 text-left">Assigned</th>
-                                <th className="px-4 py-3 text-left">Duration</th>
-                                <th className="px-4 py-3 text-left">Login Status</th>
-                                <th className="px-4 py-3 text-left">Worked Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-200">
-                        {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
-                            <tr key={idx} className={`hover:bg-slate-50 transition-colors ${item.rowClass}`}>
-                                <td className="px-4 py-3 font-semibold text-slate-700">{new Date(item.date).toLocaleDateString()}</td>
-                                <td className="px-4 py-3 text-green-600 font-medium">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                                <td className="px-4 py-3 text-red-600 font-medium">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                                <td className="px-4 py-3 text-slate-500">{formatDecimalHours(item.shiftHours)}</td>
-                                <td className="px-4 py-3 font-mono text-slate-600">{item.displayTime}</td>
-                                <td className="px-4 py-3">
-                                    {item.loginStatus !== "--" && (
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.loginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
-                                            {item.loginStatus}
+            {/* Table Area */}
+            <div className="px-5 pb-10">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="max-h-[60vh] overflow-y-auto custom-scrollbar"> 
+                        <table className="min-w-full text-sm text-left border-collapse">
+                            <thead className="bg-slate-100 text-slate-500 uppercase text-xs font-bold sticky top-0 z-20 shadow-sm">
+                                <tr>
+                                    <th className="px-6 py-4 whitespace-nowrap">Date</th>
+                                    <th className="px-6 py-4 whitespace-nowrap">Punch In</th>
+                                    <th className="px-6 py-4 whitespace-nowrap">Punch Out</th>
+                                    <th className="px-6 py-4 whitespace-nowrap">Assigned</th>
+                                    <th className="px-6 py-4 whitespace-nowrap">Duration</th>
+                                    <th className="px-6 py-4 whitespace-nowrap">Login Status</th>
+                                    <th className="px-6 py-4 whitespace-nowrap">Worked Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                            {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
+                                <tr key={idx} className={`transition-all duration-200 ${item.rowClass}`}>
+                                    {/* ✅ DD/MM/YYYY */}
+                                    <td className="px-6 py-4 font-semibold text-slate-700 whitespace-nowrap border-r border-slate-50">
+                                        {formatDateDMY(item.date)}
+                                        <div className="text-[10px] font-normal text-slate-400 uppercase">
+                                            {new Date(item.date).toLocaleDateString('en-US', { weekday: 'long' })}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-green-600 font-medium whitespace-nowrap">
+                                        {item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                                    </td>
+                                    <td className="px-6 py-4 text-red-600 font-medium whitespace-nowrap">
+                                        {item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-500 whitespace-nowrap">{formatDecimalHours(item.shiftHours)}</td>
+                                    <td className="px-6 py-4 font-mono text-slate-600 whitespace-nowrap">{item.displayTime}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {item.loginStatus !== "--" && (
+                                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide border ${item.loginStatus === "LATE" ? "bg-red-50 text-red-700 border-red-100" : "bg-green-50 text-green-700 border-green-100"}`}>
+                                                {item.loginStatus}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 font-semibold whitespace-nowrap">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
+                                            item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : 
+                                            item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" :
+                                            item.isAbsent ? "bg-red-100 text-red-800" : 
+                                            "bg-slate-100 text-slate-600"
+                                        }`}>
+                                            {item.workedStatus}
                                         </span>
-                                    )}
-                                </td>
-                                <td className="px-4 py-3 font-semibold">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : 
-                                        item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" :
-                                        item.isAbsent ? "bg-red-100 text-red-800" : 
-                                        "bg-slate-100 text-slate-600"
-                                    }`}>
-                                        {item.workedStatus}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))) : (<tr><td colSpan="7" className="text-center p-10 text-slate-500">No data for selected range.</td></tr>)}
-                        </tbody>
-                    </table>
+                                    </td>
+                                </tr>
+                            ))) : (<tr><td colSpan="7" className="text-center p-10 text-slate-500">No data for selected range.</td></tr>)}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -476,7 +626,6 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
   );
 };
 
-// ✅ ADDED: Pagination Component
 const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setItemsPerPage }) => {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -522,7 +671,9 @@ const AdminAttendance = () => {
   const [summaryItemsPerPage, setSummaryItemsPerPage] = useState(10);
   const [punchOutModal, setPunchOutModal] = useState({ isOpen: false, employee: null });
 
-  // Search States
+  const [punchOutRequests, setPunchOutRequests] = useState([]);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+
   const [dailySearchTerm, setDailySearchTerm] = useState("");
   const [summarySearchTerm, setSummarySearchTerm] = useState("");
 
@@ -566,10 +717,110 @@ const AdminAttendance = () => {
     try { const data = await getAttendanceByDateRange(start, end); setRawSummaryData(Array.isArray(data) ? data : []); } catch (error) { setRawSummaryData([]); } finally { setSummaryLoading(false); } 
   }, []);
 
-  // ✅ FIX: Use 'api' instance from ../api.js to include token AND include /api prefix
+  const fetchPunchOutRequests = useCallback(async () => {
+    try {
+      const response = await api.get('/api/punchoutreq/all'); 
+      setPunchOutRequests(response.data);
+    } catch (error) {
+      console.error("Error fetching requests", error);
+    }
+  }, []);
+
+  const handleRequestAction = async (requestId, status, request) => {
+    try {
+      if (status === 'Approved') {
+        if (!request) { alert("Request details not found!"); return; }
+        
+        const targetDate = normalizeDateStr(request.originalDate);
+        
+        const attendanceRecord = rawDailyData.find(record => 
+          record.employeeId === request.employeeId && 
+          normalizeDateStr(record.date) === targetDate
+        );
+
+        if (!attendanceRecord || !attendanceRecord.punchIn) {
+          const confirmAnyway = window.confirm(
+            `Attendance record for ${request.employeeName} on ${new Date(targetDate).toLocaleDateString()} was not found in the currently loaded Daily Log.\n\n` +
+            `This might be because your Date Filter doesn't cover this date.\n\n` +
+            `Do you want to force the punch-out anyway?`
+          );
+          if (!confirmAnyway) return;
+        } else if (attendanceRecord.punchOut) {
+          alert(`Employee ${request.employeeName} has already punched OUT on ${new Date(targetDate).toLocaleDateString()}`);
+          return;
+        }
+
+        const adminLocation = await getCurrentLocation();
+
+        let punchOutSuccessful = false;
+        try {
+          const response = await api.post(`/api/attendance/admin-punch-out`, {
+            employeeId: request.employeeId,
+            punchOutTime: request.requestedPunchOut,
+            latitude: adminLocation.latitude, 
+            longitude: adminLocation.longitude, 
+            adminId: 'Admin',
+            date: targetDate
+          });
+
+          if (response.status === 200 || response.status === 201 || response.data?.success) {
+            punchOutSuccessful = true;
+          } else {
+             throw new Error(response.data?.message || "Punch out request completed but indicated failure.");
+          }
+        } catch (punchOutError) {
+          const errMsg = punchOutError.response?.data?.message || punchOutError.message;
+          alert(`Punch Out Failed: ${errMsg}`);
+          console.error("Punch out error:", punchOutError);
+          return; 
+        }
+
+        if (punchOutSuccessful) {
+            try {
+                await api.post('/api/punchoutreq/action', { requestId, status });
+                
+                setPunchOutRequests((prev) => 
+                   prev.map((req) => req._id === requestId ? { ...req, status: 'Approved' } : req)
+                );
+
+            } catch (statusError) {
+                console.warn("Punch out successful, but failed to update Request Status:", statusError);
+            }
+
+            alert(`✅ Request Approved! Employee ${request.employeeName} punched out successfully.`);
+            
+            fetchDailyData(startDate, endDate);
+            fetchSummaryData(summaryStartDate, summaryEndDate);
+        }
+
+      } else {
+        await api.post('/api/punchoutreq/action', { requestId, status });
+        
+        setPunchOutRequests((prev) => 
+             prev.map((req) => req._id === requestId ? { ...req, status: 'Rejected' } : req)
+        );
+
+        alert(`Request ${status} Successfully`);
+      }
+    } catch (error) {
+      alert("Action failed: " + (error.response?.data?.message || error.message));
+      console.error("Request action error:", error);
+    }
+  };
+
+  const handleDeleteRequest = async (requestId) => {
+    if (!window.confirm("Are you sure you want to delete this request permanently?")) return;
+    try {
+        await api.delete(`/api/punchoutreq/delete/${requestId}`);
+        setPunchOutRequests((prev) => prev.filter(req => req._id !== requestId));
+        alert("Request deleted successfully");
+    } catch (error) {
+        alert("Delete failed: " + (error.response?.data?.message || error.message));
+    }
+  };
+
   const handleAdminPunchOut = async (employeeId, punchOutTime, location, dateOfRecord) => {
     try {
-      // ✅ Added /api prefix to URL to fix 404
       const response = await api.post(`/api/attendance/admin-punch-out`, {
         employeeId, 
         punchOutTime, 
@@ -587,11 +838,10 @@ const AdminAttendance = () => {
     } catch (error) {
       const errMsg = error.response?.data?.message || error.message;
       alert(`Failed to punch out: ${errMsg}`);
-      throw error; // Propagate error to modal to stop loading state
+      throw error; 
     }
   };
 
-  // Handle Month Change for Summary
   const handleMonthChange = (e) => {
     const val = e.target.value;
     setSelectedMonth(val);
@@ -599,9 +849,8 @@ const AdminAttendance = () => {
     if(val) {
         const [year, month] = val.split('-').map(Number);
         const start = new Date(year, month - 1, 1);
-        const end = new Date(year, month, 0); // Last day of month
+        const end = new Date(year, month, 0); 
         
-        // Adjust for local timezone to get correct YYYY-MM-DD
         const startStr = new Date(start.getTime() - start.getTimezoneOffset() * 60000).toISOString().split('T')[0];
         const endStr = new Date(end.getTime() - end.getTimezoneOffset() * 60000).toISOString().split('T')[0];
         
@@ -610,18 +859,16 @@ const AdminAttendance = () => {
     }
   };
 
-  useEffect(() => { fetchShifts(); fetchHolidays(); fetchDailyData(startDate, endDate); }, [startDate, endDate, fetchDailyData, fetchShifts, fetchHolidays]);
+  useEffect(() => { fetchShifts(); fetchHolidays(); fetchDailyData(startDate, endDate); fetchPunchOutRequests(); }, [startDate, endDate, fetchDailyData, fetchShifts, fetchHolidays, fetchPunchOutRequests]);
   useEffect(() => { fetchAllEmployees(); fetchSummaryData(summaryStartDate, summaryEndDate); fetchOvertimeData(); }, [summaryStartDate, summaryEndDate, fetchSummaryData, fetchOvertimeData, fetchAllEmployees]);
 
   const empNameMap = useMemo(() => {
     return allEmployees.reduce((acc, emp) => { acc[emp.employeeId] = emp.name; return acc; }, {});
   }, [allEmployees]);
 
-  // UPDATED: Process Daily Data with Admin Assigned Hours
   const processedDailyData = useMemo(() => {
     const mapped = rawDailyData.map(item => {
         const shift = shiftsMap[item.employeeId];
-        // Use fullDayHours if available, else fallback to 9
         const adminFullDayHours = shift?.fullDayHours || 9;
         const adminHalfDayHours = shift?.halfDayHours || 4.5;
         
@@ -630,7 +877,7 @@ const AdminAttendance = () => {
         return {
             ...item,
             employeeName: realName,
-            assignedHours: adminFullDayHours, // Display assigned hours
+            assignedHours: adminFullDayHours, 
             workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, adminFullDayHours, adminHalfDayHours),
             displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
         };
@@ -645,7 +892,6 @@ const AdminAttendance = () => {
     return mapped.filter(item => (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) || (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm)));
   }, [rawDailyData, shiftsMap, dailySearchTerm, empNameMap]);
 
-  // UPDATED: Process Summary Data with Admin Assigned Hours
   const processedSummaryData = useMemo(() => {
     return rawSummaryData.map(item => {
         const shift = shiftsMap[item.employeeId];
@@ -664,32 +910,86 @@ const AdminAttendance = () => {
     });
   }, [rawSummaryData, shiftsMap, empNameMap]);
 
+  // ✅ UPDATED: Accurate Absent Logic using Date Loop
   const employeeSummaryStats = useMemo(() => {
-    if (!processedSummaryData.length) return [];
-    const approvedOTCounts = overtimeData.reduce((acc, ot) => { if (ot.status === 'APPROVED') { acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1; } return acc; }, {});
+    if (!allEmployees.length) return [];
     
-    const summary = processedSummaryData.reduce((acc, record) => {
-      if (!acc[record.employeeId]) { acc[record.employeeId] = { employeeId: record.employeeId, employeeName: record.employeeName, assignedHours: record.assignedHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0 }; }
-      const empRec = acc[record.employeeId];
-      if (record.punchIn) { empRec.presentDays++; if (record.displayLoginStatus === 'LATE') empRec.lateDays++; else empRec.onTimeDays++; }
-      if (record.workedStatus === "Full Day") empRec.fullDays++; else if (record.workedStatus === "Half Day") empRec.halfDays++; else if (record.status === "ABSENT" || record.workedStatus.includes("Absent")) empRec.absentDays++;
-      return acc;
-    }, {});
+    // Create Map for quick lookup of raw summary records
+    const attendanceMap = new Map();
+    processedSummaryData.forEach(r => {
+        const key = `${r.employeeId}_${normalizeDateStr(r.date)}`;
+        attendanceMap.set(key, r);
+    });
 
-    const resultArray = Object.values(summary).map(employee => ({ ...employee, approvedOT: approvedOTCounts[employee.employeeId] || 0 }))
-    
-    // ✅ Sort by Present Days Descending, then Name
-    .sort((a, b) => {
-        if (b.presentDays !== a.presentDays) {
-            return b.presentDays - a.presentDays; // Highest attendance first
+    const approvedOTCounts = overtimeData.reduce((acc, ot) => { if (ot.status === 'APPROVED') { acc[ot.employeeId] = (acc[ot.employeeId] || 0) + 1; } return acc; }, {});
+
+    // Iterate through ALL active employees
+    const activeEmployees = allEmployees.filter(e => e.isActive !== false);
+
+    const summaryArray = activeEmployees.map(emp => {
+        const shift = shiftsMap[emp.employeeId];
+        const weeklyOffs = shift?.weeklyOffDays || [0];
+        const adminFullDayHours = shift?.fullDayHours || 9;
+        
+        let stats = {
+            employeeId: emp.employeeId,
+            employeeName: emp.name,
+            assignedHours: adminFullDayHours,
+            presentDays: 0,
+            onTimeDays: 0,
+            lateDays: 0,
+            fullDays: 0,
+            halfDays: 0,
+            absentDays: 0,
+            approvedOT: approvedOTCounts[emp.employeeId] || 0
+        };
+
+        const start = new Date(summaryStartDate);
+        const end = new Date(summaryEndDate);
+
+        // Loop through each day in the selected range
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            const key = `${emp.employeeId}_${dateStr}`;
+            const record = attendanceMap.get(key);
+            const dayOfWeek = d.getDay();
+            
+            const holidayObj = isHoliday(dateStr, holidays);
+            const isWeeklyOff = weeklyOffs.includes(dayOfWeek);
+            const isWorkingDay = !holidayObj && !isWeeklyOff;
+
+            if (record) {
+                // Present
+                if (record.punchIn) {
+                    stats.presentDays++;
+                    if (record.displayLoginStatus === 'LATE') stats.lateDays++;
+                    else stats.onTimeDays++;
+                }
+
+                if (record.workedStatus === "Full Day") stats.fullDays++;
+                else if (record.workedStatus === "Half Day") stats.halfDays++;
+                else if (record.status === "ABSENT" || record.workedStatus.includes("Absent")) stats.absentDays++;
+                
+            } else {
+                // No record found for this day
+                if (isWorkingDay) {
+                    stats.absentDays++; // Absent only if it was a working day
+                }
+            }
         }
+        return stats;
+    });
+
+    // Sort: Most present days first
+    const sortedArray = summaryArray.sort((a, b) => {
+        if (b.presentDays !== a.presentDays) return b.presentDays - a.presentDays; 
         return a.employeeName.localeCompare(b.employeeName);
     });
 
-    if (!summarySearchTerm) return resultArray;
+    if (!summarySearchTerm) return sortedArray;
     const lowerTerm = summarySearchTerm.toLowerCase();
-    return resultArray.filter(item => (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) || (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm)));
-  }, [processedSummaryData, overtimeData, summarySearchTerm]);
+    return sortedArray.filter(item => (item.employeeName && item.employeeName.toLowerCase().includes(lowerTerm)) || (item.employeeId && item.employeeId.toLowerCase().includes(lowerTerm)));
+  }, [allEmployees, processedSummaryData, overtimeData, shiftsMap, holidays, summaryStartDate, summaryEndDate, summarySearchTerm]);
 
   const absentEmployees = useMemo(() => {
     if (allEmployees.length === 0 || loading || startDate !== endDate) return [];
@@ -698,7 +998,6 @@ const AdminAttendance = () => {
     return activeOnly.filter(emp => !presentIds.has(emp.employeeId));
   }, [allEmployees, rawDailyData, loading, startDate, endDate]);
 
-  // UPDATED: Daily Stats logic consistent with new workedStatus
   const dailyStats = useMemo(() => {
       const fullList = rawDailyData.map(item => {
         const shift = shiftsMap[item.employeeId];
@@ -724,14 +1023,14 @@ const AdminAttendance = () => {
   const exportDailyLogToExcel = () => exportToExcel(processedDailyData, `Daily_Log_${startDate}_to_${endDate}`, [
     { label: "Employee Name", value: item => item.employeeName }, 
     { label: "Employee ID", value: item => item.employeeId }, 
-    { label: "Date", value: item => new Date(item.date).toLocaleDateString() },
+    // ✅ DD/MM/YYYY for Export
+    { label: "Date", value: item => formatDateDMY(item.date) },
     { label: "Punch In", value: item => item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" }, 
     { label: "Punch Out", value: item => item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" }, 
     { label: "Assigned Work Hours", value: item => formatDecimalHours(item.assignedHours) },
     { label: "Duration", value: item => item.displayTime || "0h 0m" }, 
     { label: "Login Status", value: item => item.displayLoginStatus }, 
-    { label: "Worked Status", value: item => item.workedStatus }, 
-    { label: "Status", value: item => item.punchOut ? "Completed" : "Working" },
+    { label: "Worked Status", value: item => item.workedStatus }
   ]);
 
   const exportSummaryToExcel = () => exportToExcel(employeeSummaryStats, `Attendance_Summary_${summaryStartDate}_to_${summaryEndDate}`, [
@@ -781,19 +1080,71 @@ const AdminAttendance = () => {
         {/* Daily Log Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-              <div className="flex items-center gap-3"><FaCalendarAlt className="text-2xl text-blue-600"/><h2 className="text-xl font-bold text-slate-800">Daily Attendance Log</h2></div>
-              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                <div className="relative group">
-                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
-                    <input type="text" placeholder="Search Name or ID..." value={dailySearchTerm} onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }} className="pl-10 pr-3 py-2 w-full lg:w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm" />
+            {/* Row 1: Heading */}
+            <div className="mb-4">
+                <div className="flex items-center gap-2 text-xl font-bold text-slate-800">
+                   <FaCalendarAlt className="text-blue-600"/> Daily Attendance Log
                 </div>
-                <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">From</span><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
-                <div className="flex items-center bg-white shadow-sm border rounded-lg"><span className="px-3 text-slate-500 text-sm font-medium">To</span><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="pl-1 pr-3 py-2 outline-none text-slate-700 font-medium rounded-r-lg" /></div>
-                <button onClick={exportDailyLogToExcel} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-transform hover:scale-105"><FaFileExcel/><span>Export</span></button>
-              </div>
+            </div>
+
+            {/* Row 2: Controls (Search, Date, Buttons) in one line */}
+            <div className="flex flex-wrap items-center gap-4">
+                {/* Search */}
+                <div className="relative group flex-grow-0">
+                    <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                    <input 
+                      type="text" 
+                      placeholder="Search Name or ID..." 
+                      value={dailySearchTerm} 
+                      onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }} 
+                      className="pl-10 pr-3 py-2 w-64 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm" 
+                    />
+                </div>
+
+                {/* From Date */}
+                <div className="flex items-center bg-white shadow-sm border rounded-lg overflow-hidden">
+                    <span className="px-3 bg-slate-50 text-slate-500 text-sm font-bold border-r">From</span>
+                    <input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={(e) => setStartDate(e.target.value)} 
+                      className="pl-2 pr-2 py-2 outline-none text-slate-700 font-medium" 
+                    />
+                </div>
+
+                {/* To Date */}
+                <div className="flex items-center bg-white shadow-sm border rounded-lg overflow-hidden">
+                    <span className="px-3 bg-slate-50 text-slate-500 text-sm font-bold border-r">To</span>
+                    <input 
+                      type="date" 
+                      value={endDate} 
+                      onChange={(e) => setEndDate(e.target.value)} 
+                      className="pl-2 pr-2 py-2 outline-none text-slate-700 font-medium" 
+                    />
+                </div>
+                
+                {/* Buttons Group (Right side of the row) */}
+                <div className="flex items-center gap-3 ml-auto">
+                    <button onClick={exportDailyLogToExcel} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-transform active:scale-95">
+                        <FaFileExcel/><span>Export</span>
+                    </button>
+                    
+                    <button 
+                        onClick={() => setIsRequestModalOpen(true)} 
+                        className="relative flex items-center gap-2 px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-transform active:scale-95"
+                    >
+                        <FaBell /> 
+                        <span>Punch Out Requests</span>
+                        {punchOutRequests.filter(r => r.status === 'Pending').length > 0 && (
+                            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center border-2 border-white shadow-sm">
+                                {punchOutRequests.filter(r => r.status === 'Pending').length}
+                            </span>
+                        )}
+                    </button>
+                </div>
             </div>
           </div>
+
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
             <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" onClick={() => handleOpenStatusModal('WORKING')} />
             <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" onClick={() => handleOpenStatusModal('COMPLETED')} />
@@ -801,9 +1152,21 @@ const AdminAttendance = () => {
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-800 text-slate-100 uppercase tracking-wider"><tr><th className="px-6 py-4 text-left">Employee</th><th className="px-6 py-4 text-left">Date</th><th className="px-6 py-4 text-left">Punch In</th><th className="px-6 py-4 text-left">In Location</th><th className="px-6 py-4 text-left">Punch Out</th><th className="px-6 py-4 text-left">Out Location</th><th className="px-6 py-4 text-left">Work Hrs</th><th className="px-6 py-4 text-left">Duration</th><th className="px-6 py-4 text-left">Login Status</th><th className="px-6 py-4 text-left">Worked Status</th><th className="px-6 py-4 text-left">Status</th><th className="px-6 py-4 text-left">Actions</th></tr></thead>
-              <tbody className="divide-y divide-slate-200">
-                {loading ? (<tr><td colSpan="12" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="12" className="text-center p-10 text-slate-500">No records found.</td></tr>) : paginatedDailyData.map((item, idx) => {
+                <thead className="bg-slate-800 text-slate-100 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-6 py-4 text-left">Employee</th>
+                    <th className="px-6 py-4 text-left">Date</th>
+                    <th className="px-6 py-4 text-left">Punch In</th>
+                    <th className="px-6 py-4 text-left">Punch Out</th>
+                    <th className="px-6 py-4 text-left">Work Hrs</th>
+                    <th className="px-6 py-4 text-left">Duration</th>
+                    <th className="px-6 py-4 text-left">Login Status</th>
+                    <th className="px-6 py-4 text-left">Worked Status</th>
+                    <th className="px-6 py-4 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                {loading ? (<tr><td colSpan="9" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="9" className="text-center p-10 text-slate-500">No records found.</td></tr>) : paginatedDailyData.map((item, idx) => {
                   const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
                   const canPunchOut = item.punchIn && !item.punchOut;
                   return (
@@ -812,16 +1175,30 @@ const AdminAttendance = () => {
                         <div className="font-semibold text-slate-800">{item.employeeName}</div>
                         <div className="text-slate-500 font-mono text-xs">{item.employeeId}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-slate-600">{new Date(item.date).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-green-600">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                      <td className="px-6 py-4"><LocationViewButton location={item.punchInLocation} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-red-600">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                      <td className="px-6 py-4"><LocationViewButton location={item.punchOutLocation} /></td>
+                      {/* ✅ DD/MM/YYYY */}
+                      <td className="px-6 py-4 whitespace-nowrap text-slate-600">{formatDateDMY(item.date)}</td>
+                      
+                      {/* Merged Punch In & Location */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                         <div className="font-medium text-green-600">
+                            {item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                         </div>
+                         {item.punchIn && <LocationViewButton location={item.punchInLocation} />}
+                      </td>
+
+                      {/* Merged Punch Out & Location */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                         <div className="font-medium text-red-600">
+                             {item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
+                         </div>
+                         {item.punchOut && <LocationViewButton location={item.punchOutLocation} />}
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-600">{formatDecimalHours(item.assignedHours)}</td>
                       <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">{item.displayTime || "0h 0m"}</td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.displayLoginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{item.displayLoginStatus}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{item.workedStatus}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap"><span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${item.punchOut ? "bg-slate-100 text-slate-600" : isAbsent ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700 animate-pulse"}`}>{item.punchOut ? "Completed" : isAbsent ? "Absent" : "Working"}</span></td>
+                      
                       <td className="px-6 py-4 whitespace-nowrap">
                         {canPunchOut ? (
                           <button onClick={() => setPunchOutModal({ isOpen: true, employee: item })} className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500" title="Admin Punch Out"><FaSignOutAlt /> Punch Out</button>
@@ -835,7 +1212,7 @@ const AdminAttendance = () => {
           <Pagination totalItems={processedDailyData.length} itemsPerPage={dailyItemsPerPage} currentPage={dailyCurrentPage} onPageChange={setDailyCurrentPage} setItemsPerPage={setDailyItemsPerPage} />
         </div>
 
-        {/* Employee Attendance Summary Section with New UI & Filters */}
+        {/* Employee Attendance Summary Section */}
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden mt-8">
           <div className="p-6 border-b border-slate-200 bg-slate-50/50">
             <div className="flex flex-col gap-6">
@@ -953,9 +1330,19 @@ const AdminAttendance = () => {
       <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} holidays={holidays} dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} />
       <StatusListModal isOpen={statusListModal.isOpen} onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} title={statusListModal.title} employees={statusListModal.employees} />
       <AdminPunchOutModal isOpen={punchOutModal.isOpen} onClose={() => setPunchOutModal({ isOpen: false, employee: null })} employee={punchOutModal.employee} onPunchOut={handleAdminPunchOut} />
+      
+      {/* ✅ NEW: Request Approval Modal with Delete Function */}
+      <RequestApprovalModal 
+            isOpen={isRequestModalOpen} 
+            onClose={() => setIsRequestModalOpen(false)} 
+            requests={punchOutRequests} 
+            onAction={handleRequestAction}
+            onDelete={handleDeleteRequest} 
+      />
     </div>
   );
 };
 
 export default AdminAttendance;
+
 // --- END OF FILE AdminviewAttendance.jsx ---

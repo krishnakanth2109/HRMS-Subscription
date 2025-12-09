@@ -26,6 +26,7 @@ import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import requestWorkModeRoutes from "./routes/requestWorkModeRoutes.js";
+import punchOutRoutes from './routes/punchOutRequestRoutes.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -136,6 +137,7 @@ app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
+app.use('/api/punchoutreq', punchOutRoutes); 
 
 
 

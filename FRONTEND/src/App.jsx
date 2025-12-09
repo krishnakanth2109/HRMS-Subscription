@@ -63,6 +63,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import IdleTime from "./pages/IdleTime";
 import AdminLocationSettings from "./components/AdminLocationSettings";
 import EmployeeWorkModeRequest from "./EmployeePages/EmployeeWorkModeRequest";
+import RequestPunchOut from "./EmployeePages/RequestPunchOut";
 
 function App() {
   return (
@@ -152,8 +153,10 @@ function App() {
         <Route path="/employee/leave-management" element={<LeaveWithModal />} />
         <Route path="/employee/empovertime" element={<OvertimeForm />} />
         <Route path="/employee/reuestworkmode" element={<EmployeeWorkModeRequest/>} />
+        <Route path="/employee/requestpunchout" element={<RequestPunchOut/>} />
         <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
+        
 
         <Route
           path="/employee/holiday-calendar"

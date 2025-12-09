@@ -36,7 +36,10 @@ import {
   FaInfoCircle,
   FaHistory,
   FaHourglassHalf,
-  FaCoffee // Added icon for Break
+  FaCoffee,
+  FaExclamationTriangle, // Added for alert
+  FaPaperPlane, // Added for request icon
+  FaTimes // Added for modal close
 } from "react-icons/fa";
 import Swal from "sweetalert2"; 
 
@@ -86,6 +89,13 @@ const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+// ✅ Helper: Date Formatter (DD/MM/YYYY)
+const formatDateDDMMYYYY = (dateString) => {
+  if (!dateString) return "--";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-GB"); // en-GB outputs dd/mm/yyyy
+};
+
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
   const { notices } = useContext(NoticeContext);
@@ -107,6 +117,12 @@ const EmployeeDashboard = () => {
   // ✅ Break Dropdown State
   const [isBreakDropdownOpen, setIsBreakDropdownOpen] = useState(false);
   
+  // ✅ Missed Punch Logic State
+  const [missedPunchLog, setMissedPunchLog] = useState(null);
+  const [showReqModal, setShowReqModal] = useState(false);
+  const [reqData, setReqData] = useState({ date: "", time: "", reason: "" });
+  const [reqLoading, setReqLoading] = useState(false);
+
   const dropdownRef = useRef(null);
   const breakDropdownRef = useRef(null); 
 
@@ -119,7 +135,7 @@ const EmployeeDashboard = () => {
 
   const alarmPlayedRef = useRef(false);
 
-  const today = new Date().toISOString().split("T")[0];
+  const todayIso = new Date().toISOString().split("T")[0]; // YYYY-MM-DD for logic
 
   // IDLE TRACKING REFS
   const isIdleRef = useRef(false);
@@ -220,6 +236,25 @@ const EmployeeDashboard = () => {
       } catch (err) { console.error("Attendance fetch error:", err); }
     }, []
   );
+
+  // ✅ Check for Missed Punch Yesterday Logic
+  useEffect(() => {
+    if (attendance.length > 0) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        const prevLog = attendance.find(a => a.date === yesterdayStr);
+        
+        // If yesterday has Punch IN but NO Punch OUT
+        if (prevLog && prevLog.punchIn && !prevLog.punchOut) {
+            setMissedPunchLog(prevLog);
+            setReqData(prev => ({ ...prev, date: yesterdayStr }));
+        } else {
+            setMissedPunchLog(null);
+        }
+    }
+  }, [attendance]);
 
   const loadProfilePic = async () => {
     try {
@@ -470,11 +505,13 @@ const EmployeeDashboard = () => {
     if (!user) return;
     if (action === "IN") {
         if (!todayLog) {
-            const yesterdayDate = new Date(); yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
-            const yesterdayLog = attendance.find(d => d.date === yesterdayStr);
-            if (yesterdayLog && yesterdayLog.punchIn && !yesterdayLog.punchOut) {
-                Swal.fire({ icon: 'error', title: 'Punch In Disabled', text: 'You did not punch out yesterday. Please contact the admin team.' });
+            // ✅ Missed Punch Logic: If missedPunchLog exists, block and show alert
+            if (missedPunchLog) {
+                Swal.fire({ 
+                  icon: 'error', 
+                  title: 'Punch In Disabled', 
+                  text: 'You did not punch out yesterday. Please use the "Request Punch Out" button above to resolve this with Admin.' 
+                });
                 return; 
             }
         }
@@ -503,6 +540,35 @@ const EmployeeDashboard = () => {
         }).then((result) => { 
           if (result.isConfirmed) { performPunchAction("OUT"); } 
         });
+    }
+  };
+
+  // ✅ HANDLER: Submit Missed Punch Request
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
+    if (!reqData.time || !reqData.reason) {
+      Swal.fire("Error", "Please fill all fields", "error");
+      return;
+    }
+    setReqLoading(true);
+    try {
+      const combinedDateTime = new Date(`${reqData.date}T${reqData.time}`);
+      const payload = {
+        employeeId: user.employeeId,
+        employeeName: user.name,
+        originalDate: reqData.date,
+        requestedPunchOut: combinedDateTime.toISOString(),
+        reason: reqData.reason
+      };
+      await api.post('/api/punchoutreq/create', payload);
+      Swal.fire("Success", "Request sent successfully! Once approved, your record will be updated.", "success");
+      setShowReqModal(false);
+      setReqData({ ...reqData, time: "", reason: "" });
+    } catch (error) {
+      const errMsg = error.response?.data?.message || error.message;
+      Swal.fire("Error", errMsg, "error");
+    } finally {
+      setReqLoading(false);
     }
   };
 
@@ -658,7 +724,30 @@ const EmployeeDashboard = () => {
   const showPunchInButton = !todayLog || todayLog.status !== "WORKING";
 
   return (
-    <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen relative">
+      
+      {/* ✅ MISSED PUNCH WARNING BANNER */}
+      {missedPunchLog && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r shadow-md flex flex-col md:flex-row justify-between items-center gap-4 animate-pulse-slow">
+            <div className="flex items-center gap-3">
+                <FaExclamationTriangle className="text-red-500 text-2xl" />
+                <div>
+                    <h4 className="font-bold text-red-800">Action Required: Missed Punch Out</h4>
+                    <p className="text-sm text-red-700">
+                        You did not punch out on <b>{formatDateDDMMYYYY(missedPunchLog.date)}</b>. 
+                        You cannot Punch In for today until this is resolved.
+                    </p>
+                </div>
+            </div>
+            <button 
+                onClick={() => setShowReqModal(true)}
+                className="bg-red-600 text-white px-5 py-2 rounded-lg font-bold shadow hover:bg-red-700 transition flex items-center gap-2 whitespace-nowrap"
+            >
+                <FaPaperPlane /> Request Punch Out
+            </button>
+        </div>
+      )}
+
       {/* Profile Section */}
       <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6 relative">
         <div className="relative group">
@@ -764,7 +853,8 @@ const EmployeeDashboard = () => {
             </thead>
             <tbody className="bg-white">
               <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200">
-                <td className="px-4 py-3 font-medium">{today}</td>
+                {/* ✅ UPDATED: Date Format to DD/MM/YYYY */}
+                <td className="px-4 py-3 font-medium">{formatDateDDMMYYYY(todayIso)}</td>
                 <td className="px-4 py-3">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
                 <td className="px-4 py-3">
                     {todayLog?.status === "WORKING" ? (
@@ -786,7 +876,8 @@ const EmployeeDashboard = () => {
                   {isShiftCompleted ? (
                       <span className="text-gray-500 font-bold text-xs bg-gray-200 px-3 py-1 rounded-full">Completed</span>
                   ) : showPunchInButton ? ( 
-                      <button className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:opacity-50 mx-auto flex gap-2 shadow-sm" onClick={() => handlePunch("IN")} disabled={punchStatus !== "IDLE"}>{getPunchButtonContent("IN")}</button>
+                      // If missed punch exists, button is disabled visually or alerts via handlePunch
+                      <button className={`px-4 py-2 rounded-md mx-auto flex gap-2 shadow-sm text-white ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`} onClick={() => handlePunch("IN")} disabled={punchStatus !== "IDLE"}>{getPunchButtonContent("IN")}</button>
                   ) : ( 
                       // ✅ If Shift NOT completed: Show BREAK button
                       // ✅ If Shift IS completed: Show PUNCH OUT button
@@ -836,6 +927,62 @@ const EmployeeDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* ✅ REQUEST PUNCH OUT MODAL */}
+      {showReqModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-down">
+                  <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+                      <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaPaperPlane /> Request Punch Out</h3>
+                      <button onClick={() => setShowReqModal(false)} className="text-white hover:bg-blue-700 p-1 rounded"><FaTimes /></button>
+                  </div>
+                  <div className="p-6">
+                      <p className="text-sm text-gray-600 mb-4 bg-yellow-50 border border-yellow-200 p-2 rounded">
+                          You missed punching out on <b>{formatDateDDMMYYYY(reqData.date)}</b>. Please provide the actual time you left work.
+                      </p>
+                      <form onSubmit={handleRequestSubmit} className="space-y-4">
+                          <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-1">Missed Date</label>
+                              <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-100">
+                                  <FaCalendarAlt className="text-gray-400 mr-2"/>
+                                  <input type="text" value={formatDateDDMMYYYY(reqData.date)} disabled className="bg-transparent outline-none w-full text-gray-500 cursor-not-allowed" />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-1">Actual Out Time</label>
+                              <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-white focus-within:ring-2 ring-blue-200 transition">
+                                  <FaRegClock className="text-gray-400 mr-2"/>
+                                  <input 
+                                      type="time" 
+                                      value={reqData.time} 
+                                      onChange={(e) => setReqData({...reqData, time: e.target.value})} 
+                                      className="bg-transparent outline-none w-full text-gray-700" 
+                                      required 
+                                  />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="block text-sm font-semibold text-gray-700 mb-1">Reason</label>
+                              <textarea 
+                                  value={reqData.reason} 
+                                  onChange={(e) => setReqData({...reqData, reason: e.target.value})} 
+                                  placeholder="e.g. Forgot to punch out, Network issue..." 
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 ring-blue-200 h-24 resize-none transition" 
+                                  required 
+                              />
+                          </div>
+                          <div className="flex justify-end gap-3 pt-2">
+                              <button type="button" onClick={() => setShowReqModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+                              <button type="submit" disabled={reqLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow-sm disabled:opacity-50 flex items-center gap-2">
+                                  {reqLoading ? "Sending..." : "Submit Request"}
+                              </button>
+                          </div>
+                      </form>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {showCropModal && imageToCrop && ( <ImageCropModal imageSrc={imageToCrop} onCropComplete={handleCropComplete} onCancel={() => { setShowCropModal(false); setImageToCrop(null); }} isUploading={uploadingImage} /> )}
     </div>
   );

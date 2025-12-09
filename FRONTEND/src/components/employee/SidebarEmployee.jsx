@@ -20,6 +20,9 @@ const navLinks = [
   { to: "/employee/empovertime", label: "Request Overtime", icon: <FaClock /> },
   { to: "/employee/leave-management", label: "Leave Requests", icon: <FaClipboardList /> },
     { to: "/employee/reuestworkmode", label: "Request WorkMode", icon: <FaClock /> },
+  
+
+  { to: "/employee/requestpunchout", label: "Request Punch Out", icon: <FaClock /> },
 
 
 ];
