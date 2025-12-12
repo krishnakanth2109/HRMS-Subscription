@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useCallback, useRef } from "react";
 import {
   FaHome,
   FaClock,
@@ -10,7 +10,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 
-// Import AuthContext to get current user ID
+// Import AuthContext to get current user details
 import { AuthContext } from "../../context/AuthContext";
 // Import API to fetch real DB data
 import api from "../../api"; 
@@ -30,11 +30,15 @@ const SidebarEmployee = () => {
   const [open, setOpen] = useState(window.innerWidth >= 768);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Get current user to check against DB records
+  // Get current user to check against DB records and get NAME
   const { user } = useContext(AuthContext);
   
   // Local state for accurate DB count
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // ✅ Refs to track previous count for Sound Logic (Prevents re-renders)
+  const lastCountRef = useRef(0);
+  const firstLoadRef = useRef(true);
 
   useEffect(() => {
     const resize = () => setOpen(window.innerWidth >= 768);
@@ -42,15 +46,25 @@ const SidebarEmployee = () => {
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // ✅ NEW: Fetch real unread count from DB
-  const fetchUnreadCount = async () => {
+  // ✅ SOUND FUNCTION WITH NAME
+  const playNoticeSound = () => {
+    if ('speechSynthesis' in window && user?.name) {
+      window.speechSynthesis.cancel(); // Stop any current speech
+      // Speak Name + Message
+      const utterance = new SpeechSynthesisUtterance(`${user.name}, please check notices`);
+      utterance.rate = 1.0; // Normal speed
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  // ✅ FETCH REAL UNREAD COUNT (Wrapped in useCallback)
+  const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
     try {
       const { data } = await api.get("/api/notices");
       
       const count = data.filter(notice => {
         // Check if current user ID is present inside the readBy array
-        // Handle both populated objects and raw ID strings
         const isRead = notice.readBy && notice.readBy.some(record => {
           const recordId = typeof record.employeeId === 'object' 
             ? record.employeeId._id 
@@ -62,19 +76,37 @@ const SidebarEmployee = () => {
         return !isRead;
       }).length;
 
-      setUnreadCount(count);
+      // ✅ SOUND LOGIC: Check if count increased
+      if (!firstLoadRef.current) {
+         if (count > lastCountRef.current) {
+            playNoticeSound();
+         }
+      } else {
+         firstLoadRef.current = false; // Mark initial load complete
+      }
+
+      // Update Ref
+      lastCountRef.current = count;
+
+      // Only update state if count is different to prevent blinking/re-renders
+      setUnreadCount(prev => prev !== count ? count : prev);
+      
     } catch (error) {
       console.error("Failed to fetch unread notice count", error);
     }
-  };
+  }, [user]); // user dependency ensures we have the name available
 
-  // Fetch count on mount and whenever the URL changes (e.g. creating/reading notices)
+  // ✅ POLLING EFFECT: Updates every 3 seconds & on Route Change
   useEffect(() => {
+    // 1. Fetch immediately on mount or route change
     fetchUnreadCount();
-    // Optional: Set up an interval to poll for new notices every minute
-    const interval = setInterval(fetchUnreadCount, 60000);
+
+    // 2. Poll every 3 seconds to catch incoming notices without refresh
+    const interval = setInterval(fetchUnreadCount, 3000);
+
+    // Cleanup interval on unmount
     return () => clearInterval(interval);
-  }, [user, location.pathname]);
+  }, [fetchUnreadCount, location.pathname]); 
 
   return (
     <>
@@ -141,9 +173,9 @@ const SidebarEmployee = () => {
                     <span className="relative">
                       {link.label}
 
-                      {/* ✅ Updated Badge Logic: Uses real DB calculation */}
+                      {/* ✅ Updated Badge Logic with Polling & Sound */}
                       {link.isNotice && unreadCount > 0 && (
-                        <span className="absolute -right-5 top-0 bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full">
+                        <span className="absolute -right-5 top-0 bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full animate-pulse">
                           {unreadCount}
                         </span>
                       )}
