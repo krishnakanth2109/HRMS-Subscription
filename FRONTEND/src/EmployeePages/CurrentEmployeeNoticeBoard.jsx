@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { AuthContext } from "../context/AuthContext"; 
-import api from "../api"; 
-import { FaPaperPlane, FaTrash, FaComments, FaTimes } from "react-icons/fa";
+import api, { sendReplyWithImage } from "../api"; 
+import { FaPaperPlane, FaTrash, FaComments, FaTimes, FaRobot, FaPen, FaPaperclip } from "react-icons/fa";
 
 const NoticeList = () => {
   const [notices, setNotices] = useState([]);
@@ -16,11 +16,23 @@ const NoticeList = () => {
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   
+  // ✅ Image Upload State
+  const [selectedFile, setSelectedFile] = useState(null);
+  const fileInputRef = useRef(null);
+
+  // ✅ NEW: Image Lightbox State
+  const [previewImage, setPreviewImage] = useState(null);
+
+  // ✅ NEW: Ref to store local image URL to prevent "Flash" upon server sync
+  const lastUploadedImageRef = useRef(null);
+  
+  // AI Suggestions State
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+
   // Auto-scroll to bottom of chat
   const messagesEndRef = useRef(null);
 
   // ✅ REF TO TRACK NEWLY READ NOTICES
-  // This holds IDs of notices that are "unread" in the UI for the 5-second grace period
   const newlyReadIdsRef = useRef(new Set());
 
   // ✅ STABLE FETCH FUNCTION
@@ -36,7 +48,6 @@ const NoticeList = () => {
           if (newlyReadIdsRef.current.has(notice._id)) {
               return {
                   ...notice,
-                  // Manually filter out current user from readBy so UI thinks it's unread
                   readBy: notice.readBy.filter(r => {
                       const rId = typeof r.employeeId === 'object' ? r.employeeId._id : r.employeeId;
                       return rId !== currentUserId;
@@ -51,13 +62,15 @@ const NoticeList = () => {
         return processedData;
       });
       
-      // Trigger auto-read logic (Pass ORIGINAL sortedData to check real DB state)
       autoMarkAsRead(sortedData);
       
       // Update Active Chat Window Silently
       if (activeNotice) {
         const updatedActive = sortedData.find(n => n._id === activeNotice._id);
-        if (updatedActive && JSON.stringify(updatedActive.replies) !== JSON.stringify(activeNotice.replies)) {
+        
+        // ✅ FIX: Do NOT update active notice if we are currently sending a reply.
+        // This keeps the optimistic "loading" image visible until upload finishes.
+        if (!sendingReply && updatedActive && JSON.stringify(updatedActive.replies) !== JSON.stringify(activeNotice.replies)) {
            setActiveNotice(updatedActive);
         }
       }
@@ -66,7 +79,7 @@ const NoticeList = () => {
     } finally {
       if (!silent) setIsInitialLoading(false);
     }
-  }, [activeNotice, currentUserId]); 
+  }, [activeNotice, currentUserId, sendingReply]); 
 
   // Initial Load Only
   useEffect(() => { 
@@ -90,29 +103,46 @@ const NoticeList = () => {
     }
   }, [activeNotice?.replies?.length, isChatOpen]);
 
-  // ✅ UPDATED AUTO MARK LOGIC (Immediate API + Delayed UI)
+  // ✅ AI SUGGESTION LOGIC
+  useEffect(() => {
+    if (!activeNotice) return;
+    const replies = activeNotice.replies || [];
+    const lastIncoming = [...replies].reverse().find(r => r.sentBy !== 'Employee'); 
+    const incomingText = lastIncoming ? lastIncoming.message.toLowerCase() : "";
+
+    let suggestions = ["Noted sir", "Alright sir", "Understood sir"];
+
+    if (incomingText) {
+        if (incomingText.includes("urgent") || incomingText.includes("asap")) {
+            suggestions = ["On it sir", "Working on it sir"];
+        } 
+        else if (incomingText.includes("update") || incomingText.includes("status")) {
+            suggestions = ["Almost done sir", "Sending update shortly sir"];
+        } 
+        else if (incomingText.includes("thanks") || incomingText.includes("thank you")) {
+            suggestions = ["Thank you sir", "Noted sir"];
+        }
+    }
+    setAiSuggestions([...new Set(suggestions)]);
+  }, [activeNotice]); 
+
+
+  // ✅ AUTO MARK LOGIC
   const autoMarkAsRead = async (fetchedNotices) => {
     if (!currentUserId) return;
-
     const unreadNotices = fetchedNotices.filter(notice => {
       const isRead = notice.readBy && notice.readBy.some(record => {
         const rId = typeof record.employeeId === 'object' ? record.employeeId._id : record.employeeId;
         return rId === currentUserId;
       });
-      // Only process if unread AND not already in our grace period tracker
       return !isRead && !newlyReadIdsRef.current.has(notice._id);
     });
 
     if (unreadNotices.length === 0) return;
-
-    // 1. Add to Ref to keep them colored in UI immediately
     unreadNotices.forEach(n => newlyReadIdsRef.current.add(n._id));
 
     try {
-      // 2. API call fire-and-forget (Updates DB Instantly)
       Promise.all(unreadNotices.map(n => api.put(`/api/notices/${n._id}/read`))).catch(e => console.error(e));
-
-      // 3. Remove from Ref after 5 seconds to turn UI Gray
       setTimeout(() => {
         let changed = false;
         unreadNotices.forEach(n => {
@@ -121,44 +151,83 @@ const NoticeList = () => {
                 changed = true;
             }
         });
-        // Trigger a silent update to reflect the change to Gray
         if(changed) fetchNotices(true);
       }, 5000);
-
     } catch (error) { 
       console.error("Error auto-marking notices:", error); 
     }
   };
 
-  const handleSendReply = async () => {
-    if (!replyText || !replyText.trim()) return;
+  // ✅ UPDATED SEND REPLY HANDLER
+  const handleSendReply = async (customMessage = null) => {
+    const messageToSend = (typeof customMessage === 'string' && customMessage) ? customMessage : replyText;
+
+    if ((!messageToSend || !messageToSend.trim()) && !selectedFile) return;
     
+    // Create local preview URL for optimistic update
+    let tempImageUrl = null;
+    if (selectedFile) {
+        tempImageUrl = URL.createObjectURL(selectedFile);
+        // ✅ SAVE BLOB URL TO REF (To prevent flash later)
+        lastUploadedImageRef.current = { url: tempImageUrl, timestamp: Date.now() };
+    }
+
     // Optimistic Update
     const tempId = Date.now();
     const optimisticReply = {
         _id: tempId,
-        message: replyText,
+        message: messageToSend,
+        image: tempImageUrl, 
         sentBy: 'Employee',
-        repliedAt: new Date().toISOString()
+        repliedAt: new Date().toISOString(),
+        isSending: true // ✅ Flag to show loading spinner
     };
     
     setReplyText("");
+    setSelectedFile(null); 
+    if(fileInputRef.current) fileInputRef.current.value = "";
     
+    // Update local state immediately
     setActiveNotice(prev => ({
         ...prev,
         replies: [...(prev.replies || []), optimisticReply]
     }));
 
-    setSendingReply(true);
+    setSendingReply(true); 
     
     try {
-      await api.post(`/api/notices/${activeNotice._id}/reply`, { message: replyText });
-      fetchNotices(true); 
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append("message", messageToSend);
+        formData.append("image", selectedFile);
+        await sendReplyWithImage(activeNotice._id, formData);
+      } else {
+        await api.post(`/api/notices/${activeNotice._id}/reply`, { message: messageToSend });
+      }
+      
+      await fetchNotices(true); 
+
     } catch (error) { 
         alert("Failed to send reply"); 
     } finally { 
         setSendingReply(false); 
     }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        if (file.size > 5 * 1024 * 1024) { 
+            alert("File too large. Max 5MB.");
+            return;
+        }
+        setSelectedFile(file);
+    }
+  };
+
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    if(fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDeleteReply = async (noticeId, replyId) => {
@@ -178,6 +247,7 @@ const NoticeList = () => {
     setActiveNotice(notice);
     setIsChatOpen(true);
     setReplyText("");
+    setSelectedFile(null);
   };
 
   const formatDateTime = (dateString) => {
@@ -189,6 +259,7 @@ const NoticeList = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] overflow-hidden relative font-sans">
+      {/* Background blobs */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-blob"></div>
       </div>
@@ -214,18 +285,14 @@ const NoticeList = () => {
           </div>
         </div>
 
+        {/* Notices List */}
         <div className="space-y-5">
           {notices.map((notice, index) => {
             const { date, time } = formatDateTime(notice.date);
-            
-            // Check read status (This uses the processed data from fetchNotices)
-            // So if it's in grace period, the user ID is filtered out, making isRead = false
             const isRead = notice.readBy && notice.readBy.some(record => {
               const rId = typeof record.employeeId === 'object' ? record.employeeId._id : record.employeeId;
               return rId === currentUserId;
             });
-
-            // Check if last reply was from Admin
             const replies = notice.replies || [];
             const lastReply = replies.length > 0 ? replies[replies.length - 1] : null;
             const hasAdminReply = lastReply && lastReply.sentBy === 'Admin';
@@ -233,14 +300,12 @@ const NoticeList = () => {
             return (
               <div key={notice._id} className="group relative bg-white/90 backdrop-blur-md rounded-2xl p-6 transition-all hover:shadow-xl border border-slate-100">
                 <div className="flex flex-col md:flex-row gap-5">
-                  
-                  {/* --- Left Icon Column --- */}
                   <div className="hidden md:flex flex-col items-center">
                     <div 
                       className={`p-3 rounded-2xl shadow-lg transition-colors duration-1000 ${
                         isRead 
-                        ? 'bg-slate-100 text-slate-400 border border-slate-200' // Read: Gray
-                        : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white animate-pulse' // Unread: Colored
+                        ? 'bg-slate-100 text-slate-400 border border-slate-200' 
+                        : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white animate-pulse' 
                       }`}
                     >
                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
@@ -254,7 +319,6 @@ const NoticeList = () => {
                             <h3 className="text-xl font-bold text-slate-800">{notice.title}</h3>
                             <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 mb-3"><span>{date}, {time}</span></div>
                         </div>
-                        
                         <button 
                             onClick={() => openChatModal(notice)}
                             className="relative flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
@@ -268,7 +332,6 @@ const NoticeList = () => {
                             )}
                         </button>
                     </div>
-                    
                     <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{notice.description}</p>
                   </div>
                 </div>
@@ -279,11 +342,10 @@ const NoticeList = () => {
       </div>
 
       {/* CHAT POPUP */}
-         {/* CHAT POPUP - TEAMS THEME (PROPER CHRONOLOGICAL ORDER) */}
       {isChatOpen && activeNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-2xl h-[85vh] rounded-xl shadow-2xl flex flex-col relative overflow-hidden border border-gray-200">
-                {/* TEAMS-STYLE HEADER - STICKY */}
+                {/* HEADER */}
                 <div className="sticky top-0 bg-[#464775] text-white p-4 flex justify-between items-center z-20 shadow-md">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold shadow-sm">
@@ -306,10 +368,10 @@ const NoticeList = () => {
                     </div>
                 </div>
 
-                {/* SCROLLABLE MESSAGE AREA - PROPER CHRONOLOGICAL ORDER */}
-                <div className="flex-1 flex flex-col bg-[#f3f2f1] overflow-hidden">
+                {/* MESSAGES */}
+                <div className="flex-1 flex flex-col bg-[#f3f2f1] overflow-hidden relative">
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <div className="p-4 space-y-3 min-h-full flex flex-col justify-end">
+                        <div className="p-4 space-y-3 min-h-full flex flex-col justify-end pb-4">
                             {(!activeNotice.replies || activeNotice.replies.length === 0) ? (
                                 <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm italic py-20">
                                     <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
@@ -319,15 +381,25 @@ const NoticeList = () => {
                                     <p className="text-xs mt-1">Start a conversation with Admin</p>
                                 </div>
                             ) : (
-                                // Display messages in chronological order (oldest to newest)
                                 activeNotice.replies.map((reply, i) => {
                                     const isMe = reply.sentBy === 'Employee';
                                     
+                                    // ✅ SMART IMAGE RENDERING to Prevent Flash
+                                    // If this is the LAST message sent by ME, and we have a local blob stored recently,
+                                    // prefer the local blob to prevent the "download flash" from the server URL.
+                                    let imageSrc = reply.image;
+                                    const isLastMessage = i === activeNotice.replies.length - 1;
+                                    if (isMe && isLastMessage && !reply.isSending && lastUploadedImageRef.current) {
+                                        // Use Blob if timestamp is fresh (< 30 seconds)
+                                        if (Date.now() - lastUploadedImageRef.current.timestamp < 30000) {
+                                            imageSrc = lastUploadedImageRef.current.url;
+                                        }
+                                    }
+
                                     return (
                                         <div key={reply._id || i} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-[70%] p-3 rounded-lg ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`}>
                                                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                                    {/* SENDER AND TIME */}
                                                     <div className={`flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : ''}`}>
                                                         <span className="text-xs font-semibold text-gray-700">
                                                             {isMe ? 'You' : 'Admin'}
@@ -337,17 +409,31 @@ const NoticeList = () => {
                                                         </span>
                                                     </div>
                                                     
-                                                    {/* MESSAGE BUBBLE */}
                                                     <div className={`relative group ${isMe ? 'ml-auto' : ''}`}>
                                                         <div className={`p-3 rounded-lg shadow-sm ${isMe 
                                                             ? 'bg-[#6264a7] text-white' 
                                                             : 'bg-white text-gray-800 border border-gray-200'
                                                         }`}>
-                                                            <p className="text-sm leading-relaxed break-words">{reply.message}</p>
+                                                            {/* ✅ DISPLAY IMAGE (With Loading & Flash Prevention) */}
+                                                            {imageSrc && (
+                                                              <div className="mb-2 relative cursor-pointer" onClick={() => !reply.isSending && setPreviewImage(imageSrc)}>
+                                                                <img 
+                                                                  src={imageSrc} 
+                                                                  alt="attachment" 
+                                                                  className={`rounded-lg max-w-full max-h-60 object-cover border border-black/10 ${reply.isSending ? 'opacity-70' : ''}`}
+                                                                />
+                                                                
+                                                                {/* ✅ SPINNER OVERLAY FOR UPLOADING IMAGE */}
+                                                                {reply.isSending && (
+                                                                   <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+                                                                       <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                                   </div>
+                                                                )}
+                                                              </div>
+                                                            )}
+                                                            {reply.message && <p className="text-sm leading-relaxed break-words">{reply.message}</p>}
                                                         </div>
-                                                        
-                                                        {/* DELETE BUTTON (only for own messages) */}
-                                                        {isMe && (
+                                                        {isMe && !reply.isSending && (
                                                             <button 
                                                                 onClick={() => handleDeleteReply(activeNotice._id, reply._id)} 
                                                                 className="absolute -right-2 -top-2 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-500 hover:text-red-500 hover:border-red-300 shadow-md opacity-0 group-hover:opacity-100 transition-all duration-200"
@@ -367,41 +453,107 @@ const NoticeList = () => {
                         </div>
                     </div>
 
-                    {/* MESSAGE INPUT - TEAMS STYLE */}
-                    <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="flex-1 bg-[#f3f2f1] border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#6264a7]/30 focus-within:border-[#6264a7] transition-all">
-                                <input 
-                                    className="w-full p-3 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-500"
-                                    placeholder="Type a new message..."
-                                    value={replyText}
-                                    onChange={(e) => setReplyText(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
-                                />
-                            </div>
-                            <button 
-                                onClick={handleSendReply} 
-                                disabled={sendingReply || !replyText.trim()}
-                                className={`p-3 rounded-lg flex items-center justify-center transition-all duration-200 min-w-[44px] ${
-                                    sendingReply || !replyText.trim()
-                                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                    : 'bg-[#6264a7] hover:bg-[#585a96] text-white shadow-sm hover:shadow'
-                                }`}
-                            >
-                                {sendingReply ? (
-                                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                ) : (
-                                    <FaPaperPlane className="text-sm" />
-                                )}
-                            </button>
+                    {/* ✅ FOOTER WITH STICKY SUGGESTIONS & INPUT */}
+                    <div className="sticky bottom-0 bg-white border-t border-gray-200 z-30 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                        
+                        {/* 🔹 IMAGE PREVIEW AREA */}
+                        {selectedFile && (
+                          <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+                             <div className="relative w-12 h-12 border border-gray-300 rounded-lg overflow-hidden bg-white">
+                                <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="w-full h-full object-cover" />
+                             </div>
+                             <div className="flex-1 overflow-hidden">
+                                <p className="text-xs font-semibold text-gray-700 truncate">{selectedFile.name}</p>
+                                <p className="text-[10px] text-gray-500">{(selectedFile.size/1024).toFixed(1)} KB</p>
+                             </div>
+                             <button onClick={clearSelectedFile} className="text-gray-400 hover:text-red-500">
+                                <FaTimes />
+                             </button>
+                          </div>
+                        )}
+
+                        {/* 🔹 AI SUGGESTIONS ROW */}
+                        <div className="px-4 pt-3 pb-1 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                             <div className="flex items-center gap-1.5 text-[#6264a7] text-xs font-bold mr-2 shrink-0">
+                                <FaRobot /> AI Suggestions:
+                             </div>
+                             
+                             {aiSuggestions.map((sugg, idx) => (
+                                <div key={idx} className="group relative shrink-0">
+                                    <div className="bg-white border border-[#e0e0e0] hover:border-[#6264a7] rounded-full px-4 py-1.5 text-xs text-gray-600 font-medium shadow-sm transition-all cursor-pointer group-hover:opacity-0">
+                                        {sugg}
+                                    </div>
+                                    <div className="absolute inset-0 flex items-center justify-between gap-1 bg-[#6264a7] rounded-full px-2 opacity-0 group-hover:opacity-100 transition-all shadow-md">
+                                        <button 
+                                            onClick={() => setReplyText(sugg)}
+                                            className="flex-1 text-white text-[10px] font-bold flex items-center justify-center hover:bg-white/20 rounded py-1 px-2"
+                                        >
+                                           <FaPen />
+                                        </button>
+                                        <div className="w-px h-3 bg-white/30"></div>
+                                        <button 
+                                            onClick={() => handleSendReply(sugg)}
+                                            className="flex-1 text-white text-[10px] font-bold flex items-center justify-center hover:bg-white/20 rounded py-1 px-2"
+                                        >
+                                           <FaPaperPlane />
+                                        </button>
+                                    </div>
+                                </div>
+                             ))}
                         </div>
-                        <div className="flex justify-between items-center mt-2 px-1">
-                            <span className="text-xs text-gray-500">
-                                {activeNotice.replies?.length || 0} {activeNotice.replies?.length === 1 ? 'message' : 'messages'}
-                            </span>
-                            <span className="text-[10px] text-gray-400">
-                                Press Enter to send
-                            </span>
+
+                        {/* 🔹 INPUT AREA */}
+                        <div className="p-4 pt-2">
+                            <div className="flex items-center gap-3">
+                                {/* IMAGE UPLOAD BUTTON */}
+                                <input 
+                                  type="file" 
+                                  ref={fileInputRef} 
+                                  onChange={handleFileSelect} 
+                                  accept="image/*" 
+                                  className="hidden" 
+                                />
+                                <button 
+                                  onClick={() => fileInputRef.current.click()}
+                                  className={`p-3 rounded-lg border border-gray-300 text-gray-500 hover:text-[#6264a7] hover:bg-gray-50 transition-colors ${selectedFile ? 'text-[#6264a7] bg-blue-50 border-blue-200' : ''}`}
+                                  title="Attach Image"
+                                >
+                                  <FaPaperclip />
+                                </button>
+
+                                <div className="flex-1 bg-[#f3f2f1] border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#6264a7]/30 focus-within:border-[#6264a7] transition-all">
+                                    <input 
+                                        className="w-full p-3 bg-transparent outline-none text-sm text-gray-800 placeholder-gray-500"
+                                        placeholder="Type a new message..."
+                                        value={replyText}
+                                        onChange={(e) => setReplyText(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                                    />
+                                </div>
+                                <button 
+                                    onClick={() => handleSendReply()} 
+                                    disabled={sendingReply || (!replyText.trim() && !selectedFile)}
+                                    className={`p-3 rounded-lg flex items-center justify-center transition-all duration-200 min-w-[44px] ${
+                                        sendingReply || (!replyText.trim() && !selectedFile)
+                                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'bg-[#6264a7] hover:bg-[#585a96] text-white shadow-sm hover:shadow'
+                                    }`}
+                                >
+                                    {sendingReply ? (
+                                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    ) : (
+                                        <FaPaperPlane className="text-sm" />
+                                    )}
+                                </button>
+                            </div>
+                            <div className="flex justify-between items-center mt-2 px-1">
+                                <span className="text-xs text-gray-500">
+                                    {activeNotice.replies?.length || 0} {activeNotice.replies?.length === 1 ? 'message' : 'messages'}
+                                </span>
+                                <span className="text-[10px] text-gray-400">
+                                    Press Enter to send
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -409,10 +561,30 @@ const NoticeList = () => {
         </div>
       )}
 
+      {/* ✅ LIGHTBOX / FULL SCREEN IMAGE POPUP */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[150] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-white/10 backdrop-blur-sm">
+             <FaTimes size={24} />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="Full Preview" 
+            className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </div>
   );

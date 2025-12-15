@@ -162,6 +162,31 @@ export const updateNotice = async (id, data) =>
 export const deleteNoticeById = async (id) =>
   (await api.delete(`/api/notices/${id}`)).data;
 
+export const sendAdminReplyWithImage = async (noticeId, formData) => {
+  try {
+    const response = await api.post(`/api/notices/${noticeId}/admin-reply`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Admin reply with image failed:", error);
+    throw error;
+  }
+};
+
+export const sendReplyWithImage = async (noticeId, formData) => {
+  try {
+    // Axios usually sets 'Content-Type': 'multipart/form-data' automatically for FormData
+    const response = await api.post(`/api/notices/${noticeId}/reply`, formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Reply with image failed:", error);
+    throw error;
+  }
+};
+
 /* =============================================================================
    LEAVES
 ============================================================================= */

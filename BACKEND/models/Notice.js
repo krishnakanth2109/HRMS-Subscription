@@ -23,6 +23,7 @@ const noticeSchema = new mongoose.Schema({
     adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     
     message: { type: String },
+    image: { type: String, default: null }, // <--- ADDED THIS FIELD
     sentBy: { type: String, enum: ['Employee', 'Admin'], default: 'Employee' },
     repliedAt: { type: Date, default: Date.now }
   }]

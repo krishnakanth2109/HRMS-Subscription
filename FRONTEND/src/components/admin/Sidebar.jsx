@@ -77,25 +77,23 @@ const navLinks = [
   { to: "/admin/shifttype", label: "Location Settings", icon:<MapPinnedIcon /> },
 ];
 
-// ✅ Helper function from AdminNotices.jsx to calculate unread notices
-const calculateUnreadNotices = (notices, localReadMap) => {
+// ✅ HELPER: Calculate unread notices using SERVER STATE
+const calculateUnreadNotices = (notices, readState) => {
   if (!notices || !Array.isArray(notices)) return 0;
   
   let unreadNoticeCount = 0;
   
   notices.forEach(notice => {
+    // Skip system configuration notices
+    if (notice.title && notice.title.startsWith("__SYSTEM_")) return;
     if (!notice.replies || !Array.isArray(notice.replies)) return;
     
     // Group replies by employee
     const groups = notice.replies.reduce((acc, reply) => {
       const empId = reply.employeeId?._id || reply.employeeId; 
-      const empName = reply.employeeId?.name || "Unknown";
-      
       if (empId) {
-        if (!acc[empId]) {
-          acc[empId] = { name: empName, messages: [], hasUnread: false };
-        }
-        acc[empId].messages.push(reply);
+        if (!acc[empId]) acc[empId] = [];
+        acc[empId].push(reply);
       }
       return acc;
     }, {});
@@ -104,21 +102,17 @@ const calculateUnreadNotices = (notices, localReadMap) => {
     let hasAnyUnreadInNotice = false;
     
     Object.keys(groups).forEach(empId => {
-      const group = groups[empId];
-      const lastEmployeeMsg = [...group.messages].reverse().find(m => m.sentBy === 'Employee');
+      const messages = groups[empId];
+      const lastEmployeeMsg = [...messages].reverse().find(m => m.sentBy === 'Employee');
       
       if (lastEmployeeMsg) {
         const storageKey = `${notice._id}_${empId}`;
-        const storedLastId = localReadMap[storageKey];
+        // ✅ Check against SERVER STATE instead of local storage
+        const storedLastId = readState[storageKey];
         
-        if (lastEmployeeMsg._id === storedLastId) {
-          // This conversation has been read
-        } else {
-          // Check if the message is unread in backend
-          const hasUnread = group.messages.some(m => m.sentBy === 'Employee' && !m.isRead);
-          if (hasUnread) {
-            hasAnyUnreadInNotice = true;
-          }
+        // If the last message ID matches what's on the server, it's read. Otherwise, unread.
+        if (lastEmployeeMsg._id !== storedLastId) {
+           hasAnyUnreadInNotice = true;
         }
       }
     });
@@ -138,17 +132,9 @@ const Sidebar = () => {
   const [pendingOvertime, setPendingOvertime] = useState(0);
   const [socket, setSocket] = useState(null);
   
-  // ✅ State for unread notice count
+  // ✅ State for unread notice count & Server Read State
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
-  // ✅ Local storage state (same as in AdminNotices.jsx)
-  const [localReadMap, setLocalReadMap] = useState(() => {
-    try {
-      const stored = localStorage.getItem("adminReadRepliesV3");
-      return stored ? JSON.parse(stored) : {};
-    } catch (e) {
-      return {};
-    }
-  });
+  const [serverReadState, setServerReadState] = useState({});
 
   // ✅ Track previous counts for comparison
   const prevPendingLeaves = useRef(0);
@@ -157,11 +143,8 @@ const Sidebar = () => {
   
   // ✅ Track if we're currently on notices page
   const isOnNoticesPage = useRef(false);
-  // ✅ Track if we've already played sound for current notification
   const hasPlayedSoundForCurrentCount = useRef(0);
-  // ✅ Track if we should temporarily hide badge on notices page
   const [tempHideNoticeBadge, setTempHideNoticeBadge] = useState(false);
-  // ✅ Store the actual unread count separately
   const actualUnreadCount = useRef(0);
 
   // State for handling the hover/click dropdown
@@ -171,17 +154,12 @@ const Sidebar = () => {
     typeof status === "string" && status.toLowerCase() === "pending";
 
   // -----------------------------
-  // ✅ PLAY NOTIFICATION SOUND OR SPEECH
+  // ✅ PLAY NOTIFICATION SOUND
   // -----------------------------
   const playNotificationSound = useCallback((type = "generic") => {
-    // Don't play sound if we're on the notices page
-    if (isOnNoticesPage.current) {
-      console.log("🔕 On notices page, skipping sound");
-      return;
-    }
+    if (isOnNoticesPage.current) return; // Don't play if looking at notices
     
     try {
-      // Try to play a simple beep sound using Web Audio API
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -189,118 +167,92 @@ const Sidebar = () => {
       oscillator.connect(gainNode);
       gainNode.connect(audioContext.destination);
       
-      oscillator.frequency.value = 800; // Higher pitch
+      oscillator.frequency.value = 800; 
       oscillator.type = 'sine';
       
-      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // 10% volume
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); 
       gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
       
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.3);
-      
-      // Also try to speak notification based on type
-      if ('speechSynthesis' in window) {
-        let message = "New Message";
-        if (type === "leave") message = "New Leave Request";
-        if (type === "overtime") message = "New Overtime Request";
-        
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.volume = 0.5; // 50% volume
-        utterance.rate = 1.0; // Normal speed
-        
-        // Cancel any ongoing speech
-        speechSynthesis.cancel();
-        speechSynthesis.speak(utterance);
-      }
-      
     } catch (error) {
-      console.log("Audio/Speech error:", error);
+      console.log("Audio error:", error);
     }
   }, []);
 
   // -----------------------------
-  // ✅ FETCH AND CALCULATE UNREAD NOTICES
+  // ✅ FETCH AND CALCULATE UNREAD NOTICES (Includes System State)
   // -----------------------------
   const fetchAndCalculateUnreadNotices = useCallback(async (forceUpdate = false) => {
     try {
-      const notices = await getAllNoticesForAdmin();
-      const count = calculateUnreadNotices(notices, localReadMap);
+      const data = await getAllNoticesForAdmin();
       
-      // Store actual count
+      // 1. Extract Read State from Hidden Notice
+      const configNotice = data.find(n => n.title === "__SYSTEM_READ_STATE__");
+      let currentServerState = {};
+      
+      if (configNotice) {
+          try {
+              currentServerState = JSON.parse(configNotice.description);
+              setServerReadState(currentServerState);
+          } catch(e) { console.error("Error parsing read state", e); }
+      }
+
+      // 2. Filter Real Notices
+      const realNotices = data.filter(n => !n.title.startsWith("__SYSTEM_"));
+
+      // 3. Calculate Count
+      const count = calculateUnreadNotices(realNotices, currentServerState);
+      
       actualUnreadCount.current = count;
       
-      // Only update if not temporarily hiding badge or force update
       if (!tempHideNoticeBadge || forceUpdate) {
         setUnreadNoticeCount(count);
       }
       
-      console.log("📊 Actual unread count:", count, "Display count:", unreadNoticeCount);
     } catch (error) {
       console.error("Error fetching unread notices:", error);
-      setUnreadNoticeCount(0);
-      actualUnreadCount.current = 0;
     }
-  }, [localReadMap, tempHideNoticeBadge, unreadNoticeCount]);
+  }, [tempHideNoticeBadge]);
 
   // -----------------------------
-  // ✅ CHECK FOR NEW NOTIFICATIONS AND PLAY SOUND
+  // ✅ NOTIFICATION SOUND LOGIC
   // -----------------------------
   useEffect(() => {
-    // Check for new leaves
-    if (pendingLeaves > prevPendingLeaves.current) {
-      console.log("🔔 New leave request!");
-      playNotificationSound("leave");
-    }
+    if (pendingLeaves > prevPendingLeaves.current) playNotificationSound("leave");
     prevPendingLeaves.current = pendingLeaves;
 
-    // Check for new overtime
-    if (pendingOvertime > prevPendingOvertime.current) {
-      console.log("🔔 New overtime request!");
-      playNotificationSound("overtime");
-    }
+    if (pendingOvertime > prevPendingOvertime.current) playNotificationSound("overtime");
     prevPendingOvertime.current = pendingOvertime;
 
-    // Check for new notices - Only play sound for NEW unread messages
     if (unreadNoticeCount > prevUnreadNoticeCount.current && 
         unreadNoticeCount > hasPlayedSoundForCurrentCount.current) {
-      console.log("🔔 New notice message!");
       playNotificationSound("notice");
-      // Track that we've played sound for this count
       hasPlayedSoundForCurrentCount.current = unreadNoticeCount;
     }
-    // Reset the tracking when count goes down (messages read)
     else if (unreadNoticeCount < prevUnreadNoticeCount.current) {
       hasPlayedSoundForCurrentCount.current = unreadNoticeCount;
     }
-    
     prevUnreadNoticeCount.current = unreadNoticeCount;
   }, [pendingLeaves, pendingOvertime, unreadNoticeCount, playNotificationSound]);
 
   // -----------------------------
-  // ✅ UPDATE NOTICES PAGE STATUS
+  // ✅ HANDLE PAGE NAVIGATION (Hide Badge on Notices Page)
   // -----------------------------
   useEffect(() => {
     const wasOnNoticesPage = isOnNoticesPage.current;
     isOnNoticesPage.current = location.pathname === "/admin/notices";
     
-    // When leaving notices page, restore the actual count
-    if (wasOnNoticesPage && !isOnNoticesPage.current && tempHideNoticeBadge) {
-      console.log("📋 Leaving notices page - restoring badge count");
-      setTempHideNoticeBadge(false);
-      // Restore actual count after a short delay
-      setTimeout(() => {
-        setUnreadNoticeCount(actualUnreadCount.current);
-      }, 100);
+    if (location.pathname === "/admin/notices") {
+        setTempHideNoticeBadge(true); // Hide badge while on the page
+    } else if (wasOnNoticesPage && location.pathname !== "/admin/notices") {
+        setTempHideNoticeBadge(false); // Restore when leaving
+        setTimeout(() => setUnreadNoticeCount(actualUnreadCount.current), 100);
     }
-    
-    // When leaving notices page, reset the sound tracking
-    if (!isOnNoticesPage.current && prevUnreadNoticeCount.current > 0) {
-      hasPlayedSoundForCurrentCount.current = prevUnreadNoticeCount.current;
-    }
-  }, [location.pathname, tempHideNoticeBadge]);
+  }, [location.pathname]);
 
   // -----------------------------
-  // INITIAL FETCH FOR COUNTS
+  // INITIAL FETCH
   // -----------------------------
   useEffect(() => {
     const fetchLeaves = async () => {
@@ -308,264 +260,81 @@ const Sidebar = () => {
       setPendingLeaves(data.filter((l) => isPending(l.status)).length);
     };
     fetchLeaves();
-  }, []);
-
-  useEffect(() => {
+    
     const fetchOT = async () => {
       const data = await getAllOvertimeRequests();
       setPendingOvertime(data.filter((o) => isPending(o.status)).length);
     };
     fetchOT();
-  }, []);
 
-  // ✅ Initial fetch for unread notices
-  useEffect(() => {
     fetchAndCalculateUnreadNotices();
   }, [fetchAndCalculateUnreadNotices]);
 
   // -----------------------------
-  // SINGLE SOCKET CONNECTION
+  // SOCKET CONNECTION
   // -----------------------------
   useEffect(() => {
-    const s = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
-    });
-
+    const s = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     s.on("connect", () => {
       try {
         const raw = sessionStorage.getItem("hrmsUser");
         if (raw) {
           const user = JSON.parse(raw);
-          const id = user?._id || user?.id;
-
-          if (id) {
-            s.emit("register", id);
-            console.log("📡 Registered admin on socket:", id);
-          }
+          if (user?._id || user?.id) s.emit("register", user?._id || user?.id);
         }
-      } catch (err) {
-        console.error("Socket register parse fail:", err);
-      }
+      } catch (err) {}
     });
-
     setSocket(s);
     return () => s.disconnect();
   }, []);
 
   // -----------------------------
-  // REAL-TIME EVENTS - LEAVES
+  // SOCKET EVENTS
   // -----------------------------
   useEffect(() => {
     if (!socket) return;
     
-    const handleNewLeave = () => {
-      setPendingLeaves((prev) => prev + 1);
-    };
-    
-    const handleUpdatedLeave = (data) => {
-      if (!isPending(data.status)) {
-        setPendingLeaves((prev) => Math.max(prev - 1, 0));
-      }
-    };
-    
-    const handleCancelledLeave = () => {
-      setPendingLeaves((prev) => Math.max(prev - 1, 0));
-    };
-    
-    socket.on("leave:new", handleNewLeave);
-    socket.on("leave:updated", handleUpdatedLeave);
-    socket.on("leave:cancelled", handleCancelledLeave);
-    
-    return () => {
-      socket.off("leave:new", handleNewLeave);
-      socket.off("leave:updated", handleUpdatedLeave);
-      socket.off("leave:cancelled", handleCancelledLeave);
-    };
-  }, [socket]);
+    // Leaves & OT
+    socket.on("leave:new", () => setPendingLeaves(p => p + 1));
+    socket.on("leave:updated", (d) => !isPending(d.status) && setPendingLeaves(p => Math.max(p - 1, 0)));
+    socket.on("overtime:new", () => setPendingOvertime(p => p + 1));
+    socket.on("overtime:updated", (d) => !isPending(d.status) && setPendingOvertime(p => Math.max(p - 1, 0)));
 
-  // -----------------------------
-  // REAL-TIME EVENTS - OVERTIME
-  // -----------------------------
-  useEffect(() => {
-    if (!socket) return;
-    
-    const handleNewOvertime = () => {
-      setPendingOvertime((prev) => prev + 1);
-    };
-    
-    const handleUpdatedOvertime = (data) => {
-      if (!isPending(data.status)) {
-        setPendingOvertime((prev) => Math.max(prev - 1, 0));
-      }
-    };
-    
-    const handleCancelledOvertime = () => {
-      setPendingOvertime((prev) => Math.max(prev - 1, 0));
-    };
-    
-    socket.on("overtime:new", handleNewOvertime);
-    socket.on("overtime:updated", handleUpdatedOvertime);
-    socket.on("overtime:cancelled", handleCancelledOvertime);
-    
-    return () => {
-      socket.off("overtime:new", handleNewOvertime);
-      socket.off("overtime:updated", handleUpdatedOvertime);
-      socket.off("overtime:cancelled", handleCancelledOvertime);
-    };
-  }, [socket]);
-
-  // -----------------------------
-  // ✅ REAL-TIME EVENTS - NOTICES (STABLE COUNT)
-  // -----------------------------
-  useEffect(() => {
-    if (!socket) return;
-    
-    // Listen for new notice replies from employees
+    // ✅ NOTICES: Real-time Update
     const handleNewReply = (data) => {
-      console.log("📨 New employee reply received:", data);
       if (data.sentBy === 'Employee') {
-        // Update the actual count
-        actualUnreadCount.current = actualUnreadCount.current + 1;
-        
-        // Only update display if not on notices page
-        if (!isOnNoticesPage.current && !tempHideNoticeBadge) {
-          setUnreadNoticeCount(prev => prev + 1);
-        }
-        
-        // Also fetch to ensure accuracy
-        setTimeout(() => {
-          fetchAndCalculateUnreadNotices(true);
-        }, 500);
+        actualUnreadCount.current += 1;
+        if (!isOnNoticesPage.current) setUnreadNoticeCount(p => p + 1);
+        setTimeout(() => fetchAndCalculateUnreadNotices(true), 1000);
       }
     };
     
-    // Listen for when messages are marked as read (IMMEDIATE DECREASE)
-    const handleReplyRead = (data) => {
-      console.log("📨 Messages marked as read:", data);
-      
-      // Update local read map
-      if (data.noticeId && data.employeeId) {
-        const storageKey = `${data.noticeId}_${data.employeeId}`;
-        setLocalReadMap(prev => {
-          const updated = { ...prev, [storageKey]: data.messageId };
-          localStorage.setItem("adminReadRepliesV3", JSON.stringify(updated));
-          return updated;
-        });
-        
-        // Update actual count
-        actualUnreadCount.current = Math.max(actualUnreadCount.current - 1, 0);
-        
-        // IMMEDIATE DECREASE: Reduce count by 1 immediately
-        if (!tempHideNoticeBadge) {
-          setUnreadNoticeCount(prev => {
-            const newCount = Math.max(prev - 1, 0);
-            console.log("📉 Immediate count decrease to:", newCount);
-            return newCount;
-          });
-        }
-      }
-      
-      // Recalculate after a short delay for accuracy
-      setTimeout(() => {
-        fetchAndCalculateUnreadNotices(true);
-      }, 500);
+    // ✅ SYSTEM STATE UPDATED (When read on another device)
+    const handleNoticeUpdate = () => {
+        setTimeout(() => fetchAndCalculateUnreadNotices(true), 1000);
     };
-    
-    // Listen for notice updates
-    const handleNoticeUpdated = () => {
-      console.log("📢 Notice updated, refreshing count");
-      setTimeout(() => {
-        fetchAndCalculateUnreadNotices(true);
-      }, 500);
-    };
-    
+
     socket.on("notice:reply:new", handleNewReply);
-    socket.on("notice:reply:read", handleReplyRead);
-    socket.on("notice:updated", handleNoticeUpdated);
+    socket.on("notice:updated", handleNoticeUpdate); // Catches the __SYSTEM_READ_STATE__ update
     
     return () => {
+      socket.off("leave:new"); socket.off("leave:updated");
+      socket.off("overtime:new"); socket.off("overtime:updated");
       socket.off("notice:reply:new", handleNewReply);
-      socket.off("notice:reply:read", handleReplyRead);
-      socket.off("notice:updated", handleNoticeUpdated);
+      socket.off("notice:updated", handleNoticeUpdate);
     };
-  }, [socket, fetchAndCalculateUnreadNotices, tempHideNoticeBadge]);
+  }, [socket, fetchAndCalculateUnreadNotices]);
 
   // -----------------------------
-  // ✅ LISTEN FOR CUSTOM EVENTS FROM AdminNotices.jsx (IMMEDIATE UPDATE)
+  // ✅ POLLING (Backup)
   // -----------------------------
   useEffect(() => {
-    const handleMessagesRead = (event) => {
-      if (event.detail && event.detail.noticeId && event.detail.employeeId && event.detail.messageId) {
-        console.log("📨 Custom event: Messages read for", event.detail.noticeId, event.detail.employeeId);
-        
-        // Update local storage
-        const storageKey = `${event.detail.noticeId}_${event.detail.employeeId}`;
-        setLocalReadMap(prev => {
-          const updated = { ...prev, [storageKey]: event.detail.messageId };
-          localStorage.setItem("adminReadRepliesV3", JSON.stringify(updated));
-          return updated;
-        });
-        
-        // Update actual count
-        actualUnreadCount.current = Math.max(actualUnreadCount.current - 1, 0);
-        
-        // IMMEDIATE DECREASE: Reduce count by 1 immediately
-        if (!tempHideNoticeBadge) {
-          setUnreadNoticeCount(prev => {
-            const newCount = Math.max(prev - 1, 0);
-            console.log("📉 Immediate count decrease from custom event to:", newCount);
-            return newCount;
-          });
-        }
-        
-        // Recalculate after a short delay for accuracy
-        setTimeout(() => {
-          fetchAndCalculateUnreadNotices(true);
-        }, 300);
-      }
-    };
-
-    window.addEventListener('notice:messages:read', handleMessagesRead);
-    return () => window.removeEventListener('notice:messages:read', handleMessagesRead);
-  }, [fetchAndCalculateUnreadNotices, tempHideNoticeBadge]);
-
-  // -----------------------------
-  // ✅ HANDLE VISITING NOTICES PAGE
-  // -----------------------------
-  useEffect(() => {
-    if (location.pathname === "/admin/notices") {
-      console.log("📋 Admin is on notices page");
-      // Temporarily hide badge but keep actual count
-      setTempHideNoticeBadge(true);
-    } else if (tempHideNoticeBadge) {
-      // When leaving notices page, restore badge after delay
-      setTimeout(() => {
-        setTempHideNoticeBadge(false);
-        setUnreadNoticeCount(actualUnreadCount.current);
-      }, 100);
-    }
-  }, [location.pathname, tempHideNoticeBadge]);
-
-  // -----------------------------
-  // ✅ POLLING FOR UPDATES (as backup)
-  // -----------------------------
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchAndCalculateUnreadNotices();
-    }, 10000); // Check every 10 seconds
-    
+    const interval = setInterval(fetchAndCalculateUnreadNotices, 5000);
     return () => clearInterval(interval);
   }, [fetchAndCalculateUnreadNotices]);
 
   // -----------------------------
-  // ✅ Update localReadMap when it changes
-  // -----------------------------
-  useEffect(() => {
-    fetchAndCalculateUnreadNotices();
-  }, [localReadMap, fetchAndCalculateUnreadNotices]);
-
-  // -----------------------------
-  // ✅ Handle Hover/Click Logic for menus
+  // RENDERING HELPERS
   // -----------------------------
   const handleMenuHover = (label, isEntering) => {
     if (isEntering) {
@@ -576,26 +345,14 @@ const Sidebar = () => {
     }
   };
 
-  // -----------------------------
-  // ✅ Helper to render the badge
-  // -----------------------------
   const renderBadge = (link) => {
     if (link.isLeave && pendingLeaves > 0) {
-      return (
-        <span className="bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-auto">
-          {pendingLeaves}
-        </span>
-      );
+      return <span className="bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-auto">{pendingLeaves}</span>;
     }
     if (link.isOvertime && pendingOvertime > 0) {
-      return (
-        <span className="bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-auto">
-          {pendingOvertime}
-        </span>
-      );
+      return <span className="bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ml-auto">{pendingOvertime}</span>;
     }
-    // ✅ NOTICE BADGE: Show blinking red bubble with count
-    // Only show if not temporarily hidden
+    // ✅ NOTICE BADGE: Real-time, Synced
     if (link.isNotice && unreadNoticeCount > 0 && !tempHideNoticeBadge) {
       return (
         <span className="relative flex items-center justify-center ml-auto">
@@ -610,93 +367,33 @@ const Sidebar = () => {
   };
 
   // -----------------------------
-  // RENDER SIDEBAR
+  // MAIN RENDER
   // -----------------------------
   return (
-    <div
-      className={`h-screen bg-slate-900 shadow-xl transition-[width] duration-300 ${
-        collapsed ? "w-20" : "w-72"
-      } p-4 flex flex-col overflow-y-auto overflow-x-hidden`}
-    >
-      {/* HEADER */}
-      <div
-        className={`flex items-center mb-6 ${
-          collapsed ? "justify-center" : "justify-between"
-        }`}
-      >
-        <div
-          className={`flex items-center gap-3 transition-all hover:bg-slate-800 ${
-            collapsed ? "w-0 opacity-0 hidden" : "w-full opacity-100 flex"
-          }`}
-          onClick={() => setCollapsed((p) => !p)}
-        >
-          <span className="text-3xl text-indigo-400">
-            <FaConnectdevelop />
-          </span>
+    <div className={`h-screen bg-slate-900 shadow-xl transition-[width] duration-300 ${collapsed ? "w-20" : "w-72"} p-4 flex flex-col overflow-y-auto overflow-x-hidden`}>
+      <div className={`flex items-center mb-6 ${collapsed ? "justify-center" : "justify-between"}`}>
+        <div className={`flex items-center gap-3 transition-all hover:bg-slate-800 ${collapsed ? "w-0 opacity-0 hidden" : "w-full opacity-100 flex"}`} onClick={() => setCollapsed((p) => !p)}>
+          <span className="text-3xl text-indigo-400"><FaConnectdevelop /></span>
           <span className="text-xl font-bold text-slate-200">HRMS</span>
         </div>
-
-        <button
-          className="p-2 rounded-lg text-slate-400 hover:bg-slate-800"
-          onClick={() => setCollapsed((p) => !p)}
-        >
-          <FaBars />
-        </button>
+        <button className="p-2 rounded-lg text-slate-400 hover:bg-slate-800" onClick={() => setCollapsed((p) => !p)}><FaBars /></button>
       </div>
 
-      {/* NAV LINKS */}
       <ul className="space-y-2 flex-1">
         {navLinks.map((link, index) => {
-          // CHECK IF IT IS A GROUP (Has children)
           if (link.children) {
             const isOpen = activeMenu === link.label;
-
             return (
-              <li
-                key={index}
-                className="relative"
-                onMouseEnter={() => handleMenuHover(link.label, true)}
-                onMouseLeave={() => handleMenuHover(link.label, false)}
-              >
-                {/* PARENT ITEM */}
-                <div
-                  className={`flex items-center gap-4 px-4 py-2.5 rounded-lg text-base cursor-pointer border-l-4 border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200 ${
-                    collapsed ? "justify-center px-2" : "justify-between"
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-xl w-5 flex justify-center">
-                      {link.icon}
-                    </span>
-                    {!collapsed && <span>{link.label}</span>}
-                  </div>
-                  {!collapsed && (
-                    <span className="text-xs">
-                      {isOpen ? <FaAngleDown /> : <FaAngleRight />}
-                    </span>
-                  )}
+              <li key={index} className="relative" onMouseEnter={() => handleMenuHover(link.label, true)} onMouseLeave={() => handleMenuHover(link.label, false)}>
+                <div className={`flex items-center gap-4 px-4 py-2.5 rounded-lg text-base cursor-pointer border-l-4 border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200 ${collapsed ? "justify-center px-2" : "justify-between"}`}>
+                  <div className="flex items-center gap-4"><span className="text-xl w-5 flex justify-center">{link.icon}</span>{!collapsed && <span>{link.label}</span>}</div>
+                  {!collapsed && <span className="text-xs">{isOpen ? <FaAngleDown /> : <FaAngleRight />}</span>}
                 </div>
-
-                {/* CHILDREN ITEMS (DROPDOWN) */}
-                <ul
-                  className={`bg-slate-800/50 rounded-lg overflow-hidden transition-all duration-300 ${
-                    isOpen && !collapsed ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0"
-                  }`}
-                >
+                <ul className={`bg-slate-800/50 rounded-lg overflow-hidden transition-all duration-300 ${isOpen && !collapsed ? "max-h-40 opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
                   {link.children.map((child) => (
                     <li key={child.to}>
-                      <NavLink
-                        to={child.to}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 pl-12 pr-4 py-2 text-sm transition-colors ${
-                            isActive
-                              ? "text-indigo-400 font-semibold"
-                              : "text-slate-400 hover:text-slate-200"
-                          }`
-                        }
-                      >
-                        <span className="flex-1">{child.label}</span>
-                        {renderBadge(child)}
+                      <NavLink to={child.to} className={({ isActive }) => `flex items-center gap-3 pl-12 pr-4 py-2 text-sm transition-colors ${isActive ? "text-indigo-400 font-semibold" : "text-slate-400 hover:text-slate-200"}`}>
+                        <span className="flex-1">{child.label}</span>{renderBadge(child)}
                       </NavLink>
                     </li>
                   ))}
@@ -704,43 +401,17 @@ const Sidebar = () => {
               </li>
             );
           }
-
-          // STANDARD SINGLE LINK
           return (
             <li key={link.to}>
-              <NavLink
-                to={link.to}
-                className={({ isActive }) =>
-                  `flex items-center gap-4 px-4 py-2.5 rounded-lg text-base border-l-4 ${
-                    isActive
-                      ? "bg-slate-800 text-indigo-400 border-indigo-500"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-transparent"
-                  } ${collapsed ? "justify-center px-2" : ""}`
-                }
-              >
-                <span className="text-xl w-5 flex justify-center">
-                  {link.icon}
-                </span>
-
-                {!collapsed && (
-                  <span className="flex items-center gap-2 relative w-full">
-                    {link.label}
-                    {renderBadge(link)}
-                  </span>
-                )}
+              <NavLink to={link.to} className={({ isActive }) => `flex items-center gap-4 px-4 py-2.5 rounded-lg text-base border-l-4 ${isActive ? "bg-slate-800 text-indigo-400 border-indigo-500" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-transparent"} ${collapsed ? "justify-center px-2" : ""}`}>
+                <span className="text-xl w-5 flex justify-center">{link.icon}</span>
+                {!collapsed && <span className="flex items-center gap-2 relative w-full">{link.label}{renderBadge(link)}</span>}
               </NavLink>
             </li>
           );
         })}
       </ul>
-
-      <div
-        className={`mt-auto text-center text-xs text-slate-500 ${
-          collapsed ? "opacity-0 hidden" : "opacity-100 block"
-        }`}
-      >
-        &copy; {new Date().getFullYear()} HRMS Admin
-      </div>
+      <div className={`mt-auto text-center text-xs text-slate-500 ${collapsed ? "opacity-0 hidden" : "opacity-100 block"}`}>&copy; {new Date().getFullYear()} HRMS Admin</div>
     </div>
   );
 };
