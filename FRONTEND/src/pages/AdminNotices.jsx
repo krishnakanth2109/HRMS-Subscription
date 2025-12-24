@@ -17,10 +17,24 @@ import {
   FaCommentDots,
   FaArrowLeft,
   FaRobot,
-  FaPaperclip
+  FaPaperclip,
+  FaVideo,
+  FaCalendarAlt,
+  FaClock,
+  FaLink,
+  FaExternalLinkAlt
 } from 'react-icons/fa';
 
 import { getAttendanceByDateRange } from "../api";
+
+// Helper to ensure URLs are always HTTPS (From EmployeeProfile reference)
+const getSecureUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http:")) {
+    return url.replace("http:", "https:");
+  }
+  return url;
+};
 
 const AdminNotices = () => {
   // --- STATE ---
@@ -38,6 +52,15 @@ const AdminNotices = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // ✅ MEETING STATE
+  const DEFAULT_MEETING_LINK = "https://meet.google.com/tsn-vrih-zvx";
+  const [isMeetingMode, setIsMeetingMode] = useState(false);
+  const [meetingParams, setMeetingParams] = useState({ date: "", time: "" });
+  
+  // ✅ NEW: Meeting Link State
+  const [meetingLink, setMeetingLink] = useState(DEFAULT_MEETING_LINK);
+  const [isLinkEditable, setIsLinkEditable] = useState(false);
+
   // Toggle for "Specific" recipients list
   const [expandedRecipientNoticeId, setExpandedRecipientNoticeId] = useState(null);
 
@@ -54,6 +77,9 @@ const AdminNotices = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
   const [previewImage, setPreviewImage] = useState(null);
+
+  // ✅ NEW: Profile Images State for Sidebar
+  const [employeeImages, setEmployeeImages] = useState({});
 
   // ✅ NEW: Ref to store local image URL to prevent "Flash" upon server sync
   const lastUploadedImageRef = useRef(null);
@@ -175,11 +201,13 @@ const AdminNotices = () => {
 
   const getUnassignedEmployees = () => {
     const assignedIds = new Set();
-    groups.forEach(g => {
-      if (Array.isArray(g.members)) {
-        g.members.forEach(m => assignedIds.add(String(m)));
-      }
-    });
+    if(Array.isArray(groups)) {
+        groups.forEach(g => {
+        if (Array.isArray(g.members)) {
+            g.members.forEach(m => assignedIds.add(String(m)));
+        }
+        });
+    }
     return employees.filter(e => !assignedIds.has(String(e._id)));
   };
 
@@ -302,6 +330,44 @@ const AdminNotices = () => {
     return () => clearInterval(interval);
   }, [fetchNotices, fetchEmployeeWorkingStatus, employees.length]);
 
+  // ✅ FETCH PROFILE PICTURES FOR SIDEBAR
+  useEffect(() => {
+    const loadSidebarImages = async () => {
+      if (!repliesNotice || !repliesNotice.replies || employees.length === 0) return;
+
+      // Identify unique employees involved in the chat
+      const uniqueEmployeeIds = new Set();
+      repliesNotice.replies.forEach(r => {
+        if (r.sentBy === 'Employee') {
+           const id = r.employeeId?._id || r.employeeId;
+           if (id) uniqueEmployeeIds.add(id);
+        }
+      });
+
+      // Iterate and fetch if not already loaded
+      uniqueEmployeeIds.forEach(async (id) => {
+        const empObj = employees.find(e => e._id === id);
+        if (empObj && empObj.employeeId && !employeeImages[empObj.employeeId]) {
+          try {
+            // Using logic from EmployeeProfile to fetch specific profile
+            const res = await api.get(`/api/profile/${empObj.employeeId}`);
+            if (res?.data?.profilePhoto?.url) {
+              setEmployeeImages(prev => ({
+                ...prev,
+                [empObj.employeeId]: getSecureUrl(res.data.profilePhoto.url)
+              }));
+            }
+          } catch (err) {
+            // Silent fail, just keep initials
+            console.error(`Failed to load sidebar image for ${empObj.employeeId}`);
+          }
+        }
+      });
+    };
+
+    loadSidebarImages();
+  }, [repliesNotice, employees]);
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -353,8 +419,27 @@ const AdminNotices = () => {
   };
 
   const openModal = (notice = null) => {
+    setIsMeetingMode(false); // Default to normal notice
     if (notice) {
       setEditingNoticeId(notice._id);
+      
+      // ✅ CHECK IF IT'S A MEETING TO ENABLE EDIT MODE CORRECTLY
+      const detectedLink = notice.description ? (notice.description.match(/(https?:\/\/[^\s]+)/) || [])[0] : null;
+      const dateMatch = notice.description.match(/scheduled meeting\s+(\d{4}-\d{2}-\d{2})/i);
+      const timeMatch = notice.description.match(/at\s+(\d{2}:\d{2})/i);
+
+      if (detectedLink && dateMatch && timeMatch) {
+          setIsMeetingMode(true);
+          setMeetingParams({
+              date: dateMatch[1],
+              time: timeMatch[1]
+          });
+          setMeetingLink(detectedLink);
+          setIsLinkEditable(false);
+      } else {
+          setIsMeetingMode(false);
+      }
+
       const isSpecific = Array.isArray(notice.recipients) && notice.recipients.length > 0;
 
       let identifiedGroup = null;
@@ -380,12 +465,47 @@ const AdminNotices = () => {
     setIsModalOpen(true);
   };
 
+  const openMeetingModal = () => {
+    setEditingNoticeId(null);
+    setNoticeData({ ...initialFormState, title: "📅 Scheduled Meeting" });
+    setMeetingParams({ date: "", time: "" });
+    setMeetingLink(DEFAULT_MEETING_LINK);
+    setIsLinkEditable(false);
+    setIsMeetingMode(true);
+    setIsModalOpen(true);
+  };
+
+  const updateMeetingDescription = (date, time, link) => {
+    const desc = `Dear Candidate,
+
+You are requested to join the scheduled meeting ${date || '{date}'} at ${time || '{time}'} as per the shared details. Please ensure you join on time and stay available for discussion.
+
+Meeting Link: ${link || '{link}'}`;
+    
+    setNoticeData(prev => ({ ...prev, description: desc }));
+  };
+
+  const handleMeetingParamChange = (e) => {
+    const { name, value } = e.target;
+    const newParams = { ...meetingParams, [name]: value };
+    setMeetingParams(newParams);
+    updateMeetingDescription(newParams.date, newParams.time, meetingLink);
+  };
+
+  // ✅ HANDLE LINK CHANGE
+  const handleLinkChange = (e) => {
+      const newLink = e.target.value;
+      setMeetingLink(newLink);
+      updateMeetingDescription(meetingParams.date, meetingParams.time, newLink);
+  }
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingNoticeId(null);
     setNoticeData(initialFormState);
     setIsDropdownOpen(false);
     setSearchTerm("");
+    setIsMeetingMode(false);
   };
 
   const handleNoticeGroupSelect = (group) => {
@@ -421,6 +541,21 @@ const AdminNotices = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
+    // Validate Meeting Params
+    if (isMeetingMode) {
+        if (!meetingParams.date || !meetingParams.time) {
+            Swal.fire("Error", "Please select both date and time for the meeting.", "error");
+            setIsSubmitting(false);
+            return;
+        }
+        if (!meetingLink) {
+            Swal.fire("Error", "Meeting link is required", "error");
+            setIsSubmitting(false);
+            return;
+        }
+    }
+
     try {
       let finalRecipients = [];
       if (noticeData.sendTo === 'ALL') {
@@ -431,10 +566,20 @@ const AdminNotices = () => {
         finalRecipients = noticeData.recipients;
       }
 
+      // Ensure description is up to date for meetings
+      let finalDescription = noticeData.description;
+      if (isMeetingMode) {
+          finalDescription = `Dear Candidate,
+
+You are requested to join the scheduled meeting ${meetingParams.date} at ${meetingParams.time} as per the shared details. Please ensure you join on time and stay available for discussion.
+
+Meeting Link: ${meetingLink}`;
+      }
+
       if (editingNoticeId) {
         const updatePayload = {
           title: noticeData.title,
-          description: noticeData.description,
+          description: finalDescription,
           recipients: finalRecipients
         };
         await updateNotice(editingNoticeId, updatePayload);
@@ -442,11 +587,11 @@ const AdminNotices = () => {
       } else {
         const payload = {
           title: noticeData.title,
-          description: noticeData.description,
+          description: finalDescription,
           recipients: finalRecipients === 'ALL' ? [] : finalRecipients,
         };
         await addNotice(payload);
-        Swal.fire('Posted', 'Notice sent successfully.', 'success');
+        Swal.fire('Posted', isMeetingMode ? 'Meeting Scheduled successfully.' : 'Notice sent successfully.', 'success');
       }
       closeModal();
       fetchNotices();
@@ -732,7 +877,7 @@ const AdminNotices = () => {
     <div className="min-h-screen bg-slate-50 font-sans pb-24">
       {/* HEADER */}
       <div className="relative bg-gradient-to-br from-emerald-50/50 to-white border-b border-emerald-100 z-30">
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center shadow-sm shadow-emerald-100">
@@ -746,7 +891,8 @@ const AdminNotices = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setIsGroupModalOpen(true)} className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition-all duration-200 border border-indigo-200"><FaUsersCog className="text-lg" /> <span className="hidden sm:inline">Manage Groups</span></button>
+            <button type="button" onClick={() => setIsGroupModalOpen(true)} className="flex items-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-4 py-2.5 rounded-lg font-semibold shadow-sm transition-all duration-200 border border-indigo-200"><FaUsersCog className="text-lg" /> <span className="hidden sm:inline">Manage Groups</span></button>
+            <button onClick={() => openMeetingModal()} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm hover:shadow transition-all duration-200 border border-indigo-700/20"><FaVideo className="text-sm" /> <span className="hidden sm:inline">Create Meeting</span></button>
             <button onClick={() => openModal()} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-semibold shadow-sm hover:shadow transition-all duration-200 border border-emerald-600/20"><FaPlus className="text-sm" /> <span className="hidden sm:inline">Create Announcement</span></button>
           </div>
         </div>
@@ -769,6 +915,10 @@ const AdminNotices = () => {
 
             const unreadConversationsCount = Object.values(groupedChats).filter(group => group.hasUnread).length;
 
+            // CHECK IF IT IS A MEETING
+            const detectedLink = notice.description ? (notice.description.match(/(https?:\/\/[^\s]+)/) || [])[0] : null;
+            const isMeeting = detectedLink && (notice.title.toLowerCase().includes('meeting') || notice.description.toLowerCase().includes('meeting') || notice.description.includes('meet.google'));
+
             let borderColor = 'border-slate-100';
             let sideBarColor = 'bg-gradient-to-b from-blue-500 to-cyan-500';
 
@@ -781,6 +931,10 @@ const AdminNotices = () => {
                 borderColor = 'border-orange-100';
               }
             }
+            if (isMeeting) {
+                 sideBarColor = 'bg-gradient-to-b from-rose-500 to-pink-500';
+                 borderColor = 'border-rose-100';
+            }
 
             return (
               <div key={notice._id} className={`group relative bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border ${borderColor} overflow-visible`}>
@@ -789,6 +943,9 @@ const AdminNotices = () => {
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        {isMeeting && (
+                            <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-rose-200"><FaVideo /> Meeting</span>
+                        )}
                         {isSpecific ? (
                           groupName ? (
                             <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-indigo-200"><FaLayerGroup /> {groupName}</span>
@@ -818,7 +975,19 @@ const AdminNotices = () => {
                     </div>
                     <div className="flex items-center gap-3 text-xs font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 self-start whitespace-nowrap"><span>{date}</span><span className="h-3 w-px bg-slate-300"></span><span>{time}</span></div>
                   </div>
-                  <div className="mb-4"><h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-700 transition-colors">{notice.title}</h3><p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{notice.description}</p></div>
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-slate-800 mb-2 group-hover:text-blue-700 transition-colors">{notice.title}</h3>
+                    <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{notice.description}</p>
+                    
+                    {/* ✅ SHOW JOIN BUTTON IF MEETING AND LINK EXISTS */}
+                    {isMeeting && detectedLink && (
+                        <div className="mt-4">
+                            <a href={detectedLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm shadow-md hover:shadow-lg transition-all">
+                                <FaVideo /> Join Now
+                            </a>
+                        </div>
+                    )}
+                  </div>
                   <div className="pt-4 border-t border-slate-50 flex justify-end gap-2 opacity-100 sm:opacity-0 sm:translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300"><button onClick={() => openModal(notice)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-sm"><FaEdit /> Edit</button><button onClick={() => handleDelete(notice._id)} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"><FaTrash /> Delete</button></div>
                 </div>
               </div>
@@ -868,10 +1037,30 @@ const AdminNotices = () => {
                   const lastMsg = data.messages[data.messages.length - 1];
                   const employee = findEmployeeByEmployeeId(empId);
                   const isWorking = employee ? isEmployeeWorking(employee.employeeId) : false;
+                  
+                  // ✅ GET PROFILE PIC IF AVAILABLE
+                  const profilePic = employee && employee.employeeId ? employeeImages[employee.employeeId] : null;
+
                   return (
                     <div key={empId} onClick={() => handleChatSelection(empId)} className={`p-4 cursor-pointer border-b border-slate-200 flex items-center gap-3 hover:bg-white transition-colors relative ${selectedChatEmployeeId === empId ? 'bg-white border-l-4 border-l-indigo-600 shadow-sm' : ''}`}>
                       <div className="relative">
-                        <div className="w-12 h-12 rounded-full bg-white border border-slate-300 flex items-center justify-center text-slate-600 font-bold text-lg shadow-sm">{data.name.charAt(0)}</div>
+                        {/* ✅ SIDEBAR AVATAR UPDATE */}
+                        <div 
+                           className="w-12 h-12 rounded-full bg-white border border-slate-300 flex items-center justify-center text-slate-600 font-bold text-lg shadow-sm overflow-hidden"
+                           onClick={(e) => {
+                             if (profilePic) {
+                               e.stopPropagation();
+                               setPreviewImage(profilePic);
+                             }
+                           }}
+                        >
+                            {profilePic ? (
+                                <img src={profilePic} alt={data.name} className="w-full h-full object-cover hover:opacity-80 transition-opacity cursor-zoom-in" />
+                            ) : (
+                                data.name.charAt(0)
+                            )}
+                        </div>
+                        
                         {data.hasUnread && selectedChatEmployeeId !== empId && <span className="absolute -top-1 -right-1 flex h-4 w-4 bg-red-500 rounded-full border-2 border-white"></span>}
                         {isWorking && <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>}
                       </div>
@@ -1091,18 +1280,99 @@ const AdminNotices = () => {
           </div>
         </div>
       )}
-      {/* (New Notice Modal - kept same, standard UI) */}
+      {/* (New Notice Modal) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px]">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md relative animate-in zoom-in-95 duration-300 overflow-hidden border border-gray-200/80">
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white"><div className="flex justify-between items-center"><div className="flex items-center gap-3"><div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-inner"><FaBullhorn className="text-white" size={32} /></div><div><h2 className="text-lg font-bold">{editingNoticeId ? 'Edit Announcement' : 'New Announcement'}</h2><p className="text-sm text-blue-100/90 mt-0.5">{editingNoticeId ? 'Update announcement details' : 'Share updates with your team'}</p></div></div><button onClick={closeModal} className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-all duration-200"><FaTimes size={18} /></button></div></div>
+            <div className={`px-6 py-4 bg-gradient-to-r text-white ${isMeetingMode ? 'from-indigo-600 to-indigo-700' : 'from-blue-500 to-blue-600'}`}>
+                <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-inner">
+                            {isMeetingMode ? <FaVideo className="text-white" size={20} /> : <FaBullhorn className="text-white" size={32} />}
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-bold">{isMeetingMode ? 'Schedule Meeting' : (editingNoticeId ? 'Edit Announcement' : 'New Announcement')}</h2>
+                            <p className="text-sm text-white/80 mt-0.5">{isMeetingMode ? 'Set up a new virtual meeting' : (editingNoticeId ? 'Update announcement details' : 'Share updates with your team')}</p>
+                        </div>
+                    </div>
+                    <button onClick={closeModal} className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-all duration-200"><FaTimes size={18} /></button>
+                </div>
+            </div>
+            
             <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4 max-h-[70vh] overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white">
-              <div className="space-y-1.5"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Title</label></div><input type="text" name="title" placeholder="Enter announcement title..." value={noticeData.title} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required autoFocus /></div>
-              <div className="space-y-1.5"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</label></div><textarea name="description" placeholder="Write your announcement details here..." value={noticeData.description} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm h-28 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required /></div>
+              {/* Meeting Specific Inputs */}
+              {isMeetingMode ? (
+                <>
+                  <div className="flex gap-4">
+                      <div className="flex-1 space-y-1.5">
+                          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"></div><label className="text-xs font-semibold text-gray-700 uppercase">Date</label></div>
+                          <div className="relative">
+                              <input type="date" name="date" value={meetingParams.date} onChange={handleMeetingParamChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/40" required />
+                          </div>
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"></div><label className="text-xs font-semibold text-gray-700 uppercase">Time</label></div>
+                          <div className="relative">
+                              <input type="time" name="time" value={meetingParams.time} onChange={handleMeetingParamChange} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/40" required />
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* ✅ MEETING LINK INPUT (With Change Option) */}
+                  <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"></div><label className="text-xs font-semibold text-gray-700 uppercase">Meeting Link</label></div>
+                      </div>
+                      <div className="flex gap-2">
+                          <div className="relative flex-1">
+                              <FaLink className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                              <input 
+                                type="text" 
+                                value={meetingLink} 
+                                onChange={handleLinkChange} 
+                                readOnly={!isLinkEditable}
+                                className={`w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/40 ${!isLinkEditable ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`} 
+                                required 
+                              />
+                          </div>
+                          {!isLinkEditable && (
+                              <button type="button" onClick={() => setIsLinkEditable(true)} className="px-3 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-200 hover:bg-indigo-100">
+                                  Change
+                              </button>
+                          )}
+                      </div>
+                      {/* Create New Link */}
+                      <div className="text-right">
+                          <a href="https://meet.google.com/landing" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-indigo-600 hover:underline inline-flex items-center gap-1">
+                              <FaExternalLinkAlt /> Create New Link
+                          </a>
+                      </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1.5">
+                    <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Title</label></div>
+                    <input type="text" name="title" placeholder="Enter announcement title..." value={noticeData.title} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required autoFocus />
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</label></div>
+                <textarea 
+                    name="description" 
+                    placeholder="Write your details here..." 
+                    value={noticeData.description} 
+                    onChange={handleChange} 
+                
+                    className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm ${isMeetingMode ? 'bg-gray-100 text-gray-600' : ''}`} 
+                    required 
+                />
+              </div>
+
               <div className="space-y-1.5"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-violet-500 to-violet-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Audience</label></div><div className="grid grid-cols-3 gap-2"><button type="button" onClick={() => setNoticeData(prev => ({ ...prev, sendTo: 'ALL', selectedGroupId: null }))} className={`p-2 rounded-lg border transition-all duration-200 text-center flex flex-col items-center justify-center gap-1 h-20 group ${noticeData.sendTo === 'ALL' ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-gray-300 hover:border-blue-300'}`}><div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${noticeData.sendTo === 'ALL' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{noticeData.sendTo === 'ALL' ? <FaCheck size={10} /> : <FaUsers size={12} />}</div><span className={`text-[10px] font-bold ${noticeData.sendTo === 'ALL' ? 'text-blue-700' : 'text-gray-600'}`}>All Employees</span></button><button type="button" onClick={() => setNoticeData(prev => ({ ...prev, sendTo: 'GROUP', recipients: [] }))} className={`p-2 rounded-lg border transition-all duration-200 text-center flex flex-col items-center justify-center gap-1 h-20 group ${noticeData.sendTo === 'GROUP' ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'bg-white border-gray-300 hover:border-indigo-300'}`}><div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${noticeData.sendTo === 'GROUP' ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{noticeData.sendTo === 'GROUP' ? <FaCheck size={10} /> : <FaLayerGroup size={12} />}</div><span className={`text-[10px] font-bold ${noticeData.sendTo === 'GROUP' ? 'text-indigo-700' : 'text-gray-600'}`}>Group Sending</span></button><button type="button" onClick={() => setNoticeData(prev => ({ ...prev, sendTo: 'SPECIFIC', selectedGroupId: null }))} className={`p-2 rounded-lg border transition-all duration-200 text-center flex flex-col items-center justify-center gap-1 h-20 group ${noticeData.sendTo === 'SPECIFIC' ? 'bg-purple-50 border-purple-300 shadow-sm' : 'bg-white border-gray-300 hover:border-purple-300'}`}><div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${noticeData.sendTo === 'SPECIFIC' ? 'bg-purple-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{noticeData.sendTo === 'SPECIFIC' ? <FaCheck size={10} /> : <FaUserTag size={12} />}</div><span className={`text-[10px] font-bold ${noticeData.sendTo === 'SPECIFIC' ? 'text-purple-700' : 'text-gray-600'}`}>Specific</span></button></div></div>
               {noticeData.sendTo === 'GROUP' && (<div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200"><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider block">Select Group</label>{groups.length > 0 ? (<div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-1">{groups.map(group => (<div key={group.id} onClick={() => handleNoticeGroupSelect(group)} className={`p-3 rounded-lg border cursor-pointer flex justify-between items-center transition-all ${noticeData.selectedGroupId === group.id ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400' : 'bg-white border-gray-300 hover:border-indigo-300'}`}><div className="flex items-center gap-3"><div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${noticeData.selectedGroupId === group.id ? 'bg-indigo-200 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>{group.name.charAt(0)}</div><div><p className={`text-sm font-bold ${noticeData.selectedGroupId === group.id ? 'text-indigo-800' : 'text-gray-700'}`}>{group.name}</p><p className="text-xs text-slate-500">{group.members.length} Members</p></div></div>{noticeData.selectedGroupId === group.id && <FaCheck className="text-indigo-600" />}</div>))}</div>) : (<div className="text-center p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300"><p className="text-sm text-gray-500">No groups found.</p><button type="button" onClick={() => { setIsModalOpen(false); setIsGroupModalOpen(true); }} className="text-xs font-bold text-indigo-600 hover:underline mt-1">Create a Group first</button></div>)}</div>)}
               {noticeData.sendTo === 'SPECIFIC' && (<div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200"><div className="flex justify-between items-center"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-amber-500 to-amber-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Select Employees</label></div><span className="text-xs font-semibold text-blue-600 bg-gradient-to-r from-blue-50 to-blue-100 px-2.5 py-1 rounded-full border border-blue-200">{noticeData.recipients.length} selected</span></div><div className="relative"><div onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg flex justify-between items-center cursor-pointer text-sm text-gray-700 hover:border-blue-400 transition-all duration-200 shadow-sm group"><div className="flex items-center gap-2"><div className="p-1.5 bg-blue-50 rounded-md group-hover:bg-blue-100 transition-colors"><FaUserFriends className="text-blue-500 text-sm" /></div><span className={noticeData.recipients.length === 0 ? "text-gray-500" : "text-gray-800 font-medium"}>{noticeData.recipients.length === 0 ? "Select team members..." : `${noticeData.recipients.length} employee${noticeData.recipients.length !== 1 ? 's' : ''} selected`}</span></div><FaChevronDown size={12} className={`text-gray-400 transition-all duration-300 ${isDropdownOpen ? 'rotate-180 text-blue-500' : ''}`} /></div>{isDropdownOpen && (<div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-xl z-30 max-h-56 overflow-y-auto animate-in fade-in slide-in-from-top-3 duration-200"><div className="sticky top-0 bg-white p-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white"><div className="relative"><FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" /><input type="text" placeholder="Search employees..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded text-xs outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400 transition-all bg-white" autoFocus /></div></div><div className="p-1 max-h-44 overflow-y-auto">{employees.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase())).map(emp => (<div key={emp._id} onClick={() => toggleEmployeeSelection(emp._id)} className="flex items-center gap-3 p-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 cursor-pointer rounded text-xs transition-all duration-150 group/item"><div className={`w-4 h-4 border-2 rounded-md flex items-center justify-center transition-all duration-150 ${noticeData.recipients.includes(emp._id) ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-blue-600 shadow-sm' : 'border-gray-400 group-hover/item:border-blue-400'}`}>{noticeData.recipients.includes(emp._id) && <FaCheck className="text-white text-[8px]" />}</div><div className="flex-1 min-w-0"><span className={`font-medium truncate ${noticeData.recipients.includes(emp._id) ? 'text-blue-700' : 'text-gray-800'}`}>{emp.name}</span><div className="flex items-center gap-2"><span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${noticeData.recipients.includes(emp._id) ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>{emp.employeeId}</span></div></div></div>))}</div></div>)}</div></div>)}
-              <div className="flex gap-2 pt-4 mt-2 border-t border-gray-200"><button type="button" onClick={closeModal} className="flex-1 py-2.5 text-sm font-semibold text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 rounded-lg transition-all duration-200 border border-gray-300 shadow-sm">Cancel</button><button type="submit" disabled={isSubmitting || (noticeData.sendTo === 'GROUP' && !noticeData.selectedGroupId)} className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">{isSubmitting ? (<><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>{editingNoticeId ? 'Updating...' : 'Posting...'}</span></>) : (<><div className="p-0.5 bg-white/20 rounded"><FaPaperPlane className="text-xs" /></div><span>{editingNoticeId ? 'Update Announcement' : 'Publish Announcement'}</span></>)}</button></div>
+              <div className="flex gap-2 pt-4 mt-2 border-t border-gray-200"><button type="button" onClick={closeModal} className="flex-1 py-2.5 text-sm font-semibold text-gray-700 bg-gradient-to-r from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 rounded-lg transition-all duration-200 border border-gray-300 shadow-sm">Cancel</button><button type="submit" disabled={isSubmitting || (noticeData.sendTo === 'GROUP' && !noticeData.selectedGroupId)} className="flex-1 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-1.5">{isSubmitting ? (<><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>{editingNoticeId ? 'Updating...' : 'Posting...'}</span></>) : (<><div className="p-0.5 bg-white/20 rounded"><FaPaperPlane className="text-xs" /></div><span>{editingNoticeId ? 'Update' : (isMeetingMode ? 'Schedule Meeting' : 'Publish Announcement')}</span></>)}</button></div>
             </form>
           </div>
         </div>

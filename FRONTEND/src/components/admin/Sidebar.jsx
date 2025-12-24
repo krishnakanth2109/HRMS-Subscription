@@ -76,7 +76,7 @@ const navLinks = [
   },
   { to: "/admin/shifttype", label: "Location Settings", icon:<MapPinnedIcon /> },
   { to: "/admin/late-requests", label: "Late Login Requests", icon:<AlarmClockCheck /> },
-  { to: "/admin/meeting", label: "Meeting Scheduler", icon:<MapPinPlusInsideIcon /> },
+  // { to: "/admin/meeting", label: "Meeting Scheduler", icon:<MapPinPlusInsideIcon /> },
 ];
 
 // ✅ HELPER: Calculate unread notices using SERVER STATE

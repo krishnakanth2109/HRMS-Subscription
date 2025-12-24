@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { AuthContext } from "../context/AuthContext"; 
 import api, { sendReplyWithImage } from "../api"; 
-import { FaPaperPlane, FaTrash, FaComments, FaTimes, FaRobot, FaPen, FaPaperclip } from "react-icons/fa";
+import { FaPaperPlane, FaTrash, FaComments, FaTimes, FaRobot, FaPen, FaPaperclip, FaVideo, FaClock } from "react-icons/fa";
 
 const NoticeList = () => {
   const [notices, setNotices] = useState([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   
+  // ✅ REAL-TIME CLOCK STATE FOR COUNTDOWN
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   const { user } = useContext(AuthContext);
   const currentUserId = user?._id || user?.id;
 
@@ -34,6 +37,9 @@ const NoticeList = () => {
 
   // ✅ REF TO TRACK NEWLY READ NOTICES
   const newlyReadIdsRef = useRef(new Set());
+
+  // ✅ REF TO TRACK MEETINGS ALREADY ALERTED (Audio)
+  const alertedMeetingsRef = useRef(new Set());
 
   // ✅ STABLE FETCH FUNCTION
   const fetchNotices = useCallback(async (silent = false) => {
@@ -96,6 +102,14 @@ const NoticeList = () => {
     return () => clearInterval(interval);
   }, [fetchNotices]);
 
+  // ✅ TIMER INTERVAL: Update 'currentTime' every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+        setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Auto-scroll
   useEffect(() => {
     if (isChatOpen && messagesEndRef.current) {
@@ -125,6 +139,40 @@ const NoticeList = () => {
     }
     setAiSuggestions([...new Set(suggestions)]);
   }, [activeNotice]); 
+
+
+  // ✅ AUDIO ALERT LOGIC (Checks every second via currentTime)
+  useEffect(() => {
+    notices.forEach(notice => {
+        // Detect Meeting
+        const detectedLink = notice.description ? (notice.description.match(/(https?:\/\/[^\s]+)/) || [])[0] : null;
+        const isMeeting = detectedLink && (
+             notice.title.toLowerCase().includes('meeting') || 
+             notice.description.toLowerCase().includes('meeting') ||
+             notice.description.includes('meet.google') ||
+             notice.description.includes('zoom.us')
+        );
+
+        if (isMeeting) {
+            const components = getMeetingDateTimeComponents(notice.description);
+            if (components) {
+                const diff = calculateTimeLeft(components.date, components.time);
+                // Trigger if time is up (diff <= 0) and we haven't alerted yet.
+                // We check diff > -5000 to ensure we don't alert for old meetings on page load.
+                if (diff !== null && diff <= 0 && diff > -5000 && !alertedMeetingsRef.current.has(notice._id)) {
+                    // 🔊 PLAY SOUND / SPEAK
+                    try {
+                        const utterance = new SpeechSynthesisUtterance("Please join the meeting");
+                        window.speechSynthesis.speak(utterance);
+                        alertedMeetingsRef.current.add(notice._id);
+                    } catch (e) {
+                        console.error("Audio playback failed", e);
+                    }
+                }
+            }
+        }
+    });
+  }, [currentTime, notices]);
 
 
   // ✅ AUTO MARK LOGIC
@@ -255,6 +303,26 @@ const NoticeList = () => {
     return { date: d.toLocaleDateString(), time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
   };
 
+  // ✅ HELPER: Extract raw components for countdown logic
+  const getMeetingDateTimeComponents = (description) => {
+    if (!description) return null;
+    const match = description.match(/scheduled meeting\s+(.+?)\s+at\s+(.+?)\s+as per/i);
+    if (match && match[1] && match[2]) {
+        return { date: match[1], time: match[2] };
+    }
+    return null;
+  };
+
+  // ✅ HELPER: Calculate time difference
+  const calculateTimeLeft = (dateStr, timeStr) => {
+      if(!dateStr || !timeStr) return null;
+      try {
+          const target = new Date(`${dateStr}T${timeStr}`);
+          const diff = target - currentTime;
+          return diff;
+      } catch (e) { return null; }
+  };
+
   if (isInitialLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
 
   return (
@@ -288,7 +356,7 @@ const NoticeList = () => {
         {/* Notices List */}
         <div className="space-y-5">
           {notices.map((notice, index) => {
-            const { date, time } = formatDateTime(notice.date);
+            const { date, time } = formatDateTime(notice.date); // Standard notice time
             const isRead = notice.readBy && notice.readBy.some(record => {
               const rId = typeof record.employeeId === 'object' ? record.employeeId._id : record.employeeId;
               return rId === currentUserId;
@@ -296,43 +364,137 @@ const NoticeList = () => {
             const replies = notice.replies || [];
             const lastReply = replies.length > 0 ? replies[replies.length - 1] : null;
             const hasAdminReply = lastReply && lastReply.sentBy === 'Admin';
+            
+            // ✅ DETECT IF MEETING NOTICE (DYNAMIC LINK CHECK)
+            const detectedLink = notice.description ? (notice.description.match(/(https?:\/\/[^\s]+)/) || [])[0] : null;
+            const isMeeting = detectedLink && (
+                 notice.title.toLowerCase().includes('meeting') || 
+                 notice.description.toLowerCase().includes('meeting') ||
+                 notice.description.includes('meet.google') ||
+                 notice.description.includes('zoom.us')
+            );
+
+            // ✅ EXTRACT ACTUAL MEETING TIME COMPONENTS
+            const meetingComponents = isMeeting ? getMeetingDateTimeComponents(notice.description) : null;
+            const displayMeetingTime = meetingComponents ? `${meetingComponents.date} at ${meetingComponents.time}` : `${date}, ${time}`;
+
+            // ✅ CALCULATE COUNTDOWN AND VISIBILITY
+            let countdownString = null;
+            let isMeetingStarted = false;
+
+            if (isMeeting && meetingComponents) {
+                const diff = calculateTimeLeft(meetingComponents.date, meetingComponents.time);
+                if (diff !== null) {
+                    if (diff > 0) {
+                        // FUTURE: Show Countdown
+                        const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                        const minutes = Math.floor((diff / 1000 / 60) % 60);
+                        const seconds = Math.floor((diff / 1000) % 60);
+                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        
+                        if (days > 0) {
+                            countdownString = `Starts in ${days}d ${hours}h ${minutes}m`;
+                        } else {
+                            countdownString = `Starts in ${hours}h ${minutes}m ${seconds}s`;
+                        }
+                    } else {
+                        // PAST: Check if it's within 20 mins of starting
+                        const twentyMinsInMs = 20 * 60 * 1000;
+                        if (diff > -twentyMinsInMs) {
+                            isMeetingStarted = true;
+                            countdownString = "🔴 Join the Meeting";
+                        } else {
+                            // Older than 20 mins - Hide the Timer
+                            countdownString = null; 
+                        }
+                    }
+                }
+            }
 
             return (
-              <div key={notice._id} className="group relative bg-white/90 backdrop-blur-md rounded-2xl p-6 transition-all hover:shadow-xl border border-slate-100">
+              <div key={notice._id} className={`group relative bg-white/90 backdrop-blur-md rounded-2xl p-6 transition-all hover:shadow-xl border ${isMeeting ? 'border-indigo-100 shadow-indigo-100/50' : 'border-slate-100'}`}>
+                {/* Meeting Indicator Stripe */}
+                {isMeeting && <div className="absolute top-0 left-8 right-8 h-1 bg-indigo-500 rounded-b-md opacity-50"></div>}
+
                 <div className="flex flex-col md:flex-row gap-5">
                   <div className="hidden md:flex flex-col items-center">
                     <div 
                       className={`p-3 rounded-2xl shadow-lg transition-colors duration-1000 ${
                         isRead 
-                        ? 'bg-slate-100 text-slate-400 border border-slate-200' 
+                        ? (isMeeting ? 'bg-indigo-50 text-indigo-400 border border-indigo-200' : 'bg-slate-100 text-slate-400 border border-slate-200') 
                         : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white animate-pulse' 
                       }`}
                     >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+                      {isMeeting ? <FaVideo className="w-6 h-6" /> : (
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+                      )}
                     </div>
-                    <div className="h-full w-0.5 bg-slate-100 mt-4 rounded-full"></div>
+                    <div className={`h-full w-0.5 mt-4 rounded-full ${isMeeting ? 'bg-indigo-100' : 'bg-slate-100'}`}></div>
                   </div>
 
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                         <div>
-                            <h3 className="text-xl font-bold text-slate-800">{notice.title}</h3>
-                            <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 mb-3"><span>{date}, {time}</span></div>
-                        </div>
-                        <button 
-                            onClick={() => openChatModal(notice)}
-                            className="relative flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
-                        >
-                            <FaComments /> Chat with Admin
-                            {hasAdminReply && (
-                                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-white"></span>
-                                </span>
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                {notice.title}
+                            </h3>
+                            
+                            {/* 1. Posted Time (Standard) */}
+                            <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 mb-2">
+                                <span>{date}, {time}</span>
+                            </div>
+
+                            {/* 2. Highlighted Meeting Time & Date */}
+                            {isMeeting && (
+                                <div className="flex items-center gap-2 text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg inline-flex border border-indigo-100 mb-2">
+                                    <FaVideo />
+                                    <span className="text-indigo-400">| Meeting Timings</span>
+                                    <span>{displayMeetingTime}</span>
+                                </div>
                             )}
-                        </button>
+                        </div>
+
+                        {/* RIGHT SIDE: CHAT BUTTON + COUNTDOWN */}
+                        <div className="flex flex-col items-end gap-2">
+                            {/* ✅ COUNTDOWN TIMER (Disappears after 20 mins) */}
+                            {isMeeting && countdownString && (
+                                <div className={`text-[10px] font-bold px-2 py-1 rounded-md shadow-sm border animate-in slide-in-from-right-2 ${isMeetingStarted ? 'bg-red-50 text-red-600 border-red-100 animate-pulse' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                    <span className="flex items-center gap-1">
+                                        <FaClock className="text-[9px]" /> {countdownString}
+                                    </span>
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={() => openChatModal(notice)}
+                                className="relative flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-full text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-100"
+                            >
+                                <FaComments /> Chat
+                                {hasAdminReply && (
+                                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500 border-2 border-white"></span>
+                                    </span>
+                                )}
+                            </button>
+                        </div>
                     </div>
+                    
                     <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{notice.description}</p>
+                    
+                    {/* ✅ JOIN MEETING BUTTON (Uses Dynamic Link) */}
+                    {isMeeting && detectedLink && (
+                         <div className="mt-5">
+                             <a 
+                                href={detectedLink} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5 w-full sm:w-auto justify-center"
+                             >
+                                <FaVideo className="animate-pulse" /> Join Meeting Now
+                             </a>
+                         </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -385,12 +547,9 @@ const NoticeList = () => {
                                     const isMe = reply.sentBy === 'Employee';
                                     
                                     // ✅ SMART IMAGE RENDERING to Prevent Flash
-                                    // If this is the LAST message sent by ME, and we have a local blob stored recently,
-                                    // prefer the local blob to prevent the "download flash" from the server URL.
                                     let imageSrc = reply.image;
                                     const isLastMessage = i === activeNotice.replies.length - 1;
                                     if (isMe && isLastMessage && !reply.isSending && lastUploadedImageRef.current) {
-                                        // Use Blob if timestamp is fresh (< 30 seconds)
                                         if (Date.now() - lastUploadedImageRef.current.timestamp < 30000) {
                                             imageSrc = lastUploadedImageRef.current.url;
                                         }

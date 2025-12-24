@@ -568,6 +568,7 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // ✅ UPDATED HANDLER: Convert Local Time to UTC before sending
   const handleLateRequestSubmit = async (e) => {
     e.preventDefault();
     if (!lateReqData.time || !lateReqData.reason) {
@@ -576,10 +577,20 @@ const EmployeeDashboard = () => {
     }
     setLateReqLoading(true);
     try {
+        // ✅ FIX: Create Date object from local time input
+        const localDateTime = new Date(`${todayIso}T${lateReqData.time}`);
+        
+        // Extract UTC Hours and Minutes
+        const utcHours = String(localDateTime.getUTCHours()).padStart(2, '0');
+        const utcMinutes = String(localDateTime.getUTCMinutes()).padStart(2, '0');
+        
+        // Format as HH:mm in UTC
+        const utcTimeStr = `${utcHours}:${utcMinutes}`;
+
         const payload = {
             employeeId: user.employeeId,
             date: todayIso, 
-            time: lateReqData.time,
+            time: utcTimeStr, // ✅ Sending UTC time to server
             reason: lateReqData.reason
         };
         await api.post('/api/attendance/request-correction', payload);

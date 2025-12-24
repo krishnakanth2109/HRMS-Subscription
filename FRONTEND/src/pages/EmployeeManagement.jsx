@@ -6,7 +6,7 @@ import { FaUser, FaEdit, FaTrash, FaRedo, FaDownload, FaEye, FaClipboardList, Fa
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 // ✅ IMPORT THE CENTRALIZED API FUNCTIONS
-import { 
+import api, { // Added default api import for profile fetching
   getEmployees, 
   deactivateEmployeeById, 
   activateEmployeeById, 
@@ -19,6 +19,15 @@ import {
 // ==========================================
 // HELPER FUNCTIONS & CONSTANTS
 // ==========================================
+
+// Helper to ensure URLs are always HTTPS
+const getSecureUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http:")) {
+    return url.replace("http:", "https:");
+  }
+  return url;
+};
 
 const DEPARTMENT_COLORS = {
   HR: { bg: "bg-pink-100", text: "text-pink-700" },
@@ -116,7 +125,7 @@ const downloadExcelReport = (data, filename) => {
 // SUB-COMPONENTS (ROWS)
 // ==========================================
 
-const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick, onOverviewClick }) => {
+const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick, onOverviewClick, profilePic, onImageClick }) => {
   const isEven = idx % 2 === 0;
   const currentDepartment = getCurrentDepartment(emp);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -136,8 +145,16 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick, onOverviewClick })
     <tr className={`border-t transition duration-150 ${isEven ? "bg-gray-50" : "bg-white"} hover:bg-blue-50`}>
       <td className="p-4 font-mono font-semibold text-blue-700">{emp.employeeId}</td>
       <td className="p-4 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-blue-700 font-bold border border-gray-300">
-          {emp.name?.split(" ").map((n) => n[0]).join("")}
+        {/* ✅ UPDATED: Profile Picture */}
+        <div 
+          className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-blue-700 font-bold border border-gray-300 overflow-hidden cursor-pointer"
+          onClick={() => profilePic && onImageClick(profilePic)}
+        >
+          {profilePic ? (
+             <img src={profilePic} alt={emp.name} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+          ) : (
+             emp.name?.split(" ").map((n) => n[0]).join("")
+          )}
         </div>
         <span className="font-semibold text-gray-800">{emp.name}</span>
       </td>
@@ -169,7 +186,7 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick, onOverviewClick })
   );
 };
 
-const InactiveEmployeeRow = ({ emp, navigate, onReactivateClick, onViewDetailsClick, onOverviewClick }) => {
+const InactiveEmployeeRow = ({ emp, navigate, onReactivateClick, onViewDetailsClick, onOverviewClick, profilePic, onImageClick }) => {
   const currentDepartment = getCurrentDepartment(emp);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -188,8 +205,16 @@ const InactiveEmployeeRow = ({ emp, navigate, onReactivateClick, onViewDetailsCl
     <tr className="border-t transition duration-150 bg-gray-300 opacity-75 hover:opacity-100 hover:bg-gray-400">
       <td className="p-4 font-mono font-semibold text-gray-700">{emp.employeeId}</td>
       <td className="p-4 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold border border-gray-600">
-          {emp.name?.split(" ").map((n) => n[0]).join("")}
+        {/* ✅ UPDATED: Profile Picture */}
+        <div 
+          className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center text-white font-bold border border-gray-600 overflow-hidden cursor-pointer"
+          onClick={() => profilePic && onImageClick(profilePic)}
+        >
+          {profilePic ? (
+             <img src={profilePic} alt={emp.name} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+          ) : (
+             emp.name?.split(" ").map((n) => n[0]).join("")
+          )}
         </div>
         <div className="flex flex-col">
           <span className="font-semibold text-gray-800">{emp.name}</span>
@@ -650,6 +675,10 @@ const EmployeeManagement = () => {
   const [overviewModalOpen, setOverviewModalOpen] = useState(false); 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
 
+  // ✅ NEW: Image States
+  const [employeeImages, setEmployeeImages] = useState({});
+  const [previewImage, setPreviewImage] = useState(null);
+
   // Fetch employees
   const fetchEmployees = useCallback(async () => {
     try {
@@ -663,6 +692,37 @@ const EmployeeManagement = () => {
   useEffect(() => {
     fetchEmployees();
   }, [fetchEmployees]);
+
+  // ✅ NEW: Fetch Images for employees
+  useEffect(() => {
+    const fetchImages = async () => {
+      if (employees.length === 0) return;
+      const newImages = {};
+      
+      // Batching strategy could be better, but loop is simple and effective for this context
+      for (const emp of employees) {
+        if (!employeeImages[emp.employeeId]) {
+            try {
+               const res = await api.get(`/api/profile/${emp.employeeId}`);
+               if (res.data?.profilePhoto?.url) {
+                   newImages[emp.employeeId] = getSecureUrl(res.data.profilePhoto.url);
+               }
+            } catch (err) {
+               // Silent fail
+            }
+        }
+      }
+
+      if (Object.keys(newImages).length > 0) {
+        setEmployeeImages(prev => ({ ...prev, ...newImages }));
+      }
+    };
+
+    if (employees.length > 0) {
+        fetchImages();
+    }
+  }, [employees]);
+
 
   // Handlers
   const handleDeactivateSubmit = async ({ endDate, reason }) => {
@@ -763,6 +823,9 @@ const EmployeeManagement = () => {
                       navigate={navigate} 
                       onDeactivateClick={openDeactivateModal}
                       onOverviewClick={openOverviewModal} 
+                      // ✅ Pass Image Props
+                      profilePic={employeeImages[emp.employeeId]}
+                      onImageClick={setPreviewImage}
                     />
                   ))}
                   
@@ -778,6 +841,9 @@ const EmployeeManagement = () => {
                       onReactivateClick={openReactivateModal}
                       onViewDetailsClick={openViewDetailsModal}
                       onOverviewClick={openOverviewModal} 
+                      // ✅ Pass Image Props
+                      profilePic={employeeImages[emp.employeeId]}
+                      onImageClick={setPreviewImage}
                     />
                   ))}
                 </>
@@ -815,6 +881,24 @@ const EmployeeManagement = () => {
           employee={selectedEmployee}
           onClose={() => setOverviewModalOpen(false)}
         />
+
+        {/* ✅ LIGHTBOX / FULL SCREEN IMAGE POPUP */}
+        {previewImage && (
+            <div 
+              className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+              onClick={() => setPreviewImage(null)}
+            >
+              <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-white/10 backdrop-blur-sm">
+                 <FaTimes size={24} />
+              </button>
+              <img 
+                src={previewImage} 
+                alt="Full Preview" 
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain animate-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()} 
+              />
+            </div>
+        )}
       </div>
     </div>
   );

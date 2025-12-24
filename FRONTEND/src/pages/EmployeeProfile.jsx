@@ -1,6 +1,7 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EmployeeContext } from '../context/EmployeeContext';
+import api from '../api';
 
 // Helper to ensure URLs are always HTTPS to prevent "Failed to load PDF" errors
 const getSecureUrl = (url) => {
@@ -17,9 +18,42 @@ const EmployeeProfile = () => {
   const navigate = useNavigate();
   const { employees } = useContext(EmployeeContext);
   const [activeTab, setActiveTab] = React.useState('personal');
+  const [profileImage, setProfileImage] = useState(null);
+  const [loadingImage, setLoadingImage] = useState(true);
   
   // Robust finding logic (ensure type safety if IDs are numbers/strings)
   const employee = employees.find((emp) => String(emp.employeeId) === String(id));
+
+  // Fetch profile picture for the employee
+  useEffect(() => {
+    const loadProfilePic = async () => {
+      if (!employee || !employee.employeeId) return;
+      
+      // First check if profile photo is already in employee object
+      if (employee.profilePhoto?.url) {
+        setProfileImage(employee.profilePhoto.url);
+        setLoadingImage(false);
+        return;
+      }
+      
+      setLoadingImage(true);
+      try {
+        // Fetch from the correct backend endpoint: /api/profile/:employeeId
+        const res = await api.get(`/api/profile/${employee.employeeId}`);
+        
+        if (res?.data?.profilePhoto?.url) {
+          setProfileImage(res.data.profilePhoto.url);
+        }
+      } catch (err) {
+        console.error("Failed to load profile picture:", err);
+        // Don't show error to user, just use fallback initials
+      } finally {
+        setLoadingImage(false);
+      }
+    };
+
+    loadProfilePic();
+  }, [employee]);
 
   if (!employee) return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
@@ -200,9 +234,19 @@ const EmployeeProfile = () => {
           {/* Header */}
           <div className="bg-blue-800 px-8 py-12">
             <div className="flex flex-col items-center text-center">
-              {/* Avatar */}
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-blue-600 flex items-center justify-center text-3xl sm:text-4xl text-white font-bold mb-6 shadow-lg">
-                {initials}
+              {/* Avatar - Now using actual profile picture */}
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-blue-600 flex items-center justify-center text-3xl sm:text-4xl text-white font-bold mb-6 shadow-lg overflow-hidden border-4 border-white">
+                {loadingImage ? (
+                  <div className="animate-spin h-8 w-8 border-4 border-white border-t-transparent rounded-full"></div>
+                ) : profileImage ? (
+                  <img 
+                    src={profileImage} 
+                    alt={employee.name} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               {/* Employee Name */}
               <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">

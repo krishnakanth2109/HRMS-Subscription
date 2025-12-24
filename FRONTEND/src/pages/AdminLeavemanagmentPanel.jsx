@@ -5,7 +5,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import {
+import api, { // ✅ Added default api import for profile fetching
   getLeaveRequests,
   getEmployees,
   approveLeaveRequestById,
@@ -14,6 +14,15 @@ import {
 import { FaCheck, FaTimes, FaFilter, FaCalendarAlt } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
+
+// ✅ Helper to ensure URLs are always HTTPS
+const getSecureUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http:")) {
+    return url.replace("http:", "https:");
+  }
+  return url;
+};
 
 const AdminLeavePanel = () => {
   const location = useLocation();
@@ -39,6 +48,10 @@ const AdminLeavePanel = () => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
   const [selectedLeaveId, setSelectedLeaveId] = useState(null);
+
+  // ✅ NEW: Image States
+  const [employeeImages, setEmployeeImages] = useState({});
+  const [previewImage, setPreviewImage] = useState(null);
 
   const showSnackbar = (msg) => {
     setSnackbar(msg);
@@ -74,6 +87,35 @@ const AdminLeavePanel = () => {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // ✅ NEW: Fetch Images for employees in the leave list
+  useEffect(() => {
+    const fetchImages = async () => {
+      if (leaveList.length === 0) return;
+      
+      const uniqueEmployeeIds = [...new Set(leaveList.map(l => l.employeeId))];
+      const newImages = {};
+
+      for (const empId of uniqueEmployeeIds) {
+        if (empId && !employeeImages[empId]) {
+            try {
+               const res = await api.get(`/api/profile/${empId}`);
+               if (res.data?.profilePhoto?.url) {
+                   newImages[empId] = getSecureUrl(res.data.profilePhoto.url);
+               }
+            } catch (err) {
+               // Silent fail
+            }
+        }
+      }
+
+      if (Object.keys(newImages).length > 0) {
+        setEmployeeImages(prev => ({ ...prev, ...newImages }));
+      }
+    };
+
+    fetchImages();
+  }, [leaveList]);
 
   // FIX: Get department from experienceDetails[0].department
   const enrichedLeaveList = useMemo(() => {
@@ -306,11 +348,32 @@ const AdminLeavePanel = () => {
 
           <tbody>
             {filteredRequests.length ? (
-              filteredRequests.map((lv) => (
+              filteredRequests.map((lv) => {
+                // ✅ Get profile pic
+                const profilePic = employeeImages[lv.employeeId];
+
+                return (
                 <React.Fragment key={lv._id}>
                   <tr className="border-t hover:bg-blue-50 transition">
                     <td className="p-4">{lv.employeeId}</td>
-                    <td className="p-4">{lv.employeeName}</td>
+                    
+                    {/* ✅ UPDATED NAME CELL WITH PROFILE PIC */}
+                    <td className="p-4">
+                       <div className="flex items-center gap-3">
+                           <div 
+                              className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200 overflow-hidden cursor-pointer"
+                              onClick={() => profilePic && setPreviewImage(profilePic)}
+                           >
+                              {profilePic ? (
+                                  <img src={profilePic} alt={lv.employeeName} className="w-full h-full object-cover hover:opacity-90 transition-opacity" />
+                              ) : (
+                                  (lv.employeeName || "U").charAt(0)
+                              )}
+                           </div>
+                           <span className="font-medium text-gray-800">{lv.employeeName}</span>
+                       </div>
+                    </td>
+
                     <td className="p-4">{lv.department}</td>
                     <td className="p-4">{lv.from}</td>
                     <td className="p-4">{lv.to}</td>
@@ -379,7 +442,7 @@ const AdminLeavePanel = () => {
                     </tr>
                   )}
                 </React.Fragment>
-              ))
+              )})
             ) : (
               <tr>
                 <td colSpan="9" className="text-center p-4 text-gray-500">
@@ -435,6 +498,24 @@ const AdminLeavePanel = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ✅ LIGHTBOX / FULL SCREEN IMAGE POPUP */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-white/10 backdrop-blur-sm">
+             <FaTimes size={24} />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="Full Preview" 
+            className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
 
       {snackbar && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-indigo-600 text-white rounded shadow-lg">

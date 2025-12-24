@@ -11,6 +11,15 @@ import { toBlob } from 'html-to-image';
 // HELPER FUNCTIONS
 // ==========================================
 
+// Helper to ensure URLs are always HTTPS
+const getSecureUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("http:")) {
+    return url.replace("http:", "https:");
+  }
+  return url;
+};
+
 // ✅ NEW: Helper for DD/MM/YYYY Format
 const formatDateDMY = (dateInput) => {
   if (!dateInput) return "--";
@@ -58,7 +67,7 @@ const getWorkedStatus = (punchIn, punchOut, apiStatus, fullDayThreshold, halfDay
   if (workedHours >= fullDayThreshold) return "Full Day";
   if (workedHours >= halfDayThreshold) return "Half Day";
   
-  return "Absent";
+  return "Absent"; // Or "Short Day" depending on logic, effectively not full day
 };
 
 const LocationViewButton = ({ location }) => {
@@ -133,6 +142,42 @@ const getCurrentLocation = () => {
       );
     }
   });
+};
+
+// ==========================================
+// ✅ NEW COMPONENT: Live Timer for UI
+// ==========================================
+const LiveTimer = ({ startTime }) => {
+  const [timeStr, setTimeStr] = useState("0h 0m 0s");
+
+  useEffect(() => {
+    if (!startTime) return;
+    
+    const updateTimer = () => {
+        const now = new Date();
+        const start = new Date(startTime);
+        const diffMs = now - start;
+
+        if (diffMs < 0) {
+            setTimeStr("0h 0m 0s");
+            return;
+        }
+
+        const totalSeconds = Math.floor(diffMs / 1000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+
+        setTimeStr(`${hours}h ${minutes}m ${seconds}s`);
+    };
+
+    updateTimer(); // Initial call
+    const interval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(interval);
+  }, [startTime]);
+
+  return <span className="text-blue-600 font-mono font-bold animate-pulse">{timeStr}</span>;
 };
 
 // ==========================================
@@ -338,7 +383,8 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
   );
 };
 
-const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holidays, dateRange }) => {
+// ✅ UPDATED: Include employeeImages prop
+const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holidays, dateRange, employeeImages }) => {
   const contentRef = useRef(null);
 
   const completeHistory = useMemo(() => {
@@ -472,6 +518,9 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
     }
   };
 
+  // Get image for current user
+  const profilePic = employeeImages ? employeeImages[employeeData.employeeId] : null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -479,8 +528,13 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
         {/* Header - Fixed */}
         <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-white shrink-0 z-20">
           <div className="flex items-center gap-3">
-             <div className="p-3 bg-blue-50 rounded-full text-blue-600">
-                <FaHistory size={20} />
+             {/* ✅ UPDATED: Show Profile Pic */}
+             <div className="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold text-lg overflow-hidden bg-slate-100">
+                {profilePic ? (
+                    <img src={profilePic} alt={employeeData.name} className="w-full h-full object-cover" />
+                ) : (
+                    (employeeData.name || "U").charAt(0)
+                )}
              </div>
              <div>
                 <h3 className="text-xl font-bold text-slate-800">Attendance History</h3>
@@ -588,7 +642,8 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
   );
 };
 
-const StatusListModal = ({ isOpen, onClose, title, employees }) => {
+// ✅ UPDATED: Include employeeImages prop
+const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages }) => {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
@@ -598,11 +653,20 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2"><FaTimes size={20} /></button>
         </div>
         <div className="p-5 overflow-y-auto">
-          {employees.length > 0 ? (<ul className="divide-y divide-slate-200">{employees.map((emp, index) => (
-            <li key={emp.employeeId || index} className="py-3 flex items-center justify-between">
+          {employees.length > 0 ? (<ul className="divide-y divide-slate-200">{employees.map((emp, index) => {
+             // Get image
+             const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+
+             return (
+              <li key={emp.employeeId || index} className="py-3 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-blue-700 font-bold border border-slate-300">
-                        {(emp.name || emp.employeeName)?.split(" ").map((n) => n[0]).join("")}
+                    {/* ✅ UPDATED: Profile Picture */}
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-blue-700 font-bold border border-slate-300 overflow-hidden">
+                        {profilePic ? (
+                            <img src={profilePic} alt={emp.name || emp.employeeName} className="w-full h-full object-cover" />
+                        ) : (
+                            (emp.name || emp.employeeName || "U").charAt(0)
+                        )}
                     </div>
                     <div><p className="font-semibold text-slate-800">{emp.name || emp.employeeName}</p><p className="text-sm text-slate-500 font-mono">{emp.employeeId}</p></div>
                 </div>
@@ -619,7 +683,8 @@ const StatusListModal = ({ isOpen, onClose, title, employees }) => {
                     )}
                 </div>
             </li>
-          ))}</ul>) : (<p className="text-center text-slate-500 py-8">No employees in this category.</p>)}
+             );
+          })}</ul>) : (<p className="text-center text-slate-500 py-8">No employees in this category.</p>)}
         </div>
       </div>
     </div>
@@ -677,6 +742,10 @@ const AdminAttendance = () => {
   const [dailySearchTerm, setDailySearchTerm] = useState("");
   const [summarySearchTerm, setSummarySearchTerm] = useState("");
 
+  // ✅ NEW STATES: For Profile Images & Lightbox
+  const [employeeImages, setEmployeeImages] = useState({});
+  const [previewImage, setPreviewImage] = useState(null);
+
   const fetchShifts = useCallback(async () => {
     try {
       const response = await getAllShifts();
@@ -725,6 +794,38 @@ const AdminAttendance = () => {
       console.error("Error fetching requests", error);
     }
   }, []);
+
+  // ✅ NEW: Fetch Images for all employees
+  useEffect(() => {
+    const fetchImages = async () => {
+      const newImages = {};
+      if (allEmployees.length === 0) return;
+
+      // Limit calls or implement caching logic if needed. 
+      // For now, we fetch for all loaded employees to ensure profiles are visible.
+      for (const emp of allEmployees) {
+         if (!employeeImages[emp.employeeId]) {
+            try {
+               const res = await api.get(`/api/profile/${emp.employeeId}`);
+               if (res.data?.profilePhoto?.url) {
+                  newImages[emp.employeeId] = getSecureUrl(res.data.profilePhoto.url);
+               }
+            } catch (err) {
+               // Ignore errors, keep blank/initials
+            }
+         }
+      }
+
+      if (Object.keys(newImages).length > 0) {
+        setEmployeeImages(prev => ({ ...prev, ...newImages }));
+      }
+    };
+    
+    if (allEmployees.length > 0) {
+        fetchImages();
+    }
+  }, [allEmployees]);
+
 
   const handleRequestAction = async (requestId, status, request) => {
     try {
@@ -1169,18 +1270,43 @@ const AdminAttendance = () => {
                 {loading ? (<tr><td colSpan="9" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="9" className="text-center p-10 text-slate-500">No records found.</td></tr>) : paginatedDailyData.map((item, idx) => {
                   const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
                   const canPunchOut = item.punchIn && !item.punchOut;
+                  
+                  // Color Logic for Punch In: Red if Late, Green if On Time
+                  const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
+
+                  // Color Logic for Punch Out: Green if Full Day, Red if Short Day/Half Day
+                  const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
+
+                  // Get Profile Pic
+                  const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
+
                   return (
                     <tr key={item._id || idx} className={`hover:bg-blue-50/60 transition-colors ${isAbsent ? "bg-red-50" : ""}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-semibold text-slate-800">{item.employeeName}</div>
-                        <div className="text-slate-500 font-mono text-xs">{item.employeeId}</div>
+                         <div className="flex items-center gap-3">
+                             {/* ✅ UPDATED: Profile Picture */}
+                             <div 
+                                className="w-9 h-9 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold overflow-hidden bg-white cursor-pointer"
+                                onClick={() => profilePic && setPreviewImage(profilePic)}
+                             >
+                                {profilePic ? (
+                                    <img src={profilePic} alt={item.employeeName} className="w-full h-full object-cover" />
+                                ) : (
+                                    (item.employeeName || "U").charAt(0)
+                                )}
+                             </div>
+                             <div>
+                                <div className="font-semibold text-slate-800">{item.employeeName}</div>
+                                <div className="text-slate-500 font-mono text-xs">{item.employeeId}</div>
+                             </div>
+                         </div>
                       </td>
                       {/* ✅ DD/MM/YYYY */}
                       <td className="px-6 py-4 whitespace-nowrap text-slate-600">{formatDateDMY(item.date)}</td>
                       
                       {/* Merged Punch In & Location */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                         <div className="font-medium text-green-600">
+                         <div className={`font-medium ${punchInColor}`}>
                             {item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
                          </div>
                          {item.punchIn && <LocationViewButton location={item.punchInLocation} />}
@@ -1188,14 +1314,23 @@ const AdminAttendance = () => {
 
                       {/* Merged Punch Out & Location */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                         <div className="font-medium text-red-600">
+                         <div className={`font-medium ${item.punchOut ? punchOutColor : 'text-slate-400'}`}>
                              {item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
                          </div>
                          {item.punchOut && <LocationViewButton location={item.punchOutLocation} />}
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-600">{formatDecimalHours(item.assignedHours)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">{item.displayTime || "0h 0m"}</td>
+                      
+                      {/* Duration: Live Timer if Active, else Static */}
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">
+                        {(!item.punchOut && item.punchIn) ? (
+                            <LiveTimer startTime={item.punchIn} />
+                        ) : (
+                            item.displayTime || "0h 0m 0s"
+                        )}
+                      </td>
+                      
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.displayLoginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{item.displayLoginStatus}</span></td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{item.workedStatus}</span></td>
                       
@@ -1303,11 +1438,30 @@ const AdminAttendance = () => {
                   </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {summaryLoading ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500 font-medium">Loading summary...</td></tr>) : paginatedSummaryData.length === 0 ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500">No summary data available.</td></tr>) : paginatedSummaryData.map((emp) => (
+                {summaryLoading ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500 font-medium">Loading summary...</td></tr>) : paginatedSummaryData.length === 0 ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500">No summary data available.</td></tr>) : paginatedSummaryData.map((emp) => {
+                    // Get Profile Pic
+                    const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                    
+                    return (
                     <tr key={emp.employeeId} className="hover:bg-purple-50/30 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-bold text-slate-800">{emp.employeeName}</div>
-                        <div className="text-slate-500 font-mono text-xs">{emp.employeeId}</div>
+                         <div className="flex items-center gap-3">
+                             {/* ✅ UPDATED: Profile Picture */}
+                             <div 
+                                className="w-9 h-9 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold overflow-hidden bg-white cursor-pointer"
+                                onClick={() => profilePic && setPreviewImage(profilePic)}
+                             >
+                                {profilePic ? (
+                                    <img src={profilePic} alt={emp.employeeName} className="w-full h-full object-cover" />
+                                ) : (
+                                    (emp.employeeName || "U").charAt(0)
+                                )}
+                             </div>
+                             <div>
+                                <div className="font-bold text-slate-800">{emp.employeeName}</div>
+                                <div className="text-slate-500 font-mono text-xs">{emp.employeeId}</div>
+                             </div>
+                         </div>
                       </td>
                       <td className="px-6 py-4 text-center font-medium text-slate-600">{formatDecimalHours(emp.assignedHours)}</td>
                       <td className="px-6 py-4 text-center font-bold text-blue-600 bg-blue-50/30 text-lg">{emp.presentDays}</td>
@@ -1319,7 +1473,7 @@ const AdminAttendance = () => {
                       <td className="px-6 py-4 text-center text-red-500 font-bold">{emp.absentDays}</td>
                       <td className="px-6 py-4 text-center"><button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-2 rounded-full text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"><FaEye /></button></td>
                     </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
@@ -1327,8 +1481,24 @@ const AdminAttendance = () => {
         </div>
       </div>
 
-      <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} holidays={holidays} dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} />
-      <StatusListModal isOpen={statusListModal.isOpen} onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} title={statusListModal.title} employees={statusListModal.employees} />
+      <AttendanceDetailModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          employeeData={selectedEmployee} 
+          shiftsMap={shiftsMap} 
+          holidays={holidays} 
+          dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} 
+          employeeImages={employeeImages} // Pass images prop
+      />
+      
+      <StatusListModal 
+          isOpen={statusListModal.isOpen} 
+          onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} 
+          title={statusListModal.title} 
+          employees={statusListModal.employees} 
+          employeeImages={employeeImages} // Pass images prop
+      />
+      
       <AdminPunchOutModal isOpen={punchOutModal.isOpen} onClose={() => setPunchOutModal({ isOpen: false, employee: null })} employee={punchOutModal.employee} onPunchOut={handleAdminPunchOut} />
       
       {/* ✅ NEW: Request Approval Modal with Delete Function */}
@@ -1339,6 +1509,24 @@ const AdminAttendance = () => {
             onAction={handleRequestAction}
             onDelete={handleDeleteRequest} 
       />
+
+      {/* ✅ LIGHTBOX / FULL SCREEN IMAGE POPUP */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 rounded-full bg-white/10 backdrop-blur-sm">
+             <FaTimes size={24} />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="Full Preview" 
+            className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
     </div>
   );
 };
