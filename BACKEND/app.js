@@ -27,11 +27,8 @@ import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import requestWorkModeRoutes from "./routes/requestWorkModeRoutes.js";
 import punchOutRoutes from './routes/punchOutRequestRoutes.js';
-<<<<<<< HEAD
 import groupRoutes from "./routes/groupRoutes.js";
-=======
 import meetingRoutes from "./routes/meetingRoutes.js";
->>>>>>> b2c759e3631f8f72104122fd75001c2cea5e7783
 
 const app = express();
 const server = http.createServer(app);
@@ -143,11 +140,8 @@ app.use("/api/category-assign", categoryAssignmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
 app.use('/api/punchoutreq', punchOutRoutes); 
-<<<<<<< HEAD
 app.use("/api/groups", groupRoutes);
-=======
 app.use('/api/meetings', meetingRoutes); 
->>>>>>> b2c759e3631f8f72104122fd75001c2cea5e7783
 
 
 

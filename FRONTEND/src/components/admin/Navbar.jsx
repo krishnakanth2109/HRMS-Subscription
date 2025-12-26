@@ -113,7 +113,7 @@ const Navbar = () => {
         style={{ backgroundColor: themeColor }}
       >
         <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow">
-          HRMS Admin
+          
         </h1>
 
         <div className="flex items-center gap-6">
