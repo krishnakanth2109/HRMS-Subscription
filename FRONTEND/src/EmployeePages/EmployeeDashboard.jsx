@@ -42,7 +42,13 @@ import {
   FaTimes,
   FaPen,
   FaBirthdayCake,
-  FaUmbrellaBeach
+  FaUmbrellaBeach,
+  FaAngleRight,
+  FaLuggageCart,
+  FaCalendarCheck,
+  FaClock,
+  FaBullhorn,
+  
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 
@@ -54,8 +60,10 @@ import api, {
   getProfilePic,
   deleteProfilePic,
   getShiftByEmployeeId,
+  getHolidays, // ✅ ADDED: Needed for accurate stats
+  getLeaveRequestsForEmployee // ✅ ADDED: Needed for accurate stats
 } from "../api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // ✅ Added Link
 import ImageCropModal from "./ImageCropModal";
 
 // ✅ Registering Chart Components
@@ -68,8 +76,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-
 
 // Helper: Haversine Formula
 const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
@@ -92,6 +98,15 @@ const formatDateDDMMYYYY = (dateString) => {
   return date.toLocaleDateString("en-GB"); // en-GB outputs dd/mm/yyyy
 };
 
+// ✅ Helper: Format Date for Comparison (YYYY-MM-DD) - Local Time
+const toISODateString = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
   const { notices } = useContext(NoticeContext);
@@ -111,6 +126,15 @@ const EmployeeDashboard = () => {
   // ✅ NEW: Today's Birthdays and On Leave Today States
   const [todaysBirthdays, setTodaysBirthdays] = useState([]);
   const [onLeaveToday, setOnLeaveToday] = useState([]);
+  
+  // ✅ NEW: Remote Workers & Leave Balance States
+  const [remoteWorkers, setRemoteWorkers] = useState([]);
+  const [leaveBalance, setLeaveBalance] = useState({ available: 1, taken: 0 }); 
+  
+  // ✅ NEW: Full Holidays and Leaves for Graph Accuracy
+  const [holidays, setHolidays] = useState([]);
+  const [leaves, setLeaves] = useState([]);
+
   const [loadingTeamData, setLoadingTeamData] = useState(false);
 
   // ✅ NEW: Real-time Clock State
@@ -324,13 +348,143 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // ✅ NEW: Fetch team data (birthdays and leaves)
+  // ✅ NEW: Calculate Remote Workers
+  const fetchRemoteWorkers = async () => {
+    try {
+      // 1. Get Office Config
+      const { data: configData } = await api.get("/api/admin/settings/office");
+      const currentGlobalMode = configData.globalWorkMode || 'WFO';
+
+      // 2. Get Employee Specific Modes
+      const { data: modesData } = await api.get("/api/admin/settings/employees-modes");
+      const employees = modesData.employees || [];
+
+      // 3. Get All Employees for basic info
+      const { data: allEmployees } = await api.get("/api/employees");
+      const empMap = new Map(allEmployees.map(e => [e.employeeId, e]));
+
+      const today = new Date();
+      const currentDay = today.getDay(); // 0=Sun, 1=Mon...
+      today.setHours(0, 0, 0, 0);
+
+      let remoteList = [];
+
+      // Logic to determine Effective Mode
+      employees.forEach(emp => {
+        const basicInfo = empMap.get(emp.employeeId);
+        if(!basicInfo) return;
+
+        let effectiveMode = currentGlobalMode; // Default to global
+
+        if (emp.ruleType === "Permanent") {
+          effectiveMode = emp.config.permanentMode;
+        } else if (emp.ruleType === "Temporary" && emp.config.temporary) {
+          const from = new Date(emp.config.temporary.fromDate);
+          const to = new Date(emp.config.temporary.toDate);
+          from.setHours(0, 0, 0, 0);
+          to.setHours(23, 59, 59, 999);
+          if (today >= from && today <= to) {
+            effectiveMode = emp.config.temporary.mode;
+          }
+        } else if (emp.ruleType === "Recurring" && emp.config.recurring) {
+          if (emp.config.recurring.days.includes(currentDay)) {
+            effectiveMode = emp.config.recurring.mode;
+          }
+        }
+
+        if (effectiveMode === 'WFH') {
+          remoteList.push({
+            name: basicInfo.name,
+            employeeId: basicInfo.employeeId,
+            department: basicInfo.department || "N/A"
+          });
+        }
+      });
+      
+      setRemoteWorkers(remoteList);
+      
+    } catch (error) {
+      console.error("Error fetching remote workers:", error);
+    }
+  };
+
+  // ✅ NEW: Calculate Leave Balance (Updated Logic)
+// ✅ NEW: Calculate Leave Balance (Updated to match Leave Management logic)
+// ✅ NEW: Calculate Leave Balance (1 per month, resets monthly)
+const fetchLeaveBalance = async () => {
+  if (!user?.employeeId) return;
+  
+  try {
+    // Fetch leaves for current employee
+    const response = await api.get("/api/leaves", { params: { employeeId: user.employeeId } });
+    const myLeaves = Array.isArray(response.data) ? response.data : (response.data.leaves || []);
+    
+    const today = new Date();
+    const currentMonth = today.getMonth(); // 0-11
+    const currentYear = today.getFullYear();
+    
+    // Get the first day of current month
+    const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+    
+    // Check if employee has ANY approved leave in current month
+    const hasApprovedLeaveThisMonth = myLeaves.some(leave => {
+      if (leave.status !== 'Approved') return false;
+      
+      const leaveFrom = new Date(leave.from);
+      return leaveFrom >= firstDayOfMonth;
+    });
+    
+    // Monthly credit is always 1
+    const monthlyCredit = 1;
+    
+    // Calculate total approved leave days in current month
+    let totalDaysTaken = 0;
+    
+    myLeaves.forEach(leave => {
+      if (leave.status === 'Approved') {
+        const leaveFrom = new Date(leave.from);
+        const leaveTo = new Date(leave.to);
+        
+        // Check if leave is in current month
+        if (leaveFrom >= firstDayOfMonth) {
+          const diffTime = Math.abs(leaveTo - leaveFrom);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          
+          if (leave.halfDaySession && leave.from === leave.to) {
+            totalDaysTaken += 0.5;
+          } else {
+            totalDaysTaken += diffDays;
+          }
+        }
+      }
+    });
+    
+    // If employee has taken ANY leave this month, available = 0
+    // Otherwise, available = 1
+    const available = hasApprovedLeaveThisMonth ? 0 : 1;
+    
+    setLeaveBalance({ 
+      available: available, 
+      taken: totalDaysTaken,
+      extra: Math.max(0, totalDaysTaken - monthlyCredit)
+    });
+    
+  } catch (error) {
+    console.error("Error fetching leave balance:", error);
+    // Default: 1 available leave
+    setLeaveBalance({ available: 1, taken: 0, extra: 0 });
+  }
+};
+
+  // ✅ NEW: Fetch team data (birthdays, leaves, remote, balance)
   const fetchTeamData = async () => {
     setLoadingTeamData(true);
     try {
       await Promise.all([
         fetchTodaysBirthdays(),
-        fetchOnLeaveToday()
+        fetchOnLeaveToday(),
+        fetchRemoteWorkers(),
+        fetchLeaveBalance()
       ]);
     } catch (error) {
       console.error("Error fetching team data:", error);
@@ -338,6 +492,20 @@ const EmployeeDashboard = () => {
       setLoadingTeamData(false);
     }
   };
+
+  // ✅ NEW: Load Holidays and Leaves for Accurate Stats
+  const loadHolidaysAndLeaves = useCallback(async (empId) => {
+    try {
+        const [hRes, lRes] = await Promise.all([
+            getHolidays().catch(e => []),
+            getLeaveRequestsForEmployee(empId).catch(e => [])
+        ]);
+        setHolidays(Array.isArray(hRes) ? hRes : (hRes.data || []));
+        setLeaves(Array.isArray(lRes) ? lRes : (lRes.data || []));
+    } catch (e) {
+        console.error("Failed to load holidays/leaves", e);
+    }
+  }, []);
 
   const loadShiftTimings = useCallback(async (empId) => {
     try {
@@ -414,13 +582,14 @@ const EmployeeDashboard = () => {
           loadAttendance(user.employeeId),
           loadProfilePic(),
           loadShiftTimings(user.employeeId),
-          fetchTeamData() // ✅ NEW: Fetch team data
+          fetchTeamData(), // ✅ NEW: Fetch team data
+          loadHolidaysAndLeaves(user.employeeId) // ✅ ADDED: Load holidays/leaves
         ]);
         setLoading(false);
       } else { setLoading(false); }
     };
     bootstrap();
-  }, [user, loadAttendance, loadShiftTimings]);
+  }, [user, loadAttendance, loadShiftTimings, loadHolidaysAndLeaves]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -866,7 +1035,117 @@ const EmployeeDashboard = () => {
   const commonChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, tooltip: { enabled: true } } };
   const meterChartOptions = { ...commonChartOptions, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (context) { const val = context.raw; const h = Math.floor(val / 3600); const m = Math.floor((val % 3600) / 60); return `${context.label}: ${h}h ${m}m`; } } } } };
 
-  const leaveBarData = useMemo(() => ({ labels: ["Full Day", "Half Day", "Absent"], datasets: [{ label: "Days", data: [attendance.filter((a) => a.workedStatus === "FULL_DAY").length, attendance.filter((a) => a.workedStatus === "HALF_DAY").length, attendance.filter((a) => a.status === "ABSENT" || a.workedStatus === "ABSENT").length,], backgroundColor: ["#22c55e", "#facc15", "#ef4444"], borderRadius: 6, }], }), [attendance]);
+  // ✅ MEMOIZED CHART DATA (Updated to match EmployeeDailyAttendance Logic)
+  // This logic now correctly excludes Holidays, Approved Leaves, and Week Offs from the "Absent" count.
+  const leaveBarData = useMemo(() => {
+    // 1. Get Settings from Shift Timings or Defaults
+    const adminFullDayHours = shiftTimings?.fullDayHours || 9;
+    const adminHalfDayHours = shiftTimings?.halfDayHours || 4.5;
+    const weeklyOffDays = shiftTimings?.weeklyOffDays || [0]; // Default Sunday
+
+    // 2. Setup Date Range (Current Month up to Today)
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    
+    // Get today's date number to limit the loop
+    const currentDayDate = today.getDate();
+
+    let fullDayCount = 0;
+    let halfDayCount = 0;
+    let absentCount = 0;
+
+    // 3. Iterate through every day of the month up to Today
+    for (let day = 1; day <= currentDayDate; day++) {
+      const checkDate = new Date(currentYear, currentMonth, day);
+      const checkDateISO = toISODateString(checkDate); // Use local ISO helper
+      const isToday = (day === currentDayDate);
+      const dayOfWeek = checkDate.getDay();
+
+      // Find attendance record for this specific date
+      const record = attendance.find((a) => a.date === checkDateISO);
+
+      // Check Holiday
+      const isHoliday = holidays.some(h => {
+        const start = new Date(h.startDate); start.setHours(0,0,0,0);
+        const end = new Date(h.endDate || h.startDate); end.setHours(23,59,59,999);
+        const check = new Date(currentYear, currentMonth, day);
+        return check >= start && check <= end;
+      });
+
+      // Check Leave (Status must be Approved)
+      const isLeave = leaves.some(l => {
+        if(l.status !== 'Approved') return false;
+        const start = new Date(l.from); start.setHours(0,0,0,0);
+        const end = new Date(l.to); end.setHours(23,59,59,999);
+        const check = new Date(currentYear, currentMonth, day);
+        return check >= start && check <= end;
+      });
+
+      if (record && record.punchIn) {
+        // --- LOGIC: WORKED HOURS CALCULATION ---
+        let workedHours = 0;
+        
+        if (record.punchOut) {
+          // Completed Shift
+          const start = new Date(record.punchIn);
+          const end = new Date(record.punchOut);
+          workedHours = (end - start) / (1000 * 60 * 60);
+        } else if (isToday) {
+          // Currently Working (Live Calculation)
+          const start = new Date(record.punchIn);
+          const now = new Date();
+          workedHours = (now - start) / (1000 * 60 * 60);
+        }
+
+        // --- LOGIC: CATEGORIZATION ---
+        if (workedHours >= adminFullDayHours) {
+          fullDayCount++;
+        } else if (workedHours >= adminHalfDayHours) {
+          halfDayCount++;
+        } else {
+          // If worked less than half day and NOT today (finished day), count as absent/short-leave
+          // Unless it's a valid leave day
+          if (!isToday && !isLeave) absentCount++;
+        }
+
+      } else {
+        // --- LOGIC: NO PUNCH FOUND ---
+        
+        if (isToday) continue; // Don't mark today as absent yet
+
+        // Check if it is a Weekly Off
+        if (weeklyOffDays.includes(dayOfWeek)) {
+          continue; // It's a weekend/off day, ignore
+        }
+
+        // Check if it is a Holiday
+        if (isHoliday) {
+            continue; // Ignore Holidays
+        }
+
+        // Check if it is an Approved Leave
+        if (isLeave) {
+            continue; // Ignore Approved Leaves (Don't count as Unexcused Absent)
+        }
+
+        // If no punch, not a weekly off, not a holiday, not a leave -> Absent
+        absentCount++;
+      }
+    }
+
+    return {
+      labels: ["Full Day", "Half Day", "Absent"],
+      datasets: [
+        {
+          label: "Days",
+          data: [fullDayCount, halfDayCount, absentCount],
+          backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
+          borderRadius: 6,
+        },
+      ],
+    };
+  }, [attendance, shiftTimings, holidays, leaves]);
 
   if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Dashboard...</div>;
   if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
@@ -882,6 +1161,18 @@ const EmployeeDashboard = () => {
 
   const isShiftReqCompleted = workedTime >= targetSeconds;
   const showPunchInButton = !todayLog || todayLog.status !== "WORKING";
+
+  // Check if everyone is remote
+  const isGlobalWFH = officeConfig?.globalWorkMode === 'WFH';
+
+  // Add this inside your component, before the return statement
+const gradients = [
+  "from-blue-400 to-indigo-500",
+  "from-pink-400 to-rose-500",
+  "from-emerald-400 to-teal-500",
+  "from-orange-400 to-amber-500",
+  "from-purple-400 to-violet-500",
+];
 
   return (
     <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen relative">
@@ -1115,11 +1406,6 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      {/* ✅ NEW: Today's Birthdays and On Leave Today Section */}
-      {/* import { FaBirthdayCake, FaUmbrellaBeach, FaInfoCircle } from 'react-icons/fa'; */}
-
-
-
       {/* ✅ DYNAMIC UI: Today's Birthdays and On Leave Today */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
@@ -1259,6 +1545,176 @@ const EmployeeDashboard = () => {
         </div>
 
       </div>
+      
+
+      {/* ✅ NEW SECTIONS: Leave Balances & Remote Work */}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    {/* 🏠 Working Remotely Section */}
+  <div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 p-6 flex flex-col relative overflow-visible group hover:shadow-xl transition-all duration-300">
+     
+     <div className="flex items-center justify-between mb-6 z-10">
+       <div className="flex items-center gap-3">
+         <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
+           <FaLaptopHouse className="text-lg" />
+         </div>
+         <div>
+           <h2 className="font-bold text-gray-800 text-lg leading-tight">Working Remotely </h2>
+
+         </div>
+       </div>
+       <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${isGlobalWFH ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
+            <span className={`w-2 h-2 rounded-full ${isGlobalWFH ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+            {isGlobalWFH ? 'Global Remote' : 'Hybrid Mode'}
+          </span>
+       </div>
+     </div>
+     
+     <div className="flex-1 flex flex-col justify-center z-10">
+        {isGlobalWFH ? (
+          <div className="flex flex-col items-center justify-center py-4 bg-indigo-50/50 rounded-2xl border border-indigo-50 border-dashed">
+            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+              <FaLaptopHouse className="text-2xl text-indigo-500" />
+            </div>
+            <h3 className="font-bold text-indigo-900 text-sm">Full Remote Day</h3>
+            <p className="text-xs text-indigo-400/80 mt-1 font-medium">Everyone is working from home.</p>
+          </div>
+        ) : remoteWorkers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-4 bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
+             <FaBuilding className="text-3xl text-gray-300 mb-2" />
+             <p className="text-sm font-bold text-gray-500">Full Office Attendance</p>
+             <p className="text-[11px] text-gray-400">No one is working remotely today.</p>
+          </div>
+        ) : (
+          <div className="w-full flex flex-col items-center pt-2">
+            {/* Dynamic Avatar Stack */}
+            <div className="flex -space-x-4 items-end justify-center py-4 min-h-[80px]">
+              {remoteWorkers.slice(0, 5).map((worker, i) => (
+                <div 
+                  key={i} 
+                  /* CHANGED: using group/avatar to isolate hover events */
+                  className="group/avatar relative transition-all duration-300 hover:-translate-y-2 hover:z-20 z-0"
+                >
+                  {/* Tooltip / Name Dropdown */}
+                  {/* CHANGED: using group-hover/avatar so it only triggers on specific avatar hover */}
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max opacity-0 group-hover/avatar:opacity-100 transform translate-y-2 group-hover/avatar:translate-y-0 transition-all duration-200 pointer-events-none z-50">
+                    <div className="bg-gray-900 text-white text-[10px] font-bold py-1.5 px-3 rounded-md shadow-xl relative">
+                      {worker.name}
+                      {/* Little arrow pointing down */}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Avatar Circle */}
+                  <div className={`relative w-12 h-12 rounded-full ring-4 ring-white bg-gradient-to-tr ${gradients[i % gradients.length]} flex items-center justify-center shadow-lg cursor-pointer`}>
+                    <span className="text-white font-bold text-sm text-shadow-sm">
+                       {worker.name.charAt(0)}
+                    </span>
+               
+
+                  </div>
+                </div>
+              ))}
+              
+              {/* Overflow Counter */}
+              {remoteWorkers.length > 5 && (
+                <div className="relative z-0 hover:z-10 transition-transform hover:scale-105 cursor-pointer">
+                   <div className="w-12 h-12 rounded-full ring-4 ring-white bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs shadow-md">
+                     +{remoteWorkers.length - 5}
+                   </div>
+                </div>
+              )}
+            </div>
+            
+            <p className="text-center text-xs text-gray-400 font-medium mt-2 bg-gray-50 px-3 py-1 rounded-full">
+              <span className="text-indigo-600 font-bold">{remoteWorkers.length}</span> team members remote
+            </p>
+          </div>
+        )}
+     </div>
+  </div>
+
+  {/* 🌿 Leave Balances Section */}
+<div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-xl transition-all duration-300">
+  
+  {/* Decorative Background */}
+  <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-50 to-transparent rounded-bl-full opacity-50 transition-transform duration-700 group-hover:scale-110"></div>
+  
+  <div className="flex items-center justify-between mb-6 z-10 relative">
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100">
+        <FaLuggageCart className="text-lg" />
+      </div>
+      <h2 className="font-bold text-gray-800 text-lg">Quick Actions</h2>
+    </div>
+  </div>
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 z-10 relative">
+    {/* Request Leave */}
+    <Link 
+      to="/employee/leave-management" 
+      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-cyan-50 hover:to-white border border-gray-200 hover:border-cyan-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+    >
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
+        <FaLuggageCart className="text-lg" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-gray-800 group-hover/link:text-cyan-700 transition-colors">Request Leave</h3>
+        <p className="text-xs text-gray-500 mt-1">Apply for time off</p>
+      </div>
+      <FaAngleRight className="text-gray-400 group-hover/link:text-cyan-600 group-hover/link:translate-x-1 transition-all" />
+    </Link>
+
+    {/* Holidays */}
+    <Link 
+      to="/employee/holiday-calendar" 
+      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-emerald-50 hover:to-white border border-gray-200 hover:border-emerald-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+    >
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+        <FaCalendarAlt className="text-lg" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-gray-800 group-hover/link:text-emerald-700 transition-colors">Holidays</h3>
+        <p className="text-xs text-gray-500 mt-1">View calendar & dates</p>
+      </div>
+      <FaAngleRight className="text-gray-400 group-hover/link:text-emerald-600 group-hover/link:translate-x-1 transition-all" />
+    </Link>
+
+    {/* Request Overtime */}
+    <Link 
+      to="/employee/empovertime" 
+      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-amber-50 hover:to-white border border-gray-200 hover:border-amber-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+    >
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
+        <FaClock className="text-lg" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-gray-800 group-hover/link:text-amber-700 transition-colors">Request Overtime</h3>
+        <p className="text-xs text-gray-500 mt-1">Extra hours & compensation</p>
+      </div>
+      <FaAngleRight className="text-gray-400 group-hover/link:text-amber-600 group-hover/link:translate-x-1 transition-all" />
+    </Link>
+
+    {/* Announcement */}
+    <Link 
+      to="/employee/notices" 
+      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-purple-50 hover:to-white border border-gray-200 hover:border-purple-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+    >
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
+        <FaBullhorn className="text-lg" />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-gray-800 group-hover/link:text-purple-700 transition-colors">Announcement</h3>
+        <p className="text-xs text-gray-500 mt-1">Latest news & updates</p>
+      </div>
+      <FaAngleRight className="text-gray-400 group-hover/link:text-purple-600 group-hover/link:translate-x-1 transition-all" />
+    </Link>
+  </div>
+</div>
+
+
+
+</div>
 
       {/* ✅ MODAL: Missed Punch Yesterday Request */}
       {showReqModal && (
