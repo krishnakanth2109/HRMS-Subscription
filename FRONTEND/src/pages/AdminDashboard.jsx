@@ -247,15 +247,16 @@ const AdminDashboard = () => {
       
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {/* ... (Stat Cards UI Unchanged) ... */}
+        
         {/* 1. Today's Attendance Overview */}
         <div 
-          className="bg-white rounded-xl shadow-md border-l-4 border-indigo-600 p-4 cursor-pointer hover:shadow-lg transition-all duration-200"
+          // className="bg-white rounded-xl shadow-md border border-pink-500 border-l-4 border-blue-600 p-5 cursor-pointer hover:shadow-lg transition-all flex items-center justify-between"
+          className="bg-white rounded-xl shadow-md   p-4 cursor-pointer hover:shadow-lg transition-all duration-200 border border-blue-700 border-l-4 cursor-pointer"
           onClick={() => navigate("/admin/today-overview")}
         >
           <div className="flex justify-between items-center mb-3">
              <h3 className="text-gray-700 font-bold text-base">Today's Attendance</h3>
-             <FaClock className="text-indigo-500 w-4 h-4" />
+             <FaClock className="text-blue-500 w-5 h-5" />
           </div>
           <div className="grid grid-cols-3 gap-3">
              <div className="flex flex-col items-center justify-center bg-green-50 rounded-lg py-2 border border-green-100">
@@ -272,15 +273,15 @@ const AdminDashboard = () => {
              </div>
           </div>
           <div className="mt-3 flex justify-end">
-             <span className="text-[10px] font-bold text-indigo-500 flex items-center gap-1 hover:underline">
+             <span className="text-[10px] font-bold text-blue-500 flex items-center gap-1 hover:underline">
                Details <FaArrowRight className="w-2.5 h-2.5" />
              </span>
           </div>
         </div>
 
-        {/* 2. Total Employees */}
+        {/* 2. Total Employees - Added Border Left */}
         <div 
-          className="bg-white rounded-xl shadow-md border border-gray-100 p-5 cursor-pointer hover:shadow-lg transition-all flex items-center justify-between"
+          className="bg-white rounded-xl shadow-md border border-pink-500 border-l-4 border-blue-600 p-5 cursor-pointer hover:shadow-lg transition-all flex items-center justify-between"
           onClick={() => navigate("/employees")}
         >
           <div>
@@ -292,9 +293,9 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* 3. Leave Approvals */}
+        {/* 3. Leave Approvals - Added Border Left */}
         <div 
-          className="bg-white rounded-xl shadow-md border border-gray-100 p-5 cursor-pointer hover:shadow-lg transition-all flex items-center justify-between"
+          className="bg-white rounded-xl shadow-md border border-gray-100 border-l-4 border-purple-600 p-5 cursor-pointer hover:shadow-lg transition-all flex items-center justify-between"
           onClick={() => navigate("/admin/admin-Leavemanage", { state: { defaultStatus: "Pending" } })}
         >
            <div>
@@ -306,8 +307,8 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* 4. Departments */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-100 p-5 flex items-center justify-between">
+        {/* 4. Departments - Added Border Left */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-100 border-l-4 border-orange-600 p-5 flex items-center justify-between">
            <div>
             <p className="text-gray-500 text-sm font-semibold mb-1">Departments</p>
             <h3 className="text-3xl font-extrabold text-gray-800">{statCards.totalDepartments}</h3>
@@ -435,7 +436,7 @@ const AdminDashboard = () => {
                   />
                   <Bar
                     dataKey="Present"
-                    fill="#10b981"
+                    fill="#14532d"
                     radius={[4, 4, 0, 0]}
                     barSize={viewMode === 'month' ? 10 : 20} // Thinner bars for month view
                   />

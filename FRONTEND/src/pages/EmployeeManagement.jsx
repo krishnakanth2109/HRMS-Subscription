@@ -156,7 +156,13 @@ const EmployeeRow = ({ emp, idx, navigate, onDeactivateClick, onOverviewClick, p
              emp.name?.split(" ").map((n) => n[0]).join("")
           )}
         </div>
-        <span className="font-semibold text-gray-800">{emp.name}</span>
+        {/* ✅ UPDATED: Clickable Name */}
+        <span 
+            onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
+            className="font-semibold text-gray-800 cursor-pointer hover:text-blue-700 hover:underline"
+        >
+            {emp.name}
+        </span>
       </td>
       <td className="p-4">
         <span className={`px-2 py-1 rounded text-xs font-bold ${DEPARTMENT_COLORS[currentDepartment]?.bg || "bg-gray-100"} ${DEPARTMENT_COLORS[currentDepartment]?.text || "text-gray-700"}`}>
@@ -217,7 +223,13 @@ const InactiveEmployeeRow = ({ emp, navigate, onReactivateClick, onViewDetailsCl
           )}
         </div>
         <div className="flex flex-col">
-          <span className="font-semibold text-gray-800">{emp.name}</span>
+          {/* ✅ UPDATED: Clickable Name */}
+          <span 
+             onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
+             className="font-semibold text-gray-800 cursor-pointer hover:text-blue-700 hover:underline"
+          >
+             {emp.name}
+          </span>
           <span className="text-xs text-red-700 font-bold uppercase">Deactivated</span>
         </div>
       </td>

@@ -427,7 +427,7 @@ const CategoryModal = ({ isOpen, onClose, onSave, allEmployees }) => {
         </div>
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
           <button onClick={onClose} className="px-5 py-2.5 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition">Cancel</button>
-          <button onClick={handleSave} className="px-6 py-2.5 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200 transition transform active:scale-95">Create Category</button>
+          <button onClick={handleSave} className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition transform active:scale-95">Create Category</button>
         </div>
       </div>
     </div>
@@ -797,7 +797,7 @@ const AdminLocationSettings = () => {
                     {/* NEW BUTTON FOR REQUESTS */}
                     <button onClick={() => setShowRequestsModal(true)} className="bg-blue-600 text-white border border-blue-600 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition text-sm shadow-md animate-fade-in"><FaEnvelopeOpenText /> Requests</button>
                     <button onClick={() => setShowExceptionsModal(true)} className="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-orange-100 transition text-sm"><FaListAlt /> View Exceptions</button>
-                    <button onClick={() => setShowCategoryModal(true)} className="bg-purple-600 text-white px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-purple-700 shadow-sm transition transform active:scale-95 text-sm"><FaPlus /> Create Category</button>
+                    <button onClick={() => setShowCategoryModal(true)} className="bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition transform active:scale-95 text-sm"><FaPlus /> Create Category</button>
                     <button onClick={handleResetAll} className="bg-white text-red-500 border border-red-100 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-50 hover:border-red-200 transition text-sm"><FaUndo /> Reset All</button>
                 </div>
             </div>

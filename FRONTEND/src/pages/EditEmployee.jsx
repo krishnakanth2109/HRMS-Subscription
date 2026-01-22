@@ -2,7 +2,8 @@
 
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { FaUser, FaEnvelope, FaBuilding, FaMoneyBill, FaCalendarAlt, FaCreditCard } from "react-icons/fa";
+// 1. Added FaIdBadge to imports
+import { FaUser, FaEnvelope, FaBuilding, FaMoneyBill, FaCalendarAlt, FaCreditCard, FaIdBadge } from "react-icons/fa";
 // Import the centralized API functions
 import { getEmployeeById, updateEmployeeById } from "../api.js"; 
 
@@ -26,6 +27,7 @@ const EditEmployee = () => {
 
         setEmployee(emp);
         setFormData({
+          employeeId: emp.employeeId || "", // 2. Added employeeId to state
           name: emp.name,
           email: emp.email,
           phone: emp.phone,
@@ -77,6 +79,8 @@ const EditEmployee = () => {
     const payload = {
       ...employee,
       ...formData,
+      // Ensure employeeId is sent in payload
+      employeeId: formData.employeeId, 
       currentDepartment: formData.currentDepartment,
       currentRole: formData.currentRole,
       currentSalary: formData.currentSalary,
@@ -116,6 +120,16 @@ const EditEmployee = () => {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           
+          {/* 3. Added Employee ID Input Field Here */}
+          <InputField 
+            icon={<FaIdBadge />} 
+            name="employeeId" 
+            label="Employee ID" 
+            value={formData.employeeId} 
+            onChange={handleChange} 
+            readOnly
+          />
+
           <InputField icon={<FaUser />} name="name" label="Full Name" value={formData.name} onChange={handleChange} />
           <InputField icon={<FaEnvelope />} name="email" label="Email" value={formData.email} onChange={handleChange} />
 

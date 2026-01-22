@@ -195,7 +195,7 @@ const RequestApprovalModal = ({ isOpen, onClose, requests, onAction, onDelete })
         {/* Header */}
         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-100 rounded-full text-orange-600">
+            <div className="p-3 bg-blue-600 rounded-full text-blue-600">
               <FaBell size={20} />
             </div>
             <div>
@@ -1182,7 +1182,7 @@ const handleMonthChange = (e) => {
   const handleOpenStatusModal = (type) => {
       if (type === 'WORKING') setStatusListModal({ isOpen: true, title: "Currently Working", employees: dailyStats.workingList });
       else if (type === 'COMPLETED') setStatusListModal({ isOpen: true, title: "Shift Completed", employees: dailyStats.completedList });
-      else if (type === 'ABSENT' && startDate === endDate) setStatusListModal({ isOpen: true, title: "Not Logged In", employees: absentEmployees });
+      else if (type === 'ABSENT' && startDate === endDate) setStatusListModal({ isOpen: true, title: "Login Required", employees: absentEmployees });
   };
 
   const StatCard = ({ icon, title, value, colorClass, onClick }) => (
@@ -1249,7 +1249,7 @@ const handleMonthChange = (e) => {
                     
                     <button 
                         onClick={() => setIsRequestModalOpen(true)} 
-                        className="relative flex items-center gap-2 px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg shadow-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-transform active:scale-95"
+                        className="relative flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-transform active:scale-95"
                     >
                         <FaBell /> 
                         <span>Punch Out Requests</span>
@@ -1266,7 +1266,7 @@ const handleMonthChange = (e) => {
           <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
             <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" onClick={() => handleOpenStatusModal('WORKING')} />
             <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" onClick={() => handleOpenStatusModal('COMPLETED')} />
-            {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-3xl"/>} title="Not Logged In" value={loading ? '...' : dailyStats.absentCount} colorClass="border-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />)}
+            {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-3xl"/>} title="Login Required" value={loading ? '...' : dailyStats.absentCount} colorClass="border-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />)}
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -1429,7 +1429,7 @@ const handleMonthChange = (e) => {
                     <div className="w-full">
                         <button 
                             onClick={exportSummaryToExcel} 
-                            className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-transform active:scale-95 h-[42px]"
+                            className="w-full flex justify-center items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-transform active:scale-95 h-[42px]"
                         >
                             <FaFileExcel/> Export Summary
                         </button>

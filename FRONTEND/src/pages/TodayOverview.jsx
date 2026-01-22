@@ -181,7 +181,7 @@ const StatusBadge = ({ status }) => {
       dot: 'bg-emerald-500'
     },
     NOT_LOGGED_IN: { 
-      label: 'Not Logged', 
+      label: 'LOGIN REQUIRED', 
       icon: <FaUserSlash className="text-xs" />,
       bg: 'bg-slate-50',
       border: 'border-slate-200',
@@ -289,18 +289,23 @@ const StatCard = ({ icon, title, value, color, onClick, category, isActive }) =>
 
 const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
   if (!isOpen) return null;
+  
+  const isDisabled = !phoneNumber;
 
   const handleNormalCall = () => {
+    if (!phoneNumber) return;
     window.open(`tel:${phoneNumber}`, '_self');
     onClose();
   };
 
   const handleWhatsAppCall = () => {
+    if (!phoneNumber) return;
     window.open(`https://wa.me/${phoneNumber}`, '_blank');
     onClose();
   };
 
   const handleWhatsAppMessage = () => {
+    if (!phoneNumber) return;
     const message = `Hi ${employee?.employeeName || 'there'}, How are you?`;
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
@@ -344,35 +349,43 @@ const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
             </div>
             <h4 className="text-base font-semibold text-slate-900">{employee?.employeeName}</h4>
             <p className="text-sm text-slate-500 mt-0.5">ID: {employee?.employeeId}</p>
-            <p className="text-lg font-semibold text-slate-900 mt-2">{phoneNumber || 'No phone number'}</p>
+            <p className={`text-lg font-semibold mt-2 ${!phoneNumber ? 'text-red-500' : 'text-slate-900'}`}>
+              {phoneNumber || 'No phone number linked'}
+            </p>
           </div>
           
           <div className="space-y-2.5">
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
+              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={handleNormalCall}
-              className="w-full py-3 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2.5 border border-slate-900"
+              disabled={isDisabled}
+              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+                ${isDisabled ? 'bg-slate-300 border-slate-300 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 border-slate-900'}`}
             >
               <FaPhoneAlt className="text-base" />
               Make Phone Call
             </motion.button>
             
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
+              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={handleWhatsAppCall}
-              className="w-full py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2.5 border border-emerald-600"
+              disabled={isDisabled}
+               className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+                ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
             >
               <FaWhatsapp className="text-base" />
               WhatsApp Call
             </motion.button>
             
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
+              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={handleWhatsAppMessage}
-              className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2.5 border border-blue-600"
+              disabled={isDisabled}
+              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+                ${isDisabled ? 'bg-blue-300 border-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 border-blue-600'}`}
             >
               <FaComment className="text-base" />
               WhatsApp Message
@@ -388,8 +401,10 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
   const [message, setMessage] = useState(`Hi ${employee?.employeeName || 'there'}, How are you?`);
 
   if (!isOpen) return null;
+  const isDisabled = !phoneNumber;
 
   const handleSendMessage = (platform) => {
+    if (!phoneNumber) return;
     let url = '';
     const encodedMessage = encodeURIComponent(message);
     
@@ -435,6 +450,12 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
         </div>
         
         <div className="p-5">
+          {!phoneNumber && (
+             <div className="mb-4 bg-red-50 text-red-600 px-3 py-2 rounded text-sm text-center font-medium">
+               ⚠️ This employee has no phone number linked.
+             </div>
+          )}
+
           <div className="mb-5">
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Message
@@ -452,20 +473,24 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
           
           <div className="space-y-2.5">
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
+              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={() => handleSendMessage('whatsapp')}
-              className="w-full py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-all flex items-center justify-center gap-2.5 border border-emerald-600"
+              disabled={isDisabled}
+               className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+                ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
             >
               <FaWhatsapp className="text-base" />
               Send via WhatsApp
             </motion.button>
             
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
+              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={() => handleSendMessage('sms')}
-              className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-2.5 border border-blue-600"
+              disabled={isDisabled}
+              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+                ${isDisabled ? 'bg-blue-300 border-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 border-blue-600'}`}
             >
               <FaComment className="text-base" />
               Send as SMS
@@ -544,49 +569,46 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
           </div>
           
           <div className="relative">
-            {employee.phoneNumber && (
-              <>
-                <button 
-                  onClick={toggleDropdown}
-                  className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors"
-                >
-                  <FaEllipsisV className="text-sm" />
-                </button>
+            {/* ✅ FIXED: REMOVED CHECK FOR PHONE NUMBER SO ICON ALWAYS SHOWS */}
+            <button 
+              onClick={toggleDropdown}
+              className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors"
+            >
+              <FaEllipsisV className="text-sm" />
+            </button>
 
-                <AnimatePresence>
-                  {showDropdown && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
-                      onClick={(e) => e.stopPropagation()}
+            <AnimatePresence>
+              {showDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        onCallClick(employee);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
                     >
-                      <div className="py-1">
-                        <button
-                          onClick={() => {
-                            onCallClick(employee);
-                            setShowDropdown(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
-                        >
-                          <FaPhone className="text-xs" /> Call
-                        </button>
-                        <button
-                          onClick={() => {
-                            onMessageClick(employee);
-                            setShowDropdown(false);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
-                        >
-                          <FaEnvelope className="text-xs" /> Message
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </>
-            )}
+                      <FaPhone className="text-xs" /> Call
+                    </button>
+                    <button
+                      onClick={() => {
+                        onMessageClick(employee);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
+                    >
+                      <FaEnvelope className="text-xs" /> Message
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
         
@@ -723,7 +745,7 @@ const TableView = ({ data, onImageClick, onCallClick, onMessageClick }) => {
                    )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {employee.phoneNumber && (
+                    {/* ✅ FIXED: REMOVED CHECK FOR PHONE NUMBER */}
                     <div className="flex items-center justify-end gap-2">
                        <button 
                         onClick={() => onCallClick(employee)}
@@ -740,7 +762,6 @@ const TableView = ({ data, onImageClick, onCallClick, onMessageClick }) => {
                          <FaComment size={14} />
                        </button>
                     </div>
-                  )}
                 </td>
               </tr>
             ))}
@@ -1075,7 +1096,7 @@ const TodayOverview = () => {
           />
           <StatCard
             icon={<FaUserSlash />}
-            title="Not Logged"
+            title="LOGIN REQUIRED"
             value={stats.notLoggedIn}
             category="NOT_LOGGED_IN"
             isActive={filterType === 'NOT_LOGGED_IN'}
@@ -1135,7 +1156,7 @@ const TodayOverview = () => {
                         <option value="ALL">All Employees</option>
                         <option value="WORKING">Working</option>
                         <option value="COMPLETED">Completed</option>
-                        <option value="NOT_LOGGED_IN">Not Logged</option>
+                        <option value="NOT_LOGGED_IN">LOGIN REQUIRED</option>
                         <option value="ON_LEAVE">On Leave</option>
                         <option value="LATE">Late</option>
                     </select>
