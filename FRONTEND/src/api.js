@@ -585,5 +585,31 @@ export const deleteRule = async (id) => {
   }
 };
 
+/* =============================================================================
+   PAYROLL RULES
+============================================================================= */
+export const getPayrollRules = async () => {
+  try {
+    // Use the 'api' instance, not raw 'axios'
+    // The base URL is already configured in the 'api' instance
+    const response = await api.get("/api/payroll/rules");
+    return response;
+  } catch (error) {
+    console.error("Get payroll rules error:", error);
+    // Return null so the frontend falls back to default rules
+    return null; 
+  }
+};
+
+export const savePayrollRules = async (rulesData) => {
+  try {
+    const response = await api.put("/api/payroll/rules", rulesData);
+    return response;
+  } catch (error) {
+    console.error("Save payroll rules error:", error);
+    throw error;
+  }
+};
+
 
 export default api;

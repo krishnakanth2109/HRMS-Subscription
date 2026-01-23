@@ -31,6 +31,7 @@ import groupRoutes from "./routes/groupRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import rulesRoutes from './routes/rules.js';
 import chatRoutes from "./routes/chat.js";
+import payrollRoutes from './routes/payroll.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -41,7 +42,8 @@ const allowedOrigins = [
   "https://hrms-420.netlify.app",    // Your Production Frontend
   "http://localhost:5173",           // Your Local Frontend
   "https://hrms-ask.onrender.com",   // Your Self/Backend
-  "http://localhost:5000"            // Local Backend
+  "http://localhost:5000"  ,
+  "https://hrms-ask-1.onrender.com"          // Local Backend
 ];
 
 // ===================================================================
@@ -146,6 +148,7 @@ app.use("/api/groups", groupRoutes);
 app.use('/api/meetings', meetingRoutes); 
 app.use('/api/rules', rulesRoutes);
 app.use("/api/chat", chatRoutes);
+app.use('/api/payroll', payrollRoutes);
 // app.use("/api/companies", companyRoutes);
 
 

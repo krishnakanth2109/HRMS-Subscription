@@ -70,13 +70,13 @@ const NoticeList = () => {
 
   const directChatEndRef = useRef(null);
 
-  // --- EXISTING FETCH LOGIC ---
+  // --- OPTIMIZED FETCH LOGIC ---
   const fetchNotices = useCallback(async (silent = false) => {
     try {
-      if (!silent) setIsInitialLoading(true);
-      
+      // ✅ Removed IsInitialLoading from here to handle it in the bootstrap function
       const { data } = await api.get("/api/notices");
 
+      // Extract Config Notice
       const configNotice = data.find(n => n.title === "__SYSTEM_GROUPS_CONFIG__");
       if (configNotice) {
         try {
@@ -85,13 +85,16 @@ const NoticeList = () => {
         } catch (e) { console.error("Error parsing admin groups", e); }
       }
 
+      // Filter Data
       const filteredData = data.filter(notice => 
         notice.title !== "__SYSTEM_READ_STATE__" && 
         notice.title !== "__SYSTEM_GROUPS_CONFIG__"
       );
 
+      // Sort
       const sortedData = filteredData.sort((a, b) => new Date(b.date) - new Date(a.date));
       
+      // Process Read States
       const processedData = sortedData.map(notice => {
           if (newlyReadIdsRef.current.has(notice._id)) {
               return {
@@ -105,24 +108,25 @@ const NoticeList = () => {
           return notice;
       });
 
-      setNotices(prev => {
-        if (JSON.stringify(prev) === JSON.stringify(processedData)) return prev;
-        return processedData;
-      });
+      // ✅ OPTIMIZED: Removed expensive JSON.stringify comparison. 
+      // React handles state diffing efficiently.
+      setNotices(processedData);
       
       autoMarkAsRead(sortedData);
       
+      // Update active notice if chat is open
       if (activeNotice) {
         const updatedActive = sortedData.find(n => n._id === activeNotice._id);
-        if (!sendingReply && updatedActive && JSON.stringify(updatedActive.replies) !== JSON.stringify(activeNotice.replies)) {
-           setActiveNotice(updatedActive);
+        if (!sendingReply && updatedActive) {
+           // Only update if replies changed length to avoid jitter
+           if(updatedActive.replies.length !== activeNotice.replies?.length) {
+              setActiveNotice(updatedActive);
+           }
         }
       }
     } catch (err) {
       console.error("Error fetching notices:", err);
-    } finally {
-      if (!silent) setIsInitialLoading(false);
-    }
+    } 
   }, [activeNotice, currentUserId, sendingReply]);
 
   const fetchEmployeeList = async () => {
@@ -132,19 +136,50 @@ const NoticeList = () => {
     } catch (err) { console.error(err); }
   };
 
-  useEffect(() => { 
-    if (user) {
-        fetchNotices(false); 
-        fetchEmployeeList();
-    }
-  }, [user]); 
+  // ✅ 1. Fetch Chat List (Persistence & Unread Counts)
+  const fetchChatList = useCallback(async () => {
+     try {
+         const { data } = await api.get('/api/chat/users'); 
+         setChatList(data || []);
+         
+         // Calculate total unread
+         const total = data.reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
+         setTotalUnreadCount(total);
+     } catch (e) {
+         console.error("Failed to fetch chat list");
+     }
+  }, []);
 
+  // ✅ OPTIMIZED BOOTSTRAP: Parallel Fetching
+  useEffect(() => { 
+    const bootstrap = async () => {
+        if (user) {
+            setIsInitialLoading(true);
+            try {
+                // Fetch ALL critical data in parallel
+                await Promise.all([
+                    fetchNotices(false),
+                    fetchEmployeeList(),
+                    fetchChatList()
+                ]);
+            } catch (error) {
+                console.error("Error loading initial data", error);
+            } finally {
+                setIsInitialLoading(false);
+            }
+        }
+    };
+    bootstrap();
+  }, [user]); // Removed individual fetch functions from dependency to prevent loops
+
+  // ✅ Polling Interval (Keep data fresh)
   useEffect(() => {
     const interval = setInterval(() => {
         fetchNotices(true); 
+        fetchChatList(); // Sync chat list count
     }, 3000);
     return () => clearInterval(interval);
-  }, [fetchNotices]);
+  }, [fetchNotices, fetchChatList]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -160,29 +195,8 @@ const NoticeList = () => {
   }, [activeNotice?.replies?.length, isChatOpen]);
 
   // ==========================================
-  // ✅ DIRECT CHAT LOGIC UPDATES
+  // ✅ DIRECT CHAT LOGIC
   // ==========================================
-  
-  // 1. Fetch Chat List (Persistence & Unread Counts)
-  const fetchChatList = useCallback(async () => {
-     try {
-         const { data } = await api.get('/api/chat/users'); 
-         setChatList(data || []);
-         
-         // Calculate total unread
-         const total = data.reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
-         setTotalUnreadCount(total);
-     } catch (e) {
-         console.error("Failed to fetch chat list");
-     }
-  }, []);
-
-  // Poll for global unread counts even if chat is closed
-  useEffect(() => {
-      fetchChatList(); // Initial fetch
-      const interval = setInterval(fetchChatList, 3000);
-      return () => clearInterval(interval);
-  }, [fetchChatList]);
 
   // 2. Fetch Messages
   const fetchDirectMessages = useCallback(async () => {
@@ -398,7 +412,7 @@ const NoticeList = () => {
       api.put(`/api/notices/${unreadNotices[0]._id}/read`).catch(e => console.error(e));
       setTimeout(() => {
         unreadNotices.forEach(n => newlyReadIdsRef.current.delete(n._id));
-        fetchNotices(true);
+        fetchNotices(true); // removed await
       }, 5000);
     } catch (error) { console.error(error); }
   };

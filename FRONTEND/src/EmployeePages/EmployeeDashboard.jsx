@@ -110,7 +110,11 @@ const toISODateString = (date) => {
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
   const { notices } = useContext(NoticeContext);
-  const [loading, setLoading] = useState(true);
+  
+  // ✅ OPTIMIZATION: Split loading state
+  const [loading, setLoading] = useState(true); // Critical data (Punch/Shift)
+  const [loadingTeamData, setLoadingTeamData] = useState(true); // Background data (Widgets)
+
   const [attendance, setAttendance] = useState([]);
   const [todayLog, setTodayLog] = useState(null);
   const [profileImage, setProfileImage] = useState(
@@ -134,8 +138,6 @@ const EmployeeDashboard = () => {
   // ✅ NEW: Full Holidays and Leaves for Graph Accuracy
   const [holidays, setHolidays] = useState([]);
   const [leaves, setLeaves] = useState([]);
-
-  const [loadingTeamData, setLoadingTeamData] = useState(false);
 
   // ✅ NEW: Real-time Clock State
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -248,51 +250,52 @@ const EmployeeDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // ✅ NEW: Fetch Today's Birthdays
-  const fetchTodaysBirthdays = async () => {
+  // ✅ OPTIMIZED: Fetch all team data in one go to reduce API calls
+  const fetchOptimizedTeamData = async () => {
+    setLoadingTeamData(true);
     try {
-      const response = await api.get("/api/employees");
-      const employees = response.data || [];
+      // 1. Parallel Fetch of Raw Data
+      const [
+        employeesRes, 
+        leavesRes, 
+        officeConfigRes, 
+        employeeModesRes, 
+        myLeavesRes
+      ] = await Promise.all([
+        api.get("/api/employees"),
+        api.get("/api/leaves"),
+        api.get("/api/admin/settings/office"),
+        api.get("/api/admin/settings/employees-modes"),
+        api.get("/api/leaves", { params: { employeeId: user.employeeId } })
+      ]);
 
+      const allEmployees = employeesRes.data || [];
+      const allLeaves = leavesRes.data || [];
+      // Set office config here as well to ensure we have it for remote calculations
+      const configData = officeConfigRes.data;
+      setOfficeConfig(configData); 
+      
+      const empModes = employeeModesRes.data?.employees || [];
+      const myLeaves = Array.isArray(myLeavesRes.data) ? myLeavesRes.data : (myLeavesRes.data?.leaves || []);
+
+      // --- LOGIC 1: BIRTHDAYS ---
       const today = new Date();
-      const todayMonth = today.getMonth() + 1; // 1-12
+      const todayMonth = today.getMonth() + 1; 
       const todayDate = today.getDate();
 
-      const birthdays = employees.filter(emp => {
+      const birthdays = allEmployees.filter(emp => {
         if (!emp.personalDetails?.dob) return false;
-
         const dob = new Date(emp.personalDetails.dob);
-        const dobMonth = dob.getMonth() + 1;
-        const dobDate = dob.getDate();
-
-        // Check if month and date match today
-        return dobMonth === todayMonth && dobDate === todayDate;
+        return (dob.getMonth() + 1) === todayMonth && dob.getDate() === todayDate;
       }).map(emp => ({
         name: emp.name,
         employeeId: emp.employeeId,
         department: emp.department || emp.experienceDetails?.[0]?.department || "N/A",
         role: emp.role || emp.experienceDetails?.[0]?.role || "N/A"
       }));
-
       setTodaysBirthdays(birthdays);
-    } catch (error) {
-      console.error("Error fetching today's birthdays:", error);
-      setTodaysBirthdays([]);
-    }
-  };
 
-  // ✅ NEW: Fetch Employees on Leave Today
-  const fetchOnLeaveToday = async () => {
-    try {
-      // First get all leave requests
-      const leavesResponse = await api.get("/api/leaves");
-      const allLeaves = leavesResponse.data || [];
-
-      // Get all employees
-      const employeesResponse = await api.get("/api/employees");
-      const allEmployees = employeesResponse.data || [];
-
-      // Create employee map for quick lookup
+      // --- LOGIC 2: ON LEAVE TODAY ---
       const employeeMap = new Map();
       allEmployees.forEach(emp => {
         employeeMap.set(emp.employeeId, {
@@ -303,79 +306,38 @@ const EmployeeDashboard = () => {
         });
       });
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
 
-      // Filter leaves that are approved and include today
       const todayLeaves = allLeaves.filter(leave => {
         if (leave.status !== 'Approved') return false;
-
         const fromDate = new Date(leave.from);
         const toDate = new Date(leave.to);
         fromDate.setHours(0, 0, 0, 0);
         toDate.setHours(23, 59, 59, 999);
-
-        return today >= fromDate && today <= toDate;
+        return todayStart >= fromDate && todayStart <= toDate;
       });
 
-      // Map leave data with employee details
       const onLeave = todayLeaves.map(leave => {
         const empDetails = employeeMap.get(leave.employeeId) || {
           name: leave.employeeName || "Unknown",
           employeeId: leave.employeeId,
-          department: "N/A",
-          role: "N/A"
+          department: "N/A", role: "N/A"
         };
-
-        return {
-          ...empDetails,
-          leaveType: leave.leaveType || "Casual",
-          leaveReason: leave.reason || "No reason provided",
-          fromDate: leave.from,
-          toDate: leave.to
-        };
+        return { ...empDetails, leaveType: leave.leaveType || "Casual", leaveReason: leave.reason };
       });
+      // Unique leaves
+      setOnLeaveToday(Array.from(new Map(onLeave.map(item => [item.employeeId, item])).values()));
 
-      // Remove duplicates (in case employee has multiple leaves)
-      const uniqueOnLeave = Array.from(
-        new Map(onLeave.map(item => [item.employeeId, item])).values()
-      );
-
-      setOnLeaveToday(uniqueOnLeave);
-    } catch (error) {
-      console.error("Error fetching today's leaves:", error);
-      setOnLeaveToday([]);
-    }
-  };
-
-  // ✅ NEW: Calculate Remote Workers
-  const fetchRemoteWorkers = async () => {
-    try {
-      // 1. Get Office Config
-      const { data: configData } = await api.get("/api/admin/settings/office");
+      // --- LOGIC 3: REMOTE WORKERS ---
       const currentGlobalMode = configData.globalWorkMode || 'WFO';
-
-      // 2. Get Employee Specific Modes
-      const { data: modesData } = await api.get("/api/admin/settings/employees-modes");
-      const employees = modesData.employees || [];
-
-      // 3. Get All Employees for basic info
-      const { data: allEmployees } = await api.get("/api/employees");
-      const empMap = new Map(allEmployees.map(e => [e.employeeId, e]));
-
-      const today = new Date();
-      const currentDay = today.getDay(); // 0=Sun, 1=Mon...
-      today.setHours(0, 0, 0, 0);
-
+      const currentDay = today.getDay();
+      
       let remoteList = [];
-
-      // Logic to determine Effective Mode
-      employees.forEach(emp => {
-        const basicInfo = empMap.get(emp.employeeId);
+      empModes.forEach(emp => {
+        const basicInfo = employeeMap.get(emp.employeeId);
         if(!basicInfo) return;
 
-        let effectiveMode = currentGlobalMode; // Default to global
-
+        let effectiveMode = currentGlobalMode;
         if (emp.ruleType === "Permanent") {
           effectiveMode = emp.config.permanentMode;
         } else if (emp.ruleType === "Temporary" && emp.config.temporary) {
@@ -383,13 +345,9 @@ const EmployeeDashboard = () => {
           const to = new Date(emp.config.temporary.toDate);
           from.setHours(0, 0, 0, 0);
           to.setHours(23, 59, 59, 999);
-          if (today >= from && today <= to) {
-            effectiveMode = emp.config.temporary.mode;
-          }
+          if (todayStart >= from && todayStart <= to) effectiveMode = emp.config.temporary.mode;
         } else if (emp.ruleType === "Recurring" && emp.config.recurring) {
-          if (emp.config.recurring.days.includes(currentDay)) {
-            effectiveMode = emp.config.recurring.mode;
-          }
+          if (emp.config.recurring.days.includes(currentDay)) effectiveMode = emp.config.recurring.mode;
         }
 
         if (effectiveMode === 'WFH') {
@@ -400,94 +358,37 @@ const EmployeeDashboard = () => {
           });
         }
       });
-      
       setRemoteWorkers(remoteList);
-      
-    } catch (error) {
-      console.error("Error fetching remote workers:", error);
-    }
-  };
 
-  // ✅ NEW: Calculate Leave Balance (Updated Logic)
-// ✅ NEW: Calculate Leave Balance (Updated to match Leave Management logic)
-// ✅ NEW: Calculate Leave Balance (1 per month, resets monthly)
-const fetchLeaveBalance = async () => {
-  if (!user?.employeeId) return;
-  
-  try {
-    // Fetch leaves for current employee
-    const response = await api.get("/api/leaves", { params: { employeeId: user.employeeId } });
-    const myLeaves = Array.isArray(response.data) ? response.data : (response.data.leaves || []);
-    
-    const today = new Date();
-    const currentMonth = today.getMonth(); // 0-11
-    const currentYear = today.getFullYear();
-    
-    // Get the first day of current month
-    const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-    
-    // Check if employee has ANY approved leave in current month
-    const hasApprovedLeaveThisMonth = myLeaves.some(leave => {
-      if (leave.status !== 'Approved') return false;
+      // --- LOGIC 4: LEAVE BALANCE ---
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
       
-      const leaveFrom = new Date(leave.from);
-      return leaveFrom >= firstDayOfMonth;
-    });
-    
-    // Monthly credit is always 1
-    const monthlyCredit = 1;
-    
-    // Calculate total approved leave days in current month
-    let totalDaysTaken = 0;
-    
-    myLeaves.forEach(leave => {
-      if (leave.status === 'Approved') {
+      const hasApprovedLeaveThisMonth = myLeaves.some(leave => {
+        if (leave.status !== 'Approved') return false;
         const leaveFrom = new Date(leave.from);
-        const leaveTo = new Date(leave.to);
-        
-        // Check if leave is in current month
-        if (leaveFrom >= firstDayOfMonth) {
-          const diffTime = Math.abs(leaveTo - leaveFrom);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-          
-          if (leave.halfDaySession && leave.from === leave.to) {
-            totalDaysTaken += 0.5;
-          } else {
-            totalDaysTaken += diffDays;
+        return leaveFrom >= firstDayOfMonth;
+      });
+      
+      let totalDaysTaken = 0;
+      myLeaves.forEach(leave => {
+        if (leave.status === 'Approved') {
+          const leaveFrom = new Date(leave.from);
+          const leaveTo = new Date(leave.to);
+          if (leaveFrom >= firstDayOfMonth) {
+            const diffTime = Math.abs(leaveTo - leaveFrom);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+            if (leave.halfDaySession && leave.from === leave.to) totalDaysTaken += 0.5;
+            else totalDaysTaken += diffDays;
           }
         }
-      }
-    });
-    
-    // If employee has taken ANY leave this month, available = 0
-    // Otherwise, available = 1
-    const available = hasApprovedLeaveThisMonth ? 0 : 1;
-    
-    setLeaveBalance({ 
-      available: available, 
-      taken: totalDaysTaken,
-      extra: Math.max(0, totalDaysTaken - monthlyCredit)
-    });
-    
-  } catch (error) {
-    console.error("Error fetching leave balance:", error);
-    // Default: 1 available leave
-    setLeaveBalance({ available: 1, taken: 0, extra: 0 });
-  }
-};
+      });
+      const available = hasApprovedLeaveThisMonth ? 0 : 1;
+      setLeaveBalance({ available, taken: totalDaysTaken, extra: Math.max(0, totalDaysTaken - 1) });
 
-  // ✅ NEW: Fetch team data (birthdays, leaves, remote, balance)
-  const fetchTeamData = async () => {
-    setLoadingTeamData(true);
-    try {
-      await Promise.all([
-        fetchTodaysBirthdays(),
-        fetchOnLeaveToday(),
-        fetchRemoteWorkers(),
-        fetchLeaveBalance()
-      ]);
     } catch (error) {
-      console.error("Error fetching team data:", error);
+      console.error("Error fetching background data:", error);
     } finally {
       setLoadingTeamData(false);
     }
@@ -564,29 +465,26 @@ const fetchLeaveBalance = async () => {
     } catch (err) { }
   };
 
-  useEffect(() => {
-    const fetchOfficeSettings = async () => {
-      try {
-        const { data } = await api.get("/api/admin/settings/office");
-        setOfficeConfig(data);
-      } catch (err) { console.error("Failed to load office settings:", err); }
-    };
-    fetchOfficeSettings();
-  }, []);
-
+  // ✅ OPTIMIZED BOOTSTRAP: Critical First, Background Second
   useEffect(() => {
     const bootstrap = async () => {
       if (user && user.employeeId) {
+        // 1. Load CRITICAL data for UI (Punching, Shift)
         setLoading(true);
         await Promise.all([
           loadAttendance(user.employeeId),
-          loadProfilePic(),
           loadShiftTimings(user.employeeId),
-          fetchTeamData(), // ✅ NEW: Fetch team data
-          loadHolidaysAndLeaves(user.employeeId) // ✅ ADDED: Load holidays/leaves
+          loadProfilePic(), 
         ]);
-        setLoading(false);
-      } else { setLoading(false); }
+        setLoading(false); // ✅ UNBLOCK UI HERE
+
+        // 2. Load HEAVY data in background (Widgets, Charts, Team Info)
+        // This runs without blocking the user
+        fetchOptimizedTeamData(); 
+        loadHolidaysAndLeaves(user.employeeId);
+      } else { 
+        setLoading(false); 
+      }
     };
     bootstrap();
   }, [user, loadAttendance, loadShiftTimings, loadHolidaysAndLeaves]);
@@ -1147,7 +1045,8 @@ const fetchLeaveBalance = async () => {
     };
   }, [attendance, shiftTimings, holidays, leaves]);
 
-  if (loading) return <div className="p-8 text-center text-lg font-semibold">Loading Dashboard...</div>;
+  // ✅ UPDATED Loading Logic: Only block UI for critical data
+  if (loading) return <div className="p-8 text-center text-lg font-semibold animate-pulse">Loading Dashboard...</div>;
   if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
 
   const displayLoginStatusContent = getDisplayLoginStatus();
@@ -1385,11 +1284,14 @@ const gradients = [
         </div>
       </div>
 
-      {/* ✅ GRAPHS SECTION (Restored) */}
+      {/* ✅ GRAPHS SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow p-6 h-80 flex flex-col">
           <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-700"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
-          <div className="flex-1 relative"> <Bar data={leaveBarData} options={commonChartOptions} /> </div>
+          <div className="flex-1 relative">
+             {/* If stats are still loading, show a light placeholder, else show chart */}
+             {loadingTeamData && attendance.length === 0 ? <div className="w-full h-full flex items-center justify-center text-gray-400">Loading Stats...</div> : <Bar data={leaveBarData} options={commonChartOptions} />}
+          </div>
         </div>
         <div className="bg-white rounded-2xl shadow p-6 h-80 flex flex-col">
           <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-700"><FaChartPie className="text-yellow-500" /> Today Progress</h2>
@@ -1571,7 +1473,11 @@ const gradients = [
      </div>
      
      <div className="flex-1 flex flex-col justify-center z-10">
-        {isGlobalWFH ? (
+        {loadingTeamData ? (
+           <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+           </div>
+        ) : isGlobalWFH ? (
           <div className="flex flex-col items-center justify-center py-4 bg-indigo-50/50 rounded-2xl border border-indigo-50 border-dashed">
             <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
               <FaLaptopHouse className="text-2xl text-indigo-500" />
