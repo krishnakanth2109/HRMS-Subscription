@@ -1,56 +1,254 @@
 // pages/AdminNotifications.jsx
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useCallback } from "react";
 import { NotificationContext } from "../context/NotificationContext";
-import { FaBell, FaCheckCircle, FaTrash, FaUndo } from "react-icons/fa";
+import { 
+  FaBell, FaCheckCircle, FaTrash, FaUndo, 
+  FaExclamationCircle, FaClock, FaMapMarkerAlt, FaSignOutAlt, FaUserClock 
+} from "react-icons/fa";
+import api, { getAllOvertimeRequests } from "../api"; 
 
-const STORAGE_KEY = "admin_hidden_notifications";
+// Keys for Session Storage
+const HIDDEN_KEY = "admin_hidden_notifications";
+const READ_SYSTEM_KEY = "admin_read_system_notifications";
 
 const AdminNotifications = () => {
-  const { notifications, markAsRead, markAllAsRead } =
-    useContext(NotificationContext);
+  const { notifications, markAsRead, markAllAsRead: markContextAllRead } = useContext(NotificationContext);
 
   const [localNotifications, setLocalNotifications] = useState([]);
+  
+  // Specific States for API Data
+  const [overtimeData, setOvertimeData] = useState([]);
+  const [punchOutData, setPunchOutData] = useState([]);
+  const [lateLoginData, setLateLoginData] = useState([]);
+  const [workModeData, setWorkModeData] = useState([]);
 
-  // Session Storage Helpers
-  const getHiddenIds = () => {
+  // --- HELPERS FOR SYSTEM READ STATUS ---
+  const getReadSystemIds = () => {
     try {
-      return JSON.parse(sessionStorage.getItem(STORAGE_KEY)) || [];
+      return JSON.parse(sessionStorage.getItem(READ_SYSTEM_KEY)) || [];
     } catch {
       return [];
     }
   };
 
-  const hideNotificationLocally = (_id) => {
-    const hidden = getHiddenIds();
-    const updated = [...hidden, _id];
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  const markSystemAsRead = (id) => {
+    const current = getReadSystemIds();
+    if (!current.includes(id)) {
+      const updated = [...current, id];
+      sessionStorage.setItem(READ_SYSTEM_KEY, JSON.stringify(updated));
+      // Trigger UI update immediately
+      updateLocalNotifications();
+    }
   };
 
-  const clearHiddenList = () => {
-    sessionStorage.removeItem(STORAGE_KEY);
+  const markAllSystemAsRead = () => {
+    const allSystemIds = localNotifications
+      .filter(n => n.type === 'system')
+      .map(n => n._id);
+    
+    const current = getReadSystemIds();
+    // Merge new IDs with existing ones, removing duplicates
+    const updated = [...new Set([...current, ...allSystemIds])];
+    sessionStorage.setItem(READ_SYSTEM_KEY, JSON.stringify(updated));
+    updateLocalNotifications();
+  };
+
+  const handleMarkAsReadWrapper = (n) => {
+    if (n.type === 'system') {
+      markSystemAsRead(n._id);
+    } else {
+      markAsRead(n._id); // Call Context function for DB notifications
+    }
+  };
+
+  const handleMarkAllAsReadWrapper = () => {
+    markAllSystemAsRead(); // Mark local system alerts
+    markContextAllRead();  // Mark database notifications
+  };
+
+  // --- FETCHING LOGIC ---
+
+  const fetchOvertimeRequests = useCallback(async () => {
+    try {
+      const data = await getAllOvertimeRequests();
+      const reqs = Array.isArray(data) ? data : (data.data || []);
+      setOvertimeData(reqs.filter((o) => typeof o.status === "string" && o.status.toUpperCase() === "PENDING"));
+    } catch (err) {
+      console.error("Error fetching overtime:", err);
+    }
+  }, []);
+
+  const fetchPunchOutRequests = useCallback(async () => {
+    try {
+      const response = await api.get('/api/punchoutreq/all');
+      const reqs = Array.isArray(response.data) ? response.data : [];
+      setPunchOutData(reqs.filter(r => r.status === 'Pending'));
+    } catch (error) {
+      console.error("Error fetching punch out requests:", error);
+    }
+  }, []);
+
+  const fetchLateRequests = useCallback(async () => {
+    try {
+      // NOTE: fetching '/all' is heavy. If backend supports filtering, use that instead.
+      const { data } = await api.get("/api/attendance/all");
+      const allRecords = data.data || [];
+      const pending = [];
+
+      // Optimized Loop
+      for (const empRecord of allRecords) {
+        if (empRecord.attendance && Array.isArray(empRecord.attendance)) {
+          for (const dayLog of empRecord.attendance) {
+            if (dayLog.lateCorrectionRequest?.hasRequest && dayLog.lateCorrectionRequest?.status === "PENDING") {
+               pending.push({
+                 ...dayLog,
+                 empName: empRecord.employeeName || empRecord.name || "Employee",
+                 reqId: dayLog._id || `late-${Math.random()}`
+               });
+            }
+          }
+        }
+      }
+      setLateLoginData(pending);
+    } catch (err) {
+      console.error("Error fetching late requests:", err);
+    }
+  }, []);
+
+  const fetchWorkModeRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/admin/requests"); 
+      const reqs = Array.isArray(data) ? data : [];
+      setWorkModeData(reqs.filter(r => r.status === 'Pending'));
+    } catch (err) { 
+      console.error("Error fetching work mode requests:", err); 
+    }
+  }, []);
+
+  // Initial Data Load
+  useEffect(() => {
+    fetchOvertimeRequests();
+    fetchPunchOutRequests();
+    fetchLateRequests();
+    fetchWorkModeRequests();
+    
+    // Poll every 60 seconds (increased from 30s to reduce load for Late Requests)
+    const interval = setInterval(() => {
+        fetchOvertimeRequests();
+        fetchPunchOutRequests();
+        fetchLateRequests();
+        fetchWorkModeRequests();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [fetchOvertimeRequests, fetchPunchOutRequests, fetchLateRequests, fetchWorkModeRequests]);
+
+
+  // --- HIDDEN NOTIFICATIONS HELPERS ---
+  const getHiddenIds = () => {
+    try { return JSON.parse(sessionStorage.getItem(HIDDEN_KEY)) || []; } catch { return []; }
   };
 
   const removeNotification = (_id) => {
-    hideNotificationLocally(_id);
-    setLocalNotifications((prev) => prev.filter((n) => n._id !== _id));
+    const hidden = getHiddenIds();
+    const updated = [...hidden, _id];
+    sessionStorage.setItem(HIDDEN_KEY, JSON.stringify(updated));
+    updateLocalNotifications(); // Trigger re-render
   };
 
   const clearAllLocal = () => {
     const allIds = localNotifications.map((n) => n._id);
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(allIds));
+    sessionStorage.setItem(HIDDEN_KEY, JSON.stringify(allIds));
     setLocalNotifications([]);
   };
 
   const restoreAll = () => {
-    clearHiddenList();
-    setLocalNotifications(notifications);
+    sessionStorage.removeItem(HIDDEN_KEY);
+    updateLocalNotifications();
   };
 
+
+  // --- MERGE & GENERATE NOTIFICATIONS ---
+  const updateLocalNotifications = useCallback(() => {
+    const hiddenIds = getHiddenIds();
+    const readSystemIds = getReadSystemIds();
+
+    const systemNotifs = [];
+
+    // 1. Process Overtime
+    overtimeData.forEach(item => {
+        const id = `sys-ot-${item._id}`;
+        systemNotifs.push({
+            _id: id,
+            message: `⏳ Overtime Request: ${item.employeeName || item.employeeId} requested  on ${item.date || "N/A"}`,
+            date: item.date || item.createdAt || new Date().toISOString(),
+            isRead: readSystemIds.includes(id), // Check session storage
+            type: "system",
+            icon: <FaClock className="text-orange-500" />
+        });
+    });
+
+    // 2. Process Punch Out
+    punchOutData.forEach(item => {
+        const id = `sys-po-${item._id}`;
+        systemNotifs.push({
+            _id: id,
+            message: `🔔 Punch Out Request: ${item.employeeName || "Employee"} - Reason: "${item.reason || "N/A"}"`,
+            date: item.createdAt || new Date().toISOString(),
+            isRead: readSystemIds.includes(id),
+            type: "system",
+            icon: <FaSignOutAlt className="text-red-500" />
+        });
+    });
+
+    // 3. Process Late Login
+    lateLoginData.forEach(item => {
+        const id = `sys-late-${item.reqId}`;
+        const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Unknown Date";
+        const reqTime = item.lateCorrectionRequest?.requestedTime 
+          ? new Date(item.lateCorrectionRequest.requestedTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          : "N/A";
+
+        systemNotifs.push({
+            _id: id,
+            message: `⏰ Late Login Request: ${item.empName} for ${dateStr} (Req: ${reqTime})`,
+            date: item.date || new Date().toISOString(),
+            isRead: readSystemIds.includes(id),
+            type: "system",
+            icon: <FaUserClock className="text-purple-500" />
+        });
+    });
+
+    // 4. Process Work Mode
+    workModeData.forEach(item => {
+        const id = `sys-wm-${item._id}`;
+        systemNotifs.push({
+            _id: id,
+            message: `📍 Work Mode Request: ${item.employeeName} requested ${item.requestedMode === 'WFH' ? 'Work From Home' : 'Work From Office'}`,
+            date: item.createdAt || new Date().toISOString(),
+            isRead: readSystemIds.includes(id),
+            type: "system",
+            icon: <FaMapMarkerAlt className="text-blue-500" />
+        });
+    });
+
+    // Combine System + Context Notifications
+    const combined = [...systemNotifs, ...notifications];
+
+    // Filter Hidden & Sort
+    const final = combined
+      .filter((n) => !hiddenIds.includes(n._id))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    setLocalNotifications(final);
+
+  }, [notifications, overtimeData, punchOutData, lateLoginData, workModeData]);
+
+  // Update logic whenever data dependencies change
   useEffect(() => {
-    const hidden = getHiddenIds();
-    const filtered = notifications.filter((n) => !hidden.includes(n._id));
-    setLocalNotifications(filtered);
-  }, [notifications]);
+    updateLocalNotifications();
+  }, [updateLocalNotifications]);
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -66,7 +264,7 @@ const AdminNotifications = () => {
           <div className="flex flex-col gap-3">
             <button
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
-              onClick={markAllAsRead}
+              onClick={handleMarkAllAsReadWrapper}
             >
               <FaCheckCircle /> Mark All Read
             </button>
@@ -119,21 +317,26 @@ const AdminNotifications = () => {
                   key={n._id}
                   className={`flex items-start gap-4 p-4 rounded-xl border shadow-sm transition cursor-pointer ${
                     !n.isRead
-                      ? "bg-blue-50 border-blue-300"
-                      : "bg-white border-gray-200"
+                      ? "bg-blue-50 border-blue-300" // Highlighted Style (New)
+                      : "bg-white border-gray-200 opacity-75" // Read Style
                   }`}
-                  onClick={() => markAsRead(n._id)}
+                  onClick={() => handleMarkAsReadWrapper(n)}
                 >
                   <div
-                    className={`p-3 rounded-full ${
-                      !n.isRead ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-600"
+                    className={`p-3 rounded-full text-lg ${
+                       n.type === "system" 
+                       ? "bg-orange-100" 
+                       : !n.isRead ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-600"
                     }`}
                   >
-                    <FaBell />
+                    {/* Icon Logic */}
+                    {n.icon ? n.icon : (n.type === "system" ? <FaExclamationCircle className="text-orange-600"/> : <FaBell />)}
                   </div>
 
                   <div className="flex-1">
-                    <p className="font-medium text-gray-800">{n.message}</p>
+                    <p className={`font-medium ${n.type === "system" ? "text-gray-800" : "text-gray-800"}`}>
+                      {n.message}
+                    </p>
                     <p className="text-xs mt-1 text-gray-500">
                       {new Date(n.date || n.timestamp).toLocaleString()}
                     </p>
@@ -145,6 +348,7 @@ const AdminNotifications = () => {
                       e.stopPropagation();
                       removeNotification(n._id);
                     }}
+                    title="Remove notification"
                   >
                     <FaTrash />
                   </button>

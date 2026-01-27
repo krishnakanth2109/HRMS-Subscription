@@ -486,6 +486,7 @@ const AdminLocationSettings = () => {
   const [activeCategory, setActiveCategory] = useState("All"); 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0); // Added pending count state
   
   // Modals
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -505,7 +506,11 @@ const AdminLocationSettings = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchingMap, setSearchingMap] = useState(false);
 
-  useEffect(() => { fetchSettings(); fetchEmployees(); }, []);
+  useEffect(() => { 
+    fetchSettings(); 
+    fetchEmployees(); 
+    fetchPendingCount(); // Fetch count on mount
+  }, []);
 
   const fetchSettings = async () => {
     try {
@@ -533,6 +538,23 @@ const AdminLocationSettings = () => {
       setEmployees(data.employees || []);
       setCategories(data.categories || []);
     } catch (error) { Swal.fire("Error", "Failed to load employees", "error"); } finally { setLoadingEmployees(false); }
+  };
+
+  // Added function to fetch pending requests count
+  const fetchPendingCount = async () => {
+    try {
+      const { data } = await api.get("/api/admin/requests");
+      const pending = data.filter(req => req.status === 'Pending');
+      setPendingCount(pending.length);
+    } catch (error) {
+      console.error("Error fetching pending count:", error);
+    }
+  };
+
+  // Wrapper to refresh all data (employees and pending count)
+  const handleRefreshData = () => {
+    fetchEmployees();
+    fetchPendingCount();
   };
 
   const handleGetCurrentLocation = () => {
@@ -794,8 +816,27 @@ const AdminLocationSettings = () => {
                     <div><h2 className="text-xl font-bold text-gray-800">Work Mode Management</h2><p className="text-sm text-gray-500">Manage individual exceptions and categories.</p></div>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                    {/* NEW BUTTON FOR REQUESTS */}
-                    <button onClick={() => setShowRequestsModal(true)} className="bg-blue-600 text-white border border-blue-600 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition text-sm shadow-md animate-fade-in"><FaEnvelopeOpenText /> Requests</button>
+                    {/* NEW BUTTON FOR REQUESTS WITH BADGE */}
+<button
+  onClick={() => setShowRequestsModal(true)}
+  className="relative bg-blue-600 text-white border border-blue-600 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition text-sm shadow-md"
+>
+  <FaEnvelopeOpenText />
+  <span>Requests</span>
+
+  {pendingCount > 0 && (
+    <>
+      {/* Ping animation */}
+      <span className="absolute -top-2 -right-2 inline-flex h-5 w-5 rounded-full bg-red-500 opacity-75 animate-ping"></span>
+
+      {/* Actual count */}
+      <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white">
+        {pendingCount > 9 ? "9+" : pendingCount}
+      </span>
+    </>
+  )}
+</button>
+
                     <button onClick={() => setShowExceptionsModal(true)} className="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-orange-100 transition text-sm"><FaListAlt /> View Exceptions</button>
                     <button onClick={() => setShowCategoryModal(true)} className="bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition transform active:scale-95 text-sm"><FaPlus /> Create Category</button>
                     <button onClick={handleResetAll} className="bg-white text-red-500 border border-red-100 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-50 hover:border-red-200 transition text-sm"><FaUndo /> Reset All</button>
@@ -837,7 +878,7 @@ const AdminLocationSettings = () => {
       <ExceptionsModal isOpen={showExceptionsModal} onClose={() => setShowExceptionsModal(false)} employees={employees} />
       <AddMemberModal isOpen={showAddMemberModal} onClose={() => setShowAddMemberModal(false)} onAdd={handleAddMembersToCategory} allEmployees={employees} activeCategory={activeCategory} />
       <ScheduleModal isOpen={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} employee={editingEmployee} onSave={handleSaveSchedule} />
-      <PendingRequestsModal isOpen={showRequestsModal} onClose={() => setShowRequestsModal(false)} onRequestAction={() => {}} onRefresh={fetchEmployees} />
+      <PendingRequestsModal isOpen={showRequestsModal} onClose={() => setShowRequestsModal(false)} onRequestAction={() => {}} onRefresh={handleRefreshData} />
     </div>
   );
 };

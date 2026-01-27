@@ -48,6 +48,16 @@ const getCurrentRole = (employee) => {
   return "N/A";
 };
 
+// ✅ Helper: Get Employment Type (New function for filter)
+const getCurrentEmploymentType = (employee) => {
+  if (employee && Array.isArray(employee.experienceDetails)) {
+    // Check for "Present" or fall back to the last entry
+    const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present") || employee.experienceDetails[employee.experienceDetails.length - 1];
+    return currentExp?.employmentType || "N/A";
+  }
+  return "N/A";
+};
+
 const formatDecimalHours = (decimalHours) => {
   if (decimalHours === undefined || decimalHours === null || isNaN(decimalHours)) return "--";
   const hours = Math.floor(decimalHours);
@@ -358,7 +368,7 @@ function DeactivationDetailsModal({ open, employee, onClose }) {
   );
 }
 
-// ✅ Comprehensive Overview Modal (Restored from Code 1)
+// ✅ Comprehensive Overview Modal
 function EmployeeOverviewModal({ open, employee, onClose }) {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
@@ -690,7 +700,10 @@ const EmployeeManagement = () => {
   const [employees, setEmployees] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
-  
+  const [selectedRole, setSelectedRole] = useState("All"); 
+  // ✅ NEW: Selected Employment Type State
+  const [selectedEmploymentType, setSelectedEmploymentType] = useState("All");
+
   // Modal States
   const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
   const [reactivateModalOpen, setReactivateModalOpen] = useState(false);
@@ -743,23 +756,45 @@ const EmployeeManagement = () => {
   const openViewDetailsModal = (emp) => { setSelectedEmployee(emp); setViewDetailsModalOpen(true); };
   const openOverviewModal = (emp) => { setSelectedEmployee(emp); setOverviewModalOpen(true); };
 
+  // 1. Department List
   const departmentSet = useMemo(() => {
     const depts = employees.map(emp => getCurrentDepartment(emp)).filter((dept, idx, arr) => dept && arr.indexOf(dept) === idx);
     return depts.sort();
   }, [employees]);
 
+  // 2. Role List
+  const roleSet = useMemo(() => {
+    const roles = employees.map(emp => getCurrentRole(emp)).filter((role, idx, arr) => role && arr.indexOf(role) === idx);
+    return roles.sort();
+  }, [employees]);
+
+  // ✅ 3. Employment Type List
+  const employmentTypeSet = useMemo(() => {
+    const types = employees.map(emp => getCurrentEmploymentType(emp)).filter((type, idx, arr) => type && arr.indexOf(type) === idx);
+    return types.sort();
+  }, [employees]);
+
+  // 4. Filtering
   const { activeEmployees, inactiveEmployees } = useMemo(() => {
     const filtered = employees.filter((emp) => {
       const currentDepartment = getCurrentDepartment(emp);
+      const currentRole = getCurrentRole(emp); 
+      const currentEmploymentType = getCurrentEmploymentType(emp); // Get current employment type
+
       const matchesSearch = [emp.employeeId, emp.name, currentDepartment, emp.email].some((field) => (field ?? "").toString().toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesDept = selectedDept === "All" || currentDepartment === selectedDept;
-      return matchesSearch && matchesDept;
+      const matchesRole = selectedRole === "All" || currentRole === selectedRole;
+      
+      // ✅ Check Employment Type Match
+      const matchesType = selectedEmploymentType === "All" || currentEmploymentType === selectedEmploymentType;
+
+      return matchesSearch && matchesDept && matchesRole && matchesType;
     });
     return {
       activeEmployees: filtered.filter((emp) => emp.isActive !== false),
       inactiveEmployees: filtered.filter((emp) => emp.isActive === false),
     };
-  }, [employees, searchQuery, selectedDept]);
+  }, [employees, searchQuery, selectedDept, selectedRole, selectedEmploymentType]); // Add selectedEmploymentType dependency
 
   return (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col items-center py-12">
@@ -778,10 +813,24 @@ const EmployeeManagement = () => {
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <input type="text" placeholder="Search employees..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full md:w-1/3 border border-gray-300 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          <input type="text" placeholder="Search employees..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full md:w-1/4 border border-gray-300 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+          
+          {/* Department Filter */}
           <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="w-full md:w-1/4 border border-gray-300 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
             <option value="All">All Departments</option>
             {departmentSet.map((dept) => (<option key={dept} value={dept}>{dept}</option>))}
+          </select>
+
+          {/* Role Filter */}
+          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full md:w-1/4 border border-gray-300 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+            <option value="All">All Roles</option>
+            {roleSet.map((role) => (<option key={role} value={role}>{role}</option>))}
+          </select>
+
+          {/* ✅ Employment Type Filter */}
+          <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="w-full md:w-1/4 border border-gray-300 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+            <option value="All">All Employment Types</option>
+            {employmentTypeSet.map((type) => (<option key={type} value={type}>{type}</option>))}
           </select>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { FaUser, FaEnvelope, FaBuilding, FaMoneyBill, FaCalendarAlt, FaCreditCard, FaIdBadge, FaBriefcase, FaPhone, FaMapMarkerAlt } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaBuilding, FaMoneyBill, FaCalendarAlt, FaCreditCard, FaIdBadge, FaBriefcase, FaPhone, FaMapMarkerAlt, FaFileContract } from "react-icons/fa";
 import { getEmployeeById, updateEmployeeById } from "../api.js"; 
 
 const EditEmployee = () => {
@@ -31,9 +31,11 @@ const EditEmployee = () => {
           personalDetails: emp.personalDetails || {},
           bankDetails: emp.bankDetails || {},
           experienceDetails: emp.experienceDetails || [],
+          // ✅ Updated: Fetch Employment Type
           currentDepartment: emp.currentDepartment || currentExp.department || "",
           currentRole: emp.currentRole || currentExp.role || "",
           currentSalary: emp.currentSalary || currentExp.salary || "",
+          currentEmploymentType: currentExp.employmentType || "Full-Time", // Default if missing
           joiningDate: emp.joiningDate || currentExp.joiningDate || "",
           experienceLetterUrl: currentExp.experienceLetterUrl || ""
         });
@@ -80,6 +82,7 @@ const EditEmployee = () => {
             role: formData.currentRole,
             salary: formData.currentSalary,
             joiningDate: formData.joiningDate,
+            employmentType: formData.currentEmploymentType, // ✅ Save Employment Type
             experienceLetterUrl: formData.experienceLetterUrl
           };
         }
@@ -142,7 +145,29 @@ const EditEmployee = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <InputField icon={<FaMoneyBill className="text-green-500"/>} name="currentSalary" type="number" label="Salary" value={formData.currentSalary} onChange={handleChange} />
-              <InputField icon={<FaCalendarAlt className="text-orange-500"/>} name="joiningDate" type="date" label="Joining Date" value={formData.joiningDate?.substring(0,10)} onChange={handleChange} />
+              
+              {/* ✅ NEW: Employment Type Dropdown */}
+              <div className="relative group">
+                <div className="absolute left-3 top-[2.4rem] -translate-y-1/2 transition-colors group-focus-within:text-blue-600">
+                    <FaFileContract className="text-green-500"/>
+                </div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 ml-1">Employment Type</label>
+                <select 
+                  name="currentEmploymentType" 
+                  value={formData.currentEmploymentType} 
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2.5 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 outline-none transition-all shadow-sm text-gray-700 bg-white"
+                >
+                  <option value="Full-Time">Full-Time</option>
+                  <option value="Contract">Contract</option>
+                  <option value="Intern">Intern</option>
+ 
+                </select>
+              </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <InputField icon={<FaCalendarAlt className="text-orange-500"/>} name="joiningDate" type="date" label="Joining Date" value={formData.joiningDate?.substring(0,10)} onChange={handleChange} />
           </div>
 
           <hr className="border-dashed border-gray-200" />

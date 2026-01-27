@@ -146,12 +146,7 @@ const EmployeeProfile = () => {
                 <InfoCard label="Salary" value={currentExp.salary ? `₹${Number(currentExp.salary).toLocaleString()}` : "N/A"} />
                 <InfoCard label="Joining Date" value={safe(currentExp.joiningDate?.split('T')[0])} />
                 <InfoCard label="Status" value={safe(currentExp.lastWorkingDate)} />
-                <InfoCard label="Years" value={safe(currentExp.years)} />
                 <InfoCard label="Employment Type" value={safe(currentExp.employmentType)} />
-                <InfoCard label="Reason for Leaving" value={safe(currentExp.reason)} />
-                <InfoCard label="Experience Letter" value={currentExp.experienceLetterUrl ? (
-                  <a href={getSecureUrl(currentExp.experienceLetterUrl)} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium hover:text-blue-800">View Experience Letter</a>
-                ) : "N/A"} />
               </div>
             </div>
           )}
@@ -286,7 +281,7 @@ const EmployeeProfile = () => {
                 <TabButton
                   active={activeTab === 'experience'}
                   onClick={() => setActiveTab('experience')}
-                  label="Work Experience"
+                  label="Job Details"
                 />
               </div>
             </nav>

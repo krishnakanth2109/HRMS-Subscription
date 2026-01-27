@@ -97,7 +97,7 @@ const navLinks = [
     to: "/admin/settings", 
     label: "Shift Management", 
     icon:  <FaChartPie />,
-    isWorkModeRequests: true // ✅ For work mode requests count
+  
   },
 
   { 
