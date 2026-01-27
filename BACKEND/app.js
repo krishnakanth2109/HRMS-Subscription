@@ -26,55 +26,51 @@ import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import requestWorkModeRoutes from "./routes/requestWorkModeRoutes.js";
-import punchOutRoutes from './routes/punchOutRequestRoutes.js';
+import punchOutRoutes from "./routes/punchOutRequestRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
-import rulesRoutes from './routes/rules.js';
+import rulesRoutes from "./routes/rules.js";
 import chatRoutes from "./routes/chat.js";
-import payrollRoutes from './routes/payroll.js';
+import payrollRoutes from "./routes/payroll.js";
 
 const app = express();
 const server = http.createServer(app);
 
 // -------------------- CORS CONFIGURATION --------------------
-// ✅ Defined globally so both Express and Socket.io use the same list
 const allowedOrigins = [
-  "https://hrms-420.netlify.app",    // Your Production Frontend
-  "http://localhost:5173",           // Your Local Frontend
-  "https://hrms-ask.onrender.com",   // Your Self/Backend
-  "http://localhost:5000"  ,
-  "https://hrms-ask-1.onrender.com"          // Local Backend
+  "https://hrms-420.netlify.app",
+  "http://localhost:5173",
+  "https://hrms-ask.onrender.com",
+  "http://localhost:5000",
+  "https://hrms-ask-1.onrender.com",
 ];
 
 // ===================================================================
-// ✅ SOCKET.IO SETUP
+// SOCKET.IO SETUP
 // ===================================================================
-const userSocketMap = new Map(); // Stores { userId -> socketId }
+const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, // ✅ Updated to match Express CORS for security
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
   },
 });
 
-// Make io instance and the user map available to all routes
 app.set("io", io);
 app.set("userSocketMap", userSocketMap);
 
 io.on("connection", (socket) => {
   console.log("🔥 User connected:", socket.id);
 
-  socket.on('register', (userId) => {
+  socket.on("register", (userId) => {
     if (userId) {
-      console.log(`✍️  Registering user ${userId} with socket ${socket.id}`);
       userSocketMap.set(userId.toString(), socket.id);
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
     for (let [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
         userSocketMap.delete(userId);
@@ -86,17 +82,10 @@ io.on("connection", (socket) => {
 
 // -------------------- EXPRESS MIDDLEWARE --------------------
 
+// ✅ FIXED CORS (NO CRASH ON RENDER)
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
-      }
-      return callback(null, true);
-    },
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -113,12 +102,13 @@ app.use((req, res, next) => {
 });
 
 // -------------------- DATABASE --------------------
+
+// ✅ FIXED: NO process.exit()
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Database Connected Successfully"))
   .catch((err) => {
     console.error("❌ Database connection error:", err);
-    process.exit(1);
   });
 
 // -------------------- Health Check --------------------
@@ -138,20 +128,17 @@ app.use("/api/attendance", EmployeeattendanceRoutes);
 app.use("/api/admin/attendance", AdminAttendanceRoutes);
 app.use("/api/profile", profilePicRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/idletime", idleTimeRoutes); // ✅ Added /api/ prefix for consistency
+app.use("/api/idletime", idleTimeRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
-app.use('/api/punchoutreq', punchOutRoutes); 
+app.use("/api/punchoutreq", punchOutRoutes);
 app.use("/api/groups", groupRoutes);
-app.use('/api/meetings', meetingRoutes); 
-app.use('/api/rules', rulesRoutes);
+app.use("/api/meetings", meetingRoutes);
+app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
-app.use('/api/payroll', payrollRoutes);
-// app.use("/api/companies", companyRoutes);
-
-
+app.use("/api/payroll", payrollRoutes);
 
 // -------------------- 404 Handler --------------------
 app.use("*", (req, res) => {
