@@ -88,7 +88,7 @@ const Login = () => {
       ) {
         setError("Your account is Deactivated, please contact support team");
       } else {
-        setError(errorMessage || "Invalid credentials.");
+        setError(errorMessage || "Server Error during login. Please try again.");
       }
     } finally {
       setLoading(false);
