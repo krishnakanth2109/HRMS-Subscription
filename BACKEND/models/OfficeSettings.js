@@ -23,7 +23,7 @@ const officeSettingsSchema = new mongoose.Schema({
   // NEW FIELD: Control whether to enforce accurate office location for WFO
   requireAccurateLocation: {
     type: Boolean,
-    default: true // Default is enabled (strict location check)
+    // default: true // Default is enabled (strict location check)
   },
   // Store individual employee work mode overrides and schedules
   employeeWorkModes: [{

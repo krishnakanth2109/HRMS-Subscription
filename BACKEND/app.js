@@ -83,6 +83,10 @@ io.on("connection", (socket) => {
     }
   });
 });
+// -------------------- BODY PARSER --------------------
+app.use(express.json()); // ⭐ Required for JSON body
+app.use(express.urlencoded({ extended: true })); // ⭐ For form data
+
 
 // -------------------- EXPRESS MIDDLEWARE --------------------
 
