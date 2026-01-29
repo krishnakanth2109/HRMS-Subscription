@@ -25,20 +25,18 @@ const navLinks = [
   { to: "/employee/empovertime", label: "Request Overtime", icon: <FaClock /> },
   { to: "/employee/leave-management", label: "Leave Requests", icon: <FaClipboardList /> },
   { to: "/employee/reuestworkmode", label: "WorkMode Request", icon: <MapPinHouse /> },
-    { to: "/employee/payslip", label: "Pay-Slip", icon: <FaClipboardList />  },
+  { to: "/employee/payslip", label: "Pay-Slip", icon: <FaClipboardList /> },
   // {
   //   to: "/employee/teams",
   //   label: "My Teams",
   //   icon: <FaUsers />,
   // },
-    {
+  {
     to: "/employee/chatting",
     label: "Connect with Employee",
     icon: <FaUsers />,
   },
-   { to: "/employee/expense", label: "Add Expense", icon: <FaClipboardList />  },
-  
-
+  { to: "/employee/expense", label: "Add Expense", icon: <FaClipboardList /> },
 ];
 
 const SidebarEmployee = () => {
@@ -74,7 +72,6 @@ const SidebarEmployee = () => {
   };
 
   // ✅ FETCH REAL UNREAD COUNT (Wrapped in useCallback)
- // ✅ FETCH REAL UNREAD COUNT (Wrapped in useCallback)
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
     try {
@@ -102,7 +99,7 @@ const SidebarEmployee = () => {
           playNoticeSound();
         }
       } else {
-        firstLoadRef.current = false; 
+        firstLoadRef.current = false;
       }
 
       lastCountRef.current = count;
@@ -127,6 +124,25 @@ const SidebarEmployee = () => {
 
   return (
     <>
+      <style>
+        {`
+          /* Custom Scrollbar for Sidebar */
+          .sidebar-scroll::-webkit-scrollbar {
+            width: 5px;
+          }
+          .sidebar-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1); 
+          }
+          .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3); 
+            border-radius: 10px;
+          }
+          .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5); 
+          }
+        `}
+      </style>
+
       {!open && (
         <button
           className="md:hidden fixed top-4 left-4 z-50 bg-blue-900 text-white p-2 rounded-lg shadow-lg"
@@ -137,15 +153,16 @@ const SidebarEmployee = () => {
       )}
 
       <div
-        className={`fixed md:static top-0 left-0 h-full ${collapsed ? "w-20" : "w-64"
-          } bg-gradient-to-b from-blue-900 to-blue-700 text-white shadow-xl flex flex-col p-4 md:p-6 z-40 transition-all ${open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed md:sticky top-0 left-0 h-screen ${collapsed ? "w-20" : "w-64"
+          } bg-gradient-to-b from-blue-900 to-blue-700 text-white shadow-xl flex flex-col z-40 transition-all duration-300 ${open ? "translate-x-0" : "-translate-x-full"
           } md:translate-x-0`}
       >
+        {/* Toggle Button for Desktop */}
         <button
-          className="hidden md:block absolute top-4 right-6 text-white text-xl bg-blue-700 rounded-full p-2"
+          className="hidden md:block absolute top-4 -right-3 text-white text-sm bg-blue-800 border border-blue-600 rounded-full p-1.5 shadow-md z-50 hover:bg-blue-600 transition"
           onClick={() => setCollapsed((v) => !v)}
         >
-          <FaBars />
+          {collapsed ? <FaBars /> : <FaTimes />}
         </button>
 
         {open && (
@@ -157,8 +174,9 @@ const SidebarEmployee = () => {
           </button>
         )}
 
+        {/* Header Section (Fixed at top of sidebar) */}
         <div
-          className={`mb-8 flex items-center gap-1 mt-2 ${collapsed ? "justify-center" : ""
+          className={`p-6 mb-2 flex items-center gap-1 mt-2 shrink-0 ${collapsed ? "justify-center" : ""
             }`}
         >
           {!collapsed && <FaUser className="text-3xl" />}
@@ -167,7 +185,8 @@ const SidebarEmployee = () => {
           )}
         </div>
 
-        <ul className="space-y-2 flex-1">
+        {/* Navigation Links (Scrollable Area) */}
+        <ul className="space-y-2 flex-1 overflow-y-auto sidebar-scroll px-4 pb-4">
           {navLinks.map((link) => {
             const isActive = location.pathname === link.to;
 
@@ -176,11 +195,11 @@ const SidebarEmployee = () => {
                 <Link
                   to={link.to}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition font-semibold ${isActive
-                      ? "bg-blue-600 text-white"
-                      : "hover:bg-blue-700 text-gray-200"
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "hover:bg-blue-800/50 text-gray-200"
                     } ${collapsed ? "justify-center px-2" : ""}`}
                 >
-                  <span className="text-xl">{link.icon}</span>
+                  <span className="text-xl shrink-0">{link.icon}</span>
 
                   {!collapsed && (
                     <span className="relative">
@@ -188,7 +207,7 @@ const SidebarEmployee = () => {
 
                       {/* ✅ Updated Badge Logic with Polling & Sound */}
                       {link.isNotice && unreadCount > 0 && (
-                        <span className="absolute -right-5 top-0 bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full animate-pulse">
+                        <span className="absolute -right-5 top-0 bg-red-600 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full animate-pulse shadow-sm border border-white">
                           {unreadCount}
                         </span>
                       )}
@@ -200,9 +219,12 @@ const SidebarEmployee = () => {
           })}
         </ul>
 
+        {/* Footer Section (Fixed at bottom of sidebar) */}
         {!collapsed && (
-          <div className="mt-2 text-xs text-gray-300">
-            &copy; {new Date().getFullYear()} HRMS Employee
+          <div className="p-4 text-center shrink-0 border-t border-blue-600/30">
+            <div className="text-xs text-gray-300">
+              &copy; {new Date().getFullYear()} HRMS Employee
+            </div>
           </div>
         )}
       </div>

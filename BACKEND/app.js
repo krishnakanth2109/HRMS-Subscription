@@ -1,5 +1,3 @@
-// --- START OF FILE app.js ---
-
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -31,7 +29,6 @@ import groupRoutes from "./routes/groupRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import rulesRoutes from "./routes/rules.js";
 import chatRoutes from "./routes/chat.js";
-import payrollRoutes from './routes/payroll.js';
 import companyRoutes from "./routes/companyRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
@@ -41,87 +38,62 @@ import payrollRoutes from "./routes/payroll.js";
 const app = express();
 const server = http.createServer(app);
 
-// -------------------- CORS CONFIGURATION --------------------
-// ✅ Defined globally so both Express and Socket.io use the same list
+// -------------------- CORS ORIGINS --------------------
 const allowedOrigins = [
-  "https://hrms-420.netlify.app",    // Your Production Frontend
-  "http://localhost:5173",           // Your Local Frontend
-  "http://localhost:3000",           // Alternative local frontend
-  "https://hrms-ask.onrender.com",   // Your Self/Backend
+  "https://hrms-420.netlify.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://hrms-ask.onrender.com",
   "http://localhost:5000",
-  "https://hrms-ask-1.onrender.com", // Local Backend
-  "https://hrms-ask.vercel.app"      // Vercel Frontend
+  "https://hrms-ask-1.onrender.com",
+  "https://hrms-ask.vercel.app"
 ];
 
-// ===================================================================
-// ✅ SOCKET.IO SETUP
-// ===================================================================
-const userSocketMap = new Map(); // Stores { userId -> socketId }
+// -------------------- SOCKET.IO --------------------
+const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, // ✅ Updated to match Express CORS for security
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
   },
 });
 
-// Make io instance and the user map available to all routes
 app.set("io", io);
 app.set("userSocketMap", userSocketMap);
 
 io.on("connection", (socket) => {
   console.log("🔥 User connected:", socket.id);
 
-  socket.on('register', (userId) => {
-    if (userId) {
-      console.log(`✍️  Registering user ${userId} with socket ${socket.id}`);
-      userSocketMap.set(userId.toString(), socket.id);
-    }
+  socket.on("register", (userId) => {
+    if (userId) userSocketMap.set(userId.toString(), socket.id);
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
     for (let [userId, socketId] of userSocketMap.entries()) {
-      if (socketId === socket.id) {
-        userSocketMap.delete(userId);
-        break;
-      }
+      if (socketId === socket.id) userSocketMap.delete(userId);
     }
   });
 });
 
-// -------------------- EXPRESS MIDDLEWARE --------------------
-// -------------------- BODY PARSER --------------------
+// -------------------- MIDDLEWARE --------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// -------------------- CORS (SAFE FOR RENDER + SOCKET.IO) --------------------
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) {
-        console.log("✅ No origin header (mobile/curl request allowed)");
-        return callback(null, true);
-      }
-      console.log(`🔍 Incoming origin: ${origin}`);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        console.log(`❌ Origin not allowed. Allowed origins: ${allowedOrigins.join(", ")}`);
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
-      }
-      console.log(`✅ Origin allowed: ${origin}`);
-      return callback(null, true);
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error("CORS not allowed"), false);
     },
-    origin: true, // ✅ Reflects request origin
     credentials: true,
   })
 );
 
 app.options("*", cors());
 
-// -------------------- SECURITY HEADERS --------------------
+// Security headers
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -129,85 +101,37 @@ app.use((req, res, next) => {
   next();
 });
 
-// -------------------- DATABASE (NO CRASH) --------------------
+// -------------------- DATABASE --------------------
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI, { serverSelectionTimeoutMS: 10000 })
   .then(async () => {
-    console.log("✅ Database Connected Successfully");
-    
-    // Clean up old indexes that cause duplicate key errors
+    console.log("✅ MongoDB Connected");
+
     try {
       const db = mongoose.connection.db;
       const collection = db.collection("companies");
-      
-      // Use listIndexes for newer MongoDB driver versions
+
       const indexes = await collection.listIndexes().toArray();
-      const indexNames = indexes.map(idx => idx.name);
-      
-      // Drop problematic indexes
-      const indexesToDrop = ["ownerEmail_1", "companyId_1"];
-      
-      for (const indexName of indexesToDrop) {
-        if (indexNames.includes(indexName)) {
-          await collection.dropIndex(indexName);
-          console.log(`✅ Dropped ${indexName} index from companies collection`);
+      const indexNames = indexes.map((i) => i.name);
+
+      for (const name of ["ownerEmail_1", "companyId_1"]) {
+        if (indexNames.includes(name)) {
+          await collection.dropIndex(name);
+          console.log(`✅ Dropped index ${name}`);
         }
       }
     } catch (err) {
-      if (!err.message.includes("index not found")) {
-        console.log("ℹ️  Index cleanup: ", err.message);
-      }
+      console.log("ℹ️ Index cleanup:", err.message);
     }
   })
-  .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 10000,
-  })
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
-    // ❌ DO NOT EXIT — Render needs the process alive
-  });
+  .catch((err) => console.error("❌ MongoDB Error:", err.message));
 
-// -------------------- SOCKET.IO --------------------
-const userSocketMap = new Map();
-
-const io = new Server(server, {
-  cors: {
-    origin: true,
-    credentials: true,
-  },
-});
-
-app.set("io", io);
-app.set("userSocketMap", userSocketMap);
-
-io.on("connection", (socket) => {
-  console.log("🔥 Socket connected:", socket.id);
-
-  socket.on("register", (userId) => {
-    if (userId) {
-      userSocketMap.set(userId.toString(), socket.id);
-      console.log(`✍️ User ${userId} registered`);
-    }
-  });
-
-  socket.on("disconnect", () => {
-    for (let [userId, socketId] of userSocketMap.entries()) {
-      if (socketId === socket.id) {
-        userSocketMap.delete(userId);
-        break;
-      }
-    }
-    console.log("❌ Socket disconnected:", socket.id);
-  });
-});
-
-// -------------------- HEALTH CHECK --------------------
+// -------------------- HEALTH --------------------
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK", message: "Server is running" });
+  res.json({ status: "OK" });
 });
 
-// -------------------- API ROUTES --------------------
+// -------------------- ROUTES --------------------
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -229,37 +153,25 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
-app.use('/api/payroll', payrollRoutes);
-app.use('/api/companies', companyRoutes);
-app.use('/api/messages', messageRoutes);
-
-// -------------------- 404 Handler --------------------
-app.use("/api/expenses", expenseRoutes);
-// app.use("/api/companies", companyRoutes);
 app.use("/api/payroll", payrollRoutes);
+app.use("/api/companies", companyRoutes);
+app.use("/api/messages", messageRoutes);
+app.use("/api/expenses", expenseRoutes);
 
-// -------------------- 404 HANDLER --------------------
+// -------------------- 404 --------------------
 app.use("*", (req, res) => {
   res.status(404).json({ success: false, message: "API route not found" });
 });
 
-// -------------------- GLOBAL ERROR HANDLER --------------------
+// -------------------- ERROR HANDLER --------------------
 app.use((err, req, res, next) => {
-  console.error("🚨 Error:", err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
+  console.error(err.stack);
+  res.status(500).json({ success: false, message: err.message });
 });
 
-// -------------------- START SERVER --------------------
+// -------------------- SERVER START --------------------
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running with Socket.io on port ${PORT}`);
-});
-
   console.log(`🚀 Server running on port ${PORT}`);
 });
-
-// --- END OF FILE ---
