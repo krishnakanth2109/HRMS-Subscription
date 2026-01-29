@@ -31,7 +31,31 @@ router.post("/", onlyAdmin, async (req, res) => {
 });
 
 /* ============================================================
-   👤 ADMIN + MANAGER + EMPLOYEE — VIEW ALL HOLIDAYS
+   🟥 ADMIN ONLY — UPDATE HOLIDAY (THIS WAS MISSING)
+============================================================ */
+router.put("/:id", onlyAdmin, async (req, res) => {
+  try {
+    const { name, description, startDate, endDate } = req.body;
+
+    const updatedHoliday = await Holiday.findByIdAndUpdate(
+      req.params.id,
+      { name, description, startDate, endDate },
+      { new: true }
+    );
+
+    if (!updatedHoliday) {
+      return res.status(404).json({ message: "Holiday not found" });
+    }
+
+    res.json({ message: "Holiday updated successfully", holiday: updatedHoliday });
+  } catch (error) {
+    console.error("Update holiday error:", error);
+    res.status(500).json({ message: "Failed to update holiday" });
+  }
+});
+
+/* ============================================================
+   👤 VIEW ALL HOLIDAYS
 ============================================================ */
 router.get("/", async (req, res) => {
   try {

@@ -146,6 +146,9 @@ export const getAllIdleTimeRecords = async () => {
 export const getHolidays = async () => (await api.get("/api/holidays")).data;
 export const addHoliday = async (data) =>
   (await api.post("/api/holidays", data)).data;
+// ✅ MAKE SURE THIS IS HERE:
+export const updateHoliday = async (id, data) =>
+  (await api.put(`/api/holidays/${id}`, data)).data;
 export const deleteHolidayById = async (id) =>
   (await api.delete(`/api/holidays/${id}`)).data;
 
