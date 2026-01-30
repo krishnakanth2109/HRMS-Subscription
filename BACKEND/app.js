@@ -47,7 +47,8 @@ const allowedOrigins = [
   "https://hrms-ask.onrender.com",
   "https://hrms-ask-1.onrender.com",
   "http://localhost:5000",
-  'https://hrms-vaz.netlify.app/'
+  'https://hrms-vaz.netlify.app/',
+  'https://hrms-subscription.onrender.com'
 ];
 
 /* ==================== SOCKET.IO ==================== */
