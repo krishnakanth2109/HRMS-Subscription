@@ -10,6 +10,8 @@ import {
   deleteGroupApi,
   getEmployees,
 } from "../api";
+import GroupMessaging from "../components/GroupMessaging";
+import { FaComments } from "react-icons/fa";
 
 const AdminGroupPage = () => {
   // ================= STATE =================
@@ -18,6 +20,7 @@ const AdminGroupPage = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showMessaging, setShowMessaging] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 

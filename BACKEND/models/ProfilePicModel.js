@@ -46,10 +46,6 @@ const profilePicSchema = new mongoose.Schema(
   }
 );
 
-// Create indexes separately (prevents duplicate warning)
-profilePicSchema.index({ employeeId: 1 });
-profilePicSchema.index({ email: 1 });
-
 // Instance method to get public profile data
 profilePicSchema.methods.getPublicProfile = function () {
   return {

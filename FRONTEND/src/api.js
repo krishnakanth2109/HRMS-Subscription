@@ -171,6 +171,9 @@ export const getAllIdleTimeRecords = async () => {
 export const getHolidays = async () => (await api.get("/api/holidays")).data;
 export const addHoliday = async (data) =>
   (await api.post("/api/holidays", data)).data;
+// ✅ MAKE SURE THIS IS HERE:
+export const updateHoliday = async (id, data) =>
+  (await api.put(`/api/holidays/${id}`, data)).data;
 export const deleteHolidayById = async (id) =>
   (await api.delete(`/api/holidays/${id}`)).data;
 
@@ -623,6 +626,136 @@ export const savePayrollRules = async (rulesData) => {
     throw error;
   }
 };
+// Add this export to your api/index.js file
+export const getEmployeePayroll = (employeeId, month) => 
+  api.get(`/api/payroll/record/${employeeId}?month=${month}`);
 
+/* =============================================================================
+   COMPANY MANAGEMENT
+============================================================================= */
+export const getAllCompanies = async () => {
+  try {
+    const response = await api.get("/api/companies");
+    return response.data;
+  } catch (error) {
+    console.error("Get all companies error:", error);
+    throw error;
+  }
+};
+
+export const getCompanyById = async (id) => {
+  try {
+    const response = await api.get(`/api/companies/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Get company error:", error);
+    throw error;
+  }
+};
+
+export const createCompany = async (data) => {
+  try {
+    const response = await api.post("/api/companies", data);
+    return response.data;
+  } catch (error) {
+    console.error("Create company error:", error);
+    throw error;
+  }
+};
+
+export const updateCompany = async (id, data) => {
+  try {
+    const response = await api.put(`/api/companies/${id}`, data);
+    return response.data;
+  } catch (error) {
+    console.error("Update company error:", error);
+    throw error;
+  }
+};
+
+export const deleteCompany = async (id) => {
+  try {
+    const response = await api.delete(`/api/companies/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Delete company error:", error);
+    throw error;
+  }
+};
+
+export const getNextEmployeeId = async (companyId) => {
+  try {
+    const response = await api.get(`/api/companies/next-id/${companyId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Get next employee ID error:", error);
+    throw error;
+  }
+};
+
+export const generateEmployeeId = async (companyId) => {
+  try {
+    const response = await api.post("/api/companies/generate-id", { companyId });
+    return response.data;
+  } catch (error) {
+    console.error("Generate employee ID error:", error);
+    throw error;
+  }
+};
+
+// ========== MESSAGING APIs ==========
+export const sendMessage = async (receiverId, message, groupId = null) => {
+  try {
+    const response = await api.post("/api/messages/send", {
+      receiverId,
+      message,
+      groupId,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Send message error:", error);
+    throw error;
+  }
+};
+
+export const getConversation = async (userId) => {
+  try {
+    const response = await api.get(`/api/messages/conversation/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Get conversation error:", error);
+    throw error;
+  }
+};
+
+export const getGroupMessages = async (groupId) => {
+  try {
+    const response = await api.get(`/api/messages/group/${groupId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Get group messages error:", error);
+    throw error;
+  }
+};
+
+export const getUnreadCount = async () => {
+  try {
+    const response = await api.get("/api/messages/unread/count");
+    return response.data;
+  } catch (error) {
+    console.error("Get unread count error:", error);
+    throw error;
+  }
+};
+
+export const getInbox = async () => {
+  try {
+    const response = await api.get("/api/messages/inbox");
+    return response.data;
+  } catch (error) {
+    console.error("Get inbox error:", error);
+    throw error;
+  }
+};
 
 export default api;

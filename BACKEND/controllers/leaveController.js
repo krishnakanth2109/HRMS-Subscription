@@ -4,6 +4,7 @@ import LeaveRequest from "../models/LeaveRequest.js";
 import Notification from "../models/notificationModel.js";
 import Employee from "../models/employeeModel.js";
 import Admin from "../models/adminModel.js";
+import { sendBrevoEmail } from "../Services/emailService.js";
 
 // Helper: List dates
 function listDates(fromStr, toStr) {
@@ -57,6 +58,79 @@ export const createLeave = async (req, res) => {
       requestDate: new Date().toISOString().slice(0, 10),
       details,
     });
+
+    // ----------------------------------------------------
+    // EMAIL NOTIFICATION LOGIC
+    // ----------------------------------------------------
+    try {
+      // 1. Fetch all admins
+      const admins = await Admin.find().lean();
+
+      // 2. Prepare recipients list
+      const adminRecipients = admins.map(admin => ({ name: admin.name, email: admin.email }));
+
+      // 3. Explicitly add 'oragantisagar041@gmail.com'
+      const specificAdminEmail = "oragantisagar041@gmail.com";
+      const alreadyIncluded = adminRecipients.some(a => a.email.toLowerCase() === specificAdminEmail.toLowerCase());
+
+      console.log("📧 Leave Email Debug: Found Admins count:", admins.length);
+
+      if (!alreadyIncluded) {
+        console.log("📧 Leave Email Debug: Adding specific admin manually:", specificAdminEmail);
+        adminRecipients.push({ name: "Admin", email: specificAdminEmail });
+      }
+
+      console.log("📧 Leave Email Debug: Final Recipients:", adminRecipients.map(r => r.email));
+
+      // 4. Construct Email Content
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; max-width: 600px;">
+          <h2 style="color: #4f46e5;">New Leave Request</h2>
+          <p><strong>${name}</strong> (ID: ${loggedUser.employeeId}) has submitted a leave request.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Name:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${name}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee ID:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${loggedUser.employeeId || "N/A"}</td>
+            </tr>
+             <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Email:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${loggedUser.email || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Leave Type:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${leaveType}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Dates:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${new Date(from).toLocaleDateString()} to ${new Date(to).toLocaleDateString()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Reason:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${reason || "No reason provided"}</td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 20px;">Please login to the Admin Portal to approve or reject this request.</p>
+        </div>
+      `;
+
+      // 5. Send Email
+      if (adminRecipients.length > 0) {
+        console.log("📧 Leave Email Debug: Attempting to send...");
+        await sendBrevoEmail({
+          to: adminRecipients,
+          subject: `Leave Request: ${name} - ${leaveType}`,
+          htmlContent: emailHtml,
+        });
+      }
+    } catch (emailErr) {
+      console.error("❌ Failed to send Leave Request email:", emailErr);
+    }
 
     // 🔥 FIND ALL ADMINS
     const admins = await Admin.find().lean();

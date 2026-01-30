@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Swal from 'sweetalert2';
+import axios from 'axios'; 
 import {
   getLeaveRequests,
   getEmployees,
@@ -18,9 +19,13 @@ const DEFAULT_RULES = {
   hraPercentage: 40,
   conveyance: 1600,
   medical: 1250,
-  pfPercentage: 18,
-  employerPfPercentage: 18,
-  ptSlab1Limit: 20000,
+  // PF Defaults
+  pfCalculationMethod: 'percentage', // 'percentage' | 'fixed'
+  pfPercentage: 12, 
+  employerPfPercentage: 12, 
+  pfFixedAmountEmployee: 0,
+  pfFixedAmountEmployer: 0,
+  // PT Defaults
   ptSlab1Amount: 150,
   ptSlab2Amount: 200
 };
@@ -102,12 +107,27 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
     return "ON_TIME";
 };
 
+// ✅ Get total days in the month
+const getTotalDaysInMonth = (year, month) => {
+  return new Date(year, month, 0).getDate();
+};
+
 const exportToExcel = (data, fileName) => {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = { Sheets: { 'Payroll Data': ws }, SheetNames: ['Payroll Data'] };
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
     saveAs(dataBlob, `${fileName}.xlsx`);
+};
+
+// ✅ Helper: Get Current Employment Type
+const getCurrentEmploymentType = (employee) => {
+  if (employee && Array.isArray(employee.experienceDetails)) {
+    const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present") || 
+                      employee.experienceDetails[employee.experienceDetails.length - 1];
+    return currentExp?.employmentType || "N/A";
+  }
+  return "N/A";
 };
 
 // --- CONFIGURATION MODAL ---
@@ -121,8 +141,14 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setRules(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    const { name, value, type, checked } = e.target;
+    if (type === 'checkbox') {
+        // Not used currently
+    } else if (name === 'pfCalculationMethod') {
+        setRules(prev => ({ ...prev, [name]: value }));
+    } else {
+        setRules(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+    }
   };
 
   const handleSave = () => {
@@ -163,35 +189,77 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
 
           <div className="bg-red-50 p-3 rounded-lg border border-red-100">
             <h4 className="font-bold text-red-800 text-sm mb-2 uppercase">Deductions (PF & PT)</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-gray-600">PF Employee (%)</label>
-                <input type="number" name="pfPercentage" value={rules.pfPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
+            
+            {/* PF METHOD SELECTION */}
+            <div className="mb-4">
+              <label className="text-xs font-bold text-gray-700 block mb-2">PF Calculation Method:</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="pfCalculationMethod" 
+                    value="percentage" 
+                    checked={rules.pfCalculationMethod === 'percentage'} 
+                    onChange={handleChange}
+                    className="accent-blue-600"
+                  />
+                  <span className="text-sm">Percentage Based</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="radio" 
+                    name="pfCalculationMethod" 
+                    value="fixed" 
+                    checked={rules.pfCalculationMethod === 'fixed'} 
+                    onChange={handleChange}
+                    className="accent-blue-600"
+                  />
+                  <span className="text-sm">Fixed Amount</span>
+                </label>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">PF Employer (%)</label>
-                <input type="number" name="employerPfPercentage" value={rules.employerPfPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
-              </div>
-              <div className="col-span-2">
-                <label className="text-xs font-semibold text-gray-600 block mb-1">Professional Tax Slabs</label>
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                   <div className="bg-white p-2 border rounded">
-                      <span className="text-xs text-gray-500 block">Below ₹20k</span>
-                      <span className="font-bold">₹{rules.ptSlab1Amount}</span>
-                   </div>
-                   <div className="bg-white p-2 border rounded">
-                      <span className="text-xs text-gray-500 block">Above ₹20k</span>
-                      <span className="font-bold">₹{rules.ptSlab2Amount}</span>
-                   </div>
+            </div>
+
+            {/* CONDITIONAL PF INPUTS */}
+            {rules.pfCalculationMethod === 'percentage' ? (
+              <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">PF Employee (% of Basic)</label>
+                  <input type="number" name="pfPercentage" value={rules.pfPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
                 </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">PF Employer (% of Basic)</label>
+                  <input type="number" name="employerPfPercentage" value={rules.employerPfPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">PF Fixed Employee (₹)</label>
+                  <input type="number" name="pfFixedAmountEmployee" value={rules.pfFixedAmountEmployee} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">PF Fixed Employer (₹)</label>
+                  <input type="number" name="pfFixedAmountEmployer" value={rules.pfFixedAmountEmployer} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
+                </div>
+              </div>
+            )}
+  
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div>
+                <label className="text-xs font-semibold text-gray-600">PT Slab 1 (>15k) Amount (₹)</label>
+                <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">PT Slab 2 (>20k) Amount (₹)</label>
+                <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1"/>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-          <button onClick={handleSave} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-lg">Save Rules</button>
+          <div className="flex gap-3 mt-6">
+            <button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">Save Changes</button>
+            <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
@@ -211,7 +279,10 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           "Employee ID": employee.employeeId,
           "Name": employee.employeeName,
           "Pay Period": `${periodStart} to ${periodEnd}`,
-          "Worked Days": employee.payableDays,
+          "Total Days in Month": employee.totalDaysInMonth,
+          "Worked Days": employee.workedDays,
+          "Per Day Salary": employee.perDaySalary,
+          "Calculated Salary": employee.calculatedSalary,
           "Total Earnings": employee.breakdown.gross,
           "PF Employee": employee.breakdown.pf,
           "PF Employer": employee.breakdown.employerPf,
@@ -227,6 +298,15 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   const downloadPayslip = () => {
     const printWindow = window.open('', '_blank');
     
+    // Determine Label for PF based on method
+    const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' 
+      ? `Employee PF (Fixed)` 
+      : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
+
+    const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' 
+      ? `Employer PF (Fixed)` 
+      : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
+
     const payslipHTML = `
       <!DOCTYPE html>
       <html>
@@ -268,6 +348,14 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                <td class="bg-light"><strong>Designation</strong></td><td>${employee.role}</td>
                <td class="bg-light"><strong>Work Summary</strong></td><td>Full: ${employee.fullDays} | Half: ${employee.halfDays}</td>
              </tr>
+             <tr>
+               <td class="bg-light"><strong>Total Days in Month</strong></td><td>${employee.totalDaysInMonth}</td>
+               <td class="bg-light"><strong>Worked Days</strong></td><td>${employee.workedDays}</td>
+             </tr>
+             <tr>
+               <td class="bg-light"><strong>Per Day Salary</strong></td><td>${formatCurrency(employee.perDaySalary)}</td>
+               <td class="bg-light"><strong>Calculated Salary</strong></td><td>${formatCurrency(employee.calculatedSalary)}</td>
+             </tr>
           </table>
 
           <table class="table-box">
@@ -280,13 +368,13 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
              <tr>
                <td>Basic Salary</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.basic)}</td>
-               <td>Employee PF (${employee.appliedRules.pfPercentage}%)</td>
+               <td>${pfLabel}</td>
                <td class="text-right">${formatCurrency(employee.breakdown.pf)}</td>
              </tr>
              <tr>
                <td>HRA</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.hra)}</td>
-               <td>Employer PF (${employee.appliedRules.employerPfPercentage}%)</td>
+               <td>${employerPfLabel}</td>
                <td class="text-right">${formatCurrency(employee.breakdown.employerPf)}</td>
              </tr>
              <tr>
@@ -298,13 +386,13 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
              <tr>
                <td>Medical</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.medical)}</td>
-               <td>LOP Deduction</td>
+               <td>LOP Deduction (${employee.lopDays} days)</td>
                <td class="text-right">${formatCurrency(employee.lopDeduction)}</td>
              </tr>
              <tr>
                <td>Special</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.special)}</td>
-               <td>Late Penalty</td>
+               <td>Late Penalty (${employee.lateDaysCount} late × 3 = ${employee.latePenaltyDays} half days)</td>
                <td class="text-right">${formatCurrency(employee.lateDeduction)}</td>
              </tr>
              <tr class="total-row">
@@ -346,7 +434,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
         <div className="p-8 space-y-6">
           
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
              <div className="bg-gray-50 p-4 rounded-xl text-center border">
                 <p className="text-xs text-gray-500 font-bold uppercase">Work Summary</p>
                 <div className="flex justify-center gap-2 mt-1">
@@ -354,18 +442,45 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                     <span className="text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 rounded">Half: {employee.halfDays}</span>
                 </div>
              </div>
-             <div className="bg-green-50 p-4 rounded-xl text-center border border-green-100">
-                <p className="text-xs text-green-600 font-bold uppercase">Total Earnings</p>
-                <p className="text-xl font-extrabold text-green-900">{formatCurrency(employee.breakdown.gross)}</p>
+             <div className="bg-blue-50 p-4 rounded-xl text-center border border-blue-100">
+                <p className="text-xs text-blue-600 font-bold uppercase">Month Days</p>
+                <p className="text-xl font-extrabold text-blue-900">{employee.totalDaysInMonth}</p>
              </div>
-             <div className="bg-red-50 p-4 rounded-xl text-center border border-red-100">
-                <p className="text-xs text-red-600 font-bold uppercase">Total Deductions</p>
-                <p className="text-xl font-extrabold text-red-900">{formatCurrency(employee.totalDeductions)}</p>
+             <div className="bg-purple-50 p-4 rounded-xl text-center border border-purple-100">
+                <p className="text-xs text-purple-600 font-bold uppercase">Worked Days</p>
+                <p className="text-xl font-extrabold text-purple-900">{employee.workedDays}</p>
+             </div>
+             <div className="bg-green-50 p-4 rounded-xl text-center border border-green-100">
+                <p className="text-xs text-green-600 font-bold uppercase">Gross Salary</p>
+                <p className="text-xl font-extrabold text-green-900">{formatCurrency(employee.breakdown.gross)}</p>
              </div>
              <div className="bg-indigo-50 p-4 rounded-xl text-center border border-indigo-100">
                 <p className="text-xs text-indigo-600 font-bold uppercase">Net Pay</p>
                 <p className="text-xl font-extrabold text-indigo-900">{formatCurrency(employee.netPayableSalary)}</p>
              </div>
+          </div>
+
+          {/* Calculation Breakdown */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+            <h4 className="font-bold text-blue-800 text-sm mb-3">📊 Salary Calculation Breakdown</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div className="bg-white p-3 rounded border">
+                <p className="text-gray-600 text-xs">Gross Salary ÷ Total Days in Month</p>
+                <p className="font-bold text-gray-800">{formatCurrency(employee.breakdown.gross)} ÷ {employee.totalDaysInMonth} = {formatCurrency(employee.perDaySalary)}/day</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-gray-600 text-xs">Worked Days × Per Day Salary</p>
+                <p className="font-bold text-gray-800">{employee.workedDays} × {formatCurrency(employee.perDaySalary)} = {formatCurrency(employee.calculatedSalary)}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-gray-600 text-xs">LOP Deduction ({employee.lopDays} days)</p>
+                <p className="font-bold text-red-700">{employee.lopDays} × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lopDeduction)}</p>
+              </div>
+              <div className="bg-white p-3 rounded border">
+                <p className="text-gray-600 text-xs">Late Penalty ({employee.lateDaysCount} late → {employee.latePenaltyDays} half days)</p>
+                <p className="font-bold text-red-700">{employee.latePenaltyDays} × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lateDeduction)}</p>
+              </div>
+            </div>
           </div>
 
           <div className="flex gap-8">
@@ -419,11 +534,25 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                     </tr>
                 </thead>
                 <tbody className="divide-y">
-                   <tr><td className="py-2">Employee PF ({employee.appliedRules.pfPercentage}%)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.pf)}</td></tr>
-                   <tr><td className="py-2">Employer PF ({employee.appliedRules.employerPfPercentage}%)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.employerPf)}</td></tr>
+                   <tr>
+                     <td className="py-2">
+                       {employee.appliedRules.pfCalculationMethod === 'fixed' 
+                        ? 'Employee PF (Fixed)' 
+                        : `Employee PF (${employee.appliedRules.pfPercentage}%)`}
+                     </td>
+                     <td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.pf)}</td>
+                   </tr>
+                   <tr>
+                     <td className="py-2">
+                        {employee.appliedRules.pfCalculationMethod === 'fixed' 
+                        ? 'Employer PF (Fixed)' 
+                        : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`}
+                     </td>
+                     <td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.employerPf)}</td>
+                   </tr>
                    <tr><td className="py-2">Professional Tax</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.pt)}</td></tr>
-                   <tr><td className="py-2">LOP Deduction</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lopDeduction)}</td></tr>
-                   <tr><td className="py-2">Late Penalty</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lateDeduction)}</td></tr>
+                   <tr><td className="py-2">LOP Deduction ({employee.lopDays} days)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lopDeduction)}</td></tr>
+                   <tr><td className="py-2">Late Penalty ({employee.latePenaltyDays} half days)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lateDeduction)}</td></tr>
                    <tr className="bg-red-50"><td className="py-2 font-bold">Total Deductions</td><td className="text-right font-bold text-red-700">{formatCurrency(employee.totalDeductions)}</td></tr>
                 </tbody>
               </table>
@@ -451,6 +580,7 @@ const PayrollManagement = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showConfig, setShowConfig] = useState(false);
   const [payrollRules, setPayrollRules] = useState(DEFAULT_RULES);
+  const [saving, setSaving] = useState(false); // Loading state for saving
   
   // ✅ DATE LOGIC
   const today = new Date();
@@ -493,7 +623,15 @@ const PayrollManagement = () => {
           getAllShifts()
         ]);
 
-        const activeEmps = (Array.isArray(empRes) ? empRes : empRes.data).filter(e => e.isActive !== false);
+        // ✅ FILTER: Only include active AND Full Time employees in payroll
+        let activeEmps = (Array.isArray(empRes) ? empRes : empRes.data).filter(e => e.isActive !== false);
+        
+        // ✅ ADDED: Filter to only include Full Time employees
+        activeEmps = activeEmps.filter(emp => {
+          const employmentType = getCurrentEmploymentType(emp);
+          return employmentType === "Full-Time";
+        });
+        
         setLeaveRequests(leavesRes || []);
         setAllEmployees(activeEmps);
         setAttendanceData(attRes || []);
@@ -523,7 +661,7 @@ const PayrollManagement = () => {
       }
   };
 
-  // ✅ CORE PAYROLL CALCULATION (UPDATED LOGIC)
+  // ✅ CORE PAYROLL CALCULATION (UPDATED WITH NEW PF LOGIC)
   const processedPayroll = useMemo(() => {
     if (!allEmployees.length) return [];
 
@@ -610,33 +748,24 @@ const PayrollManagement = () => {
         const baseSalary = currentExp?.salary ? Number(currentExp.salary) : 0; 
         const shift = shiftMap[emp.employeeId] || { weeklyOffDays: [0] };
 
-        // 3. Assigned Days
-        let assignedWorkingDays = 0;
-        let curr = new Date(summaryStartDate);
-        const end = new Date(summaryEndDate);
-        curr.setHours(0,0,0,0); end.setHours(0,0,0,0);
-        while (curr <= end) {
-            const isHol = holidays.some(h => curr >= normalizeDate(h.start) && curr <= normalizeDate(h.end));
-            if (!isHol && !shift.weeklyOffDays.includes(curr.getDay())) assignedWorkingDays++;
-            curr.setDate(curr.getDate() + 1);
-        }
-        assignedWorkingDays = assignedWorkingDays || 1;
+        // Get the month and year from summaryEndDate to calculate total days
+        const endDate = new Date(summaryEndDate);
+        const totalDaysInMonth = getTotalDaysInMonth(endDate.getFullYear(), endDate.getMonth() + 1);
 
         const att = attSummary[emp.employeeId] || { fullDays: 0, halfDays: 0, workedDays: 0, lateCount: 0, absentDays: 0 };
         const leaves = leaveSummary[emp.employeeId] || { totalLeaveDays: 0, absentDays: 0, paidLeaveCredit: 0, extraLeaves: 0 };
         
-        const latePenaltyDays = Math.floor(att.lateCount / 3) * 0.5;
-        let effectivePayableDays = att.workedDays + leaves.paidLeaveCredit - latePenaltyDays;
-        effectivePayableDays = Math.max(0, effectivePayableDays);
-
-        // --- NEW SALARY LOGIC ---
-        // 1. Calculate Monthly Structure (Standard)
+        // 1. Monthly Salary Breakdown (Standard structure)
         const ruleBasic = Number(payrollRules.basicPercentage) || 0;
         const ruleHra = Number(payrollRules.hraPercentage) || 0;
         const ruleConv = Number(payrollRules.conveyance) || 0;
         const ruleMed = Number(payrollRules.medical) || 0;
-        const rulePf = Number(payrollRules.pfPercentage) || 0;
-        const ruleEmployerPf = Number(payrollRules.employerPfPercentage) || 0;
+        
+        // Extract PT Rules
+        const rulePtSlab1Amount = Number(payrollRules.ptSlab1Amount) || 0;
+        const rulePtSlab2Amount = Number(payrollRules.ptSlab2Amount) || 0;
+        const thresholdSlab1 = 15000;
+        const thresholdSlab2 = 20000;
 
         const monthlyTotal = baseSalary;
         const monthlyBasic = monthlyTotal * (ruleBasic / 100);
@@ -645,63 +774,97 @@ const PayrollManagement = () => {
         const monthlyMed = ruleMed;
         const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed));
 
-        // 2. Gross Earned (Now same as Standard, no pro-rata reduction here)
-        // User Requirement: "If base salary is 20k then directly calc the salary as remove actual earned keep only Standard"
-        const earnedBasic = monthlyBasic;
-        const earnedHRA = monthlyHRA;
-        const earnedConv = monthlyConv;
-        const earnedMed = monthlyMed;
-        const earnedSpecial = monthlySpecial;
-        const grossEarned = monthlyTotal;
+        // 2. Per Day Salary = Gross Salary / Total Days in Month
+        const perDaySalary = monthlyTotal / totalDaysInMonth;
 
-        // 3. Deductions (Calculated on Full Amounts)
-        const pfDeduction = earnedBasic * (rulePf / 100);
-        const employerPfAmount = earnedBasic * (ruleEmployerPf / 100); 
+        // 3. Worked Days
+        const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
 
+        // 4. Calculated Salary = Worked Days × Per Day Salary
+        const calculatedSalary = totalWorkedDays * perDaySalary;
+
+        // 5. LOP Deduction
+        const lopDeduction = leaves.extraLeaves * perDaySalary;
+
+        // 6. Late Penalty
+        const latePenaltyDays = Math.floor(att.lateCount / 3) * 0.5;
+        const lateDeduction = latePenaltyDays * perDaySalary;
+
+        // 7. Gross Earned
+        const grossEarned = calculatedSalary;
+
+        // 8. PF Calculation Logic (Modified)
+        let pfDeduction = 0;
+        let employerPfAmount = 0;
+
+        // Check if PF method is 'fixed' or 'percentage'
+        if (payrollRules.pfCalculationMethod === 'fixed') {
+            // FIXED MODE: 
+            // Deduct fixed amount from the total
+            pfDeduction = Number(payrollRules.pfFixedAmountEmployee) || 0;
+            employerPfAmount = Number(payrollRules.pfFixedAmountEmployer) || 0;
+        } else {
+            // PERCENTAGE MODE:
+            // Deduct from Fixed Basic Salary (monthlyBasic) as shown in Earnings column.
+            const rulePf = Number(payrollRules.pfPercentage) || 0;
+            const ruleEmployerPf = Number(payrollRules.employerPfPercentage) || 0;
+
+            // Use monthlyBasic (Fixed) instead of proratedBasic
+            pfDeduction = monthlyBasic * (rulePf / 100);
+            employerPfAmount = monthlyBasic * (ruleEmployerPf / 100);
+        }
+
+        // 9. PT Calculation
         let ptDeduction = 0;
-        if (grossEarned > (payrollRules.ptSlab2Limit || 20000)) ptDeduction = (payrollRules.ptSlab2Amount || 200); 
-        else if (grossEarned >= (payrollRules.ptSlab1Limit || 15000)) ptDeduction = (payrollRules.ptSlab1Amount || 150);
+        if (monthlyTotal >= thresholdSlab2) {
+            ptDeduction = rulePtSlab2Amount;
+        } else if (monthlyTotal >= thresholdSlab1) {
+            ptDeduction = rulePtSlab1Amount;
+        }
 
-        // LOP and Late are now DEDUCTIONS from the Total
-        const perDayValue = monthlyTotal / assignedWorkingDays;
-        const lopDeduction = leaves.extraLeaves * perDayValue;
-        const lateDeduction = latePenaltyDays * perDayValue;
-
-        // Total Deductions = EmpPF + EmployerPF + PT + LOP + Late
+        // 10. Total Deductions
         const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction;
         
-        // Net Pay
-        const netPayableSalary = Math.max(0, grossEarned - totalDeductions);
+        // 11. Net Payable Salary (Home Take)
+        const netPayableSalary = Math.max(0, calculatedSalary - totalDeductions);
         
         return {
             employeeId: emp.employeeId,
             employeeName: emp.name,
             role: currentExp?.role || "N/A",
-            assignedWorkingDays,
-            payableDays: effectivePayableDays,
+            totalDaysInMonth,
+            workedDays: totalWorkedDays,
             fullDays: att.fullDays,
             halfDays: att.halfDays,
             absentDays: leaves.absentDays,
             totalLeavesConsumed: leaves.totalLeaveDays,
             lopDays: leaves.extraLeaves,
             lateDaysCount: att.lateCount,
+            latePenaltyDays,
+            perDaySalary,
+            calculatedSalary,
             appliedRules: payrollRules,
             monthlyBreakdown: {
-                basic: monthlyBasic, hra: monthlyHRA, conveyance: monthlyConv, medical: monthlyMed, special: monthlySpecial, total: monthlyTotal
+                basic: monthlyBasic, 
+                hra: monthlyHRA, 
+                conveyance: monthlyConv, 
+                medical: monthlyMed, 
+                special: monthlySpecial, 
+                total: monthlyTotal
             },
             breakdown: {
-              basic: earnedBasic, 
-              hra: earnedHRA, 
-              conveyance: earnedConv, 
-              medical: earnedMed, 
-              special: earnedSpecial,
-              gross: grossEarned, 
+              basic: monthlyBasic, 
+              hra: monthlyHRA, 
+              conveyance: monthlyConv, 
+              medical: monthlyMed, 
+              special: monthlySpecial,
+              gross: monthlyTotal, 
               pf: pfDeduction, 
               employerPf: employerPfAmount, 
               pt: ptDeduction
             },
-            lopDeduction: lopDeduction,
-            lateDeduction: lateDeduction,
+            lopDeduction,
+            lateDeduction,
             totalDeductions, 
             netPayableSalary
         };
@@ -728,16 +891,64 @@ const PayrollManagement = () => {
       const dataToExport = filteredPayroll.map(emp => ({
           "ID": emp.employeeId,
           "Name": emp.employeeName,
+          "Total Days in Month": emp.totalDaysInMonth,
+          "Worked Days": emp.workedDays,
+          "Per Day Salary": emp.perDaySalary.toFixed(2),
+          "Calculated Salary": emp.calculatedSalary.toFixed(2),
           "Total Earnings": emp.breakdown.gross,
           "Full Days": emp.fullDays,
+          "Half Days": emp.halfDays,
           "Leaves & Absent": emp.totalLeavesConsumed + emp.absentDays,
+          "LOP Days": emp.lopDays,
+          "Late Count": emp.lateDaysCount,
+          "Late Penalty Days": emp.latePenaltyDays,
           "Employer PF": emp.breakdown.employerPf,
           "Employee PF": emp.breakdown.pf,
           "PT": emp.breakdown.pt,
-          "LOP": emp.lopDeduction,
+          "LOP Deduction": emp.lopDeduction,
+          "Late Deduction": emp.lateDeduction,
+          "Total Deductions": emp.totalDeductions,
           "Net Payable": emp.netPayableSalary
       }));
       exportToExcel(dataToExport, `Payroll_Report_${summaryStartDate}_to_${summaryEndDate}`);
+  };
+
+  // ✅ SAVE TO DB HANDLER
+  const handleSaveDatabase = async () => {
+    if (filteredPayroll.length === 0) {
+      Swal.fire("No Data", "There is no payroll data to save.", "warning");
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: 'Are you sure want Release Payslips for Employees?',
+      text: `You are about to save/update payroll records for ${filteredPayroll.length} employees for the period ${summaryStartDate} to ${summaryEndDate}.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Yes, Save it!'
+    });
+
+    if (confirm.isConfirmed) {
+      setSaving(true);
+      try {
+        const payload = {
+          period: { start: summaryStartDate, end: summaryEndDate },
+          records: filteredPayroll
+        };
+
+        // Call the backend API
+        await axios.post('http://localhost:5000/api/payroll/save-batch', payload); 
+        
+        Swal.fire('Saved!', 'Payroll records have been successfully saved to the database.', 'success');
+      } catch (error) {
+        console.error("Save Error:", error);
+        Swal.fire('Error', 'Failed to save payroll records. Please try again.', 'error');
+      } finally {
+        setSaving(false);
+      }
+    }
   };
 
   if (loading) return <div className="flex justify-center items-center h-screen bg-gray-50"><div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div></div>;
@@ -751,7 +962,7 @@ const PayrollManagement = () => {
            
            <div className="flex-shrink-0">
               <h1 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-                💰 Payroll
+                Payroll Management
               </h1>
            </div>
 
@@ -793,6 +1004,14 @@ const PayrollManagement = () => {
                >
                  ⚙️ Rules
                </button>
+               {/* ✅ NEW BUTTON FOR SAVING TO DB */}
+               <button 
+                 onClick={handleSaveDatabase}
+                 disabled={saving}
+                 className={`text-white text-sm font-medium py-1.5 px-3 rounded-lg shadow transition flex items-center gap-1 ${saving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+               >
+                 {saving ? 'Saving...' : '💾 Save Payroll'}
+               </button>
                <button 
                  onClick={handleExportAll}
                  className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg shadow transition flex items-center gap-1"
@@ -826,17 +1045,17 @@ const PayrollManagement = () => {
                     <tr>
                        <th className="px-6 py-4">Employee</th>
                        <th className="px-6 py-4 text-right">Base Salary</th>
-                       <th className="px-6 py-4 text-center">Full Days</th>
-                       <th className="px-6 py-4 text-center">Half Days</th>
                        <th className="px-6 py-4 text-center">Leaves / Absent</th>
-                       <th className="px-6 py-4 text-center">LOP</th>
+                       <th className="px-6 py-4 text-center">Worked Days</th>
+                       <th className="px-6 py-4 text-center">Full / Half</th>
+                       <th className="px-6 py-4 text-center">LOP / Late</th>
                        <th className="px-6 py-4 text-right bg-indigo-50 text-indigo-700">Net Pay</th>
                        <th className="px-6 py-4 text-center">Action</th>
                     </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-100">
                     {filteredPayroll.length === 0 ? (
-                        <tr><td colSpan="8" className="text-center py-8 text-gray-500">No data found</td></tr>
+                        <tr><td colSpan="8" className="text-center py-8 text-gray-500">No Full Time employees found</td></tr>
                     ) : filteredPayroll.map((emp) => (
                        <tr key={emp.employeeId} className="hover:bg-gray-50 transition">
                           <td className="px-6 py-4">
@@ -846,27 +1065,39 @@ const PayrollManagement = () => {
                           <td className="px-6 py-4 text-right text-gray-700 font-medium">
                              {formatCurrency(emp.monthlyBreakdown.total)}
                           </td>
+                  <td className="px-6 py-4 text-center">
+      <div className="flex flex-col items-center">
+         <div className="text-xs font-bold text-gray-700 mb-1">
+             Total: {emp.totalLeavesConsumed + emp.absentDays}
+         </div>
+         <div className="flex gap-2 text-[10px]">
+             <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+               L: {emp.totalLeavesConsumed}
+             </span>
+             <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+               A: {emp.absentDays}
+             </span>
+         </div>
+      </div>
+   </td>
                           <td className="px-6 py-4 text-center">
-                             <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-bold text-xs">{emp.fullDays}</span>
+                             <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded font-bold text-xs">{emp.workedDays}</span>
                           </td>
                           <td className="px-6 py-4 text-center">
-                             <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-xs">{emp.halfDays}</span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                             <div className="flex flex-col items-center">
-                                <div className="text-xs font-bold text-gray-700 mb-1">
-                                    Total: {emp.totalLeavesConsumed + emp.absentDays}
-                                </div>
-                                <div className="flex gap-2 text-[10px]">
-                                    <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">L: {emp.totalLeavesConsumed}</span>
-                                    <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">A: {emp.absentDays}</span>
-                                </div>
+                             <div className="flex gap-1 justify-center">
+                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-bold text-xs">{emp.fullDays}</span>
+                                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-xs">{emp.halfDays}</span>
                              </div>
                           </td>
                           <td className="px-6 py-4 text-center">
-                             <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lopDays > 0 ? 'bg-orange-100 text-orange-800' : 'text-gray-400'}`}>
-                                {emp.lopDays}
-                             </span>
+                             <div className="flex flex-col items-center gap-1">
+                                <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lopDays > 0 ? 'bg-orange-100 text-orange-800' : 'text-gray-400'}`}>
+                                   LOP: {emp.lopDays}
+                                </span>
+                                <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lateDaysCount > 0 ? 'bg-red-100 text-red-800' : 'text-gray-400'}`}>
+                                   Late: {emp.lateDaysCount}
+                                </span>
+                             </div>
                           </td>
                           <td className="px-6 py-4 text-right font-bold text-indigo-700 bg-indigo-50">
                              {formatCurrency(emp.netPayableSalary)}

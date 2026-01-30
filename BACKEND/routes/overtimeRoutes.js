@@ -7,6 +7,7 @@ import Employee from "../models/employeeModel.js";
 import Notification from "../models/notificationModel.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
+import { sendBrevoEmail } from "../Services/emailService.js";
 
 const router = express.Router();
 
@@ -21,6 +22,10 @@ router.use(protect);
 router.post("/apply", async (req, res) => {
   try {
     const { employeeId, employeeName, date, type } = req.body;
+
+    // We can get the employee's email from req.user if they are logged in
+    // req.user is populated by the 'protect' middleware
+    const employeeEmail = req.user?.email || "N/A";
 
     if (!employeeId || !employeeName || !date || !type) {
       return res.status(400).json({
@@ -43,8 +48,21 @@ router.post("/apply", async (req, res) => {
     // 🔥 Notify admins in real-time
     if (io) io.emit("overtime:new", newOT);
 
-    // 🔔 Notify all admins
+    // 🔔 Notify all admins & Send Email
     const admins = await Admin.find().lean();
+
+    // Prepare email recipients
+    const adminRecipients = admins.map(admin => ({ name: admin.name, email: admin.email }));
+
+    // ✅ Explicitly add 'oragantisagar041@gmail.com' to ensure they get the email
+    // (regardless of whether they are in the Admin database collection)
+    const specificAdminEmail = "oragantisagar041@gmail.com";
+    const alreadyIncluded = adminRecipients.some(a => a.email.toLowerCase() === specificAdminEmail.toLowerCase());
+
+    if (!alreadyIncluded) {
+      adminRecipients.push({ name: "Admin", email: specificAdminEmail });
+    }
+
     for (const admin of admins) {
       await Notification.create({
         userId: admin._id.toString(),
@@ -52,6 +70,45 @@ router.post("/apply", async (req, res) => {
         message: `${employeeName} requested overtime on ${date}`,
         type: "overtime",
         isRead: false,
+      });
+    }
+
+    // Send Email to Admins
+    if (adminRecipients.length > 0) {
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; max-width: 600px;">
+          <h2 style="color: #4f46e5;">New Overtime Request</h2>
+          <p><strong>${employeeName}</strong> (ID: ${employeeId}) has applied for overtime.</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Name:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${employeeName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee ID:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${employeeId}</td>
+            </tr>
+             <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Email:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${employeeEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Date:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${new Date(date).toLocaleDateString()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Type:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${type}</td>
+            </tr>
+          </table>
+          <p style="margin-top: 20px;">Please login to the Admin Portal to approve or reject this request.</p>
+        </div>
+      `;
+
+      await sendBrevoEmail({
+        to: adminRecipients,
+        subject: `New Overtime Request: ${employeeName}`,
+        htmlContent: emailHtml,
       });
     }
 

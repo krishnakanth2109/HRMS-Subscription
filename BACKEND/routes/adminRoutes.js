@@ -1,7 +1,9 @@
 import express from "express";
 import OfficeSettings from "../models/OfficeSettings.js";
 import Employee from "../models/Employee.js";
-import WorkModeRequest from "../models/WorkModeRequest.js"; // ✅ Added Import
+import WorkModeRequest from "../models/WorkModeRequest.js";
+import Admin from "../models/adminModel.js";
+import { sendBrevoEmail } from "../Services/emailService.js";
 
 const router = express.Router();
 
@@ -52,15 +54,15 @@ router.put("/settings/office", async (req, res) => {
 // Update Single Employee Work Mode (Advanced Schedules)
 router.put("/settings/employee-mode", async (req, res) => {
   try {
-    const { 
-      employeeId, 
-      ruleType,       
-      mode,           
-      fromDate,       
-      toDate,         
-      days            
+    const {
+      employeeId,
+      ruleType,
+      mode,
+      fromDate,
+      toDate,
+      days
     } = req.body;
-    
+
     if (!employeeId || !ruleType) {
       return res.status(400).json({ message: "Employee ID and Rule Type are required" });
     }
@@ -104,7 +106,7 @@ router.put("/settings/employee-mode", async (req, res) => {
 // Bulk Update
 router.post("/settings/employee-mode/bulk", async (req, res) => {
   try {
-    const { employeeIds, mode } = req.body; 
+    const { employeeIds, mode } = req.body;
 
     if (!employeeIds || !Array.isArray(employeeIds) || !mode) {
       return res.status(400).json({ message: "Invalid payload" });
@@ -217,27 +219,27 @@ const calculateEffectiveMode = (settings, empId) => {
   if (!config || config.ruleType === "Global") return "Global";
 
   const today = new Date();
-  
+
   if (config.ruleType === "Temporary" && config.temporary) {
     const from = new Date(config.temporary.fromDate);
     const to = new Date(config.temporary.toDate);
-    today.setHours(0,0,0,0);
-    from.setHours(0,0,0,0);
-    to.setHours(23,59,59,999);
+    today.setHours(0, 0, 0, 0);
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
 
     if (today >= from && today <= to) {
-      return config.temporary.mode; 
+      return config.temporary.mode;
     } else {
-      return "Global"; 
+      return "Global";
     }
   }
 
   if (config.ruleType === "Recurring" && config.recurring) {
-    const currentDay = new Date().getDay(); 
+    const currentDay = new Date().getDay();
     if (config.recurring.days.includes(currentDay)) {
-      return config.recurring.mode; 
+      return config.recurring.mode;
     } else {
-      return "Global"; 
+      return "Global";
     }
   }
 
@@ -285,7 +287,7 @@ router.get("/settings/employee-mode/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
     const settings = await OfficeSettings.findOne({ type: "Global" });
-    
+
     if (!settings) return res.status(200).json({ workMode: "Global" });
 
     const mode = calculateEffectiveMode(settings, employeeId);
@@ -308,9 +310,9 @@ router.get("/settings/employee-mode/:employeeId", async (req, res) => {
 // A. Submit Request (For Employee Side)
 router.post("/request", async (req, res) => {
   try {
-    const { 
-      employeeId, employeeName, department, 
-      requestType, fromDate, toDate, recurringDays, requestedMode, reason 
+    const {
+      employeeId, employeeName, department,
+      requestType, fromDate, toDate, recurringDays, requestedMode, reason
     } = req.body;
 
     const newRequest = new WorkModeRequest({
@@ -319,6 +321,92 @@ router.post("/request", async (req, res) => {
     });
 
     await newRequest.save();
+
+    // ----------------------------------------------------
+    // EMAIL NOTIFICATION LOGIC
+    // ----------------------------------------------------
+    try {
+      // 1. Fetch all admins
+      const admins = await Admin.find().lean();
+
+      // 2. Prepare recipients list
+      const adminRecipients = admins.map(admin => ({ name: admin.name, email: admin.email }));
+
+      // 3. Explicitly add 'oragantisagar041@gmail.com'
+      const specificAdminEmail = "oragantisagar041@gmail.com";
+      const alreadyIncluded = adminRecipients.some(a => a.email.toLowerCase() === specificAdminEmail.toLowerCase());
+
+      console.log("📧 WorkMode Email Debug: Found Admins count:", admins.length);
+
+      if (!alreadyIncluded) {
+        console.log("📧 WorkMode Email Debug: Adding specific admin manually:", specificAdminEmail);
+        adminRecipients.push({ name: "Admin", email: specificAdminEmail });
+      }
+
+      console.log("📧 WorkMode Email Debug: Final Recipients:", adminRecipients.map(r => r.email));
+
+      // 4. Construct Email Content
+      let dateInfo = "N/A";
+      if (requestType === "Temporary") {
+        dateInfo = `${new Date(fromDate).toLocaleDateString()} to ${new Date(toDate).toLocaleDateString()}`;
+      } else if (requestType === "Recurring") {
+        dateInfo = `Every ${recurringDays ? recurringDays.join(", ") : "N/A"}`;
+      } else if (requestType === "Permanent") {
+        dateInfo = "Starting immediately (Permanent)";
+      }
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; max-width: 600px;">
+          <h2 style="color: #4f46e5;">New Work Mode Request</h2>
+          <p><strong>${employeeName}</strong> (ID: ${employeeId}) has requested a change in work mode.</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Name:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${employeeName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Department:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${department || "N/A"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Requested Mode:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${requestedMode}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Request Type:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${requestType}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Date/Duration:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${dateInfo}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Reason:</strong></td>
+              <td style="padding: 8px; border: 1px solid #ddd;">${reason || "No reason provided"}</td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 20px;">Please login to the Admin Portal to approve or reject this request.</p>
+        </div>
+      `;
+
+      // 5. Send Email
+      if (adminRecipients.length > 0) {
+        console.log("📧 WorkMode Email Debug: Attempting to send...");
+        const response = await sendBrevoEmail({
+          to: adminRecipients,
+          subject: `Work Mode Request: ${employeeName} - ${requestType}`,
+          htmlContent: emailHtml,
+        });
+        console.log("📧 WorkMode Email Debug: Email Response:", response);
+      } else {
+        console.log("📧 WorkMode Email Debug: No recipients to send to.");
+      }
+    } catch (emailErr) {
+      console.error("❌ Failed to send Work Mode Request email:", emailErr);
+    }
+
     res.status(201).json({ message: "Request submitted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
@@ -378,15 +466,15 @@ router.put("/requests/action", async (req, res) => {
       if (request.requestType === "Permanent") {
         newConfig.permanentMode = request.requestedMode;
       } else if (request.requestType === "Temporary") {
-        newConfig.temporary = { 
-          mode: request.requestedMode, 
-          fromDate: request.fromDate, 
-          toDate: request.toDate 
+        newConfig.temporary = {
+          mode: request.requestedMode,
+          fromDate: request.fromDate,
+          toDate: request.toDate
         };
       } else if (request.requestType === "Recurring") {
-        newConfig.recurring = { 
-          mode: request.requestedMode, 
-          days: request.recurringDays 
+        newConfig.recurring = {
+          mode: request.requestedMode,
+          days: request.recurringDays
         };
       }
 

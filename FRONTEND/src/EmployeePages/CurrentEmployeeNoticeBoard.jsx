@@ -51,29 +51,9 @@ const NoticeList = () => {
   const newlyReadIdsRef = useRef(new Set());
   const alertedMeetingsRef = useRef(new Set());
 
-  // ==========================================
-  // ✅ NEW: DIRECT CHAT STATES (1-to-1)
-  // ==========================================
-  const [isDirectChatOpen, setIsDirectChatOpen] = useState(false);
-  const [selectedChatUser, setSelectedChatUser] = useState(null);
-  const [chatList, setChatList] = useState([]); 
-  const [directMessages, setDirectMessages] = useState([]);
-  const [directMsgText, setDirectMsgText] = useState("");
-  const [directSearchTerm, setDirectSearchTerm] = useState("");
-  
-  // ✅ NEW: Unread Counts State
-  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
-
-  // Edit & Menu States
-  const [editingMessageId, setEditingMessageId] = useState(null);
-  const [openMenuId, setOpenMenuId] = useState(null); // Track which message menu is open
-
-  const directChatEndRef = useRef(null);
-
   // --- OPTIMIZED FETCH LOGIC ---
   const fetchNotices = useCallback(async (silent = false) => {
     try {
-      // ✅ Removed IsInitialLoading from here to handle it in the bootstrap function
       const { data } = await api.get("/api/notices");
 
       // Extract Config Notice
@@ -108,8 +88,6 @@ const NoticeList = () => {
           return notice;
       });
 
-      // ✅ OPTIMIZED: Removed expensive JSON.stringify comparison. 
-      // React handles state diffing efficiently.
       setNotices(processedData);
       
       autoMarkAsRead(sortedData);
@@ -136,20 +114,6 @@ const NoticeList = () => {
     } catch (err) { console.error(err); }
   };
 
-  // ✅ 1. Fetch Chat List (Persistence & Unread Counts)
-  const fetchChatList = useCallback(async () => {
-     try {
-         const { data } = await api.get('/api/chat/users'); 
-         setChatList(data || []);
-         
-         // Calculate total unread
-         const total = data.reduce((acc, curr) => acc + (curr.unreadCount || 0), 0);
-         setTotalUnreadCount(total);
-     } catch (e) {
-         console.error("Failed to fetch chat list");
-     }
-  }, []);
-
   // ✅ OPTIMIZED BOOTSTRAP: Parallel Fetching
   useEffect(() => { 
     const bootstrap = async () => {
@@ -157,10 +121,10 @@ const NoticeList = () => {
             setIsInitialLoading(true);
             try {
                 // Fetch ALL critical data in parallel
+                // Removed chat fetching to improve speed
                 await Promise.all([
                     fetchNotices(false),
-                    fetchEmployeeList(),
-                    fetchChatList()
+                    fetchEmployeeList()
                 ]);
             } catch (error) {
                 console.error("Error loading initial data", error);
@@ -170,16 +134,15 @@ const NoticeList = () => {
         }
     };
     bootstrap();
-  }, [user]); // Removed individual fetch functions from dependency to prevent loops
+  }, [user]); 
 
   // ✅ Polling Interval (Keep data fresh)
   useEffect(() => {
     const interval = setInterval(() => {
         fetchNotices(true); 
-        fetchChatList(); // Sync chat list count
     }, 3000);
     return () => clearInterval(interval);
-  }, [fetchNotices, fetchChatList]);
+  }, [fetchNotices]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -193,158 +156,6 @@ const NoticeList = () => {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [activeNotice?.replies?.length, isChatOpen]);
-
-  // ==========================================
-  // ✅ DIRECT CHAT LOGIC
-  // ==========================================
-
-  // 2. Fetch Messages
-  const fetchDirectMessages = useCallback(async () => {
-    if (!selectedChatUser || !currentUserId) return;
-    try {
-      const { data } = await api.get(`/api/chat/history/${selectedChatUser._id}`);
-      setDirectMessages(data || []);
-    } catch (error) {
-      console.error("Failed to fetch messages");
-    }
-  }, [selectedChatUser, currentUserId]);
-
-  useEffect(() => {
-    if (isDirectChatOpen && selectedChatUser) {
-        fetchDirectMessages();
-        const chatInterval = setInterval(() => {
-            fetchDirectMessages();
-            // Also mark as read periodically if window is open
-            markMessagesAsRead(selectedChatUser._id);
-        }, 3000); 
-        return () => clearInterval(chatInterval);
-    }
-  }, [isDirectChatOpen, selectedChatUser, fetchDirectMessages]);
-
-  useEffect(() => {
-    // Only scroll if we aren't editing something high up, or just strictly scroll on new message
-    if (isDirectChatOpen && directChatEndRef.current && !editingMessageId) {
-        directChatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [directMessages.length, isDirectChatOpen, selectedChatUser, editingMessageId]);
-
-  // ✅ 3. MARK MESSAGES AS READ
-  const markMessagesAsRead = async (senderId) => {
-      try {
-          await api.put(`/api/chat/read/${senderId}`);
-          // Update local unread count immediately
-          setChatList(prev => prev.map(u => 
-             u._id === senderId ? { ...u, unreadCount: 0 } : u
-          ));
-          setTotalUnreadCount(prev => {
-              const user = chatList.find(u => u._id === senderId);
-              return user ? Math.max(0, prev - (user.unreadCount || 0)) : prev;
-          });
-      } catch (e) {
-          console.error("Failed to mark read");
-      }
-  };
-
-  // 4. User Selection
-  const handleSelectUser = (emp) => {
-      setSelectedChatUser(emp);
-      setDirectSearchTerm(""); 
-      setEditingMessageId(null);
-      setDirectMsgText("");
-      
-      // Optimistically add to list if not present
-      setChatList(prev => {
-          if (prev.find(u => u._id === emp._id)) return prev;
-          return [emp, ...prev];
-      });
-
-      // ✅ Mark messages as read when opening chat
-      markMessagesAsRead(emp._id);
-  };
-
-  // 5. Send or Edit Message
-  const handleSendDirectMessage = async () => {
-    if (!directMsgText.trim() && !selectedFile) return;
-
-    // --- EDIT MODE ---
-    if (editingMessageId) {
-        try {
-            // Update UI immediately
-            setDirectMessages(prev => prev.map(msg => 
-                msg._id === editingMessageId ? { ...msg, message: directMsgText } : msg
-            ));
-            
-            await api.put(`/api/chat/${editingMessageId}`, { message: directMsgText });
-            
-            setEditingMessageId(null);
-            setDirectMsgText("");
-            fetchDirectMessages(); // Sync
-        } catch (e) {
-            alert("Failed to update message");
-        }
-        return;
-    }
-    
-    // --- SEND MODE ---
-    const newMessage = {
-        _id: Date.now(),
-        sender: { _id: currentUserId, name: user.name }, 
-        receiver: selectedChatUser._id,
-        message: directMsgText,
-        createdAt: new Date().toISOString(),
-        isPending: true,
-        isRead: false
-    };
-    
-    setDirectMessages(prev => [...prev, newMessage]);
-    const txtToSend = directMsgText;
-    setDirectMsgText("");
-    
-    // Move user to top of list
-    setChatList(prev => {
-        const filtered = prev.filter(u => u._id !== selectedChatUser._id);
-        return [selectedChatUser, ...filtered];
-    });
-
-    try {
-        await api.post('/api/chat/send', {
-            receiverId: selectedChatUser._id,
-            message: txtToSend
-        });
-        fetchDirectMessages();
-        fetchChatList(); // Refresh list to update order
-    } catch (error) {
-        console.error("Failed to send DM");
-    }
-  };
-
-  const startEditing = (msg) => {
-      setEditingMessageId(msg._id);
-      setDirectMsgText(msg.message);
-      setOpenMenuId(null); // Close menu
-  };
-
-  const handleDeleteMessage = async (msgId) => {
-      if(!window.confirm("Delete this message?")) return;
-      
-      // Optimistic delete
-      setDirectMessages(prev => prev.filter(m => m._id !== msgId));
-      setOpenMenuId(null);
-
-      try {
-          await api.delete(`/api/chat/${msgId}`);
-          fetchDirectMessages();
-      } catch (e) {
-          alert("Failed to delete");
-      }
-  };
-
-  // Close menus when clicking elsewhere
-  useEffect(() => {
-      const handleClickOutside = () => setOpenMenuId(null);
-      if(openMenuId) document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-  }, [openMenuId]);
 
   // ==========================================
   // --- EXISTING HELPER LOGIC ---
@@ -412,7 +223,7 @@ const NoticeList = () => {
       api.put(`/api/notices/${unreadNotices[0]._id}/read`).catch(e => console.error(e));
       setTimeout(() => {
         unreadNotices.forEach(n => newlyReadIdsRef.current.delete(n._id));
-        fetchNotices(true); // removed await
+        fetchNotices(true); 
       }, 5000);
     } catch (error) { console.error(error); }
   };
@@ -586,19 +397,6 @@ const NoticeList = () => {
           </div>
 
           <div className="flex gap-3">
-            {/* ✅ CONNECT WITH EMPLOYEE BUTTON (With Unread Bubble) */}
-            <button 
-                onClick={() => setIsDirectChatOpen(true)}
-                className="relative flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-105 active:scale-95"
-            >
-                <FaCommentDots /> Connect with Employee
-                {totalUnreadCount > 0 && (
-                   <span className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-white animate-pulse">
-                      {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
-                   </span>
-                )}
-            </button>
-
             <button 
                 onClick={() => { setIsEditing(false); setPostData(initialPostState); setIsPostModalOpen(true); }}
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg transition-all transform hover:scale-105 active:scale-95"
@@ -1018,239 +816,6 @@ const NoticeList = () => {
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* ============================================================== */}
-      {/* ✅ NEW: FULL SCREEN DIRECT EMPLOYEE CHAT (Teams Theme) */}
-      {/* ============================================================== */}
-      {isDirectChatOpen && (
-        <div className="fixed inset-0 z-[200] bg-white flex flex-col animate-in fade-in duration-300 font-sans">
-            {/* Header */}
-            <div className="h-14 bg-[#464775] text-white flex items-center justify-between px-4 shrink-0 shadow-md z-20">
-                <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                       <FaCommentDots />
-                   </div>
-                   <h2 className="font-bold text-lg">Employee Connect</h2>
-                </div>
-                <button onClick={() => setIsDirectChatOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors"><FaTimes size={20}/></button>
-            </div>
-
-            <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar - Chat List OR Search Results */}
-                <div className="w-80 border-r border-gray-200 bg-gray-50 flex flex-col shrink-0">
-                    <div className="p-3 border-b border-gray-200 bg-white">
-                        <div className="relative">
-                            <FaSearch className="absolute left-3 top-3 text-gray-400" />
-                            <input 
-                                className="w-full bg-gray-100 py-2 pl-9 pr-3 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#6264a7] transition-all"
-                                placeholder="Search new employee..."
-                                value={directSearchTerm}
-                                onChange={(e) => setDirectSearchTerm(e.target.value.toLowerCase())}
-                            />
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                        {directSearchTerm ? (
-                            // 🔍 SHOW SEARCH RESULTS
-                            <>
-                                <p className="px-2 py-1 text-xs font-bold text-gray-400 uppercase">Search Results</p>
-                                {employees
-                                    .filter(e => e._id !== currentUserId && (e.name.toLowerCase().includes(directSearchTerm) || e.employeeId.includes(directSearchTerm)))
-                                    .map(emp => (
-                                    <div 
-                                        key={emp._id} 
-                                        onClick={() => handleSelectUser(emp)}
-                                        className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-all"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold text-sm">
-                                            {emp.name.charAt(0)}
-                                        </div>
-                                        <div className="overflow-hidden">
-                                            <h4 className="text-sm font-bold text-gray-800 truncate">{emp.name}</h4>
-                                            <p className="text-xs text-gray-500 truncate">{emp.role || emp.employeeId}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </>
-                        ) : (
-                            // 💬 SHOW RECENT CHAT LIST (PERSISTED)
-                            <>
-                                {chatList.length > 0 ? (
-                                    chatList.map(emp => (
-                                        <div 
-                                            key={emp._id} 
-                                            onClick={() => handleSelectUser(emp)}
-                                            className={`relative flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${selectedChatUser?._id === emp._id ? 'bg-white shadow-sm border-l-4 border-[#6264a7]' : 'hover:bg-gray-200 border-l-4 border-transparent'}`}
-                                        >
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${selectedChatUser?._id === emp._id ? 'bg-[#6264a7] text-white' : 'bg-gray-300 text-gray-600'}`}>
-                                                {emp.name.charAt(0)}
-                                            </div>
-                                            <div className="overflow-hidden flex-1">
-                                                <div className="flex justify-between items-center">
-                                                    <h4 className={`text-sm font-bold truncate ${selectedChatUser?._id === emp._id ? 'text-[#6264a7]' : 'text-gray-800'}`}>{emp.name}</h4>
-                                                    {/* ✅ SIDEBAR UNREAD BUBBLE */}
-                                                    {emp.unreadCount > 0 && (
-                                                        <span className="bg-green-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full">
-                                                            {emp.unreadCount}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p className="text-xs text-gray-500 truncate">{emp.role || emp.employeeId}</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center p-6 text-gray-400 text-sm">
-                                        <p>No recent chats.</p>
-                                        <p className="text-xs mt-1">Search above to start a new conversation.</p>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col bg-white relative">
-                    {selectedChatUser ? (
-                        <>
-                            {/* Chat Header */}
-                            <div className="h-16 border-b border-gray-200 flex items-center justify-between px-6 bg-white shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-[#6264a7] text-white flex items-center justify-center font-bold text-lg">
-                                        {selectedChatUser.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-gray-900">{selectedChatUser.name}</h3>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                            <span className="text-xs text-gray-500">Available</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button className="p-2 text-[#6264a7] hover:bg-indigo-50 rounded-full"><FaPhone /></button>
-                                    <button className="p-2 text-[#6264a7] hover:bg-indigo-50 rounded-full"><FaVideo /></button>
-                                    <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full"><FaEllipsisH /></button>
-                                </div>
-                            </div>
-
-                            {/* Chat Messages */}
-                            <div className="flex-1 bg-[#f3f2f1] overflow-y-auto custom-scrollbar p-6 flex flex-col gap-4">
-                                {directMessages.length === 0 ? (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 opacity-60">
-                                        <FaCommentDots size={48} className="mb-2" />
-                                        <p>Start a conversation with {selectedChatUser.name}</p>
-                                    </div>
-                                ) : (
-                                    directMessages.map((msg, i) => {
-                                        // Determine if message is from "Me"
-                                        const isMe = (typeof msg.sender === 'object' ? msg.sender._id : msg.sender) === currentUserId;
-                                        const senderName = isMe ? "You" : (typeof msg.sender === 'object' ? msg.sender.name : selectedChatUser.name);
-
-                                        return (
-                                            <div key={i} className={`flex w-full group ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[65%]`}>
-                                                    {/* Sender Name Label */}
-                                                    <span className="text-[10px] font-bold text-gray-500 mb-1 px-1">
-                                                        {senderName}
-                                                    </span>
-                                                    
-                                                    {/* Message Bubble */}
-                                                    <div className="relative">
-                                                        <div className={`p-3 rounded-lg shadow-sm ${isMe ? 'bg-[#c7e0f4] text-gray-900 rounded-br-none' : 'bg-white text-gray-900 rounded-bl-none'}`}>
-                                                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
-                                                            <div className="flex items-center justify-end gap-1 mt-1">
-                                                                <p className={`text-[10px] ${isMe ? 'text-blue-800/60' : 'text-gray-400'}`}>
-                                                                    {new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                                                </p>
-                                                                {/* ✅ READ RECEIPTS (TICKS) */}
-                                                                {isMe && !msg.isPending && (
-                                                                    <FaCheckDouble 
-                                                                        className={`text-[10px] ${msg.isRead ? 'text-green-600' : 'text-gray-400'}`} 
-                                                                        title={msg.isRead ? "Read" : "Delivered"}
-                                                                    />
-                                                                )}
-                                                                {isMe && msg.isPending && <span className="text-[9px] text-gray-400">(...)</span>}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* 🔧 Edit/Delete Menu (Only for Sender) */}
-                                                        {isMe && !msg.isPending && (
-                                                            <>
-                                                                <button 
-                                                                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === msg._id ? null : msg._id); }}
-                                                                    className="absolute -top-2 -left-3 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-gray-50"
-                                                                >
-                                                                    <FaEllipsisV size={10} />
-                                                                </button>
-                                                                
-                                                                {openMenuId === msg._id && (
-                                                                    <div className="absolute top-0 right-full mr-1 w-24 bg-white shadow-xl rounded-lg border border-gray-100 py-1 z-20 overflow-hidden animate-in slide-in-from-right-1 duration-200">
-                                                                        <button onClick={() => startEditing(msg)} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2 text-gray-700">
-                                                                            <FaPen className="text-blue-500" /> Edit
-                                                                        </button>
-                                                                        <button onClick={() => handleDeleteMessage(msg._id)} className="w-full text-left px-3 py-2 text-xs hover:bg-red-50 flex items-center gap-2 text-red-600">
-                                                                            <FaTrash /> Delete
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                                <div ref={directChatEndRef} />
-                            </div>
-
-                            {/* Input Area */}
-                            <div className="p-4 bg-white border-t border-gray-200">
-                                <div className={`flex items-end gap-2 bg-white border rounded-xl p-2 transition-all ${editingMessageId ? 'border-orange-300 ring-2 ring-orange-100' : 'border-gray-300 focus-within:ring-2 focus-within:ring-[#6264a7] focus-within:border-transparent'}`}>
-                                    {editingMessageId ? (
-                                        <button onClick={() => { setEditingMessageId(null); setDirectMsgText(""); }} className="p-2 text-red-400 hover:text-red-600 text-xs font-bold whitespace-nowrap">Cancel Edit</button>
-                                    ) : (
-                                        <button className="p-2 text-gray-400 hover:text-[#6264a7]"><FaPaperclip /></button>
-                                    )}
-                                    
-                                    <textarea 
-                                        className="flex-1 max-h-32 min-h-[40px] p-2 text-sm outline-none resize-none"
-                                        placeholder={editingMessageId ? "Edit your message..." : "Type a new message..."}
-                                        value={directMsgText}
-                                        onChange={e => setDirectMsgText(e.target.value)}
-                                        onKeyDown={e => {
-                                            if(e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSendDirectMessage();
-                                            }
-                                        }}
-                                    />
-                                    <button 
-                                        onClick={handleSendDirectMessage}
-                                        disabled={!directMsgText.trim()}
-                                        className={`p-2 rounded-lg transition-colors ${!directMsgText.trim() ? 'text-gray-300' : (editingMessageId ? 'text-orange-500 hover:bg-orange-50' : 'text-[#6264a7] hover:bg-indigo-50')}`}
-                                    >
-                                        {editingMessageId ? <FaCheck size={20} /> : <FaPaperPlane size={20} />}
-                                    </button>
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center bg-white text-gray-400">
-                            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                                <FaUsers size={32} />
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-600">Select an employee</h3>
-                            <p className="text-sm">Search and choose a colleague to start chatting</p>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

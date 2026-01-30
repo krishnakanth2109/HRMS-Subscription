@@ -1615,6 +1615,20 @@ const gradients = [
       </div>
       <FaAngleRight className="text-gray-400 group-hover/link:text-purple-600 group-hover/link:translate-x-1 transition-all" />
     </Link>
+    {/* Add inside the grid in EmployeeDashboard where other links exist */}
+<Link 
+  to="/employee/payslip" 
+  className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-blue-50 hover:to-white border border-gray-200 hover:border-blue-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+>
+  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+    <span className="text-xl font-bold">₹</span>
+  </div>
+  <div className="flex-1">
+    <h3 className="font-bold text-gray-800 group-hover/link:text-blue-700 transition-colors">Payslips</h3>
+    <p className="text-xs text-gray-500 mt-1">View monthly salary</p>
+  </div>
+  <FaAngleRight className="text-gray-400 group-hover/link:text-blue-600 group-hover/link:translate-x-1 transition-all" />
+</Link>
   </div>
 </div>
 

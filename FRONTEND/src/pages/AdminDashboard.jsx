@@ -10,7 +10,21 @@ import {
   FaChevronRight,
   FaSyncAlt,
   FaClock,
-  FaArrowRight
+  FaArrowRight,
+  FaBirthdayCake,
+  FaUmbrellaBeach,
+  FaLaptopHouse,
+  FaAngleRight,
+  FaCalendarAlt,
+  FaLuggageCart,
+  FaFileAlt,
+  FaBullhorn,
+  FaUserClock,
+  FaChartPie,
+  FaCalendarCheck,
+  FaLayerGroup,
+  FaMapMarkerAlt,
+  FaConnectdevelop
 } from "react-icons/fa";
 import {
   BarChart,
@@ -23,11 +37,12 @@ import {
   ResponsiveContainer,
   Cell
 } from "recharts";
-import DepartmentPieChart from "../components/DepartmentPieChart"; 
+import DepartmentPieChart from "../components/DepartmentPieChart";
 import { EmployeeContext } from "../context/EmployeeContext";
 import { AttendanceContext } from "../context/AttendanceContext";
 import { LeaveRequestContext } from "../context/LeaveRequestContext";
 import { getAttendanceByDateRange } from "../api";
+import api from "../api";
 
 const AdminDashboard = () => {
   const { employees } = useContext(EmployeeContext);
@@ -50,6 +65,14 @@ const AdminDashboard = () => {
     notLoggedIn: 0,
     onLeave: 0
   });
+
+  // ✅ NEW STATES FOR TEAM DATA
+  const [loadingTeamData, setLoadingTeamData] = useState(false);
+  const [todaysBirthdays, setTodaysBirthdays] = useState([]);
+  const [onLeaveToday, setOnLeaveToday] = useState([]);
+  const [remoteWorkers, setRemoteWorkers] = useState([]);
+  const [officeConfig, setOfficeConfig] = useState(null);
+  const [isGlobalWFH, setIsGlobalWFH] = useState(false);
 
   // --- 1. General Dashboard Stats ---
   const { statCards, activeEmployees, departmentList } = useMemo(
@@ -98,6 +121,134 @@ const AdminDashboard = () => {
     calculateTodayCounts();
   }, [activeEmployees, leaveRequests]);
 
+  // ✅ HELPER: Format Date DD/MM/YYYY
+  const formatDateDDMMYYYY = (dateString) => {
+    if (!dateString) return "--";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-GB");
+  };
+
+  // ✅ FETCH TEAM DATA (Birthdays, On Leave, Remote Workers)
+  const fetchTeamData = async () => {
+    setLoadingTeamData(true);
+    try {
+      // Fetch all required data in parallel
+      const [employeesRes, leavesRes, officeConfigRes, employeeModesRes] = await Promise.all([
+        api.get("/api/employees"),
+        api.get("/api/leaves"),
+        api.get("/api/admin/settings/office"),
+        api.get("/api/admin/settings/employees-modes")
+      ]);
+
+      const allEmployees = employeesRes.data || [];
+      const allLeaves = leavesRes.data || [];
+      const configData = officeConfigRes.data;
+      const empModes = employeeModesRes.data?.employees || [];
+
+      setOfficeConfig(configData);
+      setIsGlobalWFH(configData?.globalWorkMode === 'WFH');
+
+      // --- LOGIC 1: BIRTHDAYS ---
+      const today = new Date();
+      const todayMonth = today.getMonth() + 1;
+      const todayDate = today.getDate();
+
+      const birthdays = allEmployees.filter(emp => {
+        if (!emp.personalDetails?.dob) return false;
+        const dob = new Date(emp.personalDetails.dob);
+        return (dob.getMonth() + 1) === todayMonth && dob.getDate() === todayDate;
+      }).map(emp => ({
+        name: emp.name,
+        employeeId: emp.employeeId,
+        department: emp.department || emp.experienceDetails?.[0]?.department || "N/A",
+        role: emp.role || emp.experienceDetails?.[0]?.role || "N/A"
+      }));
+      setTodaysBirthdays(birthdays);
+
+      // --- LOGIC 2: ON LEAVE TODAY ---
+      const employeeMap = new Map();
+      allEmployees.forEach(emp => {
+        employeeMap.set(emp.employeeId, {
+          name: emp.name,
+          employeeId: emp.employeeId,
+          department: emp.department || emp.experienceDetails?.[0]?.department || "N/A",
+          role: emp.role || emp.experienceDetails?.[0]?.role || "N/A"
+        });
+      });
+
+      const todayStart = new Date(); 
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayLeaves = allLeaves.filter(leave => {
+        if (leave.status !== 'Approved') return false;
+        const fromDate = new Date(leave.from);
+        const toDate = new Date(leave.to);
+        fromDate.setHours(0, 0, 0, 0);
+        toDate.setHours(23, 59, 59, 999);
+        return todayStart >= fromDate && todayStart <= toDate;
+      });
+
+      const onLeave = todayLeaves.map(leave => {
+        const empDetails = employeeMap.get(leave.employeeId) || {
+          name: leave.employeeName || "Unknown",
+          employeeId: leave.employeeId,
+          department: "N/A", 
+          role: "N/A"
+        };
+        return { 
+          ...empDetails, 
+          leaveType: leave.leaveType || "Casual", 
+          leaveReason: leave.reason 
+        };
+      });
+      
+      // Unique leaves
+      setOnLeaveToday(Array.from(new Map(onLeave.map(item => [item.employeeId, item])).values()));
+
+      // --- LOGIC 3: REMOTE WORKERS ---
+      const currentGlobalMode = configData.globalWorkMode || 'WFO';
+      const currentDay = today.getDay();
+      
+      let remoteList = [];
+      empModes.forEach(emp => {
+        const basicInfo = employeeMap.get(emp.employeeId);
+        if(!basicInfo) return;
+
+        let effectiveMode = currentGlobalMode;
+        if (emp.ruleType === "Permanent") {
+          effectiveMode = emp.config.permanentMode;
+        } else if (emp.ruleType === "Temporary" && emp.config.temporary) {
+          const from = new Date(emp.config.temporary.fromDate);
+          const to = new Date(emp.config.temporary.toDate);
+          from.setHours(0, 0, 0, 0);
+          to.setHours(23, 59, 59, 999);
+          if (todayStart >= from && todayStart <= to) effectiveMode = emp.config.temporary.mode;
+        } else if (emp.ruleType === "Recurring" && emp.config.recurring) {
+          if (emp.config.recurring.days.includes(currentDay)) effectiveMode = emp.config.recurring.mode;
+        }
+
+        if (effectiveMode === 'WFH') {
+          remoteList.push({
+            name: basicInfo.name,
+            employeeId: basicInfo.employeeId,
+            department: basicInfo.department || "N/A"
+          });
+        }
+      });
+      setRemoteWorkers(remoteList);
+
+    } catch (error) {
+      console.error("Error fetching team data:", error);
+    } finally {
+      setLoadingTeamData(false);
+    }
+  };
+
+  // ✅ FETCH TEAM DATA ON MOUNT
+  useEffect(() => {
+    fetchTeamData();
+  }, []);
+
   // --- 3. Calculate Date Range (Updated for Month Support) ---
   const weekDates = useMemo(() => {
     const formatDate = (date) => {
@@ -124,7 +275,7 @@ const AdminDashboard = () => {
     const today = new Date();
     today.setDate(today.getDate() + currentWeek * 7);
 
-    const dayOfWeek = today.getDay(); 
+    const dayOfWeek = today.getDay();
 
     const sunday = new Date(today);
     sunday.setDate(today.getDate() - dayOfWeek);
@@ -188,7 +339,7 @@ const AdminDashboard = () => {
       // Short day name for week view, Date number for month view to save space
       const dayName = viewMode === 'week' 
         ? loopDate.toLocaleDateString('en-US', { weekday: 'short' })
-        : loopDate.getDate().toString(); 
+        : loopDate.getDate().toString();
 
       const presentSet = new Set();
 
@@ -242,6 +393,91 @@ const AdminDashboard = () => {
   const isCurrentWeek = currentWeek >= 0;
   const COLORS = ["#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
+  // ✅ GRADIENTS FOR AVATARS
+  const gradients = [
+    "from-blue-400 to-indigo-500",
+    "from-pink-400 to-rose-500",
+    "from-emerald-400 to-teal-500",
+    "from-orange-400 to-amber-500",
+    "from-purple-400 to-violet-500",
+  ];
+
+  // ✅ QUICK ACTIONS DATA (Based on Sidebar routes)
+  const quickActions = [
+    {
+      title: "Employee Management",
+      icon: <FaUsers className="text-lg" />,
+      to: "/employees",
+      color: "from-blue-500 to-blue-600",
+      bgColor: "bg-blue-50",
+      hoverColor: "hover:from-blue-50 hover:to-white",
+      borderColor: "hover:border-blue-200"
+    },
+    {
+      title: "Group Management",
+      icon: <FaLayerGroup className="text-lg" />,
+      to: "/admin/groups",
+      color: "from-purple-500 to-purple-600",
+      bgColor: "bg-purple-50",
+      hoverColor: "hover:from-purple-50 hover:to-white",
+      borderColor: "hover:border-purple-200"
+    },
+    {
+      title: "Employees Attendance",
+      icon: <FaUserClock className="text-lg" />,
+      to: "/attendance",
+      color: "from-green-500 to-green-600",
+      bgColor: "bg-green-50",
+      hoverColor: "hover:from-green-50 hover:to-white",
+      borderColor: "hover:border-green-200"
+    },
+    {
+      title: "Leave Approvals",
+      icon: <FaCalendarCheck className="text-lg" />,
+      to: "/admin/admin-Leavemanage",
+      color: "from-amber-500 to-amber-600",
+      bgColor: "bg-amber-50",
+      hoverColor: "hover:from-amber-50 hover:to-white",
+      borderColor: "hover:border-amber-200"
+    },
+    {
+      title: "Payroll",
+      icon: <FaFileAlt className="text-lg" />,
+      to: "/admin/payroll",
+      color: "from-red-500 to-red-600",
+      bgColor: "bg-red-50",
+      hoverColor: "hover:from-red-50 hover:to-white",
+      borderColor: "hover:border-red-200"
+    },
+    {
+      title: "Announcements",
+      icon: <FaBullhorn className="text-lg" />,
+      to: "/admin/notices",
+      color: "from-indigo-500 to-indigo-600",
+      bgColor: "bg-indigo-50",
+      hoverColor: "hover:from-indigo-50 hover:to-white",
+      borderColor: "hover:border-indigo-200"
+    },
+    {
+      title: "Holiday Calendar",
+      icon: <FaCalendarAlt className="text-lg" />,
+      to: "/admin/holiday-calendar",
+      color: "from-teal-500 to-teal-600",
+      bgColor: "bg-teal-50",
+      hoverColor: "hover:from-teal-50 hover:to-white",
+      borderColor: "hover:border-teal-200"
+    },
+    {
+      title: "Shift Management",
+      icon: <FaChartPie className="text-lg" />,
+      to: "/admin/settings",
+      color: "from-pink-500 to-pink-600",
+      bgColor: "bg-pink-50",
+      hoverColor: "hover:from-pink-50 hover:to-white",
+      borderColor: "hover:border-pink-200"
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6 font-sans text-gray-800">
       
@@ -250,8 +486,7 @@ const AdminDashboard = () => {
         
         {/* 1. Today's Attendance Overview */}
         <div 
-          // className="bg-white rounded-xl shadow-md border border-pink-500 border-l-4 border-blue-600 p-5 cursor-pointer hover:shadow-lg transition-all flex items-center justify-between"
-          className="bg-white rounded-xl shadow-md   p-4 cursor-pointer hover:shadow-lg transition-all duration-200 border border-blue-700 border-l-4 cursor-pointer"
+          className="bg-white rounded-xl shadow-md p-4 cursor-pointer hover:shadow-lg transition-all duration-200 border border-blue-700 border-l-4"
           onClick={() => navigate("/admin/today-overview")}
         >
           <div className="flex justify-between items-center mb-3">
@@ -419,7 +654,7 @@ const AdminDashboard = () => {
                     tickLine={false}
                     tick={{ fill: '#9ca3af', fontSize: 10 }}
                     dy={10}
-                    interval={0} 
+                    interval={0}
                   />
                   <YAxis
                     axisLine={false}
@@ -489,7 +724,205 @@ const AdminDashboard = () => {
             )}
           </div>
         </div>
+      </div>
 
+      {/* ✅ NEW TEAM OVERVIEW SECTION */}
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* 🎂 Today's Birthdays */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
+                <FaBirthdayCake className="text-xl" />
+              </div>
+              <h3 className="font-bold text-gray-800">Today's Birthdays</h3>
+            </div>
+            <span className="bg-orange-100 text-orange-700 text-xs font-bold px-3 py-1 rounded-full">
+              {todaysBirthdays.length}
+            </span>
+          </div>
+          
+          {loadingTeamData ? (
+            <div className="flex items-center justify-center h-24">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+          ) : todaysBirthdays.length > 0 ? (
+            <div className="space-y-3">
+              {todaysBirthdays.slice(0, 5).map((person, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-orange-50 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold">
+                    {person.name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800">{person.name}</p>
+                    <p className="text-xs text-gray-500">{person.department} • {person.role}</p>
+                  </div>
+                </div>
+              ))}
+              {todaysBirthdays.length > 5 && (
+                <p className="text-center text-sm text-gray-500 mt-2">
+                  +{todaysBirthdays.length - 5} more birthdays today
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-400">No birthdays today</p>
+            </div>
+          )}
+        </div>
+
+        {/* 🏖️ On Leave Today */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                <FaUmbrellaBeach className="text-xl" />
+              </div>
+              <h3 className="font-bold text-gray-800">On Leave Today</h3>
+            </div>
+            <span className="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">
+              {onLeaveToday.length}
+            </span>
+          </div>
+          
+          {loadingTeamData ? (
+            <div className="flex items-center justify-center h-24">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : onLeaveToday.length > 0 ? (
+            <div className="space-y-3">
+              {onLeaveToday.slice(0, 5).map((person, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 flex items-center justify-center text-white font-bold">
+                    {person.name.charAt(0)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-800">{person.name}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                        {person.leaveType}
+                      </span>
+                      <span className="text-xs text-gray-500">{person.department}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {onLeaveToday.length > 5 && (
+                <p className="text-center text-sm text-gray-500 mt-2">
+                  +{onLeaveToday.length - 5} more on leave
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-400">No employees on leave today</p>
+            </div>
+          )}
+        </div>
+
+        {/* 🏠 Working Remotely */}
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                <FaLaptopHouse className="text-xl" />
+              </div>
+              <h3 className="font-bold text-gray-800">Working Remotely</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
+                {remoteWorkers.length}
+              </span>
+              {isGlobalWFH && (
+                <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
+                  Global
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {loadingTeamData ? (
+            <div className="flex items-center justify-center h-24">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-500"></div>
+            </div>
+          ) : isGlobalWFH ? (
+            <div className="text-center py-6 bg-green-50 rounded-lg">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mb-3">
+                <FaLaptopHouse className="text-white text-2xl" />
+              </div>
+              <h4 className="font-bold text-green-800">Global Remote Day</h4>
+              <p className="text-sm text-green-600 mt-1">Everyone is working from home today</p>
+            </div>
+          ) : remoteWorkers.length > 0 ? (
+            <div>
+              <div className="flex -space-x-3 mb-4">
+                {remoteWorkers.slice(0, 6).map((worker, index) => (
+                  <div 
+                    key={index}
+                    className="relative group"
+                    title={`${worker.name} (${worker.department})`}
+                  >
+                    <div className={`w-10 h-10 rounded-full ring-2 ring-white bg-gradient-to-tr ${gradients[index % gradients.length]} flex items-center justify-center text-white font-bold text-sm`}>
+                      {worker.name.charAt(0)}
+                    </div>
+                  </div>
+                ))}
+                {remoteWorkers.length > 6 && (
+                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-xs ring-2 ring-white">
+                    +{remoteWorkers.length - 6}
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                {remoteWorkers.slice(0, 3).map((worker, index) => (
+                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                    <span className="font-medium text-sm">{worker.name}</span>
+                    <span className="text-xs text-gray-500">{worker.department}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 bg-gray-50 rounded-lg">
+              <p className="text-gray-400">No employees working remotely</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ QUICK ACTIONS SECTION */}
+      <div className="mt-8 bg-white rounded-xl shadow-md border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+              <FaConnectdevelop className="text-xl" />
+            </div>
+            <h3 className="font-bold text-2xl text-gray-800">Quick Actions</h3>
+          </div>
+          <p className="text-sm text-gray-500">Navigate to frequently used admin sections</p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action, index) => (
+            <button
+              key={index}
+              onClick={() => navigate(action.to)}
+              className={`group bg-gradient-to-r from-white to-gray-50 ${action.hoverColor} border border-gray-200 ${action.borderColor} rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02] text-left`}
+            >
+              <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white shadow-lg`}>
+                {action.icon}
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-gray-800 group-hover:text-gray-900 transition-colors">
+                  {action.title}
+                </h4>
+              </div>
+              <FaAngleRight className="text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all" />
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );

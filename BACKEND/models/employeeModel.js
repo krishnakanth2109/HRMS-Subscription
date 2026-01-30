@@ -42,10 +42,20 @@ const EmployeeSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password: {
     type: String,
-    required: [true, "A password is required"],
     minlength: 6,
     select: false,
+    default: null,
   },
+  
+  // ✅ NEW: Company Reference
+  company: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Company",
+    required: true,
+  },
+  companyName: String,
+  companyPrefix: String,
+  
   phone: String,
   address: String,
   emergency: String, // Emergency Name
@@ -69,9 +79,9 @@ const EmployeeSchema = new mongoose.Schema({
   isAdmin: { type: Boolean, default: false },
 });
 
-// Hash password before save
+// Hash password before save (only if password exists and is modified)
 EmployeeSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });

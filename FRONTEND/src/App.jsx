@@ -205,7 +205,6 @@ function App() {
         <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
         <Route path="/employee/rules" element={<EmployeeViewRules />} />
-
         <Route
           path="/employee/teams"
           element={<EmployeeTeamsPage />}

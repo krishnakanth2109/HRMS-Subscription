@@ -1,5 +1,3 @@
-// --- START OF FILE app.js ---
-
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -75,10 +73,7 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     for (let [userId, socketId] of userSocketMap.entries()) {
-      if (socketId === socket.id) {
-        userSocketMap.delete(userId);
-        break;
-      }
+      if (socketId === socket.id) userSocketMap.delete(userId);
     }
   });
 });
@@ -172,6 +167,7 @@ app.use((err, req, res, next) => {
 
 /* ==================== START SERVER ==================== */
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

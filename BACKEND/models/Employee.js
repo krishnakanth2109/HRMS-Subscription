@@ -1,5 +1,4 @@
-
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 
 const employeeSchema = new mongoose.Schema({
   employeeId: { type: String, required: true, unique: true },
@@ -12,7 +11,7 @@ const employeeSchema = new mongoose.Schema({
   emergency: { type: String },
   isActive: { type: Boolean, default: true },
   status: { type: String, default: "Active" },
-  
+
   // Existing fields from your database
   bankDetails: { type: Object },
   personalDetails: { type: Object },
@@ -22,15 +21,22 @@ const employeeSchema = new mongoose.Schema({
     startDate: String,
     lastWorkingDate: String
   }],
-  
+
   // Deactivation/Reactivation
   deactivationDate: { type: String },
   deactivationReason: { type: String },
   reactivationDate: { type: String },
   reactivationReason: { type: String },
+
+  // Company Reference
+  company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
   
+  // Company Info (for quick access without population)
+  companyName: { type: String },
+  companyPrefix: { type: String },
+
   isAdmin: { type: Boolean, default: false }
-  
+
 }, { timestamps: true });
 
 // Prevent OverwriteModelError

@@ -106,6 +106,7 @@ const navLinks = [
     icon: <AlarmClockCheck />,
     isLateRequests: true // ✅ For late login requests count
   },
+  { to: "/admin/expense", label: "Expense Management", icon: <FaClipboardList /> },
 ];
 
 // ✅ HELPER: Calculate unread notices using SERVER STATE
@@ -502,12 +503,15 @@ const Sidebar = () => {
   // -----------------------------
   // RENDERING HELPERS
   // -----------------------------
-  const handleMenuHover = (label, isEntering) => {
-    if (isEntering) {
-      if (collapsed && !isMobile) setCollapsed(false);
+  
+  // ✅ UPDATED: ACCORDION LOGIC
+  // If clicking same: Toggle. If clicking different: Open new, close old.
+  const handleSubMenuClick = (label) => {
+    if (collapsed && !isMobile) {
+      setCollapsed(false);
       setActiveMenu(label);
     } else {
-      setActiveMenu(null);
+      setActiveMenu(prev => prev === label ? null : label);
     }
   };
 
@@ -536,9 +540,6 @@ const Sidebar = () => {
   // -----------------------------
   // CALCULATE SIDEBAR CLASSES
   // -----------------------------
-  // Logic: 
-  // Mobile: 'fixed' position. Hidden (-translate-x-full) unless mobileOpen is true.
-  // Desktop: 'relative' position. Width is w-72 or w-20 based on collapsed state.
   const sidebarClasses = `
     h-screen bg-slate-900 shadow-xl flex flex-col transition-all duration-300 z-50 overflow-hidden
     ${isMobile 
@@ -598,18 +599,18 @@ const Sidebar = () => {
         </div>
 
         {/* NAVIGATION LINKS */}
-        {/* Added 'no-scrollbar' class to hide the scrollbar */}
         <ul className="space-y-2 flex-1 overflow-y-auto overflow-x-hidden p-4 pt-0 no-scrollbar">
           {navLinks.map((link, index) => {
+            // Case 1: HAS CHILDREN (e.g. Employees, Leaves)
             if (link.children) {
               const isOpen = activeMenu === link.label;
               return (
-                <li key={index} className="relative" onMouseEnter={() => !isMobile && handleMenuHover(link.label, true)} onMouseLeave={() => !isMobile && handleMenuHover(link.label, false)}>
+                <li key={index} className="relative">
                   
                   {/* Parent Item */}
                   <div 
                     className={`flex items-center gap-4 px-4 py-2.5 rounded-lg text-base cursor-pointer border-l-4 border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200 ${collapsed && !isMobile ? "justify-center px-2" : "justify-between"}`}
-                    onClick={() => isMobile && setActiveMenu(isOpen ? null : link.label)}
+                    onClick={() => handleSubMenuClick(link.label)}
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <span className="text-xl w-5 flex justify-center shrink-0">{link.icon}</span>
@@ -618,10 +619,11 @@ const Sidebar = () => {
                     {(!collapsed || isMobile) && <span className="text-xs shrink-0">{isOpen ? <FaAngleDown /> : <FaAngleRight />}</span>}
                   </div>
 
-                  {/* Submenu */}
-                  <ul className={`bg-slate-800/50 rounded-lg overflow-hidden transition-all duration-300 ${(isOpen && (!collapsed || isMobile)) ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0"}`}>
+                  {/* Submenu with Smooth Transition */}
+                  <ul className={`bg-slate-800/50 rounded-lg overflow-hidden transition-[max-height,opacity,margin] duration-500 ease-in-out ${(isOpen && (!collapsed || isMobile)) ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"}`}>
                     {link.children.map((child) => (
                       <li key={child.to}>
+                        {/* Note: Clicking a child inside keeps the menu open (Standard router behavior, doesn't reset state) */}
                         <NavLink to={child.to} className={({ isActive }) => `flex items-center gap-3 pl-12 pr-4 py-2 text-sm transition-colors ${isActive ? "text-indigo-400 font-semibold" : "text-slate-400 hover:text-slate-200"}`}>
                           <span className="flex-1 truncate" title={child.label}>{child.label}</span>{renderBadge(child)}
                         </NavLink>
@@ -631,10 +633,15 @@ const Sidebar = () => {
                 </li>
               );
             }
-            // Single Link
+            // Case 2: SINGLE LINK (e.g. Dashboard, Payroll)
             return (
               <li key={link.to}>
-                <NavLink to={link.to} className={({ isActive }) => `flex items-center gap-4 px-4 py-2.5 rounded-lg text-base border-l-4 ${isActive ? "bg-slate-800 text-indigo-400 border-indigo-500" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-transparent"} ${collapsed && !isMobile ? "justify-center px-2" : ""}`}>
+                <NavLink 
+                  to={link.to} 
+                  // ✅ FIXED: CLICKING SINGLE LINK CLOSES ANY OPEN NESTED MENUS
+                  onClick={() => setActiveMenu(null)}
+                  className={({ isActive }) => `flex items-center gap-4 px-4 py-2.5 rounded-lg text-base border-l-4 ${isActive ? "bg-slate-800 text-indigo-400 border-indigo-500" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200 border-transparent"} ${collapsed && !isMobile ? "justify-center px-2" : ""}`}
+                >
                   <span className="text-xl w-5 flex justify-center shrink-0">{link.icon}</span>
                   {(!collapsed || isMobile) && <span className="flex items-center gap-2 relative w-full min-w-0"><span className="truncate">{link.label}</span>{renderBadge(link)}</span>}
                 </NavLink>

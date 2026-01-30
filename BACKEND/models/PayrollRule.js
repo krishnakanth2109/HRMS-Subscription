@@ -22,16 +22,32 @@ const payrollRuleSchema = new mongoose.Schema(
       required: true,
       default: 1250 // Fixed Amount
     },
+    // --- PF SETTINGS ---
+    pfCalculationMethod: {
+      type: String,
+      enum: ['percentage', 'fixed'],
+      default: 'percentage',
+      required: true
+    },
+    // Percentage Mode
     pfPercentage: {
       type: Number,
-      required: true,
-      default: 18 // Employee Share (18% of Basic)
+      default: 12 // Employee Share % of Basic
     },
     employerPfPercentage: {
       type: Number,
-      required: true,
-      default: 18 // Employer Share (18% of Basic)
+      default: 12 // Employer Share % of Basic
     },
+    // Fixed Amount Mode
+    pfFixedAmountEmployee: {
+      type: Number,
+      default: 1800 // Fixed deduction amount
+    },
+    pfFixedAmountEmployer: {
+      type: Number,
+      default: 1800 // Fixed deduction amount
+    },
+    // --- PT SETTINGS ---
     ptSlab1Limit: {
       type: Number,
       default: 15000

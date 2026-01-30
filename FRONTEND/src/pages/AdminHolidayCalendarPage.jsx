@@ -1,10 +1,11 @@
-// --- START OF FILE AdminHolidayCalendarPage.jsx ---
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
 import * as XLSX from "xlsx"; 
 import Swal from "sweetalert2"; 
-import { getHolidays, addHoliday, deleteHolidayById, getEmployees } from "../api";
+// ✅ IMPORTS UPDATED: Added updateHoliday
+import { getHolidays, addHoliday, updateHoliday, deleteHolidayById, getEmployees } from "../api";
+// ✅ ICONS UPDATED: Added FaEdit
 import { 
   FaChevronLeft, 
   FaChevronRight, 
@@ -12,9 +13,9 @@ import {
   FaPlus,
   FaTimes,
   FaTrash,
+  FaEdit, 
   FaCalendarAlt,
   FaBirthdayCake,
-  FaList
 } from "react-icons/fa";
 
 const AdminHolidayCalendarPage = () => {
@@ -31,8 +32,12 @@ const AdminHolidayCalendarPage = () => {
   const [loading, setLoading] = useState(false);
   
   const [activeDate, setActiveDate] = useState(new Date()); 
-  const [isModalOpen, setIsModalOpen] = useState(false); 
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
+  // ✅ NEW: Edit State
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+
   // Cursors for month view
   const [birthdayCursor, setBirthdayCursor] = useState(new Date());
   const [holidayCursor, setHolidayCursor] = useState(new Date());
@@ -41,7 +46,7 @@ const AdminHolidayCalendarPage = () => {
   const [showAllHolidays, setShowAllHolidays] = useState(false);
   const [showAllBirthdays, setShowAllBirthdays] = useState(false);
 
-  // --- NEW: Year Filter State ---
+  // Year Filter State
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const fileInputRef = useRef(null);
@@ -50,6 +55,13 @@ const AdminHolidayCalendarPage = () => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
     return d;
+  };
+
+  // ✅ HELPER: Formats date safely for input fields (YYYY-MM-DD)
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? "" : date.toISOString().split("T")[0];
   };
 
   /* =========================================================
@@ -81,22 +93,90 @@ const AdminHolidayCalendarPage = () => {
 
   const handleChange = (e) => setHolidayData({ ...holidayData, [e.target.name]: e.target.value });
 
+  /* =========================================================
+      HANDLERS
+  ==========================================================*/
+
+  const handleCloseModal = () => {
+    setHolidayData({ name: "", description: "", startDate: "", endDate: "" });
+    setIsEditing(false);
+    setEditId(null);
+    setIsModalOpen(false);
+  };
+
+  // ✅ NEW: Handle Edit Click
+  const handleEdit = (holiday) => {
+    setHolidayData({
+      name: holiday.name,
+      description: holiday.description,
+      startDate: formatDateForInput(holiday.startDate),
+      endDate: formatDateForInput(holiday.endDate)
+    });
+    setEditId(holiday._id);
+    setIsEditing(true);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e) => { 
+    e.preventDefault();
+    setLoading(true);
+    try {
+      // Ensure End Date is set
+      const payload = { ...holidayData, endDate: holidayData.endDate || holidayData.startDate };
+
+      if (isEditing) {
+        // ✅ UPDATE EXISTING
+        await updateHoliday(editId, payload);
+        Swal.fire('Success', 'Holiday updated successfully', 'success');
+      } else {
+        // ✅ ADD NEW
+        await addHoliday(payload);
+        Swal.fire('Success', 'Holiday added successfully', 'success');
+      }
+
+      fetchHolidays();
+      handleCloseModal();
+    } catch (error) {
+      console.error(error);
+      Swal.fire('Error', 'Operation failed', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        await deleteHolidayById(id);
+        fetchHolidays();
+        Swal.fire('Deleted!', 'Holiday has been deleted.', 'success');
+      }
+    });
+  };
+
   const findKey = (obj, searchStr) => Object.keys(obj).find(key => key.toLowerCase().replace(/[^a-z]/g, '').includes(searchStr.toLowerCase()));
 
   const parseImportDate = (val) => {
-    if (!val) return null;
-    if (typeof val === 'number') return new Date(Math.round((val - 25569) * 86400 * 1000));
-    if (typeof val === 'string') {
-      const match = val.trim().match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-      if (match) return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
-      const stdDate = new Date(val);
-      return isNaN(stdDate.getTime()) ? null : stdDate;
-    }
-    return null;
+     if (!val) return null;
+     if (typeof val === 'number') return new Date(Math.round((val - 25569) * 86400 * 1000));
+     if (typeof val === 'string') {
+       const match = val.trim().match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+       if (match) return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+       const stdDate = new Date(val);
+       return isNaN(stdDate.getTime()) ? null : stdDate;
+     }
+     return null;
   };
 
-  // --- Handlers ---
-    const handleFileUpload = (e) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setLoading(true);
@@ -107,44 +187,35 @@ const AdminHolidayCalendarPage = () => {
         const workbook = XLSX.read(bstr, { type: "binary" });
         const ws = workbook.Sheets[workbook.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json(ws);
-
         let addedCount = 0;
         const promises = [];
-
         for (const row of data) {
-          // Robust key finding
           const nameKey = findKey(row, "name") || findKey(row, "holiday");
           const descKey = findKey(row, "desc") || findKey(row, "description") || findKey(row, "detail");
           const startKey = findKey(row, "start") || findKey(row, "date");
-          
           if (!startKey) continue;
-          
           const startDate = parseImportDate(row[startKey]);
           if (!startDate || isNaN(startDate.getTime())) continue;
-
           const toLocalISO = (d) => {
             const offset = d.getTimezoneOffset() * 60000;
             return new Date(d.getTime() - offset).toISOString().split('T')[0];
           };
-
           const exists = holidays.some(h => normalizeDate(h.startDate).getTime() === normalizeDate(startDate).getTime());
-          
           if (!exists) {
             promises.push(addHoliday({
               name: nameKey ? row[nameKey] : "Holiday",
-              description: descKey ? row[descKey] : "", // Explicitly capture description
+              description: descKey ? row[descKey] : "",
               startDate: toLocalISO(startDate),
-              endDate: toLocalISO(startDate) // Single day default
+              endDate: toLocalISO(startDate)
             }));
             addedCount++;
           }
         }
-
         await Promise.all(promises);
         if (addedCount > 0) {
           Swal.fire('Success', `Imported ${addedCount} holidays!`, 'success');
           fetchHolidays();
-          setIsModalOpen(false);
+          handleCloseModal();
         } else {
           Swal.fire('Info', 'No new holidays found.', 'info');
         }
@@ -159,19 +230,6 @@ const AdminHolidayCalendarPage = () => {
     reader.readAsBinaryString(file);
   };
 
-
-  const handleSubmit = async (e) => { 
-    e.preventDefault();
-    await addHoliday({ ...holidayData, endDate: holidayData.endDate || holidayData.startDate });
-    fetchHolidays();
-    setIsModalOpen(false);
-    Swal.fire('Success', 'Added', 'success');
-  };
-  const handleDelete = async (id) => {
-    await deleteHolidayById(id);
-    fetchHolidays();
-  };
-
   const changeMonth = (setter) => (increment) => {
     setter((prev) => {
       const newDate = new Date(prev);
@@ -181,25 +239,18 @@ const AdminHolidayCalendarPage = () => {
   };
 
   // --- FILTERING LOGIC ---
-  
-  // Birthdays
   const displayedBirthdays = showAllBirthdays 
     ? [...birthdays].sort((a, b) => a.dob.getMonth() - b.dob.getMonth() || a.dob.getDate() - b.dob.getDate())
-    : birthdays
-        .filter((b) => b.dob.getMonth() === birthdayCursor.getMonth())
-        .sort((a, b) => a.dob.getDate() - b.dob.getDate());
+    : birthdays.filter((b) => b.dob.getMonth() === birthdayCursor.getMonth()).sort((a, b) => a.dob.getDate() - b.dob.getDate());
 
-  // --- UPDATED: Holidays Filter Logic ---
-  // 1. Get unique years available in holidays + current year
   const availableYears = [...new Set([
     new Date().getFullYear(),
     ...holidays.map(h => new Date(h.startDate).getFullYear())
   ])].sort((a,b) => a - b);
 
-  // 2. Filter logic
   const displayedHolidays = showAllHolidays
     ? [...holidays]
-        .filter(h => new Date(h.startDate).getFullYear() === parseInt(selectedYear)) // Filter by selected year
+        .filter(h => new Date(h.startDate).getFullYear() === parseInt(selectedYear))
         .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
     : holidays
         .filter((h) => {
@@ -207,7 +258,6 @@ const AdminHolidayCalendarPage = () => {
           return hDate.getMonth() === holidayCursor.getMonth() && hDate.getFullYear() === holidayCursor.getFullYear();
         })
         .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-
 
   /* =========================================================
       CALENDAR LOGIC
@@ -232,48 +282,32 @@ const AdminHolidayCalendarPage = () => {
   };
 
   const tileContent = ({ date, view }) => {
-  if (view !== "month") return null;
-  const { holiday, birthday } = getTileDetails(date);
-
-  if (!holiday && !birthday) return null;
-
-  return (
-    <div className="relative w-full h-full flex items-start justify-center group">
-
-      {/* 🎂 INDICATOR */}
-      <div className="absolute top-1 flex gap-1 items-center justify-center">
-        {birthday && (
-          <span className="text-sm animate-pulse">🎂</span>
-        )}
-      </div>
-
-      {/* 🔥 HOVER TOOLTIP */}
-      <div className="custom-tooltip hidden group-hover:block">
-        {holiday && (
-          <div className="mb-2">
-            <div className="font-bold text-green-300">
-              🎉 Holiday: {holiday.name}
+    if (view !== "month") return null;
+    const { holiday, birthday } = getTileDetails(date);
+    if (!holiday && !birthday) return null;
+    return (
+      <div className="relative w-full h-full flex items-start justify-center group">
+        <div className="absolute top-1 flex gap-1 items-center justify-center">
+          {birthday && (<span className="text-sm animate-pulse">🎂</span>)}
+        </div>
+        <div className="custom-tooltip hidden group-hover:block">
+          {holiday && (
+            <div className="mb-2">
+              <div className="font-bold text-green-300">🎉 {holiday.name}</div>
+              {holiday.description && (
+                <div className="text-[10px] text-gray-300 whitespace-normal leading-tight max-w-[150px] mt-1 border-t border-gray-600 pt-1">
+                  {holiday.description}
+                </div>
+              )}
             </div>
-            {holiday.description && (
-              <div className="text-[10px] text-gray-300 whitespace-normal leading-tight max-w-[150px] mt-1 border-t border-gray-600 pt-1">
-                {holiday.description}
-              </div>
-            )}
-          </div>
-        )}
-
-        {birthday && (
-          <div className="text-orange-300 font-bold">
-            🎂 Birthday: {birthday.name}
-          </div>
-        )}
+          )}
+          {birthday && (
+            <div className="text-orange-300 font-bold">🎂 Birthday: {birthday.name}</div>
+          )}
+        </div>
       </div>
-
-    </div>
-  );
-};
-
-  
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans text-slate-800">
@@ -301,8 +335,6 @@ const AdminHolidayCalendarPage = () => {
                 <div className="flex items-center gap-2"><FaCalendarAlt /> <span className="font-bold">Holidays</span></div>
                 
                 <div className="flex items-center gap-2">
-                  
-                  {/* --- NEW: Year Dropdown (Only visible when Show All is active) --- */}
                   {showAllHolidays && (
                     <select 
                       value={selectedYear}
@@ -316,16 +348,9 @@ const AdminHolidayCalendarPage = () => {
                       ))}
                     </select>
                   )}
-
-                  {/* Show All Toggle */}
-                  <button 
-                    onClick={() => setShowAllHolidays(!showAllHolidays)}
-                    className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition"
-                  >
+                  <button onClick={() => setShowAllHolidays(!showAllHolidays)} className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition">
                     {showAllHolidays ? "View Month" : "View All"}
                   </button>
-
-                  {/* Month Navigation (Only show if not showing all) */}
                   {!showAllHolidays && (
                     <div className="flex items-center gap-1 bg-white/20 rounded-lg px-1">
                       <button onClick={() => changeMonth(setHolidayCursor)(-1)} className="p-1 hover:bg-white/20 rounded"><FaChevronLeft size={10}/></button>
@@ -349,27 +374,37 @@ const AdminHolidayCalendarPage = () => {
                         <p className="text-[10px] text-slate-400">{new Date(h.startDate).toLocaleDateString()}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleDelete(h._id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><FaTrash size={12}/></button>
+                    
+                    {/* ✅ UPDATED BUTTONS: BIG & VISIBLE */}
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => handleEdit(h)} 
+                            className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition-colors"
+                            title="Edit"
+                        >
+                            <FaEdit size={16}/>
+                        </button>
+                        <button 
+                            onClick={() => handleDelete(h._id)} 
+                            className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                            title="Delete"
+                        >
+                            <FaTrash size={16}/>
+                        </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* BIRTHDAYS CONTAINER */}
+            {/* BIRTHDAYS CONTAINER (Unchanged) */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-orange-400 to-pink-500 flex justify-between items-center text-white">
+               <div className="p-4 bg-gradient-to-r from-orange-400 to-pink-500 flex justify-between items-center text-white">
                 <div className="flex items-center gap-2"><FaBirthdayCake /> <span className="font-bold">Birthdays</span></div>
-                
                 <div className="flex items-center gap-2">
-                  {/* Show All Toggle */}
-                  <button 
-                    onClick={() => setShowAllBirthdays(!showAllBirthdays)}
-                    className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition"
-                  >
+                  <button onClick={() => setShowAllBirthdays(!showAllBirthdays)} className="text-[10px] font-bold bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition">
                     {showAllBirthdays ? "View Month" : "View All"}
                   </button>
-
-                  {/* Month Navigation (Only show if not showing all) */}
                   {!showAllBirthdays && (
                     <div className="flex items-center gap-1 bg-white/20 rounded-lg px-1">
                       <button onClick={() => changeMonth(setBirthdayCursor)(-1)} className="p-1 hover:bg-white/20 rounded"><FaChevronLeft size={10}/></button>
@@ -379,7 +414,6 @@ const AdminHolidayCalendarPage = () => {
                   )}
                 </div>
               </div>
-
               <div className="p-4 space-y-3 min-h-[200px] max-h-[300px] overflow-y-auto custom-scrollbar">
                 {displayedBirthdays.length === 0 ? <p className="text-center text-gray-400 text-xs py-4">No birthdays {showAllBirthdays ? "found" : "this month"}</p> :
                   displayedBirthdays.map((b, i) => (
@@ -397,7 +431,7 @@ const AdminHolidayCalendarPage = () => {
             </div>
           </div>
 
-          {/* --- RIGHT SIDE: CALENDAR --- */}
+          {/* --- RIGHT SIDE: CALENDAR (Unchanged) --- */}
           <div className="lg:col-span-6">
             <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 h-full relative">
               <Calendar
@@ -409,28 +443,16 @@ const AdminHolidayCalendarPage = () => {
                 prev2Label={null}
                 formatShortWeekday={(locale, date) => ['M', 'T', 'W', 'T', 'F', 'S', 'S'][date.getDay() === 0 ? 6 : date.getDay() - 1]}
               />
-              
-              {/* --- UPDATED LEGEND SECTION (Badge Style) --- */}
               <div className="flex justify-center gap-8 mt-10 pt-6 border-t border-slate-50">
-                
-                {/* Holiday Badge (Green Gradient) */}
                 <div className="flex items-center gap-2">
-                   <span className="px-3 py-1.5 rounded-lg text-white text-xs font-bold bg-gradient-to-r from-emerald-400 to-teal-500 shadow-md shadow-emerald-100 flex items-center gap-2">
-                     🎉 Holiday
-                   </span>
+                   <span className="px-3 py-1.5 rounded-lg text-white text-xs font-bold bg-gradient-to-r from-emerald-400 to-teal-500 shadow-md shadow-emerald-100 flex items-center gap-2">🎉 Holiday</span>
                 </div>
-
-                {/* Birthday Badge (Pink Gradient) */}
                 <div className="flex items-center gap-2">
-                   <span className="px-3 py-1.5 rounded-lg text-white text-xs font-bold bg-gradient-to-r from-orange-400 to-pink-500 shadow-md shadow-rose-100 flex items-center gap-2">
-                     🎂 Birthday
-                   </span>
+                   <span className="px-3 py-1.5 rounded-lg text-white text-xs font-bold bg-gradient-to-r from-orange-400 to-pink-500 shadow-md shadow-rose-100 flex items-center gap-2">🎂 Birthday</span>
                 </div>
-
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -439,28 +461,35 @@ const AdminHolidayCalendarPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
             <div className="bg-slate-50 p-4 border-b flex justify-between items-center">
-              <h3 className="font-bold text-lg text-slate-800">Add Holiday</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><FaTimes/></button>
+              {/* Dynamic Title */}
+              <h3 className="font-bold text-lg text-slate-800">
+                {isEditing ? "Edit Holiday" : "Add Holiday"}
+              </h3>
+              <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-600"><FaTimes/></button>
             </div>
             
             <div className="p-6 space-y-6">
-              {/* Import */}
-              <div className="border border-dashed border-blue-300 bg-blue-50 rounded-xl p-4 flex flex-col items-center justify-center gap-2">
-                <p className="text-xs text-blue-600 font-medium">Bulk Import via Excel</p>
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx,.csv" />
-                <button 
-                  onClick={() => fileInputRef.current.click()}
-                  disabled={loading}
-                  className="bg-white text-blue-600 px-4 py-1.5 rounded-lg shadow-sm text-xs font-bold border border-blue-100 hover:bg-blue-100"
-                >
-                  <FaFileImport className="inline mr-1"/> Choose File
-                </button>
-              </div>
-
-              <div className="relative text-center">
-                <span className="bg-white px-2 text-xs text-gray-400 relative z-10">OR MANUALLY</span>
-                <div className="absolute top-1/2 left-0 w-full border-t border-gray-100"></div>
-              </div>
+              
+              {/* Hide Import functionality during Edit Mode */}
+              {!isEditing && (
+                <>
+                  <div className="border border-dashed border-blue-300 bg-blue-50 rounded-xl p-4 flex flex-col items-center justify-center gap-2">
+                    <p className="text-xs text-blue-600 font-medium">Bulk Import via Excel</p>
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".xlsx,.csv" />
+                    <button 
+                      onClick={() => fileInputRef.current.click()}
+                      disabled={loading}
+                      className="bg-white text-blue-600 px-4 py-1.5 rounded-lg shadow-sm text-xs font-bold border border-blue-100 hover:bg-blue-100"
+                    >
+                      <FaFileImport className="inline mr-1"/> Choose File
+                    </button>
+                  </div>
+                  <div className="relative text-center">
+                    <span className="bg-white px-2 text-xs text-gray-400 relative z-10">OR MANUALLY</span>
+                    <div className="absolute top-1/2 left-0 w-full border-t border-gray-100"></div>
+                  </div>
+                </>
+              )}
 
               {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-3">
@@ -490,8 +519,9 @@ const AdminHolidayCalendarPage = () => {
                     <input type="date" name="endDate" value={holidayData.endDate} min={holidayData.startDate} onChange={handleChange} className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none" />
                   </div>
                 </div>
+                {/* Dynamic Submit Button */}
                 <button type="submit" disabled={loading} className="w-full bg-slate-900 text-white py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition shadow-lg">
-                  {loading ? "Processing..." : "Add Holiday"}
+                  {loading ? "Processing..." : (isEditing ? "Update Holiday" : "Add Holiday")}
                 </button>
               </form>
             </div>
@@ -499,127 +529,24 @@ const AdminHolidayCalendarPage = () => {
         </div>
       )}
 
-      {/* --- CSS --- */}
+      {/* --- CSS (Unchanged) --- */}
       <style>{`
         .react-calendar { width: 100%; border: none; font-family: inherit; }
-        
-        /* HEADER NAV (BLACK COLOR FIX) */
         .react-calendar__navigation { margin-bottom: 30px; display: flex; }
-        
-        .react-calendar__navigation__label { 
-            font-size: 1.5rem; 
-            font-weight: 800; 
-            color: #000000 !important; /* Force Black */
-        }
-        
-        .react-calendar__navigation button { 
-            min-width: 44px; 
-            background: none; 
-            font-size: 1.5rem; 
-            color: #000000 !important; /* Force Black */
-        }
-        /* No hover change for nav buttons */
-        .react-calendar__navigation button:hover { 
-            color: #000000 !important; 
-            background: transparent;
-        }
-        
-        /* WEEKDAYS */
-        .react-calendar__month-view__weekdays { 
-            text-align: center; font-size: 0.8rem; font-weight: 700; color: #94a3b8; 
-            margin-bottom: 20px; border-bottom: 1px solid #f8fafc; padding-bottom: 10px;
-        }
+        .react-calendar__navigation__label { font-size: 1.5rem; font-weight: 800; color: #000000 !important; }
+        .react-calendar__navigation button { min-width: 44px; background: none; font-size: 1.5rem; color: #000000 !important; }
+        .react-calendar__navigation button:hover { color: #000000 !important; background: transparent;}
+        .react-calendar__month-view__weekdays { text-align: center; font-size: 0.8rem; font-weight: 700; color: #94a3b8; margin-bottom: 20px; border-bottom: 1px solid #f8fafc; padding-bottom: 10px;}
         .react-calendar__month-view__weekdays__weekday abbr { text-decoration: none; }
-
-        /* GRID */
-        .react-calendar__month-view__days { 
-            display: grid !important; 
-            grid-template-columns: repeat(7, 1fr); 
-            row-gap: 12px; 
-        }
-        
-        /* TILE */
-        .react-calendar__tile {
-            border-radius: 10px;
-            padding: 6px;
-            height: 64px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding-top: 6px;
-            background: transparent !important;
-            position: relative;
-            overflow: visible !important;
-        }
-
-        /* CIRCLE NUMBER */
-        .react-calendar__tile abbr {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            min-width: 32px;     
-            min-height: 32px;
-            border-radius: 50%;
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: #475569;
-            transition: all 0.2s ease;
-        }
-
-        .react-calendar__tile:not(.holiday-date-circle):not(.birthday-date-circle):hover abbr {
-            background-color: #f1f5f9;
-            color: #0f172a;
-        }
-
-        /* Today */
-        .react-calendar__tile--now abbr {
-            background-color: transparent;
-            border: 2px solid #3b82f6;
-            color: #3b82f6;
-            font-weight: 800;
-        }
-
-        /* EVENTS */
-        .holiday-date-circle abbr {
-            background-color: #10b981 !important;
-            color: white !important;
-            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
-        }
-
-        .birthday-date-circle abbr {
-            background-color: #f43f5e !important; 
-            color: white !important;
-            box-shadow: 0 4px 10px rgba(244, 63, 94, 0.3);
-        }
-
-        /* Tooltip */
-        .custom-tooltip {
-  position: absolute;
-  bottom: 120%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1e293b;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  z-index: 50;
-  white-space: nowrap;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-  pointer-events: none;
-}
-
-        
-        .custom-tooltip::after {
-          content: "";
-          position: absolute;
-          top: 100%; left: 50%; margin-left: -5px;
-          border-width: 5px; border-style: solid;
-          border-color: #1e293b transparent transparent transparent;
-        }
-        
+        .react-calendar__month-view__days { display: grid !important; grid-template-columns: repeat(7, 1fr); row-gap: 12px; }
+        .react-calendar__tile { border-radius: 10px; padding: 6px; height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 6px; background: transparent !important; position: relative; overflow: visible !important;}
+        .react-calendar__tile abbr { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; min-width: 32px; min-height: 32px; border-radius: 50%; font-weight: 600; font-size: 0.95rem; color: #475569; transition: all 0.2s ease;}
+        .react-calendar__tile:not(.holiday-date-circle):not(.birthday-date-circle):hover abbr { background-color: #f1f5f9; color: #0f172a;}
+        .react-calendar__tile--now abbr { background-color: transparent; border: 2px solid #3b82f6; color: #3b82f6; font-weight: 800;}
+        .holiday-date-circle abbr { background-color: #10b981 !important; color: white !important; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);}
+        .birthday-date-circle abbr { background-color: #f43f5e !important; color: white !important; box-shadow: 0 4px 10px rgba(244, 63, 94, 0.3);}
+        .custom-tooltip { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); background: #1e293b; padding: 8px 12px; border-radius: 10px; font-size: 12px; z-index: 50; white-space: nowrap; box-shadow: 0 10px 25px rgba(0,0,0,0.3); pointer-events: none;}
+        .custom-tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -5px; border-width: 5px; border-style: solid; border-color: #1e293b transparent transparent transparent;}
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
@@ -629,4 +556,3 @@ const AdminHolidayCalendarPage = () => {
 };
 
 export default AdminHolidayCalendarPage;
-// --- END OF FILE AdminHolidayCalendarPage.jsx ---
