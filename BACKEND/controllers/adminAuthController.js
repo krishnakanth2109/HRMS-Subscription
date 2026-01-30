@@ -30,7 +30,6 @@ export const registerAdmin = async (req, res) => {
       });
     }
 
-    // 🚫 Block paid plans (Stripe only)
     if (plan && plan !== "Free") {
       return res.status(403).json({
         message: "Paid plans must be purchased via Stripe",
@@ -49,24 +48,13 @@ export const registerAdmin = async (req, res) => {
     const admin = await Admin.create({
       name,
       email,
-      password, // hashed by schema pre-save
+      password, 
       phone: phone || "",
       role: role || "admin",
       department: department || "Administration",
-
-      // 🔹 Free plan defaults
       plan: "Free",
       isPaid: false,
       planActivatedAt: new Date(),
-
-      // 🔹 Stripe fields remain NULL
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      subscriptionStatus: null,
-      currentPeriodStart: null,
-      currentPeriodEnd: null,
-      cancelAtPeriodEnd: false,
-      lastPaymentAt: null,
     });
 
     /* ==================== JWT ==================== */

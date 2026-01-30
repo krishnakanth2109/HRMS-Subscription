@@ -19,15 +19,13 @@ export const login = async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password)
-    return res.status(400).json({
-      message: "Please provide both email and password.",
-    });
+    return res.status(400).json({ message: "Please provide both email and password." });
 
   try {
     let user = null;
     let role = null;
 
-    // 1️⃣ CHECK ADMIN (includes manager)
+    // 1️⃣ CHECK ADMIN 
     user = await Admin.findOne({ email }).select("+password +role");
     if (user) {
       role = user.role; // "admin" or "manager"
@@ -35,25 +33,22 @@ export const login = async (req, res, next) => {
 
     // 2️⃣ IF NOT ADMIN → CHECK EMPLOYEE
     if (!user) {
+      // Vital: Populate company info to return to frontend if needed
       user = await Employee.findOne({ email }).select("+password");
       if (user) role = "employee";
     }
 
-    // 3️⃣ USER NOT FOUND OR PASSWORD WRONG
+    // 3️⃣ VERIFY PASSWORD
     if (!user || !(await user.correctPassword(password, user.password))) {
-      return res
-        .status(401)
-        .json({ message: "Incorrect email or password." });
+      return res.status(401).json({ message: "Incorrect email or password." });
     }
 
-    // 4️⃣ BLOCK DEACTIVATED EMPLOYEES
+    // 4️⃣ BLOCK DEACTIVATED
     if (role === "employee" && user.isActive === false) {
-      return res.status(403).json({
-        message: "Your account is deactivated. Please contact support team.",
-      });
+      return res.status(403).json({ message: "Account deactivated. Contact HR." });
     }
 
-    // 5️⃣ CREATE TOKEN WITH ROLE
+    // 5️⃣ TOKEN
     const token = signToken(user._id, role);
     user.password = undefined;
 
@@ -62,14 +57,15 @@ export const login = async (req, res, next) => {
       token,
       data: {
         ...user.toObject(),
-        role: role, // Include user role in response
+        role: role,
+        // For Employees, frontend might need these to know which context they are in
+        companyId: user.company, 
+        adminId: user.adminId
       },
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
-    res
-      .status(500)
-      .json({ message: "An internal server error occurred." });
+    res.status(500).json({ message: "Internal server error." });
   }
 };
 
@@ -79,57 +75,37 @@ export const login = async (req, res, next) => {
 export const protect = async (req, res, next) => {
   let token;
 
-  // 1️⃣ Extract token
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
     token = req.headers.authorization.split(" ")[1];
   }
 
   if (!token)
-    return res.status(401).json({
-      message: "You are not logged in! Please log in to get access.",
-    });
+    return res.status(401).json({ message: "Not logged in." });
 
   try {
-    // 2️⃣ Verify token
-    const decoded = await promisify(jwt.verify)(
-      token,
-      process.env.JWT_SECRET
-    );
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    // decoded contains: { id, role, iat, exp }
-
-    // 3️⃣ Check in Admin collection
+    // 1️⃣ Check Admin
     let currentUser = await Admin.findById(decoded.id).select("+role");
 
-    // 4️⃣ If not admin → check employee
+    // 2️⃣ Check Employee (If not Admin)
     if (!currentUser) {
-      currentUser = await Employee.findById(decoded.id);
+      // CRITICAL: We need adminId and companyId for almost every controller
+      currentUser = await Employee.findById(decoded.id); 
     }
 
     if (!currentUser) {
-      return res.status(401).json({
-        message:
-          "The user belonging to this token no longer exists.",
-      });
+      return res.status(401).json({ message: "User no longer exists." });
     }
 
-    // 5️⃣ Block deactivated employees
+    // 3️⃣ Check Deactivation
     if (currentUser.isActive === false) {
       return res.status(401).json({ message: "User is deactivated." });
     }
 
-    // 6️⃣ Attach user to request
-    req.user = currentUser; // includes role for admin/manager
-
+    req.user = currentUser; 
     next();
   } catch (error) {
-    return res
-      .status(401)
-      .json({ message: "Invalid token. Please log in again." });
+    return res.status(401).json({ message: "Invalid token." });
   }
 };
-
-// --- END OF FILE controllers/authController.js ---

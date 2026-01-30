@@ -1,3 +1,5 @@
+// --- START OF FILE routes/groupRoutes.js ---
+
 import express from "express";
 import {
   createGroup,
@@ -12,7 +14,16 @@ import {
   getTeamAttendanceToday
 } from "../controllers/groupController.js";
 
-import { protect, restrictTo } from "../middleware/authMiddleware.js";
+import { protect } from "../controllers/authController.js";
+// Simple role helper
+const restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You do not have permission to perform this action' });
+    }
+    next();
+  };
+};
 
 const router = express.Router();
 
@@ -26,6 +37,13 @@ router.get(
   getMyTeams
 );
 
+router.get(
+  "/team-attendance-today",
+  protect,
+  restrictTo("employee"),
+  getTeamAttendanceToday
+);
+
 /* =====================================================
    ADMIN ROUTES
 ===================================================== */
@@ -37,12 +55,5 @@ router.put("/:id/leader", protect, restrictTo("admin"), assignGroupLeader);
 router.post("/:id/member", protect, restrictTo("admin"), addMember);
 router.delete("/:id/member", protect, restrictTo("admin"), removeMember);
 router.delete("/:id", protect, restrictTo("admin"), deleteGroup);
-// Employee-side team attendance
-router.get(
-  "/team-attendance-today",
-  protect,
-  restrictTo("employee"),
-  getTeamAttendanceToday
-);
 
 export default router;

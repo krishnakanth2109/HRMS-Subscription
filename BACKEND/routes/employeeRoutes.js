@@ -13,7 +13,6 @@ const router = express.Router();
 /* ==============================================================
 ==============
  📁 1. FILE UPLOAD ROUTE
- ✅ FIX: Removed 'onlyAdmin' so regular employees can upload documents
 =================================================================
 =========== */
 router.post("/upload-doc", protect, upload.single("file"), (req, res) => {
@@ -38,15 +37,12 @@ router.post("/upload-doc", protect, upload.single("file"), (req, res) => {
 // CREATE employee → ADMIN ONLY
 router.post("/", protect, onlyAdmin, async (req, res) => {
   try {
-
-    // ✅ USE COMPANY'S employeeCount COUNTER (ensures ID consistency)
-    // ✅ USE COMPANY'S employeeCount COUNTER (ensures ID consistency)
     if (req.body.company) {
       // Find the company to get the prefix
-      const company = await Company.findById(req.body.company);
+      const company = await Company.findOne({ _id: req.body.company, adminId: req.user._id });
 
       if (!company) {
-        return res.status(404).json({ error: "Company not found" });
+        return res.status(404).json({ error: "Company not found or unauthorized" });
       }
 
       // ✅ RE-COUNT ACTUAL EMPLOYEES to ensure ID accuracy
@@ -59,19 +55,17 @@ router.post("/", protect, onlyAdmin, async (req, res) => {
       // Update company count to be consistent (optional but good for sync)
       company.employeeCount = currentCount + 1;
       await company.save();
-    } else {
-      // Fallback for unexpected cases where company is missing but creation proceeds?
-      // Ideally should fail if company is required. The model likely requires it.
-      // Assuming the model validation handles "required: true" for company.
     }
+
+    // Inject Admin ID
+    req.body.adminId = req.user._id;
 
     const employee = new Employee(req.body);
     const result = await employee.save();
     res.status(201).json(result);
   } catch (err) {
     console.error("❌ Employee creation error:", err);
-    console.error("Full error details:", err.errors || err.message);
-
+    
     // Handle duplicate key error (e.g., duplicate email)
     if (err.code === 11000) {
       const field = Object.keys(err.keyPattern)[0];
@@ -88,21 +82,32 @@ router.post("/", protect, onlyAdmin, async (req, res) => {
   }
 });
 
-// GET all employees → Authenticated users allowed
+// GET all employees (Scoped)
 router.get("/", protect, async (req, res) => {
   try {
-    const employees = await Employee.find();
+    const query = req.user.role === 'admin' 
+        ? { adminId: req.user._id } 
+        : { company: req.user.company };
+
+    const employees = await Employee.find(query);
     res.status(200).json(employees);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET employee by ID → Authenticated users allowed
+// GET employee by ID
 router.get("/:id", protect, async (req, res) => {
   try {
     const employee = await Employee.findOne({ employeeId: req.params.id });
     if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+    // Security
+    if (req.user.role !== 'admin' && req.user.employeeId !== req.params.id) {
+        // Can read colleagues?
+        if(req.user.company.toString() !== employee.company.toString()) 
+             return res.status(403).json({ message: "Forbidden" });
+    }
 
     res.status(200).json(employee);
   } catch (err) {
@@ -111,14 +116,12 @@ router.get("/:id", protect, async (req, res) => {
 });
 
 // UPDATE employee
-// ✅ FIX: Allow Admin OR the Employee themselves to update the profile
 router.put("/:id", protect, async (req, res) => {
   try {
     // 1. Check if user is Admin
     const isAdmin = req.user.role === "admin";
 
     // 2. Check if user is updating their OWN profile
-    // (Ensure req.user.employeeId is populated by your protect middleware)
     const isSelf = req.user.employeeId === req.params.id;
 
     // 3. If not admin and not self, reject
@@ -126,11 +129,11 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(403).json({ message: "Not authorized to update this profile" });
     }
 
-    const updated = await Employee.findOneAndUpdate(
-      { employeeId: req.params.id },
-      req.body,
-      { new: true }
-    );
+    // Scoped Update
+    const query = { employeeId: req.params.id };
+    if(isAdmin) query.adminId = req.user._id;
+
+    const updated = await Employee.findOneAndUpdate(query, req.body, { new: true });
 
     if (!updated) return res.status(404).json({ error: "Employee not found" });
 
@@ -143,8 +146,8 @@ router.put("/:id", protect, async (req, res) => {
 // DELETE employee → ADMIN ONLY
 router.delete("/:id", protect, onlyAdmin, async (req, res) => {
   try {
-    // 1. Find the employee to be deleted
-    const employeeToDelete = await Employee.findOne({ employeeId: req.params.id });
+    // 1. Find the employee to be deleted (Scoped)
+    const employeeToDelete = await Employee.findOne({ employeeId: req.params.id, adminId: req.user._id });
 
     if (!employeeToDelete) {
       return res.status(404).json({ message: "Employee not found" });
@@ -162,12 +165,10 @@ router.delete("/:id", protect, onlyAdmin, async (req, res) => {
     }
 
     // 3. Extract the numeric part of the deleted employee's ID
-    // Assuming ID format is PREFIX + Number (e.g., VAG01)
     const prefixLength = company.prefix.length;
     const deletedNumber = parseInt(deletedId.slice(prefixLength), 10);
 
     if (isNaN(deletedNumber)) {
-      // Fallback if ID format is unexpected
       await Employee.findOneAndDelete({ employeeId: req.params.id });
       return res.status(200).json({ message: "Employee deleted (ID format invalid for shifting)" });
     }
@@ -221,7 +222,7 @@ router.patch("/:id/deactivate", protect, onlyAdmin, async (req, res) => {
   const { endDate, reason } = req.body;
   try {
     const emp = await Employee.findOneAndUpdate(
-      { employeeId: req.params.id },
+      { employeeId: req.params.id, adminId: req.user._id },
       {
         isActive: false,
         status: "Inactive",
@@ -243,7 +244,7 @@ router.patch("/:id/reactivate", protect, onlyAdmin, async (req, res) => {
   const { date, reason } = req.body;
   try {
     const emp = await Employee.findOneAndUpdate(
-      { employeeId: req.params.id },
+      { employeeId: req.params.id, adminId: req.user._id },
       {
         isActive: true,
         status: "Active",
@@ -274,8 +275,13 @@ router.post("/idle-activity", protect, async (req, res) => {
       lastActiveAt
     ).toLocaleTimeString()}.`;
 
+    // Fetch Admin ID
+    const adminId = req.user.role === 'admin' ? req.user._id : req.user.adminId;
+
     const notification = await Notification.create({
-      userId: "admin",
+      adminId: adminId, // Hierarchy
+      companyId: req.user.company, // Hierarchy
+      userId: adminId, // Send to Admin
       title: "Employee Idle Alert",
       message: msg,
       type: "attendance",
@@ -283,12 +289,7 @@ router.post("/idle-activity", protect, async (req, res) => {
     });
 
     const io = req.app.get("io");
-    const userSocketMap = req.app.get("userSocketMap");
-    const adminSocket = userSocketMap.get("admin");
-
-    if (adminSocket) {
-      io.to(adminSocket).emit("admin-notification", notification);
-    }
+    if(io) io.emit("newNotification", notification);
 
     res.json({ success: true, notification });
   } catch (error) {
@@ -298,5 +299,4 @@ router.post("/idle-activity", protect, async (req, res) => {
 });
 
 export default router;
-
 // --- END OF FILE routes/employeeRoutes.js ---

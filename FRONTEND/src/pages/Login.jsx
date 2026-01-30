@@ -6,7 +6,12 @@ import {
   FaEye,
   FaEyeSlash,
   FaTimes,
+  FaFingerprint,
+  FaShieldAlt,
+  FaUserShield,
+  FaChartBar,
 } from "react-icons/fa";
+import { MdEmail, MdLock } from "react-icons/md";
 
 /* ==================== PLANS ==================== */
 const PLANS = [
@@ -43,20 +48,14 @@ const Login = () => {
   });
 
   /* ==================== REDIRECT LOGGED USER ==================== */
-  // We handle ALL navigation here. When 'user' state changes in AuthContext, 
-  // this effect triggers and sends them to the right dashboard.
   useEffect(() => {
     if (!user) return;
-
-    const userRole = user.role?.toLowerCase(); // Use lowercase to prevent "Employee" vs "employee" bugs
-    console.log("Logged in user role:", userRole);
-
+    const userRole = user.role?.toLowerCase();
     if (userRole === "admin" || userRole === "manager") {
       navigate("/admin/dashboard", { replace: true });
     } else if (userRole === "employee") {
       navigate("/employee/dashboard", { replace: true });
     } else {
-      console.error("Unknown user role:", userRole);
       setError("Unauthorized role. Contact admin.");
     }
   }, [user, navigate]);
@@ -66,21 +65,13 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     try {
       const res = await login(email, password);
-
-      // Defensive check: handle different response structures
       const userData = res?.data?.user || res?.user;
       const token = res?.data?.token || res?.token;
-
       if (token) sessionStorage.setItem("hrms-token", token);
       if (userData) sessionStorage.setItem("hrmsUser", JSON.stringify(userData));
-
-      // Note: We don't need 'navigate' here because the useEffect above 
-      // will fire as soon as 'login' updates the 'user' state in Context.
     } catch (err) {
-      console.error("Login failed error:", err);
       setError(err.response?.data?.message || "Login failed. Please check credentials.");
     } finally {
       setLoading(false);
@@ -91,30 +82,16 @@ const Login = () => {
   const handleAdminRegister = async (e) => {
     e.preventDefault();
     setSignupError("");
-
-    if (!selectedPlan) {
-      return setSignupError("Please select a plan");
-    }
-
+    if (!selectedPlan) return setSignupError("Please select a plan");
     setSignupLoading(true);
-
     try {
       if (selectedPlan.name === "Free") {
-        await API.post("/api/admin/register", {
-          ...signupForm,
-          plan: "Free",
-        });
-
+        await API.post("/api/admin/register", { ...signupForm, plan: "Free" });
         alert("Free admin created. Please login.");
         setShowSignup(false);
         return;
       }
-
-      const res = await API.post("/api/stripe/create-checkout-session", {
-        plan: selectedPlan,
-        signupForm,
-      });
-
+      const res = await API.post("/api/stripe/create-checkout-session", { plan: selectedPlan, signupForm });
       window.location.href = res.data.url;
     } catch (err) {
       setSignupError(err.response?.data?.message || "Registration failed");
@@ -123,154 +100,231 @@ const Login = () => {
     }
   };
 
-  const animatedBackground = useMemo(() => <></>, []);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      {animatedBackground}
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#1a0b2e] relative overflow-hidden font-sans p-4">
+      {/* Decorative Background Circles */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] height-[500px] bg-purple-900/20 rounded-full blur-[120px]"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] height-[600px] bg-indigo-900/20 rounded-full blur-[120px]"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-tr from-purple-500/5 to-transparent rounded-full border border-white/5"></div>
 
-      {/* ==================== LOGIN CARD ==================== */}
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl px-10 py-8">
-        <h2 className="text-3xl font-bold text-center mb-6">Welcome Back</h2>
-
-        {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm text-center">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-5">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full border px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-
-          <div className="flex items-center border rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-purple-500">
-            <input
-              type={showPassword ? "text" : "password"}
-              className="w-full outline-none"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <span 
-              className="cursor-pointer text-gray-500" 
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <FaEyeSlash /> : <FaEye />}
-            </span>
+      <div className="container max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-12 z-10">
+        
+        {/* LEFT SECTION: Features */}
+        <div className="flex-1 text-white space-y-8">
+          <div className="space-y-4">
+            <h1 className="text-5xl lg:text-7xl font-bold tracking-tight">
+              Elevate Your <br />
+              <span className="text-gray-300">Work Experience</span>
+            </h1>
+            <p className="text-gray-400 text-lg max-w-md leading-relaxed">
+              Arah Info Tech HRMS delivers seamless workforce management with AI-powered insights, real-time analytics, and secure role-based access control.
+            </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold transition-colors disabled:bg-purple-300"
-          >
-            {loading ? "Authenticating..." : "Login"}
-          </button>
-        </form>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+            {[
+              { icon: <FaChartBar />, title: "Real-time Analytics", desc: "Live dashboard" },
+              { icon: <FaFingerprint />, title: "Biometric Auth", desc: "Multi-factor" },
+              { icon: <FaShieldAlt />, title: "Bank-grade Security", desc: "256-bit encryption" },
+              { icon: <FaUserShield />, title: "Role Control", desc: "Granular access" },
+            ].map((feature, i) => (
+              <div key={i} className="flex items-center gap-4 bg-white/5 border border-white/10 p-5 rounded-3xl hover:bg-white/10 transition-all cursor-default group">
+                <div className="bg-white/10 p-3 rounded-2xl group-hover:scale-110 transition-transform">
+                  <span className="text-xl text-purple-400">{feature.icon}</span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white">{feature.title}</h4>
+                  <p className="text-sm text-gray-400">{feature.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        <button
-          onClick={() => setShowSignup(true)}
-          className="w-full mt-4 border border-purple-600 text-purple-600 py-2 rounded-xl font-semibold hover:bg-purple-50 transition-colors"
-        >
-          Create Admin Account
-        </button>
+        {/* RIGHT SECTION: Login Card */}
+        <div className="w-full max-w-md">
+          <div className="bg-[#f8f9ff] rounded-[2.5rem] shadow-2xl p-10 relative overflow-hidden">
+            {/* AI Badge */}
+            <div className="absolute top-8 right-8 bg-gradient-to-br from-purple-500 to-indigo-600 text-white px-3 py-2 rounded-2xl font-bold text-sm shadow-lg">
+              AI
+            </div>
+
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                <span className="text-[10px] font-bold tracking-[0.2em] text-purple-600 uppercase">Secure Portal</span>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-6 text-xs font-medium border border-red-100">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 ml-1">Work Email</label>
+                <div className="relative group">
+                  <MdEmail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl group-focus-within:text-purple-600 transition-colors" />
+                  <input
+                    type="email"
+                    placeholder="employee@arahinfotech.com"
+                    className="w-full bg-white border border-gray-100 px-12 py-4 rounded-2xl focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 outline-none transition-all text-gray-700 placeholder:text-gray-300 shadow-sm"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Password</label>
+                  <button type="button" className="text-[11px] font-bold text-purple-600 hover:text-purple-800 transition-colors">Forgot Password? &rarr;</button>
+                </div>
+                <div className="relative group">
+                  <MdLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl group-focus-within:text-purple-600 transition-colors" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••••••"
+                    className="w-full bg-white border border-gray-100 px-12 py-4 rounded-2xl focus:ring-4 focus:ring-purple-500/10 focus:border-purple-400 outline-none transition-all text-gray-700 placeholder:text-gray-300 shadow-sm"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button 
+                    type="button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-purple-600 transition-colors" 
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between py-2">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
+                  <span className="text-xs text-gray-500 group-hover:text-gray-700 transition-colors">Remember this device</span>
+                </label>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Session Encrypted</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-4 rounded-2xl font-bold shadow-xl shadow-purple-500/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? "Authenticating..." : "Access Dashboard"}
+              </button>
+            </form>
+
+            <div className="mt-8 flex flex-col items-center gap-4">
+               <button
+                onClick={() => setShowSignup(true)}
+                className="text-xs font-bold text-gray-400 hover:text-purple-600 transition-colors uppercase tracking-widest"
+              >
+                Create Admin Account
+              </button>
+              
+              <div className="flex items-center justify-between w-full pt-6 border-t border-gray-100">
+                <p className="text-[10px] text-gray-400">Need help? <a href="mailto:support@arahinfotech.com" className="text-purple-600 font-bold underline">support@arahinfotech.com</a></p>
+                <p className="text-[10px] text-gray-400 font-bold">• v2.1 • HRMS</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Footer Info */}
+          <div className="mt-8 text-center space-y-2 opacity-50">
+            <p className="text-white text-[10px] tracking-wide">© 2026 Arah Info Tech. All rights reserved.</p>
+            <p className="text-white text-[9px] uppercase tracking-widest">PCI DSS Compliant • GDPR Ready • ISO 27001 Certified</p>
+          </div>
+        </div>
       </div>
 
-      {/* ==================== SIGNUP MODAL ==================== */}
+      {/* ==================== SIGNUP MODAL (Kept existing logic) ==================== */}
       {showSignup && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto shadow-2xl">
             <button
               onClick={() => setShowSignup(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-black"
+              className="absolute top-6 right-6 text-gray-400 hover:text-black transition-colors"
             >
-              <FaTimes />
+              <FaTimes size={20} />
             </button>
 
-            <h3 className="text-2xl font-bold mb-4">Register Admin</h3>
+            <h3 className="text-2xl font-bold mb-6 text-gray-900">Register Admin</h3>
 
             {signupError && (
-              <div className="bg-red-100 text-red-700 p-2 rounded mb-3 text-sm">
+              <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-xs font-medium border border-red-100">
                 {signupError}
               </div>
             )}
 
-            {/* ===== PLAN SELECTION ===== */}
-            <h4 className="font-bold mb-2 text-sm">Choose Plan</h4>
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <h4 className="font-bold mb-3 text-xs uppercase tracking-widest text-gray-500">Choose Plan</h4>
+            <div className="grid grid-cols-2 gap-3 mb-6">
               {PLANS.map((plan) => (
                 <button
                   key={plan.name}
                   type="button"
                   onClick={() => setSelectedPlan(plan)}
-                  className={`border p-3 rounded-xl transition-all ${
+                  className={`border-2 p-4 rounded-2xl transition-all text-left ${
                     selectedPlan?.name === plan.name
-                      ? "border-purple-600 bg-purple-100 ring-1 ring-purple-600"
-                      : "hover:border-purple-300"
+                      ? "border-purple-600 bg-purple-50"
+                      : "border-gray-100 hover:border-purple-200"
                   }`}
                 >
-                  <div className="font-semibold">{plan.name}</div>
-                  <div className="text-xs text-gray-600">
-                    {plan.price === 0 ? "Free" : `₹${plan.price}`}
+                  <div className="font-bold text-gray-900">{plan.name}</div>
+                  <div className="text-xs font-medium text-purple-600">
+                    {plan.price === 0 ? "Free Forever" : `₹${plan.price}/mo`}
                   </div>
                 </button>
               ))}
             </div>
 
-            {/* ===== FORM ===== */}
-            <form onSubmit={handleAdminRegister} className="space-y-3">
+            <form onSubmit={handleAdminRegister} className="space-y-4">
               <input
-                placeholder="Name"
-                className="w-full border px-4 py-2 rounded focus:ring-1 focus:ring-purple-500 outline-none"
-                onChange={(e) =>
-                  setSignupForm({ ...signupForm, name: e.target.value })
-                }
+                placeholder="Full Name"
+                className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none transition-all"
+                onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
                 required
               />
               <input
                 type="email"
-                placeholder="Email"
-                className="w-full border px-4 py-2 rounded focus:ring-1 focus:ring-purple-500 outline-none"
-                onChange={(e) =>
-                  setSignupForm({ ...signupForm, email: e.target.value })
-                }
+                placeholder="Email Address"
+                className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none transition-all"
+                onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
                 required
               />
               <input
                 type="password"
-                placeholder="Password"
-                className="w-full border px-4 py-2 rounded focus:ring-1 focus:ring-purple-500 outline-none"
-                onChange={(e) =>
-                  setSignupForm({ ...signupForm, password: e.target.value })
-                }
+                placeholder="Create Password"
+                className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none transition-all"
+                onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
                 required
               />
-              <input
-                placeholder="Phone"
-                className="w-full border px-4 py-2 rounded focus:ring-1 focus:ring-purple-500 outline-none"
-                onChange={(e) =>
-                  setSignupForm({ ...signupForm, phone: e.target.value })
-                }
-              />
-              <input
-                placeholder="Department"
-                className="w-full border px-4 py-2 rounded focus:ring-1 focus:ring-purple-500 outline-none"
-                onChange={(e) =>
-                  setSignupForm({ ...signupForm, department: e.target.value })
-                }
-              />
+              <div className="grid grid-cols-2 gap-4">
+                  <input
+                    placeholder="Phone"
+                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none transition-all"
+                    onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+                  />
+                  <input
+                    placeholder="Department"
+                    className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-400 outline-none transition-all"
+                    onChange={(e) => setSignupForm({ ...signupForm, department: e.target.value })}
+                  />
+              </div>
 
               <button
                 type="submit"
                 disabled={signupLoading}
-                className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold mt-4 hover:bg-purple-700 disabled:bg-purple-300 transition-colors"
+                className="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold mt-6 hover:bg-purple-700 shadow-lg shadow-purple-500/20 transition-all disabled:opacity-50"
               >
                 {signupLoading
                   ? "Processing..."

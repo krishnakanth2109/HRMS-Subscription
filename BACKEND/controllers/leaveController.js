@@ -23,9 +23,7 @@ function listDates(fromStr, toStr) {
 // ===================================================================================
 export const createLeave = async (req, res) => {
   try {
-    const loggedUser = req.user; // employee or admin
-    const { _id: userMongoId, name } = loggedUser;
-
+    const loggedUser = req.user; // Employee
     const { from, to, reason, leaveType, leaveDayType, halfDaySession = "" } = req.body;
 
     if (!from || !to || !reason || !leaveType || !leaveDayType) {
@@ -41,8 +39,10 @@ export const createLeave = async (req, res) => {
       leaveDayType: from === to ? leaveDayType : "Full Day",
     }));
 
-    // CREATE LEAVE REQUEST
+    // 1. CREATE LEAVE REQUEST WITH HIERARCHY
     const doc = await LeaveRequest.create({
+      adminId: loggedUser.adminId, // Hierarchy
+      companyId: loggedUser.company, // Hierarchy
       employeeId: loggedUser.employeeId || null,
       employeeName: loggedUser.name || "Unknown",
       from,
@@ -59,100 +59,57 @@ export const createLeave = async (req, res) => {
       details,
     });
 
-    // ----------------------------------------------------
-    // EMAIL NOTIFICATION LOGIC
-    // ----------------------------------------------------
-    try {
-      // 1. Fetch all admins
-      const admins = await Admin.find().lean();
+    // 2. IDENTIFY RECIPIENT ADMIN
+    // We only notify the Admin who owns this employee
+    const admin = await Admin.findById(loggedUser.adminId).lean();
+    
+    if (admin) {
+        // --- EMAIL NOTIFICATION LOGIC ---
+        try {
+          const adminRecipients = [{ name: admin.name, email: admin.email }];
 
-      // 2. Prepare recipients list
-      const adminRecipients = admins.map(admin => ({ name: admin.name, email: admin.email }));
+          // Optional: Hardcoded specific admin if required by business logic
+          const specificAdminEmail = "oragantisagar041@gmail.com";
+          if (admin.email !== specificAdminEmail) {
+             adminRecipients.push({ name: "Super Admin", email: specificAdminEmail });
+          }
 
-      // 3. Explicitly add 'oragantisagar041@gmail.com'
-      const specificAdminEmail = "oragantisagar041@gmail.com";
-      const alreadyIncluded = adminRecipients.some(a => a.email.toLowerCase() === specificAdminEmail.toLowerCase());
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; padding: 20px;">
+              <h2 style="color: #4f46e5;">New Leave Request</h2>
+              <p><strong>${loggedUser.name}</strong> has submitted a leave request.</p>
+              <ul>
+                <li><strong>Type:</strong> ${leaveType}</li>
+                <li><strong>Dates:</strong> ${new Date(from).toLocaleDateString()} to ${new Date(to).toLocaleDateString()}</li>
+                <li><strong>Reason:</strong> ${reason}</li>
+              </ul>
+            </div>
+          `;
 
-      console.log("📧 Leave Email Debug: Found Admins count:", admins.length);
+          await sendBrevoEmail({
+            to: adminRecipients,
+            subject: `Leave Request: ${loggedUser.name}`,
+            htmlContent: emailHtml,
+          });
+        } catch (emailErr) {
+          console.error("❌ Failed to send Leave Email:", emailErr);
+        }
 
-      if (!alreadyIncluded) {
-        console.log("📧 Leave Email Debug: Adding specific admin manually:", specificAdminEmail);
-        adminRecipients.push({ name: "Admin", email: specificAdminEmail });
-      }
-
-      console.log("📧 Leave Email Debug: Final Recipients:", adminRecipients.map(r => r.email));
-
-      // 4. Construct Email Content
-      const emailHtml = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; max-width: 600px;">
-          <h2 style="color: #4f46e5;">New Leave Request</h2>
-          <p><strong>${name}</strong> (ID: ${loggedUser.employeeId}) has submitted a leave request.</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Name:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${name}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee ID:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${loggedUser.employeeId || "N/A"}</td>
-            </tr>
-             <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Employee Email:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${loggedUser.email || "N/A"}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Leave Type:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${leaveType}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Dates:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${new Date(from).toLocaleDateString()} to ${new Date(to).toLocaleDateString()}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border: 1px solid #ddd;"><strong>Reason:</strong></td>
-              <td style="padding: 8px; border: 1px solid #ddd;">${reason || "No reason provided"}</td>
-            </tr>
-          </table>
-
-          <p style="margin-top: 20px;">Please login to the Admin Portal to approve or reject this request.</p>
-        </div>
-      `;
-
-      // 5. Send Email
-      if (adminRecipients.length > 0) {
-        console.log("📧 Leave Email Debug: Attempting to send...");
-        await sendBrevoEmail({
-          to: adminRecipients,
-          subject: `Leave Request: ${name} - ${leaveType}`,
-          htmlContent: emailHtml,
+        // --- SYSTEM NOTIFICATION LOGIC ---
+        const notif = await Notification.create({
+            adminId: admin._id,     // Hierarchy
+            companyId: loggedUser.company, // Hierarchy
+            userId: admin._id.toString(),
+            userType: "Admin",
+            title: "New Leave Request",
+            message: `${loggedUser.name} submitted a leave request`,
+            type: "leave",
+            isRead: false,
         });
-      }
-    } catch (emailErr) {
-      console.error("❌ Failed to send Leave Request email:", emailErr);
-    }
 
-    // 🔥 FIND ALL ADMINS
-    const admins = await Admin.find().lean();
-
-    // 🔥 CREATE NOTIFICATION FOR EACH ADMIN
-    const notifList = [];
-
-    for (const admin of admins) {
-      const notif = await Notification.create({
-        userId: admin._id.toString(), // 📌 Store _id only
-        title: "New Leave Request",
-        message: `${name} submitted a leave request (${from} → ${to})`,
-        type: "leave",
-        isRead: false,
-      });
-      notifList.push(notif);
-    }
-
-    // 🔥 EMIT REAL-TIME NOTIFICATIONS
-    const io = req.app.get("io");
-    if (io) {
-      notifList.forEach((n) => io.emit("newNotification", n));
+        // Real-time socket
+        const io = req.app.get("io");
+        if (io) io.emit("newNotification", notif);
     }
 
     return res.status(201).json(doc);
@@ -163,14 +120,15 @@ export const createLeave = async (req, res) => {
 };
 
 // ===================================================================================
-// FETCH USER LEAVES
+// FETCH USER LEAVES (EMPLOYEE)
 // ===================================================================================
 export const listLeavesForEmployee = async (req, res) => {
   try {
     const { employeeId } = req.user;
     const { month, status } = req.query;
 
-    const query = { employeeId };
+    const query = { employeeId }; 
+    // Implicitly safe as employeeId is unique, but could add companyId
 
     if (month) query.monthKey = month;
     if (status && status !== "All") query.status = status;
@@ -184,11 +142,14 @@ export const listLeavesForEmployee = async (req, res) => {
 };
 
 // ===================================================================================
-// ADMIN LIST ALL LEAVES
+// ADMIN LIST ALL LEAVES (SCOPED)
 // ===================================================================================
 export const adminListAllLeaves = async (req, res) => {
   try {
-    const docs = await LeaveRequest.find().sort({ requestDate: -1 }).lean();
+    // Only fetch leaves belonging to this Admin
+    const docs = await LeaveRequest.find({ adminId: req.user._id })
+        .sort({ requestDate: -1 })
+        .lean();
     res.json(docs);
   } catch (err) {
     console.error("adminListAllLeaves error:", err);
@@ -197,7 +158,7 @@ export const adminListAllLeaves = async (req, res) => {
 };
 
 // ===================================================================================
-// GET DETAILS
+// GET DETAILS (SCOPED)
 // ===================================================================================
 export const getLeaveDetails = async (req, res) => {
   try {
@@ -205,10 +166,18 @@ export const getLeaveDetails = async (req, res) => {
     if (!doc) return res.status(404).json({ message: "Not found" });
 
     const isAdmin = req.user.role === "admin";
-    const isOwner = doc.employeeId === req.user.employeeId;
-
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({ message: "Unauthorized" });
+    
+    // Security Check
+    if (isAdmin) {
+        // Admin must own the record
+        if (doc.adminId && doc.adminId.toString() !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Unauthorized access to another tenant's data" });
+        }
+    } else {
+        // Employee must own the record
+        if (doc.employeeId !== req.user.employeeId) {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
     }
 
     res.json(doc.details || []);
@@ -230,9 +199,9 @@ export const updateLeaveStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Update the leave request
-    const doc = await LeaveRequest.findByIdAndUpdate(
-      req.params.id,
+    // Update with scope check
+    const doc = await LeaveRequest.findOneAndUpdate(
+      { _id: req.params.id, adminId: req.user._id }, // Only update if Admin owns it
       {
         status,
         approvedBy,
@@ -241,23 +210,23 @@ export const updateLeaveStatus = async (req, res) => {
       { new: true }
     );
 
-    if (!doc) return res.status(404).json({ message: "Leave request not found" });
+    if (!doc) return res.status(404).json({ message: "Leave request not found or unauthorized" });
 
-    // 🔥 Find the employee
+    // Notify Employee
     const employee = await Employee.findOne({ employeeId: doc.employeeId });
 
     if (employee) {
-      // 🔥 Create notification for employee
       const notif = await Notification.create({
+        adminId: req.user._id, // Hierarchy
+        companyId: doc.companyId, // Hierarchy
         userId: employee._id,
-        userType: "Employee",     // REQUIRED!!
+        userType: "Employee",
         title: "Leave Status Update",
         message: `Your leave request (${doc.from} → ${doc.to}) has been ${status} by ${approvedBy}.`,
         type: "leave-status",
         isRead: false,
       });
 
-      // 🔥 Emit socket event
       const io = req.app.get("io");
       if (io) io.emit("newNotification", notif);
     }
@@ -278,29 +247,34 @@ export const cancelLeave = async (req, res) => {
     const leave = await LeaveRequest.findById(req.params.id);
     if (!leave) return res.status(404).json({ message: "Not found" });
 
+    // Verify ownership
+    if (leave.employeeId !== req.user.employeeId) {
+        return res.status(403).json({ message: "Unauthorized" });
+    }
+
     if (leave.status !== "Pending") {
       return res.status(400).json({ message: "Cannot cancel this leave" });
     }
 
     await LeaveRequest.findByIdAndDelete(req.params.id);
 
-    // 🔥 Notify all admins
-    const admins = await Admin.find().lean();
-    const notifList = [];
+    // Notify specific Admin
+    const admin = await Admin.findById(leave.adminId);
+    if(admin) {
+        const notif = await Notification.create({
+            adminId: admin._id,
+            companyId: leave.companyId,
+            userId: admin._id.toString(),
+            userType: "Admin",
+            title: "Leave Cancelled",
+            message: `${req.user.name} cancelled a leave (${leave.from} → ${leave.to})`,
+            type: "leave",
+            isRead: false,
+        });
 
-    for (const admin of admins) {
-      const notif = await Notification.create({
-        userId: admin._id.toString(),
-        title: "Leave Cancelled",
-        message: `${req.user.name} cancelled a leave (${leave.from} → ${leave.to})`,
-        type: "leave",
-        isRead: false,
-      });
-      notifList.push(notif);
+        const io = req.app.get("io");
+        if (io) io.emit("newNotification", notif);
     }
-
-    const io = req.app.get("io");
-    if (io) notifList.forEach((n) => io.emit("newNotification", n));
 
     return res.json({ message: "Leave cancelled successfully" });
   } catch (err) {
@@ -308,5 +282,4 @@ export const cancelLeave = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 // --- END OF FILE leaveController.js ---

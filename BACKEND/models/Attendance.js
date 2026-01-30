@@ -1,5 +1,4 @@
-// --- START OF FILE Attendance.js ---
-
+// --- START OF FILE models/Attendance.js ---
 import mongoose from "mongoose";
 
 const LocationSchema = new mongoose.Schema({
@@ -8,7 +7,6 @@ const LocationSchema = new mongoose.Schema({
   address: { type: String, default: null },
   timestamp: { type: Date, default: null }
 }, { _id: false });
-
 
 const SessionSchema = new mongoose.Schema({
   punchIn: { type: Date, required: true },
@@ -59,12 +57,11 @@ const DailySchema = new mongoose.Schema({
     default: "NOT_APPLICABLE"
   },
 
-
-  // ✅ NEW: Request for Late Login Correction
+  // Request for Late Login Correction
   lateCorrectionRequest: {
     hasRequest: { type: Boolean, default: false },
     status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
-    requestedTime: { type: Date, default: null }, // The time employee claims they arrived
+    requestedTime: { type: Date, default: null }, 
     reason: { type: String, default: null },
     adminComment: { type: String, default: null }
   },
@@ -75,9 +72,14 @@ const DailySchema = new mongoose.Schema({
 });
 
 const AttendanceSchema = new mongoose.Schema({
+  // HIERARCHY
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
   employeeId: { type: String, required: true, unique: true },
   employeeName: { type: String, required: true },
   attendance: [DailySchema],
 });
 
 export default mongoose.model("Attendance", AttendanceSchema);
+// --- END OF FILE models/Attendance.js ---

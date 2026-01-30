@@ -1,3 +1,4 @@
+// --- START OF FILE routes/noticeRoutes.js ---
 import express from "express";
 import Notice from "../models/Notice.js";
 import { protect } from "../controllers/authController.js";
@@ -7,26 +8,24 @@ import { v2 as cloudinary } from "cloudinary";
 
 const router = express.Router();
 
-// --- CLOUDINARY CONFIGURATION ---
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// --- MULTER CONFIGURATION (Memory Storage) ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 /* ============================================================================
-   📌 ADMIN → GET ALL NOTICES
+   📌 ADMIN → GET ALL NOTICES (SCOPED)
 ============================================================================ */
 router.get("/all", protect, onlyAdmin, async (req, res) => {
   try {
-    const allNotices = await Notice.find()
+    const allNotices = await Notice.find({ adminId: req.user._id })
       .populate("createdBy", "name employeeId") 
       .populate("readBy.employeeId", "name employeeId")
-      .populate("replies.employeeId", "name employeeId empId")
+      .populate("replies.employeeId", "name employeeId")
       .populate("replies.adminId", "name")
       .sort({ date: -1 });
     res.json(allNotices);
@@ -36,31 +35,29 @@ router.get("/all", protect, onlyAdmin, async (req, res) => {
 });
 
 /* ============================================================================
-   👤 EMPLOYEE → GET Notices (FIXED: Show ALL replies for notices user has access to)
+   👤 EMPLOYEE → GET NOTICES (SCOPED)
 ============================================================================ */
 router.get("/", protect, async (req, res) => {
   try {
     const userId = req.user._id.toString();
+    const query = {
+        // Scoped to this company OR global for this Admin
+        $or: [
+            { recipients: "ALL", companyId: req.user.company }, 
+            { recipients: { $in: [userId] } },
+            { createdBy: userId } 
+        ]
+    };
 
-    let notices = await Notice.find({
-      $or: [
-        { recipients: "ALL" },
-        { recipients: { $in: [userId] } },
-        { createdBy: userId } 
-      ]
-    })
+    let notices = await Notice.find(query)
       .populate("createdBy", "name employeeId") 
       .populate("recipients", "name employeeId")
-      .populate("replies.employeeId", "name employeeId empId")
+      .populate("replies.employeeId", "name employeeId")
       .populate("replies.adminId", "name")
       .sort({ date: -1 });
 
-    // ✅ FIXED: Don't filter replies - show ALL messages in notices the user can access
-    notices = notices.map(notice => {
-      const noticeObj = notice.toObject();
-      // Keep all replies intact - no filtering
-      return noticeObj;
-    });
+    // Show all replies
+    notices = notices.map(notice => notice.toObject());
 
     res.json(notices);
   } catch (error) {
@@ -69,18 +66,17 @@ router.get("/", protect, async (req, res) => {
 });
 
 /* ============================================================================
-   ✉️ CREATE NOTICE (Handles Group Sending for both Admin & Employee)
+   ✉️ CREATE NOTICE (SCOPED)
 ============================================================================ */
 router.post("/", protect, async (req, res) => {
   try {
     const { title, description, recipients } = req.body;
-    
-    // If recipients is an array with items, use it; otherwise default to "ALL"
     const recipientValue = Array.isArray(recipients) && recipients.length > 0 ? recipients : "ALL";
-
-    const creatorModel = (req.user.role === "Admin" || req.user.isAdmin === true) ? "Admin" : "Employee";
+    const creatorModel = (req.user.role === "admin") ? "Admin" : "Employee";
 
     const savedNotice = await Notice.create({
+      adminId: req.user.role === 'admin' ? req.user._id : req.user.adminId,
+      companyId: req.user.role === 'admin' ? req.body.companyId : req.user.company, // Admin picks company
       title,
       description,
       date: new Date(),
@@ -96,19 +92,25 @@ router.post("/", protect, async (req, res) => {
 });
 
 /* ============================================================================
-   🛠️ UPDATE NOTICE (Admin OR the Employee who created it)
+   🛠️ UPDATE NOTICE
 ============================================================================ */
 router.put("/:id", protect, async (req, res) => {
   try {
+    // Only fetch if admin owns or user created (scoped)
     const notice = await Notice.findById(req.params.id);
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    const isAdmin = req.user.role?.toLowerCase() === "admin" || req.user.isAdmin === true;
+    const isAdmin = req.user.role === "admin";
     const isOwner = notice.createdBy.equals(userId);
 
+    // If Admin, verify ownership of tenant
+    if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+    }
+
     if (!isAdmin && !isOwner) {
-      return res.status(403).json({ message: "Unauthorized: Access denied" });
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
     const { title, description, recipients } = req.body;
@@ -127,7 +129,7 @@ router.put("/:id", protect, async (req, res) => {
 });
 
 /* ============================================================================
-   🗑️ DELETE NOTICE (Admin OR the Employee who created it)
+   🗑️ DELETE NOTICE
 ============================================================================ */
 router.delete("/:id", protect, async (req, res) => {
   try {
@@ -135,22 +137,22 @@ router.delete("/:id", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    const isAdmin = 
-      req.user.role?.toLowerCase() === "admin" || 
-      req.user.isAdmin === true;
+    const isAdmin = req.user.role === "admin";
     const isOwner = notice.createdBy.equals(userId);
 
+    if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+    }
+
     if (!isAdmin && !isOwner) {
-      return res.status(403).json({ 
-        message: "Unauthorized: Only the creator or an Admin can delete this notice" 
-      });
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
     await Notice.findByIdAndDelete(req.params.id);
     res.json({ message: "Deleted successfully" });
   } catch (e) {
     console.error("Delete Error:", e);
-    res.status(500).json({ message: "Error deleting notice", error: e.message });
+    res.status(500).json({ message: "Error deleting notice" });
   }
 });
 
@@ -206,7 +208,7 @@ router.post("/:id/reply", protect, upload.single("image"), async (req, res) => {
     await notice.save();
 
     const updated = await Notice.findById(req.params.id)
-      .populate("replies.employeeId", "name employeeId empId");
+      .populate("replies.employeeId", "name employeeId");
     res.status(201).json({ message: "Reply sent", reply: updated.replies[updated.replies.length - 1] });
   } catch (error) {
     res.status(500).json({ message: "Failed to reply" });
@@ -216,7 +218,7 @@ router.post("/:id/reply", protect, upload.single("image"), async (req, res) => {
 router.post("/:id/admin-reply", protect, onlyAdmin, upload.single("image"), async (req, res) => {
   try {
     const { message, targetEmployeeId } = req.body;
-    const notice = await Notice.findById(req.params.id);
+    const notice = await Notice.findOne({ _id: req.params.id, adminId: req.user._id });
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     let imageUrl = null;
@@ -257,8 +259,12 @@ router.delete("/:id/reply/:replyId", protect, async (req, res) => {
     if (!reply) return res.status(404).json({ message: "Reply not found" });
 
     const userId = req.user._id.toString();
-    const isAdmin = req.user.role === "Admin" || req.user.isAdmin === true;
+    const isAdmin = req.user.role === "admin";
     const isReplyOwner = (reply.employeeId?.toString() === userId) || (reply.adminId?.toString() === userId);
+
+    if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
+        return res.status(403).json({ message: "Unauthorized" });
+    }
 
     if (!isReplyOwner && !isAdmin) return res.status(403).json({ message: "Not authorized" });
 

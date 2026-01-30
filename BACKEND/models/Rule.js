@@ -1,28 +1,27 @@
+// --- START OF FILE models/Rule.js ---
 import mongoose from 'mongoose';
 
 const ruleSchema = new mongoose.Schema({
+  // HIERARCHY LINKS
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
   title: {
     type: String,
     required: true,
     trim: true
   },
-  description: {
-    type: String,
-    required: true
-  },
-  category: {
-    type: String,
-    default: "General"
-  },
-  // CHANGED: Store an array of image objects instead of single fileUrl
+  description: { type: String, required: true },
+  category: { type: String, default: "General" },
+  
   images: [
     {
       url: { type: String, required: true },
-      publicId: { type: String, required: true } // Helper for Cloudinary deletion
+      publicId: { type: String, required: true } 
     }
   ],
-  // Optional: Keep these for backward compatibility if you have old data, 
-  // otherwise you can remove them.
+
+  // Legacy fields
   fileUrl: { type: String, default: "" }, 
   fileType: { type: String, default: "" }
 }, { timestamps: true });

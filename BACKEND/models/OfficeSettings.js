@@ -1,57 +1,57 @@
-
+// --- START OF FILE models/OfficeSettings.js ---
 import mongoose from "mongoose";
 
 const officeSettingsSchema = new mongoose.Schema({
+  // HIERARCHY LINKS
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
   type: { 
     type: String, 
     default: "Global", 
-    unique: true 
+    // unique: true // REMOVED UNIQUE CONSTRAINT globally. Uniqueness should be per company.
   }, 
+
   officeLocation: {
     latitude: { type: Number, required: true },
     longitude: { type: Number, required: true }
   },
-  allowedRadius: { 
-    type: Number, 
-    default: 200 
-  },
+  allowedRadius: { type: Number, default: 200 },
   globalWorkMode: { 
     type: String, 
     enum: ["WFO", "WFH"], 
     default: "WFO" 
   },
-  // NEW FIELD: Control whether to enforce accurate office location for WFO
+  
   requireAccurateLocation: {
     type: Boolean,
-    // default: true // Default is enabled (strict location check)
   },
+
   // Store individual employee work mode overrides and schedules
   employeeWorkModes: [{
     employeeId: { type: String, required: true },
     employeeName: { type: String, required: true },
     
-    // Type of rule applied: 
-    // "Global" (Default), "Permanent" (Manual Override), "Temporary" (Date Range), "Recurring" (Days of Week)
     ruleType: { 
       type: String, 
       enum: ["Global", "Permanent", "Temporary", "Recurring"], 
       default: "Global" 
     },
 
-    // 1. Permanent Override (Old 'workMode')
+    // 1. Permanent Override
     permanentMode: { type: String, enum: ["WFO", "WFH"] },
 
-    // 2. Temporary Schedule (Date Range)
+    // 2. Temporary Schedule
     temporary: {
       mode: { type: String, enum: ["WFO", "WFH"] },
       fromDate: { type: Date },
       toDate: { type: Date }
     },
 
-    // 3. Recurring Schedule (Specific Days)
+    // 3. Recurring Schedule
     recurring: {
       mode: { type: String, enum: ["WFO", "WFH"] },
-      days: [{ type: Number }] // 0=Sunday, 1=Monday, ... 6=Saturday
+      days: [{ type: Number }] // 0=Sunday
     },
 
     updatedAt: { type: Date, default: Date.now }

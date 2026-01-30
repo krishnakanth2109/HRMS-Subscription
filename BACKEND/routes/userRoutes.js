@@ -1,7 +1,6 @@
 // --- START OF FILE routes/userRoutes.js ---
 
 import express from "express";
-// ✅ Import both controller functions
 import { changePassword, updateMyProfile } from "../controllers/userController.js";
 import { protect } from "../controllers/authController.js";
 

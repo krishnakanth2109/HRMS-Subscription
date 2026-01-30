@@ -1,6 +1,6 @@
 // --- START OF FILE controllers/overtimeController.js ---
 
-import Overtime from "../models/overtimeModel.js";
+import Overtime from "../models/Overtime.js"; // Ensure capitalized Model name matches file
 import Employee from "../models/employeeModel.js";
 import Admin from "../models/adminModel.js";
 import Notification from "../models/notificationModel.js";
@@ -17,7 +17,10 @@ export const applyOvertime = async (req, res) => {
       return res.status(400).json({ message: "All fields are required." });
     }
 
+    // 1. Create Overtime with Hierarchy
     const overtime = await Overtime.create({
+      adminId: user.adminId, // Hierarchy
+      companyId: user.company, // Hierarchy
       employeeId: user.employeeId,
       employeeName: user.name,
       date,
@@ -30,10 +33,12 @@ export const applyOvertime = async (req, res) => {
     const io = req.app.get("io");
     if (io) io.emit("overtime:new", overtime);
 
-    // 🔥 Notify all admins
-    const admins = await Admin.find().lean();
-    for (const admin of admins) {
+    // 2. Notify ONLY the specific Admin
+    const admin = await Admin.findById(user.adminId);
+    if (admin) {
       const notif = await Notification.create({
+        adminId: admin._id,
+        companyId: user.company,
         userId: admin._id,
         userType: "Admin",
         title: "New Overtime Request",
@@ -43,18 +48,7 @@ export const applyOvertime = async (req, res) => {
         date: new Date(),
       });
 
-      if (io) {
-        io.emit("newNotification", {
-          _id: notif._id,
-          userId: admin._id.toString(),
-          userType: "Admin",
-          title: notif.title,
-          message: notif.message,
-          type: notif.type,
-          isRead: false,
-          date: notif.date,
-        });
-      }
+      if (io) io.emit("newNotification", notif);
     }
 
     return res.status(201).json(overtime);
@@ -65,11 +59,14 @@ export const applyOvertime = async (req, res) => {
 };
 
 // ===================================================================================
-// 🔹 ADMIN GETS FULL LIST OF OVERTIME REQUESTS
+// 🔹 ADMIN GETS REQUESTS (SCOPED)
 // ===================================================================================
 export const getAllOvertimeRequests = async (req, res) => {
   try {
-    const docs = await Overtime.find().sort({ appliedAt: -1 }).lean();
+    // Only fetch records for this Admin
+    const docs = await Overtime.find({ adminId: req.user._id })
+        .sort({ appliedAt: -1 })
+        .lean();
     res.json(docs);
   } catch (err) {
     console.error("getAllOvertimeRequests error:", err);
@@ -96,7 +93,7 @@ export const getOvertimeForEmployee = async (req, res) => {
 };
 
 // ===================================================================================
-// 🔹 ADMIN UPDATES OVERTIME STATUS (FIXED)
+// 🔹 ADMIN UPDATES OVERTIME STATUS (SCOPED)
 // ===================================================================================
 export const updateOvertimeStatus = async (req, res) => {
   try {
@@ -107,9 +104,9 @@ export const updateOvertimeStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status." });
     }
 
-    // Update overtime
-    const updated = await Overtime.findByIdAndUpdate(
-      req.params.id,
+    // Update ensuring Admin owns the record
+    const updated = await Overtime.findOneAndUpdate(
+      { _id: req.params.id, adminId: req.user._id },
       {
         status,
         approvedBy,
@@ -119,20 +116,20 @@ export const updateOvertimeStatus = async (req, res) => {
     );
 
     if (!updated) {
-      return res.status(404).json({ message: "Not found" });
+      return res.status(404).json({ message: "Not found or unauthorized" });
     }
 
     const io = req.app.get("io");
     if (io) io.emit("overtime:updated", updated);
 
-    // Fetch employee safely
-    const employee = await Employee.findOne({
-      employeeId: updated.employeeId,
-    });
+    // Fetch employee 
+    const employee = await Employee.findOne({ employeeId: updated.employeeId });
 
     if (employee) {
       // Create notification
       const notif = await Notification.create({
+        adminId: req.user._id,
+        companyId: updated.companyId,
         userId: employee._id,
         userType: "Employee",
         title: "Overtime Status Updated",
@@ -142,19 +139,7 @@ export const updateOvertimeStatus = async (req, res) => {
         date: new Date(),
       });
 
-      // Emit real-time notification with correct structure
-      if (io) {
-        io.emit("newNotification", {
-          _id: notif._id,
-          userId: employee._id.toString(),
-          userType: "Employee",
-          title: notif.title,
-          message: notif.message,
-          type: notif.type,
-          isRead: false,
-          date: notif.date,
-        });
-      }
+      if (io) io.emit("newNotification", notif);
     }
 
     return res.json(updated);
@@ -165,7 +150,7 @@ export const updateOvertimeStatus = async (req, res) => {
 };
 
 // ===================================================================================
-// 🔹 EMPLOYEE CANCELS OVERTIME (FIXED userType)
+// 🔹 EMPLOYEE CANCELS OVERTIME
 // ===================================================================================
 export const cancelOvertime = async (req, res) => {
   try {
@@ -174,10 +159,13 @@ export const cancelOvertime = async (req, res) => {
       return res.status(404).json({ message: "Not found" });
     }
 
+    // Verify ownership
+    if (overtime.employeeId !== req.user.employeeId) {
+        return res.status(403).json({ message: "Unauthorized" });
+    }
+
     if (overtime.status !== "Pending") {
-      return res
-        .status(400)
-        .json({ message: "Cannot cancel an approved/rejected overtime" });
+      return res.status(400).json({ message: "Cannot cancel an approved/rejected overtime" });
     }
 
     await Overtime.findByIdAndDelete(req.params.id);
@@ -185,10 +173,12 @@ export const cancelOvertime = async (req, res) => {
     const io = req.app.get("io");
     if (io) io.emit("overtime:cancelled", { _id: req.params.id });
 
-    // Notify admins
-    const admins = await Admin.find().lean();
-    for (const admin of admins) {
+    // Notify specific Admin
+    const admin = await Admin.findById(overtime.adminId);
+    if (admin) {
       const notif = await Notification.create({
+        adminId: admin._id,
+        companyId: overtime.companyId,
         userId: admin._id,
         userType: "Admin",
         title: "Overtime Cancelled",
@@ -198,18 +188,7 @@ export const cancelOvertime = async (req, res) => {
         date: new Date(),
       });
 
-      if (io) {
-        io.emit("newNotification", {
-          _id: notif._id,
-          userId: admin._id.toString(),
-          userType: "Admin",
-          title: notif.title,
-          message: notif.message,
-          type: notif.type,
-          isRead: false,
-          date: notif.date,
-        });
-      }
+      if (io) io.emit("newNotification", notif);
     }
 
     res.json({ message: "Overtime cancelled successfully" });

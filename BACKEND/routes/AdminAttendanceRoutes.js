@@ -1,26 +1,35 @@
+// --- START OF FILE routes/AdminAttendanceRoutes.js ---
 import express from "express";
 import Attendance from "../models/Attendance.js";
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-// ✅ Admin fetch attendance by date range with location data
-router.get("/by-range", async (req, res) => {
+router.use(protect); // Ensure logged in
+
+// ✅ Admin fetch attendance by date range with location data (Scoped)
+router.get("/by-range", onlyAdmin, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
-    // 1. Validate input
     if (!startDate || !endDate) {
       return res.status(400).json({ error: "startDate and endDate are required." });
     }
 
-    // 2. Use an Aggregation Pipeline to efficiently query the data
+    // Aggregation Pipeline scoped to Admin
     const result = await Attendance.aggregate([
-      // Stage 1: Deconstruct the 'attendance' array into separate documents
+      // Stage 0: Filter by Admin ID
+      {
+        $match: {
+            adminId: req.user._id 
+        }
+      },
+      // Stage 1: Deconstruct the 'attendance' array
       {
         $unwind: "$attendance"
       },
-
-      // Stage 2: Filter those documents to match the date range
+      // Stage 2: Filter dates
       {
         $match: {
           "attendance.date": {
@@ -29,16 +38,14 @@ router.get("/by-range", async (req, res) => {
           }
         }
       },
-      
-      // Stage 3: Sort the results by date, then by employee name
+      // Stage 3: Sort
       {
         $sort: {
           "attendance.date": 1,
           "employeeName": 1
         }
       },
-
-      // Stage 4: Reshape the output to include location data
+      // Stage 4: Reshape
       {
         $project: {
           _id: 0,
@@ -51,7 +58,6 @@ router.get("/by-range", async (req, res) => {
           loginStatus: "$attendance.loginStatus",
           workedStatus: "$attendance.workedStatus",
           status: "$attendance.status",
-          // ✅ ADDED: Location data
           punchInLocation: "$attendance.punchInLocation",
           punchOutLocation: "$attendance.punchOutLocation"
         }

@@ -1,4 +1,4 @@
-// routes/meetingRoutes.js
+// --- START OF FILE routes/meetingRoutes.js ---
 import express from 'express';
 import { google } from 'googleapis';
 import fs from 'fs';
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 
 const router = express.Router();
 
-// 1. Setup paths for ES Modules (since __dirname doesn't exist in ESM)
+// 1. Setup paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TOKEN_PATH = path.join(__dirname, '../token.json');
@@ -59,7 +59,7 @@ router.get('/auth/callback', async (req, res) => {
     }
 });
 
-// Create Meeting Logic
+// Create Meeting Logic (Standard, no specific tenant scoping needed here yet)
 router.post('/create-meeting', async (req, res) => {
     if (!loadToken()) {
         return res.status(401).json({ error: 'User not authenticated' });
@@ -67,7 +67,7 @@ router.post('/create-meeting', async (req, res) => {
 
     const calendar = google.calendar({ version: 'v3', auth: oAuth2Client });
 
-    // Set meeting time (Start Now, End in 1 hour)
+    // Set meeting time
     const eventStartTime = new Date();
     const eventEndTime = new Date();
     eventEndTime.setHours(eventEndTime.getHours() + 1);

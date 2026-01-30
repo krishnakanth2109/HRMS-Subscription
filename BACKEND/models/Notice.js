@@ -1,6 +1,11 @@
+// --- START OF FILE models/Notice.js ---
 import mongoose from "mongoose";
 
 const noticeSchema = new mongoose.Schema({
+  // HIERARCHY LINKS
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
   title: { type: String, required: true },
   description: { type: String, required: true },
   date: { type: Date, default: Date.now },
@@ -19,7 +24,7 @@ const noticeSchema = new mongoose.Schema({
   
   recipients: {
     type: mongoose.Schema.Types.Mixed,
-    default: 'ALL',
+    default: 'ALL', // Implies "All in this companyId"
   },
 
   readBy: [{
@@ -31,7 +36,6 @@ const noticeSchema = new mongoose.Schema({
     employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
     adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
     message: { type: String },
-    // This field will now store URL for Images, PDFs, Docs, etc.
     image: { type: String, default: null }, 
     sentBy: { type: String, enum: ['Employee', 'Admin'], default: 'Employee' },
     repliedAt: { type: Date, default: Date.now }

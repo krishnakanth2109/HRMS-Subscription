@@ -1,3 +1,4 @@
+// --- START OF FILE models/LeaveRequest.js ---
 import mongoose from "mongoose";
 
 const perDaySchema = new mongoose.Schema(
@@ -12,6 +13,10 @@ const perDaySchema = new mongoose.Schema(
 
 const leaveRequestSchema = new mongoose.Schema(
   {
+    // HIERARCHY
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
     employeeId: { type: String, required: true },
 
     from: { type: String, required: true },
@@ -27,7 +32,7 @@ const leaveRequestSchema = new mongoose.Schema(
     actionDate: { type: String, default: "-" },
     approvedBy: { type: String, default: "-" },
 
-    monthKey: { type: String, required: true },
+    monthKey: { type: String, required: true }, // e.g., "2023-10"
 
     details: { type: [perDaySchema], default: [] },
   },
@@ -35,3 +40,4 @@ const leaveRequestSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("LeaveRequest", leaveRequestSchema);
+// --- END OF FILE models/LeaveRequest.js ---

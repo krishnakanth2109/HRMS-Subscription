@@ -1,5 +1,4 @@
 // --- START OF FILE models/employeeModel.js ---
-
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -13,7 +12,7 @@ const experienceSchema = new mongoose.Schema({
   lastWorkingDate: String,
   salary: Number,
   reason: String,
-  experienceLetterUrl: String, // Stores Cloudinary URL
+  experienceLetterUrl: String, 
   employmentType: String,
 });
 
@@ -24,8 +23,8 @@ const personalSchema = new mongoose.Schema({
   nationality: String,
   panNumber: String,
   aadhaarNumber: String,
-  aadhaarFileUrl: String, // Stores Cloudinary URL
-  panFileUrl: String,     // Stores Cloudinary URL
+  aadhaarFileUrl: String, 
+  panFileUrl: String,     
 });
 
 const bankSchema = new mongoose.Schema({
@@ -37,49 +36,57 @@ const bankSchema = new mongoose.Schema({
 
 // Main Employee Schema
 const EmployeeSchema = new mongoose.Schema({
-  employeeId: { type: String, required: true, unique: true },
+  // HIERARCHY: Links to Admin and Company
+  adminId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Admin", 
+    required: true 
+  },
+  company: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Company",
+    required: true,
+  },
+  // Snapshot of company details to avoid population queries for simple displays
+  companyName: String,
+  companyPrefix: String,
+
+  // BASIC INFO
+  employeeId: { type: String, required: true, unique: true }, // e.g., PRE-001
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   password: {
     type: String,
     minlength: 6,
     select: false,
-    default: null,
+    default: null, // Can be null if created by admin and not yet activated
   },
-  
-  // ✅ NEW: Company Reference
-  company: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Company",
-    required: true,
-  },
-  companyName: String,
-  companyPrefix: String,
   
   phone: String,
   address: String,
-  emergency: String, // Emergency Name
-  emergencyPhone: String, // Emergency Phone
+  emergency: String, 
+  emergencyPhone: String, 
   
-  // ✅ UPDATED: Status, Deactivation AND Reactivation Details
+  // STATUS & DEACTIVATION
   isActive: { type: Boolean, default: true },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
   
   deactivationDate: { type: String, default: null },
   deactivationReason: { type: String, default: null },
-
   reactivationDate: { type: String, default: null },
   reactivationReason: { type: String, default: null },
 
+  // NESTED DETAILS
   bankDetails: bankSchema,
   personalDetails: personalSchema,
   experienceDetails: [experienceSchema],
 
-  role: { type: String, enum: ["employee", "admin", "manager"], default: "employee" },
-  isAdmin: { type: Boolean, default: false },
-});
+  // ROLES
+  role: { type: String, enum: ["employee", "manager"], default: "employee" },
+  isAdmin: { type: Boolean, default: false }, // Internal flag (e.g., Company HR), not the SaaS Admin
+}, { timestamps: true });
 
-// Hash password before save (only if password exists and is modified)
+// Hash password before save
 EmployeeSchema.pre("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();
   this.password = await bcrypt.hash(this.password, 12);

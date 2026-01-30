@@ -12,10 +12,11 @@ const router = express.Router();
 // Apply protection to all routes
 router.use(protect);
 
-// Admin Only: Get All
+// Admin Only: Get All (Scoped)
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    const records = await Attendance.find({});
+    // Only Admin's data
+    const records = await Attendance.find({ adminId: req.user._id });
     const sortedRecords = records.map(rec => {
       rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
       return rec;
@@ -61,7 +62,14 @@ router.post('/punch-in', async (req, res) => {
 
     let attendance = await Attendance.findOne({ employeeId });
     if (!attendance) {
-      attendance = new Attendance({ employeeId, employeeName, attendance: [] });
+      // Inject Hierarchy
+      attendance = new Attendance({ 
+          adminId: req.user.adminId, 
+          companyId: req.user.company, 
+          employeeId, 
+          employeeName, 
+          attendance: [] 
+      });
     }
 
     let todayRecord = attendance.attendance.find(a => a.date === today);
@@ -202,7 +210,7 @@ router.post('/punch-out', async (req, res) => {
   }
 });
 
-/* ================= ADMIN PUNCH OUT ROUTE ================= */
+/* ================= ADMIN PUNCH OUT ROUTE (Scoped) ================= */
 router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, punchOutTime, latitude, longitude, date } = req.body;
@@ -213,7 +221,8 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
 
     const punchOutDateObj = new Date(punchOutTime);
     
-    let attendance = await Attendance.findOne({ employeeId });
+    // Ensure Admin owns record
+    let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
     if (!attendance) return res.status(404).json({ message: "No attendance record found for this employee" });
 
     let targetDateStr = date;
@@ -282,9 +291,7 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
   }
 });
 
-/* ====================================================================================
-   ✅ NEW: EMPLOYEE REQUEST FOR LATE CORRECTION (Request On Time)
-==================================================================================== */
+/* ================= EMPLOYEE REQUEST FOR LATE CORRECTION ================= */
 router.post('/request-correction', async (req, res) => {
     try {
         const { employeeId, date, time, reason } = req.body;
@@ -314,15 +321,14 @@ router.post('/request-correction', async (req, res) => {
     }
 });
 
-/* ====================================================================================
-   ✅ NEW: ADMIN APPROVE CORRECTION (Update 1st Punch In & Recalculate)
-==================================================================================== */
+/* ================= ADMIN APPROVE CORRECTION ================= */
 router.post('/approve-correction', onlyAdmin, async (req, res) => {
     try {
         const { employeeId, date, status, adminComment } = req.body; 
         // status: "APPROVED" or "REJECTED"
 
-        let attendance = await Attendance.findOne({ employeeId });
+        // Ensure Admin owns record
+        let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
         if (!attendance) return res.status(404).json({ message: "Record not found" });
 
         let dayRecord = attendance.attendance.find(a => a.date === date);
@@ -373,15 +379,9 @@ router.post('/approve-correction', onlyAdmin, async (req, res) => {
             dayRecord.sessions.forEach(sess => {
                 if(sess.punchIn && sess.punchOut) {
                     totalSeconds += (new Date(sess.punchOut) - new Date(sess.punchIn)) / 1000;
-                } else if (sess.punchIn && dayRecord.status === "WORKING") {
-                   // If currently working, we don't calculate total worked yet for saving, 
-                   // but standard flow usually only sums completed sessions or uses current time on frontend.
-                   // Here we just sum completed.
                 }
             });
             
-            // Only update worked hours if the session was completed, otherwise it stays partial until punchout
-            // But if shift is completed, update totals
             if (dayRecord.status === "COMPLETED") {
                 const h = Math.floor(totalSeconds / 3600);
                 const m = Math.floor((totalSeconds % 3600) / 60);
@@ -402,8 +402,6 @@ router.post('/approve-correction', onlyAdmin, async (req, res) => {
 });
 
 /* ================= OTHER ROUTES ================= */
-
-
 router.get('/:employeeId', async (req, res) => {
   try {
     const requestedId = req.params.employeeId;

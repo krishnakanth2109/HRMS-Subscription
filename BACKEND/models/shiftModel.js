@@ -1,6 +1,11 @@
+// --- START OF FILE models/shiftModel.js ---
 import mongoose from "mongoose";
 
 const ShiftSchema = new mongoose.Schema({
+  // HIERARCHY LINKS
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
   employeeId: {
     type: String,
     required: true,
@@ -12,34 +17,19 @@ const ShiftSchema = new mongoose.Schema({
   department: { type: String, default: 'N/A' },
   role: { type: String, default: 'N/A' },
   
-  // Shift Timings (Stored as String HH:MM)
-  // These represent Indian Standard Time (IST)
-  shiftStartTime: {
-    type: String,
-    required: true,
-    default: "09:00"
-  },
-  shiftEndTime: {
-    type: String,
-    required: true,
-    default: "18:00"
-  },
+  // Shift Timings (IST)
+  shiftStartTime: { type: String, required: true, default: "09:00" },
+  shiftEndTime: { type: String, required: true, default: "18:00" },
   
-  // Explicitly store that these timings are for India
-  // This helps the backend convert UTC server time to this timezone before comparing
-  timezone: {
-    type: String,
-    default: "Asia/Kolkata" 
-  },
+  timezone: { type: String, default: "Asia/Kolkata" },
   
-  lateGracePeriod: { type: Number, default: 15 }, // in minutes
+  lateGracePeriod: { type: Number, default: 15 },
   
-  // UPDATED: Default is now 9 hours
   fullDayHours: { type: Number, default: 9 },
   halfDayHours: { type: Number, default: 5},
   
   autoExtendShift: { type: Boolean, default: true },
-  weeklyOffDays: { type: [Number], default: [0] }, // 0 = Sunday
+  weeklyOffDays: { type: [Number], default: [0] }, 
   
   isActive: { type: Boolean, default: true },
   

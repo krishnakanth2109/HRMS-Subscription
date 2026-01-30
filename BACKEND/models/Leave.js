@@ -1,7 +1,12 @@
+// --- START OF FILE models/Leave.js ---
 import mongoose from "mongoose";
 
 const LeaveSchema = new mongoose.Schema(
   {
+    // HIERARCHY
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
     employeeId: { type: String, required: true },
     employeeName: { type: String, required: true },
 
@@ -26,3 +31,4 @@ const LeaveSchema = new mongoose.Schema(
 );
 
 export default mongoose.model("Leave", LeaveSchema);
+// --- END OF FILE models/Leave.js ---

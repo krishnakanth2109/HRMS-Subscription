@@ -31,6 +31,7 @@ import rulesRoutes from "./routes/rules.js";
 import chatRoutes from "./routes/chat.js";
 import payrollRoutes from "./routes/payroll.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
+import companyRoutes from "./routes/companyRoutes.js"; // Import the routes
 
 /* ==================== 🔹 STRIPE IMPORTS (IMPORTANT) ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
@@ -148,6 +149,7 @@ app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/admin", adminAuthRoutes);
+app.use("/api/companies", companyRoutes); 
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);

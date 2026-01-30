@@ -1,27 +1,17 @@
+// --- START OF FILE models/PayrollRule.js ---
 import mongoose from 'mongoose';
 
 const payrollRuleSchema = new mongoose.Schema(
   {
-    basicPercentage: {
-      type: Number,
-      required: true,
-      default: 40 // 40% of Total Salary
-    },
-    hraPercentage: {
-      type: Number,
-      required: true,
-      default: 40 // 40% of Basic Salary
-    },
-    conveyance: {
-      type: Number,
-      required: true,
-      default: 1600 // Fixed Amount
-    },
-    medical: {
-      type: Number,
-      required: true,
-      default: 1250 // Fixed Amount
-    },
+    // HIERARCHY LINKS
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
+    basicPercentage: { type: Number, required: true, default: 40 },
+    hraPercentage: { type: Number, required: true, default: 40 },
+    conveyance: { type: Number, required: true, default: 1600 },
+    medical: { type: Number, required: true, default: 1250 },
+    
     // --- PF SETTINGS ---
     pfCalculationMethod: {
       type: String,
@@ -30,40 +20,18 @@ const payrollRuleSchema = new mongoose.Schema(
       required: true
     },
     // Percentage Mode
-    pfPercentage: {
-      type: Number,
-      default: 12 // Employee Share % of Basic
-    },
-    employerPfPercentage: {
-      type: Number,
-      default: 12 // Employer Share % of Basic
-    },
+    pfPercentage: { type: Number, default: 12 },
+    employerPfPercentage: { type: Number, default: 12 },
+    
     // Fixed Amount Mode
-    pfFixedAmountEmployee: {
-      type: Number,
-      default: 1800 // Fixed deduction amount
-    },
-    pfFixedAmountEmployer: {
-      type: Number,
-      default: 1800 // Fixed deduction amount
-    },
+    pfFixedAmountEmployee: { type: Number, default: 1800 },
+    pfFixedAmountEmployer: { type: Number, default: 1800 },
+    
     // --- PT SETTINGS ---
-    ptSlab1Limit: {
-      type: Number,
-      default: 15000
-    },
-    ptSlab2Limit: {
-      type: Number,
-      default: 20000
-    },
-    ptSlab1Amount: {
-      type: Number,
-      default: 150 // PT for 15k–20k
-    },
-    ptSlab2Amount: {
-      type: Number,
-      default: 200 // PT for >20k
-    }
+    ptSlab1Limit: { type: Number, default: 15000 },
+    ptSlab2Limit: { type: Number, default: 20000 },
+    ptSlab1Amount: { type: Number, default: 150 },
+    ptSlab2Amount: { type: Number, default: 200 }
   },
   { timestamps: true }
 );

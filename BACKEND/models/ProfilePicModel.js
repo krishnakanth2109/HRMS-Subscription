@@ -1,13 +1,17 @@
+// --- START OF FILE models/ProfilePicModel.js ---
 import mongoose from 'mongoose';
 
 const profilePicSchema = new mongoose.Schema(
   {
+    // HIERARCHY LINKS
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
     employeeId: {
       type: String,
       required: [true, 'Employee ID is required'],
       unique: true,
       trim: true,
-      // REMOVED: index: true (to prevent duplicate index warning)
     },
     name: {
       type: String,
@@ -31,14 +35,8 @@ const profilePicSchema = new mongoose.Schema(
       default: '',
     },
     profilePhoto: {
-      public_id: {
-        type: String,
-        required: false,
-      },
-      url: {
-        type: String,
-        required: false,
-      },
+      public_id: { type: String, required: false },
+      url: { type: String, required: false },
     },
   },
   {
@@ -46,7 +44,6 @@ const profilePicSchema = new mongoose.Schema(
   }
 );
 
-// Instance method to get public profile data
 profilePicSchema.methods.getPublicProfile = function () {
   return {
     employeeId: this.employeeId,

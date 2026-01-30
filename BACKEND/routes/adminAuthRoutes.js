@@ -1,3 +1,4 @@
+// --- START OF FILE routes/adminAuthRoutes.js ---
 import express from "express";
 import { registerAdmin } from "../controllers/adminAuthController.js";
 

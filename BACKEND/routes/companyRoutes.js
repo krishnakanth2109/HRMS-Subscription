@@ -10,8 +10,13 @@ import {
   generateEmployeeId,
   getNextEmployeeId,
 } from "../controllers/companyController.js";
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
+
+router.use(protect); // Ensure login
+router.use(onlyAdmin); // Ensure Admin role
 
 // ✅ SPECIFIC ROUTES FIRST (more specific paths before general ones)
 router.post("/generate-id", generateEmployeeId);

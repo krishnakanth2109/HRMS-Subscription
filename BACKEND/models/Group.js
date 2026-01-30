@@ -1,33 +1,24 @@
+// --- START OF FILE models/Group.js ---
 import mongoose from "mongoose";
 
 const groupSchema = new mongoose.Schema(
   {
-    // ===============================
-    // BASIC INFO
-    // ===============================
+    // HIERARCHY
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+
+    /* ==================== BASIC INFO ==================== */
     groupCode: {
       type: String,
       required: true,
-      unique: true, // HR-GRP-001
       uppercase: true,
       trim: true,
-    },
+    }, 
 
-    groupName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    groupName: { type: String, required: true, trim: true },
+    description: { type: String, trim: true },
 
-    description: {
-      type: String,
-      trim: true,
-    },
-
-    // ===============================
-    // RELATIONSHIPS
-    // ===============================
-
+    /* ==================== RELATIONSHIPS ==================== */
     // Admin who created the group
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -42,7 +33,7 @@ const groupSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Group Members (Multiple employees)
+    // Group Members
     members: [
       {
         employee: {
@@ -54,16 +45,11 @@ const groupSchema = new mongoose.Schema(
           enum: ["member", "senior", "intern"],
           default: "member",
         },
-        joinedAt: {
-          type: Date,
-          default: Date.now,
-        },
+        joinedAt: { type: Date, default: Date.now },
       },
     ],
 
-    // ===============================
-    // GROUP SETTINGS
-    // ===============================
+    /* ==================== SETTINGS ==================== */
     status: {
       type: String,
       enum: ["active", "inactive"],
@@ -76,17 +62,10 @@ const groupSchema = new mongoose.Schema(
       canViewReports: { type: Boolean, default: false },
     },
 
-    // ===============================
-    // AUDIT
-    // ===============================
-    isDeleted: {
-      type: Boolean,
-      default: false,
-    },
+    isDeleted: { type: Boolean, default: false },
   },
-  {
-    timestamps: true, // createdAt, updatedAt
-  }
+  { timestamps: true }
 );
 
 export default mongoose.model("Group", groupSchema);
+// --- END OF FILE models/Group.js ---

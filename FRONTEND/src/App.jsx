@@ -1,13 +1,13 @@
 // --- START OF FILE App.jsx ---
 
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom"; // ✅ Added Navigate
 
 // Layouts
 import LayoutAdmin from "./components/admin/LayoutAdmin";
 import LayoutEmployee from "./components/employee/LayoutEmployee";
 
-// Master Imports (NEW)
+// Master Imports
 import MasterLogin from "./pages/master/MasterLogin";
 import LayoutMaster from "./components/master/LayoutMaster";
 import MasterDashboard from "./pages/master/MasterDashboard";
@@ -83,23 +83,91 @@ import EmployeeViewRules from "./EmployeePages/EmployeeViewRules";
 import AdminRulesPost from "./pages/AdminRulespost";
 import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
 
-// Simple protection for Master (Uses sessionStorage)
+// ----------------------------------------------------------------------
+// ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
+// ----------------------------------------------------------------------
+const PublicRoute = ({ children }) => {
+  // 1. Check Master Login
+  const masterToken = sessionStorage.getItem("masterToken");
+  if (masterToken) {
+    return <Navigate to="/master/dashboard" replace />;
+  }
+
+  // 2. Check Regular User (Admin/Employee)
+  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+  const userStr = localStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+
+  if (token && userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      // Normalized role check
+      const role = user.role ? user.role.toLowerCase() : "";
+
+      if (role === "admin") {
+        return <Navigate to="/admin/dashboard" replace />;
+      }
+      if (role === "employee") {
+        return <Navigate to="/employee/dashboard" replace />;
+      }
+    } catch (error) {
+      console.error("Error parsing user data, staying on public page.");
+    }
+  }
+
+  // Not logged in? Render the page (SubsHome or Login)
+  return children;
+};
+
+// ----------------------------------------------------------------------
+// Existing Master Protection
+// ----------------------------------------------------------------------
 const ProtectedMasterRoute = ({ children }) => {
-  const isMaster = sessionStorage.getItem("masterToken"); // ✅ Checked against sessionStorage
+  const isMaster = sessionStorage.getItem("masterToken"); 
   return isMaster ? children : <MasterLogin />;
 };
 
 function App() {
   return (
     <Routes>
-      {/* Public route */}
-      <Route path="/" element={<SubsHome />} />
-      <Route path="/login" element={<Login />} /> 
+      {/* 
+         ✅ 2. WRAP PUBLIC ROUTES 
+         If user is logged in, these will auto-redirect to dashboard 
+      */}
+      <Route 
+        path="/" 
+        element={
+          <PublicRoute>
+            <SubsHome />
+          </PublicRoute>
+        } 
+      />
+      <Route 
+        path="/login" 
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        } 
+      /> 
+      
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
 
-      {/* ------------------ MASTER ROUTES (NEW) ------------------ */}
-      <Route path="/master" element={<MasterLogin />} />
+      {/* ------------------ MASTER ROUTES ------------------ */}
+      {/* 
+         Master Login is also a public route in essence, 
+         but we handle the redirect inside the login logic mostly. 
+         However, wrapping it prevents double login.
+      */}
+      <Route 
+        path="/master" 
+        element={
+           <PublicRoute>
+             <MasterLogin />
+           </PublicRoute>
+        } 
+      />
+      
       <Route 
         path="/master" 
         element={
@@ -205,6 +273,7 @@ function App() {
         <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
         <Route path="/employee/rules" element={<EmployeeViewRules />} />
+
         <Route
           path="/employee/teams"
           element={<EmployeeTeamsPage />}

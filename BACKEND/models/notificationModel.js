@@ -1,15 +1,19 @@
-// models/notificationModel.js
+// --- START OF FILE models/notificationModel.js ---
 import mongoose from "mongoose";
 
 const { Schema } = mongoose;
 
 const notificationSchema = new Schema(
   {
-    // 🔥 User receiving this notification (Employee or Admin)
+    // HIERARCHY LINKS
+    adminId: { type: Schema.Types.ObjectId, ref: "Admin", required: true },
+    companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
+
+    // 🔥 User receiving this notification
     userId: {
       type: Schema.Types.ObjectId,
       refPath: "userType",
-      required: false,      // allow role-based notifications
+      required: false,      
     },
 
     // 🔥 Required for refPath to work properly
@@ -19,24 +23,16 @@ const notificationSchema = new Schema(
       required: false,
     },
 
-    // 🔥 Broadcast notifications (OPTIONAL)
+    // 🔥 Broadcast notifications
     role: {
       type: String,
       enum: ["admin", "employee", "all"],
       default: null,
     },
 
-    title: {
-      type: String,
-      default: "",
-    },
+    title: { type: String, default: "" },
+    message: { type: String, required: true },
 
-    message: {
-      type: String,
-      required: true,
-    },
-
-    // 🔥 ALL SUPPORTED TYPES
     type: {
       type: String,
       enum: [
@@ -52,16 +48,9 @@ const notificationSchema = new Schema(
       default: "general",
     },
 
-    isRead: {
-      type: Boolean,
-      default: false,
-    },
+    isRead: { type: Boolean, default: false },
 
-    // 🔥 Store date consistently
-    date: {
-      type: Date,
-      default: Date.now,
-    },
+    date: { type: Date, default: Date.now },
   },
   {
     timestamps: true,

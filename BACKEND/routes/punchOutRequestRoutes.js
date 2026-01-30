@@ -1,93 +1,77 @@
-// --- START OF FILE punchOutRequestRoutes.js ---
-
+// --- START OF FILE routes/punchOutRequestRoutes.js ---
 import express from "express";
 import PunchOutRequest from "../models/PunchOutRequest.js";
 import Attendance from "../models/Attendance.js";
+import { protect } from "../controllers/authController.js";
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
+router.use(protect);
 
-// 1. Employee: Submit a Request
 router.post("/create", async (req, res) => {
   try {
     const { employeeId, employeeName, originalDate, requestedPunchOut, reason } = req.body;
-
-    const newRequest = new PunchOutRequest({
+    await PunchOutRequest.create({
+      adminId: req.user.adminId, // Hierarchy
+      companyId: req.user.company, // Hierarchy
       employeeId,
       employeeName,
       originalDate,
       requestedPunchOut,
       reason,
     });
-
-    await newRequest.save();
-    res.json({ success: true, message: "Request submitted successfully" });
+    res.json({ success: true, message: "Request submitted" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 2. Admin: Get Pending Requests
-router.get("/all", async (req, res) => {
+router.get("/all", onlyAdmin, async (req, res) => {
   try {
-    const requests = await PunchOutRequest.find().sort({ requestDate: -1 });
+    const requests = await PunchOutRequest.find({ adminId: req.user._id }).sort({ requestDate: -1 });
     res.json(requests);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 3. Admin: Approve or Reject Request
-router.post("/action", async (req, res) => {
+router.post("/action", onlyAdmin, async (req, res) => {
   try {
     const { requestId, status } = req.body;
-    const request = await PunchOutRequest.findById(requestId);
+    const request = await PunchOutRequest.findOne({ _id: requestId, adminId: req.user._id });
 
-    if (!request)
-      return res.status(404).json({ success: false, message: "Request not found" });
+    if (!request) return res.status(404).json({ message: "Request not found" });
 
-    // Update the Request Status immediately
     request.status = status;
 
     if (status === "Approved") {
       const targetDate = new Date(request.originalDate); 
-      const startOfDay = new Date(targetDate); startOfDay.setUTCHours(0, 0, 0, 0);
-      const endOfDay = new Date(targetDate); endOfDay.setUTCHours(23, 59, 59, 999);
-
+      // ... logic to find attendance record ...
       let attendanceRecord = await Attendance.findOne({
         employeeId: request.employeeId,
-        $or: [
-            { punchIn: { $gte: startOfDay, $lte: endOfDay } },
-            { date: { $gte: startOfDay, $lte: endOfDay } },
-            { date: request.originalDate }
-        ]
+        date: request.originalDate // Simplified match
       });
 
       if (attendanceRecord && !attendanceRecord.punchOut) {
         attendanceRecord.punchOut = request.requestedPunchOut;
-        attendanceRecord.status = "PRESENT"; 
-        attendanceRecord.punchOutLocation = {
-          latitude: 0, 
-          longitude: 0,
-          address: "Manual Request Approved (Admin)",
-        };
+        attendanceRecord.status = "COMPLETED"; // Updated status
+        attendanceRecord.adminPunchOut = true;
         await attendanceRecord.save();
       }
     }
 
     await request.save();
-    res.json({ success: true, message: `Request ${status} Successfully` });
+    res.json({ success: true, message: `Request ${status}` });
   } catch (error) {
-    console.error("PunchOut Request Action Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// 4. Admin: Delete Request
-router.delete("/delete/:id", async (req, res) => {
+router.delete("/delete/:id", onlyAdmin, async (req, res) => {
     try {
-        const result = await PunchOutRequest.findByIdAndDelete(req.params.id);
-        if (!result) return res.status(404).json({ success: false, message: "Request not found" });
-        res.json({ success: true, message: "Request deleted successfully" });
+        const result = await PunchOutRequest.findOneAndDelete({ _id: req.params.id, adminId: req.user._id });
+        if (!result) return res.status(404).json({ message: "Request not found" });
+        res.json({ success: true, message: "Deleted" });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

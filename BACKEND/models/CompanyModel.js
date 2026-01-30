@@ -1,67 +1,51 @@
 // --- START OF FILE models/CompanyModel.js ---
-
 import mongoose from "mongoose";
 
 const CompanySchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, "Company name is required"],
-    unique: true,
-    trim: true,
-  },
-  prefix: {
-    type: String,
-    required: [true, "Company prefix is required"],
-    unique: true,
-    uppercase: true,
-    trim: true,
-    maxlength: [4, "Prefix must be 3-4 characters"],
-    minlength: [3, "Prefix must be 3-4 characters"],
-  },
-  description: {
-    type: String,
-    default: "",
-  },
-  email: {
-    type: String,
-    trim: true,
-  },
-  phone: String,
-  address: String,
-  city: String,
-  state: String,
-  zipCode: String,
-  country: String,
-  registrationNumber: String,
-  website: String,
-  
-  // Track employee count for ID generation
-  employeeCount: {
-    type: Number,
-    default: 0,
-  },
-  
-  // Active status
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+    // HIERARCHY: Company belongs to an Admin
+    adminId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "Admin", 
+        required: true 
+    }, 
 
-// Update the updatedAt field before saving
-CompanySchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
-});
+    name: { 
+        type: String, 
+        required: true, 
+        trim: true 
+    },
+    
+    // Prefix used for Employee IDs (e.g., "TCS" -> TCS-001)
+    prefix: { 
+        type: String, 
+        required: true, 
+        uppercase: true,
+        trim: true,
+        minlength: 2,
+        maxlength: 5
+    }, 
+    
+    employeeCount: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true },
+    
+    // Settings specific to this company
+    officeLocation: {
+        latitude: { type: Number, default: null },
+        longitude: { type: Number, default: null },
+        address: { type: String, default: "" },
+        allowedRadius: { type: Number, default: 200 } // Geofencing radius in meters
+    },
+
+    description: { type: String, default: "" },
+    email: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    website: { type: String, default: "" },
+
+}, { timestamps: true });
+
+// Ensure a prefix is unique within the scope of one Admin (or globally, depending on preference)
+// Here, we enforce uniqueness globally to avoid confusion in the system
+CompanySchema.index({ prefix: 1 }, { unique: true });
 
 export default mongoose.model("Company", CompanySchema);
 // --- END OF FILE models/CompanyModel.js ---
