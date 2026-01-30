@@ -9,7 +9,7 @@ import mongoose from "mongoose";
 import http from "http";
 import { Server } from "socket.io";
 
-// Import Routes
+/* ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
@@ -26,55 +26,54 @@ import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import requestWorkModeRoutes from "./routes/requestWorkModeRoutes.js";
-import punchOutRoutes from './routes/punchOutRequestRoutes.js';
+import punchOutRoutes from "./routes/punchOutRequestRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
-import rulesRoutes from './routes/rules.js';
+import rulesRoutes from "./routes/rules.js";
 import chatRoutes from "./routes/chat.js";
-import payrollRoutes from './routes/payroll.js';
+import payrollRoutes from "./routes/payroll.js";
+import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 
+/* ==================== 🔹 STRIPE IMPORTS (IMPORTANT) ==================== */
+import stripeRoutes from "./routes/stripeRoutes.js";
+import stripeWebhookHandler from "./controllers/stripeWebhookController.js";
+import masterRoutes from "./routes/masterRoutes.js"; // <--- ADD THIS
 const app = express();
 const server = http.createServer(app);
 
-// -------------------- CORS CONFIGURATION --------------------
-// ✅ Defined globally so both Express and Socket.io use the same list
+/* ==================== CORS CONFIG ==================== */
 const allowedOrigins = [
-  "https://hrms-420.netlify.app",    // Your Production Frontend
-  "http://localhost:5173",           // Your Local Frontend
-  "https://hrms-ask.onrender.com",   // Your Self/Backend
-  "http://localhost:5000"  ,
-  "https://hrms-ask-1.onrender.com"          // Local Backend
+  "https://hrms-420.netlify.app",
+  "http://localhost:5173",
+  "https://hrms-ask.onrender.com",
+  "https://hrms-ask-1.onrender.com",
+  "http://localhost:5000",
 ];
 
-// ===================================================================
-// ✅ SOCKET.IO SETUP
-// ===================================================================
-const userSocketMap = new Map(); // Stores { userId -> socketId }
+/* ==================== SOCKET.IO ==================== */
+const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, // ✅ Updated to match Express CORS for security
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: true,
   },
 });
 
-// Make io instance and the user map available to all routes
 app.set("io", io);
 app.set("userSocketMap", userSocketMap);
 
 io.on("connection", (socket) => {
   console.log("🔥 User connected:", socket.id);
 
-  socket.on('register', (userId) => {
+  socket.on("register", (userId) => {
     if (userId) {
-      console.log(`✍️  Registering user ${userId} with socket ${socket.id}`);
       userSocketMap.set(userId.toString(), socket.id);
     }
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
     for (let [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
         userSocketMap.delete(userId);
@@ -83,25 +82,32 @@ io.on("connection", (socket) => {
     }
   });
 });
-// -------------------- BODY PARSER --------------------
-app.use(express.json()); // ⭐ Required for JSON body
-app.use(express.urlencoded({ extended: true })); // ⭐ For form data
 
+/* =====================================================
+   🔥 STRIPE WEBHOOK (MUST BE FIRST, RAW BODY)
+===================================================== */
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookHandler
+);
 
-// -------------------- EXPRESS MIDDLEWARE --------------------
+/* ==================== BODY PARSERS ==================== */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+/* ==================== CORS ==================== */
 app.use(
   cors({
-    origin: "*", // ✅ Allow ALL origins (required for mobile)
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
-// ✅ Handle preflight requests
 app.options("*", cors());
 
-// -------------------- Security Headers --------------------
+/* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -109,21 +115,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// -------------------- DATABASE --------------------
+/* ==================== DATABASE ==================== */
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Database Connected Successfully"))
+  .then(() => console.log("✅ Database Connected"))
   .catch((err) => {
-    console.error("❌ Database connection error:", err);
+    console.error("❌ DB error:", err);
     process.exit(1);
   });
 
-// -------------------- Health Check --------------------
+/* ==================== HEALTH ==================== */
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK", message: "Server is running" });
+  res.status(200).json({ status: "OK" });
 });
 
-// -------------------- ROUTES --------------------
+/* ==================== ROUTES ==================== */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -135,37 +141,37 @@ app.use("/api/attendance", EmployeeattendanceRoutes);
 app.use("/api/admin/attendance", AdminAttendanceRoutes);
 app.use("/api/profile", profilePicRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/idletime", idleTimeRoutes); // ✅ Added /api/ prefix for consistency
+app.use("/api/idletime", idleTimeRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
-app.use('/api/punchoutreq', punchOutRoutes); 
+app.use("/api/punchoutreq", punchOutRoutes);
 app.use("/api/groups", groupRoutes);
-app.use('/api/meetings', meetingRoutes); 
-app.use('/api/rules', rulesRoutes);
+app.use("/api/meetings", meetingRoutes);
+app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
-app.use('/api/payroll', payrollRoutes);
-// app.use("/api/companies", companyRoutes);
+app.use("/api/payroll", payrollRoutes);
+app.use("/api/admin", adminAuthRoutes);
 
-
-
-// -------------------- 404 Handler --------------------
+/* ==================== 🔹 STRIPE ROUTES ==================== */
+app.use("/api/stripe", stripeRoutes);
+app.use("/api/master", masterRoutes); // <--- ADD THIS
+/* ==================== 404 ==================== */
 app.use("*", (req, res) => {
-  res.status(404).json({ success: false, message: "API route not found" });
+  res.status(404).json({ message: "API route not found" });
 });
 
-// -------------------- Global Error Handler --------------------
+/* ==================== ERROR HANDLER ==================== */
 app.use((err, req, res, next) => {
-  console.error("🚨 Global Error Handler:", err.stack);
+  console.error("🚨 Error:", err.stack);
   res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "An unexpected error occurred",
+    message: err.message || "Unexpected error",
   });
 });
 
-// -------------------- START SERVER --------------------
+/* ==================== START SERVER ==================== */
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running with Socket.io on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

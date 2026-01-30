@@ -37,32 +37,43 @@ const CurrentEmployeeProfile = () => {
   const [uploading, setUploading] = useState({ pan: false, aadhaar: false, exp: false });
 
   // Load Employee from sessionStorage
-  useEffect(() => {
-    const saved = sessionStorage.getItem("hrmsUser");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const empData = parsed.data || parsed; 
-        
-        empData.employeeId = String(empData.employeeId);
-        
-        if (!empData.experienceDetails) empData.experienceDetails = [];
-        if (empData.experienceDetails.length === 0) {
-            empData.experienceDetails.push({
+useEffect(() => {
+  const saved = sessionStorage.getItem("hrmsUser");
+
+  if (!saved || saved === "undefined") {
+    setLoading(false);
+    return;
+  }
+
+  try {
+    const parsed = JSON.parse(saved);
+
+    // ✅ ALWAYS normalize user shape
+    const empData = {
+      ...parsed,
+      employeeId: String(parsed.employeeId),
+      experienceDetails:
+        parsed.experienceDetails?.length > 0
+          ? parsed.experienceDetails
+          : [
+              {
                 company: "Current Company",
                 role: "",
                 department: "",
                 joiningDate: "",
-                salary: 0
-            });
-        }
-        setEmployee(empData);
-      } catch (e) {
-        console.error("Error parsing user data:", e);
-      }
-    }
+                salary: 0,
+              },
+            ],
+    };
+
+    setEmployee(empData);
+  } catch (e) {
+    console.error("Error parsing hrmsUser:", e);
+    setEmployee(null);
+  } finally {
     setLoading(false);
-  }, []);
+  }
+}, []);
 
   if (loading) return <div className="p-10 text-center text-blue-600 font-bold"><FaSpinner className="animate-spin inline mr-2"/>Loading profile...</div>;
 

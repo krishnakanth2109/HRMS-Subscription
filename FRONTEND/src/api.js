@@ -1,4 +1,4 @@
-// --- START OF FILE api.js ---
+// --- START OF FILE src/utils/api.js ---
 
 import axios from "axios";
 
@@ -24,12 +24,17 @@ const api = axios.create({
 ============================================================================= */
 api.interceptors.request.use(
   (config) => {
-    // 1. Try finding standalone token
-    let token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+    // 1. Priority: Check for MASTER Token first (Session Storage)
+    let token = sessionStorage.getItem("masterToken");
 
-    // 2. If not found, try finding it inside the user object
+    // 2. If no Master token, check for regular Admin/Employee tokens
     if (!token) {
-      const savedUser = sessionStorage.getItem("hrmsUser");
+        token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+    }
+
+    // 3. If still not found, try finding it inside the user object (Legacy support)
+    if (!token) {
+      const savedUser = sessionStorage.getItem("hrmsUser") || localStorage.getItem("hrmsUser");
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
@@ -41,7 +46,7 @@ api.interceptors.request.use(
       }
     }
 
-    // 3. Attach token if found
+    // 4. Attach token if found
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
@@ -56,11 +61,8 @@ api.interceptors.request.use(
 ============================================================================= */
 api.interceptors.response.use(
   (response) => {
-    // Read logged user
-    const rawUser =
-      localStorage.getItem("hrmsUser") ||
-      sessionStorage.getItem("hrmsUser");
-
+    // Read logged user to determine role
+    const rawUser = localStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;
@@ -81,6 +83,29 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/* =============================================================================
+   🔥 MASTER ADMIN API FUNCTIONS (NEW)
+============================================================================= */
+
+export const loginMaster = async (email, password) => {
+  try {
+    const response = await api.post("/api/master/login", { email, password });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data?.message || "Master Login Failed";
+  }
+};
+
+export const getAllAdminsForMaster = async () => {
+  try {
+    const response = await api.get("/api/master/admins");
+    return response.data; // Expected: { stats: {...}, admins: [...] }
+  } catch (error) {
+    console.error("Failed to fetch admins:", error);
+    throw error;
+  }
+};
 
 /* =============================================================================
    AUTH
@@ -176,7 +201,6 @@ export const sendAdminReplyWithImage = async (noticeId, formData) => {
 
 export const sendReplyWithImage = async (noticeId, formData) => {
   try {
-    // Axios usually sets 'Content-Type': 'multipart/form-data' automatically for FormData
     const response = await api.post(`/api/notices/${noticeId}/reply`, formData, {
       headers: { "Content-Type": "multipart/form-data" }
     });
@@ -264,7 +288,6 @@ export const punchIn = async (data) =>
 export const punchOut = async (data) =>
   (await api.post("/api/attendance/punch-out", data)).data;
 
-// ✅ NEW: Added Admin Punch Out function
 export const adminPunchOut = async (data) =>
   (await api.post("/api/attendance/admin-punch-out", data)).data;
 
@@ -440,7 +463,6 @@ export const deleteCategoryApi = async (id) => {
 
 export const addMemberToShift = async (category, employee) => {
   try {
-    // ✅ FIXED: Added '/api' to the URL
     const res = await fetch(`${baseURL}/api/shifts/add-member`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -483,12 +505,6 @@ export const updateEmployeeWorkMode = async (employeeId, mode) => {
     throw error;
   }
 };
-
-
-
-
-
-
 
 /* =============================================================================
    GROUP MANAGEMENT
@@ -550,7 +566,7 @@ export const deleteGroupApi = async (groupId) => {
 
 
 /* =============================================================================
-   RULES & REGULATIONS (Add this to api.js)
+   RULES & REGULATIONS
 ============================================================================= */
 export const getRules = async () => {
   try {
@@ -590,13 +606,10 @@ export const deleteRule = async (id) => {
 ============================================================================= */
 export const getPayrollRules = async () => {
   try {
-    // Use the 'api' instance, not raw 'axios'
-    // The base URL is already configured in the 'api' instance
     const response = await api.get("/api/payroll/rules");
     return response;
   } catch (error) {
     console.error("Get payroll rules error:", error);
-    // Return null so the frontend falls back to default rules
     return null; 
   }
 };

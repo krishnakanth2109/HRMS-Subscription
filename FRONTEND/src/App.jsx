@@ -7,6 +7,13 @@ import { Routes, Route } from "react-router-dom";
 import LayoutAdmin from "./components/admin/LayoutAdmin";
 import LayoutEmployee from "./components/employee/LayoutEmployee";
 
+// Master Imports (NEW)
+import MasterLogin from "./pages/master/MasterLogin";
+import LayoutMaster from "./components/master/LayoutMaster";
+import MasterDashboard from "./pages/master/MasterDashboard";
+import MasterAdminUsers from "./pages/master/MasterAdminUsers";
+import MasterSettings from "./pages/master/MasterSettings";
+
 // Pages
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -29,6 +36,7 @@ import AdminHolidayCalendarPage from "./pages/AdminHolidayCalendarPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import Payroll from "./pages/Payroll";
+import SubsHome from "./SubscriptionPages/SubsHome"
 
 // Attendance Features
 import OvertimeManagement from "./pages/OvertimeManagement";
@@ -73,19 +81,44 @@ import MeetingGenerator from "./pages/meeting";
 import TodayOverview from "./pages/TodayOverview";
 import EmployeeViewRules from "./EmployeePages/EmployeeViewRules";
 import AdminRulesPost from "./pages/AdminRulespost";
+import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
+
+// Simple protection for Master (Uses sessionStorage)
+const ProtectedMasterRoute = ({ children }) => {
+  const isMaster = sessionStorage.getItem("masterToken"); // ✅ Checked against sessionStorage
+  return isMaster ? children : <MasterLogin />;
+};
 
 function App() {
   return (
     <Routes>
       {/* Public route */}
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<SubsHome />} />
+      <Route path="/login" element={<Login />} /> 
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/payment-success" element={<PaymentSuccess />} />
+
+      {/* ------------------ MASTER ROUTES (NEW) ------------------ */}
+      <Route path="/master" element={<MasterLogin />} />
+      <Route 
+        path="/master" 
+        element={
+          <ProtectedMasterRoute>
+            <LayoutMaster />
+          </ProtectedMasterRoute>
+        }
+      >
+        <Route path="dashboard" element={<MasterDashboard />} />
+        <Route path="admins" element={<MasterAdminUsers />} />
+        <Route path="settings" element={<MasterSettings />} />
+      </Route>
+
 
       {/* ------------------ ADMIN ROUTES ------------------ */}
       <Route
         element={
           <ProtectedRoute role="admin">
-            <EmployeeProvider> {/* ⭐ FIX — Employee data loads ONLY for admins */}
+            <EmployeeProvider> 
               <LayoutAdmin />
             </EmployeeProvider>
           </ProtectedRoute>
@@ -146,7 +179,7 @@ function App() {
         <Route path="/admin/late-requests" element={<AdminLateRequests />} />
         <Route path="/admin/meeting" element={<MeetingGenerator />} />
         <Route path="/admin/today-overview" element={<TodayOverview />} />
-          <Route path="/admin/rules" element={<AdminRulesPost />} />
+        <Route path="/admin/rules" element={<AdminRulesPost />} />
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}
@@ -171,8 +204,8 @@ function App() {
         <Route path="/employee/requestpunchout" element={<RequestPunchOut />} />
         <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
-            <Route path="/employee/rules" element={<EmployeeViewRules />} />
-  
+        <Route path="/employee/rules" element={<EmployeeViewRules />} />
+
         <Route
           path="/employee/teams"
           element={<EmployeeTeamsPage />}
@@ -197,5 +230,3 @@ function App() {
 }
 
 export default App;
-
-// --- END OF FILE App.jsx ---
