@@ -13,8 +13,8 @@ const LayoutMaster = () => {
 
   const navItems = [
     { label: "Dashboard", path: "/master/dashboard", icon: <LayoutDashboard size={20} /> },
-    { label: "Admin Users", path: "/master/admins", icon: <Users size={20} /> },
-    { label: "Global Settings", path: "/master/settings", icon: <Settings size={20} /> },
+    { label: "Our Subscribers", path: "/master/admins", icon: <Users size={20} /> },
+    { label: "Plan Settings", path: "/master/settings", icon: <Settings size={20} /> },
   ];
 
   return (

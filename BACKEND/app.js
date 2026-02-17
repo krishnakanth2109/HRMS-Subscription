@@ -22,7 +22,7 @@ import profilePicRoutes from "./routes/ProfilePicRoute.js";
 import idleTimeRoutes from "./routes/idleTimeRoutes.js";
 import shiftRoutes from "./routes/shiftRoutes.js";
 import categoryAssignmentRoutes from "./routes/categoryAssignmentRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
+import adminRoutes from "./routes/locationsetting.js";
 import requestWorkModeRoutes from "./routes/requestWorkModeRoutes.js";
 import punchOutRoutes from "./routes/punchOutRequestRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
@@ -54,8 +54,8 @@ const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
+     origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   },
 });
@@ -96,7 +96,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(
   cors({
     origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );

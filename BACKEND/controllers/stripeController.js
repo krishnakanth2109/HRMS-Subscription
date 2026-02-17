@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import PlanSetting from "../models/planSettingModel.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -10,27 +11,44 @@ export const createCheckoutSession = async (req, res) => {
       return res.status(400).json({ message: "Invalid request" });
     }
 
-    if (plan.name === "Free") {
+    // 1. Fetch the plan details from the database dynamically
+    // We check both 'planName' and 'name' to be safe with frontend naming
+    const planInfo = await PlanSetting.findOne({ 
+      planName: plan.planName || plan.name 
+    });
+
+    if (!planInfo) {
+      return res.status(400).json({ message: "Invalid plan selected" });
+    }
+
+    // 2. Safety check: If price is 0, this route shouldn't be used
+    if (planInfo.price === 0) {
       return res.status(400).json({
         message: "Free plan does not require payment",
       });
     }
 
-    const ALLOWED_PLANS = {
-      Basic: "price_1SuSHGRlPtnrZpEPO6x5DFy7",
-      Premium: "price_1SuSF2RlPtnrZpEPD9YOIMSr",
-      Flex: "price_1SuSHyRlPtnrZpEPxZBNR9MN",
-    };
-
-    const priceId = ALLOWED_PLANS[plan.name];
-    if (!priceId) {
-      return res.status(400).json({ message: "Invalid plan selected" });
-    }
-
+    // 3. Create the Stripe Session using dynamic price and duration from DB
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      customer_email: signupForm.email, // ⭐ ADD THIS
-      line_items: [{ price: priceId, quantity: 1 }],
+      customer_email: signupForm.email,
+      line_items: [
+        {
+          price_data: {
+            currency: "inr",
+            product_data: {
+              name: planInfo.planName,
+              description: `Subscription for ${planInfo.durationDays} days`,
+            },
+            unit_amount: planInfo.price * 100, // Stripe expects amount in paise/cents
+            recurring: {
+              interval: "day", 
+              interval_count: planInfo.durationDays, // Dynamically set from DB
+            },
+          },
+          quantity: 1,
+        },
+      ],
       success_url: `${process.env.CLIENT_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancel`,
       metadata: {
@@ -40,7 +58,7 @@ export const createCheckoutSession = async (req, res) => {
         phone: signupForm.phone || "",
         role: signupForm.role || "admin",
         department: signupForm.department || "",
-        plan: plan.name,
+        plan: planInfo.planName, // Use the name from DB
       },
     });
 

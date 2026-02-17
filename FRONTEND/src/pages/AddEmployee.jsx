@@ -6,10 +6,18 @@ import {
   FaUser, FaEnvelope, FaBuilding, FaIdBadge, FaPhone, FaMapMarkerAlt,
   FaCalendarAlt, FaBriefcase, FaMoneyBill, FaBirthdayCake, FaFlag,
   FaHeartbeat, FaUniversity, FaCreditCard, FaCodeBranch,
-  FaEye, FaEyeSlash, FaPlus, FaTimes, FaTrash // Icons for password toggle & delete
+  FaEye, FaEyeSlash, FaPlus, FaTimes, FaTrash, FaEdit // ✅ Added FaEdit
 } from "react-icons/fa";
 // ✅ IMPORT THE CENTRALIZED API FUNCTIONS
-import { getEmployees, addEmployee, getAllCompanies, createCompany, getNextEmployeeId, deleteCompany } from "../api";
+import { 
+  getEmployees, 
+  addEmployee, 
+  getAllCompanies, 
+  createCompany, 
+  updateCompany, // ✅ Added updateCompany
+  getNextEmployeeId, 
+  deleteCompany 
+} from "../api";
 
 // Snackbar hook
 const useSnackbar = (timeout = 2500) => {
@@ -27,7 +35,7 @@ const AddEmployee = () => {
   const [employees, setEmployees] = useState([]);
   const [companies, setCompanies] = useState([]);
 
-  // Company Modal State
+  // Company Modal State (Add)
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
   const [newCompanyData, setNewCompanyData] = useState({
     name: "",
@@ -43,10 +51,27 @@ const AddEmployee = () => {
   });
   const [addingCompany, setAddingCompany] = useState(false);
 
+  // ✅ NEW: Company Modal State (Edit)
+  const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
+  const [editCompanyData, setEditCompanyData] = useState({
+    _id: "",
+    name: "",
+    prefix: "",
+    description: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "",
+  });
+  const [updatingCompany, setUpdatingCompany] = useState(false);
+
   // State for Password Visibility
   const [showPassword, setShowPassword] = useState(false);
 
-  // ✅ NEW: State for Custom Dropdown Visibility
+  // State for Custom Dropdown Visibility
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
 
   // Fetch companies and employees
@@ -70,7 +95,7 @@ const AddEmployee = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    company: "", // ✅ NEW: Company selection
+    company: "", // Company selection
     companyName: "",
     companyPrefix: "",
     employeeId: "", name: "", email: "", password: "", employmentType: "Full-Time",
@@ -81,32 +106,26 @@ const AddEmployee = () => {
   });
 
   const [error, setError] = useState("");
-  // ✅ NEW: State for field-specific errors (e.g., duplicate email)
+  // State for field-specific errors
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // ✅ NEW: Handle Company Selection and Auto-Generate Employee ID
+  // Handle Company Selection and Auto-Generate Employee ID
   const handleCompanyChange = async (companyId) => {
     const selectedCompany = companies.find(c => c._id === companyId);
     if (selectedCompany) {
       try {
-        // ✅ REFRESH employees list to get latest data
+        // REFRESH employees list to get latest data
         const latestEmployees = await getEmployees();
         setEmployees(latestEmployees || []);
-        console.log("Latest employees:", latestEmployees);
-        console.log("Selected Company ID:", companyId);
-        console.log("Company object:", selectedCompany);
-
-        // ✅ USE BACKEND API to get the next employee ID (ensures counter consistency)
+        
+        // USE BACKEND API to get the next employee ID
         const idResponse = await getNextEmployeeId(companyId);
-        console.log("ID Response:", idResponse);
-
+        
         let nextId = idResponse?.nextEmployeeId || idResponse?.employeeId || idResponse?.data?.nextEmployeeId;
 
         if (!nextId) {
           throw new Error(`Invalid response from server: ${JSON.stringify(idResponse)}`);
         }
-
-        console.log(`✅ Generated next ID from backend: ${nextId}`);
 
         setFormData(prev => ({
           ...prev,
@@ -123,7 +142,7 @@ const AddEmployee = () => {
     }
   };
 
-  // ✅ NEW: Handle Add Company
+  // Handle Add Company
   const handleAddCompany = async (e) => {
     e.preventDefault();
 
@@ -165,12 +184,69 @@ const AddEmployee = () => {
     }
   };
 
-  // ✅ NEW: Handle Delete Company (Deletes from Database)
+  // ✅ NEW: Handle Edit Click (Opens Modal with Data)
+  const handleEditClick = (e, company) => {
+    e.stopPropagation(); // Prevent dropdown selection
+    setEditCompanyData({
+      _id: company._id,
+      name: company.name,
+      prefix: company.prefix,
+      description: company.description || "",
+      email: company.email || "",
+      phone: company.phone || "",
+      address: company.officeLocation?.address || "", // Assuming structure matches backend
+      city: company.city || "", // Add if specific field exists
+      state: company.state || "",
+      zipCode: company.zipCode || "",
+      country: company.country || ""
+    });
+    setShowEditCompanyModal(true);
+  };
+
+  // ✅ NEW: Handle Update Company
+  const handleUpdateCompany = async (e) => {
+    e.preventDefault();
+
+    if (!editCompanyData.name.trim() || !editCompanyData.prefix.trim()) {
+      snackbar.show("Company name and prefix are required");
+      return;
+    }
+
+    setUpdatingCompany(true);
+    try {
+      const response = await updateCompany(editCompanyData._id, editCompanyData);
+      snackbar.show("Company updated successfully!");
+
+      // Update local state
+      const updatedList = companies.map(c => 
+        c._id === editCompanyData._id ? response.data : c
+      );
+      setCompanies(updatedList);
+
+      // If the edited company was currently selected in the form, update form display
+      if (formData.company === editCompanyData._id) {
+        setFormData(prev => ({
+          ...prev,
+          companyName: response.data.name,
+          companyPrefix: response.data.prefix
+        }));
+      }
+
+      setShowEditCompanyModal(false);
+    } catch (err) {
+      console.error("Error updating company:", err);
+      snackbar.show(err.response?.data?.message || "Error updating company");
+    } finally {
+      setUpdatingCompany(false);
+    }
+  };
+
+  // Handle Delete Company
   const handleDeleteCompany = async (e, companyId, companyName) => {
     e.stopPropagation(); // Prevent closing dropdown
     if (window.confirm(`Permanently delete "${companyName}" from the database? This cannot be undone.`)) {
       try {
-        await deleteCompany(companyId); // ✅ ENABLED: Deletes from DB
+        await deleteCompany(companyId);
         snackbar.show(`Company "${companyName}" deleted successfully`);
 
         // Remove from local state
@@ -197,44 +273,29 @@ const AddEmployee = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // ✅ Clear field-specific error when user types
+    // Clear field-specific error when user types
     if (fieldErrors[name]) {
       setFieldErrors(prev => ({ ...prev, [name]: "" }));
     }
 
-    // ✅ VALIDATION: Name (Only Characters and Spaces)
     if (name === "name") {
       if (!/^[a-zA-Z\s]*$/.test(value)) return;
     }
 
-    // ✅ VALIDATION: Phone (Only Digits, Max 10)
     if (name === "phone") {
-      if (!/^\d*$/.test(value)) return; // Only allow numbers
-      if (value.length > 10) return;    // Limit to 10 digits
+      if (!/^\d*$/.test(value)) return; 
+      if (value.length > 10) return;   
     }
 
-    // ✅ VALIDATION: Password (Max 12 characters)
     if (name === "password") {
       if (value.length > 12) return;
     }
 
     if (name.startsWith("bankDetails.")) {
       const field = name.split(".")[1];
-
-      // ✅ VALIDATION: Account Number (Digits only)
-      if (field === "accountNumber") {
-        if (!/^\d*$/.test(value)) return;
-      }
-
-      // ✅ VALIDATION: Branch (No numbers allowed)
-      if (field === "branch") {
-        if (!/^[a-zA-Z\s]*$/.test(value)) return;
-      }
-
-      // ✅ VALIDATION: IFSC (Max 11 characters)
-      if (field === "ifsc") {
-        if (value.length > 11) return;
-      }
+      if (field === "accountNumber" && !/^\d*$/.test(value)) return;
+      if (field === "branch" && !/^[a-zA-Z\s]*$/.test(value)) return;
+      if (field === "ifsc" && value.length > 11) return;
 
       setFormData((prev) => ({
         ...prev,
@@ -256,40 +317,21 @@ const AddEmployee = () => {
     if (!formData.company) return "Company is required.";
     if (!formData.name.trim()) return "Full Name is required.";
     if (!formData.email.trim()) return "Email is required.";
-
-    // Password Validations
     if (!formData.password.trim()) return "Password is required.";
     if (formData.password.length < 8) return "Password must be at least 8 characters.";
-
-    // ✅ VALIDATION: Phone Number Length
-    if (formData.phone && formData.phone.length !== 10) {
-      return "Phone number must be exactly 10 digits.";
-    }
-
+    if (formData.phone && formData.phone.length !== 10) return "Phone number must be exactly 10 digits.";
     if (!formData.currentDepartment.trim()) return "Department is required.";
     if (!formData.currentRole.trim()) return "Role is required.";
     if (!formData.joiningDate) return "Joining Date is required.";
     if (!formData.currentSalary || isNaN(formData.currentSalary)) return "Salary is required.";
+    if (formData.address && formData.address.length < 10) return "Address must be at least 10 characters long.";
 
-    // ✅ VALIDATION: Address length check
-    if (formData.address && formData.address.length < 10) {
-      return "Address must be at least 10 characters long.";
-    }
-
-    // ✅ VALIDATION: Account Number requirements
     if (formData.bankDetails.accountNumber) {
-      if (!/^\d+$/.test(formData.bankDetails.accountNumber)) {
-        return "Bank Account Number must contain only digits.";
-      }
-      if (formData.bankDetails.accountNumber.length < 9 || formData.bankDetails.accountNumber.length > 18) {
-        return "Bank Account Number should be between 9 and 18 digits.";
-      }
+      if (!/^\d+$/.test(formData.bankDetails.accountNumber)) return "Bank Account Number must contain only digits.";
+      if (formData.bankDetails.accountNumber.length < 9 || formData.bankDetails.accountNumber.length > 18) return "Bank Account Number should be between 9 and 18 digits.";
     }
 
-    // ✅ VALIDATION: IFSC Code Length
-    if (formData.bankDetails.ifsc && formData.bankDetails.ifsc.length !== 11) {
-      return "IFSC Code must be exactly 11 characters.";
-    }
+    if (formData.bankDetails.ifsc && formData.bankDetails.ifsc.length !== 11) return "IFSC Code must be exactly 11 characters.";
 
     if (formData.employeeId.trim()) {
       const exists = employees.some(emp => emp.employeeId === formData.employeeId.trim());
@@ -335,18 +377,13 @@ const AddEmployee = () => {
     };
 
     try {
-      // ✅ USE THE IMPORTED API FUNCTION
       await addEmployee(newEmployee);
-
-      // ✅ REFRESH employees list so next ID generation is accurate
       const updatedEmployees = await getEmployees();
       setEmployees(updatedEmployees || []);
-
       snackbar.show("Employee added successfully!");
       navigate("/employees");
     } catch (err) {
       console.error(err);
-      // ✅ Handle duplicate field errors from backend
       if (err.response && err.response.status === 400 && err.response.data.field) {
         setFieldErrors({ [err.response.data.field]: err.response.data.error });
         snackbar.show(err.response.data.error);
@@ -378,14 +415,14 @@ const AddEmployee = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* ✅ NEW: COMPANY SELECTION SECTION */}
+          {/* COMPANY SELECTION SECTION */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border rounded-xl bg-yellow-50/50 shadow-inner">
             <h3 className="md:col-span-2 text-xl font-bold text-yellow-700 border-b pb-3 mb-3">Company Information</h3>
 
             <div className="relative">
               <FaBuilding className="absolute left-3 top-4 text-gray-400" />
               <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Select Company *</label>
-              {/* ✅ CUSTOM DROPDOWN REPLACEMENT */}
+              {/* CUSTOM DROPDOWN REPLACEMENT */}
               <div className="relative">
                 <button
                   type="button"
@@ -412,7 +449,7 @@ const AddEmployee = () => {
                       companies.map((company) => (
                         <div
                           key={company._id}
-                          className="flex items-center justify-between px-4 py-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 transition-colors"
+                          className="flex items-center justify-between px-4 py-3 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 transition-colors group"
                           onClick={() => {
                             handleCompanyChange(company._id);
                             setIsCompanyDropdownOpen(false);
@@ -421,14 +458,28 @@ const AddEmployee = () => {
                           <span className="text-gray-700 font-medium">
                             {company.name} <span className="text-gray-400 text-sm">({company.prefix})</span>
                           </span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteCompany(e, company._id, company.name)}
-                            className="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition"
-                            title="Delete Company"
-                          >
-                            <FaTimes />
-                          </button>
+                          
+                          <div className="flex gap-2">
+                             {/* ✅ NEW: Edit Button */}
+                             <button
+                              type="button"
+                              onClick={(e) => handleEditClick(e, company)}
+                              className="text-blue-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition"
+                              title="Edit Company"
+                            >
+                              <FaEdit />
+                            </button>
+
+                            {/* Delete Button */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteCompany(e, company._id, company.name)}
+                              className="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition"
+                              title="Delete Company"
+                            >
+                              <FaTimes />
+                            </button>
+                          </div>
                         </div>
                       ))
                     ) : (
@@ -467,46 +518,14 @@ const AddEmployee = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border rounded-xl bg-blue-50/50 shadow-inner">
             <h3 className="md:col-span-2 text-xl font-bold text-blue-700 border-b pb-3 mb-3">Personal Information</h3>
-
             <InputField icon={<FaUser />} name="name" label="Full Name" value={formData.name} onChange={handleChange} placeholder="e.g., John Doe" required />
-
-            {/* Password Field with Toggle Icon */}
             <InputField
-              icon={<FaIdBadge />}
-              name="password"
-              label="Password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter password"
-              required
-              maxLength={12}
-              endIcon={showPassword ? <FaEyeSlash /> : <FaEye />}
-              onEndIconClick={() => setShowPassword(!showPassword)}
+              icon={<FaIdBadge />} name="password" label="Password" type={showPassword ? "text" : "password"}
+              value={formData.password} onChange={handleChange} placeholder="Enter password" required maxLength={12}
+              endIcon={showPassword ? <FaEyeSlash /> : <FaEye />} onEndIconClick={() => setShowPassword(!showPassword)}
             />
-
-            <InputField
-              icon={<FaEnvelope />}
-              name="email"
-              label="Email Address"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="e.g., john@example.com"
-              error={fieldErrors.email}
-              required
-            />
-            <InputField
-              icon={<FaPhone />}
-              name="phone"
-              label="Phone Number"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="e.g., 9876543210"
-              maxLength={10}
-              error={fieldErrors.phone}
-            />
+            <InputField icon={<FaEnvelope />} name="email" label="Email Address" type="email" value={formData.email} onChange={handleChange} placeholder="e.g., john@example.com" error={fieldErrors.email} required />
+            <InputField icon={<FaPhone />} name="phone" label="Phone Number" type="tel" value={formData.phone} onChange={handleChange} placeholder="e.g., 9876543210" maxLength={10} error={fieldErrors.phone} />
             <InputField icon={<FaMapMarkerAlt />} name="address" label="Address" value={formData.address} onChange={handleChange} placeholder="e.g., Hyderabad" />
             <InputField icon={<FaHeartbeat />} name="emergency" label="Emergency Contact" value={formData.emergency} onChange={handleChange} placeholder="e.g., Jane Doe - 9999999999" />
           </div>
@@ -551,7 +570,7 @@ const AddEmployee = () => {
         </div>
       )}
 
-      {/* ✅ NEW: ADD COMPANY MODAL */}
+      {/* ADD COMPANY MODAL */}
       {showAddCompanyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
@@ -580,7 +599,7 @@ const AddEmployee = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Company Prefix (3-4 chars) *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Employee ID Prefix (3-4 chars) *</label>
                 <input
                   type="text"
                   value={newCompanyData.prefix}
@@ -696,6 +715,148 @@ const AddEmployee = () => {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {addingCompany ? "Adding..." : "Add Company"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ NEW: EDIT COMPANY MODAL */}
+      {showEditCompanyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-blue-800">Edit Company</h3>
+              <button
+                type="button"
+                onClick={() => setShowEditCompanyModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateCompany} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Company Name *</label>
+                <input
+                  type="text"
+                  value={editCompanyData.name}
+                  onChange={(e) => setEditCompanyData({ ...editCompanyData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Employee ID Prefix (3-4 chars) *</label>
+                <input
+                  type="text"
+                  value={editCompanyData.prefix}
+                  onChange={(e) => setEditCompanyData({ ...editCompanyData, prefix: e.target.value.toUpperCase() })}
+                  maxLength={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editCompanyData.description}
+                  onChange={(e) => setEditCompanyData({ ...editCompanyData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  rows="2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={editCompanyData.email}
+                  onChange={(e) => setEditCompanyData({ ...editCompanyData, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={editCompanyData.phone}
+                  onChange={(e) => setEditCompanyData({ ...editCompanyData, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  value={editCompanyData.address}
+                  onChange={(e) => setEditCompanyData({ ...editCompanyData, address: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editCompanyData.city}
+                    onChange={(e) => setEditCompanyData({ ...editCompanyData, city: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">State</label>
+                  <input
+                    type="text"
+                    value={editCompanyData.state}
+                    onChange={(e) => setEditCompanyData({ ...editCompanyData, state: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Zip Code</label>
+                  <input
+                    type="text"
+                    value={editCompanyData.zipCode}
+                    onChange={(e) => setEditCompanyData({ ...editCompanyData, zipCode: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Country</label>
+                  <input
+                    type="text"
+                    value={editCompanyData.country}
+                    onChange={(e) => setEditCompanyData({ ...editCompanyData, country: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowEditCompanyModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingCompany}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {updatingCompany ? "Updating..." : "Update Company"}
                 </button>
               </div>
             </form>

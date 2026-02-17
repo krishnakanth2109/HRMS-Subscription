@@ -1,8 +1,7 @@
 // --- START OF FILE AuthProvider.jsx ---
-
 import { useState, useEffect, useCallback } from "react";
 import { AuthContext } from "./AuthContext";
-import { loginUser } from "../api";
+import axios from "axios"; // Import axios directly to hit the correct endpoint
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -17,11 +16,10 @@ export const AuthProvider = ({ children }) => {
       try {
         const parsedUser = JSON.parse(savedUser);
         
-        // 2. Validate: Must have a user object AND a token (either in storage or inside the object)
+        // 2. Validate: Must have a user object AND a token
         if (token || parsedUser.token) {
           setUser(parsedUser);
         } else {
-          // Found user data but no token? invalid state.
           console.warn("Found user data but no token. Clearing session.");
           sessionStorage.clear();
         }
@@ -33,19 +31,25 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  /* ==================== LOGIN (UPDATED TO HIT ADMIN ENDPOINT) ==================== */
   const login = async (email, password) => {
     try {
-      const response = await loginUser(email, password);
+      // CRITICAL: We hit /api/admin/login specifically to trigger the plan expiry check logic
+      const response = await axios.post("http://localhost:5000/api/admin/login", { 
+        email, 
+        password 
+      });
 
       console.log("LOGIN RAW RESPONSE:", response.data);
 
       const token = response.data.token;
-      const userData = response.data.data;
+      // Note: Backend returns 'user', mapping it to 'userData' for your existing logic
+      const userData = response.data.user || response.data.data;
 
       // Validation
       if (!token || !userData) {
         console.error("⚠ INVALID LOGIN RESPONSE STRUCTURE", response.data);
-        throw new Error("Invalid login response");
+        throw new Error("Invalid login response structure");
       }
 
       // --- CRITICAL FIX: STORE TOKEN IN ALL EXPECTED LOCATIONS ---
@@ -66,30 +70,26 @@ export const AuthProvider = ({ children }) => {
       return response;
 
     } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
+      // If the backend returns 403 (from our loginAdmin logic), this catch block will trigger
+      console.error("Login failed:", error.response?.data?.message || error.message);
+      throw error; 
     }
   };
 
   const logout = () => {
-    // Clear all possible keys
     sessionStorage.removeItem("hrmsUser");
     sessionStorage.removeItem("hrms-token");
     sessionStorage.removeItem("token");
-    sessionStorage.clear(); // Safety clear
+    sessionStorage.clear(); 
     setUser(null);
   };
 
   const updateUser = useCallback((newUserData) => {
     setUser(prevUser => {
-      // Merge new data with previous user data
       const updatedUser = { ...prevUser, ...newUserData };
-      
-      // Ensure we don't accidentally lose the token during an update
       if (prevUser?.token && !updatedUser.token) {
           updatedUser.token = prevUser.token;
       }
-
       sessionStorage.setItem("hrmsUser", JSON.stringify(updatedUser));
       return updatedUser;
     });
@@ -101,5 +101,4 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-
 // --- END OF FILE AuthProvider.jsx ---

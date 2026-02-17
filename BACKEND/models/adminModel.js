@@ -35,7 +35,6 @@ const adminSchema = new mongoose.Schema(
     /* ==================== PLAN & BILLING ==================== */
     plan: {
       type: String,
-      enum: ["Free", "Basic", "Premium", "Flex"],
       default: "Free",
     },
     isPaid: { type: Boolean, default: false },

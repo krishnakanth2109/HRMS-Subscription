@@ -12,7 +12,6 @@ import {
   FaUser,
   FaKey,
   FaCog,
-  FaPaintBrush,
 } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
@@ -37,8 +36,6 @@ const Navbar = () => {
   const { themeColor, setThemeColor } = useTheme();
 
   const [idlePopup, setIdlePopup] = useState(null);
-
-  const colors = ["#3B82F6", "#FACC15", "#34D399", "#F472B6"];
 
   // 🧹 Close dropdown on outside click
   useEffect(() => {
@@ -113,7 +110,7 @@ const Navbar = () => {
         style={{ backgroundColor: themeColor }}
       >
         <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow">
-          
+          {/* Add App Name here if needed */}
         </h1>
 
         <div className="flex items-center gap-6">
@@ -134,16 +131,24 @@ const Navbar = () => {
           {/* USER DROPDOWN */}
           <div
             ref={menuRef}
-            className="relative flex items-center gap-2 cursor-pointer select-none"
+            className="relative flex items-center gap-3 cursor-pointer select-none"
             onClick={() => setShowMenu((prev) => !prev)}
           >
             <FaUserCircle className="text-3xl text-white shadow" />
-            <span className="text-white font-semibold hidden md:inline">
-              {user?.name || "Admin"}
-            </span>
+
+            {/* 👇 UPDATED SECTION: Display Name and Plan */}
+            <div className="hidden md:flex flex-col items-start leading-tight">
+              <span className="text-white font-semibold">
+                {user?.name || "Admin"}
+              </span>
+              <span className="text-xs text-yellow-200 font-medium uppercase tracking-wide">
+                {user?.planType || user?.plan || "Free Plan"}
+              </span>
+            </div>
+            {/* 👆 END UPDATED SECTION */}
 
             <FaChevronDown
-              className={`text-white ml-1 transition-transform duration-200 ${showMenu ? "rotate-180" : ""
+              className={`text-white transition-transform duration-200 ${showMenu ? "rotate-180" : ""
                 }`}
             />
 
@@ -172,7 +177,7 @@ const Navbar = () => {
                   <FaKey className="text-blue-600" /> Change Password
                 </div>
 
-              <div
+                <div
                   onClick={() => {
                     navigate("/admin/rules");
                     setShowMenu(false);
@@ -181,7 +186,6 @@ const Navbar = () => {
                 >
                   <FaCog className="text-blue-600" /> Company Rules & Regulations
                 </div>
-         
 
                 {/* LOGOUT */}
                 <div
@@ -195,8 +199,6 @@ const Navbar = () => {
                 </div>
               </div>
             )}
-
-
           </div>
         </div>
       </nav>
@@ -205,5 +207,3 @@ const Navbar = () => {
 };
 
 export default Navbar;
-
-// --- END OF FILE Navbar.jsx ---
