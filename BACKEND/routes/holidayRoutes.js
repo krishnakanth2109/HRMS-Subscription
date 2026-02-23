@@ -1,3 +1,5 @@
+// --- START OF FILE holidayRoutes.js ---
+
 import express from "express";
 import Holiday from "../models/Holiday.js";
 import { protect } from "../controllers/authController.js";
@@ -23,7 +25,8 @@ router.post("/", onlyAdmin, async (req, res) => {
 
     await Holiday.create({ 
         adminId: req.user._id,
-        companyId: companyId || null, // Optional company scope
+        // ✅ FIX: Prevent 'null' Mongoose cast error. Safely fallback to user's company or _id
+        companyId: companyId || req.user.company || req.user.companyId || req.user._id, 
         name, 
         description, 
         startDate, 
@@ -33,7 +36,8 @@ router.post("/", onlyAdmin, async (req, res) => {
     res.status(201).json({ message: "Holiday added successfully" });
   } catch (error) {
     console.error("Add holiday error:", error);
-    res.status(500).json({ message: "Failed to add holiday" });
+    // ✅ FIX: Send back the actual error message for easier future debugging
+    res.status(500).json({ message: "Failed to add holiday", error: error.message });
   }
 });
 
@@ -57,7 +61,7 @@ router.put("/:id", onlyAdmin, async (req, res) => {
     res.json({ message: "Holiday updated successfully", holiday: updatedHoliday });
   } catch (error) {
     console.error("Update holiday error:", error);
-    res.status(500).json({ message: "Failed to update holiday" });
+    res.status(500).json({ message: "Failed to update holiday", error: error.message });
   }
 });
 
@@ -67,12 +71,16 @@ router.put("/:id", onlyAdmin, async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     let query = {};
-    if (req.user.role === 'admin') {
+    // ✅ FIX: Case-insensitive role check
+    const isAdmin = req.user.role && req.user.role.toLowerCase() === 'admin';
+
+    if (isAdmin) {
       query.adminId = req.user._id;
     } else {
+      // ✅ FIX: Safer fetching for employees
       query.$or = [
           { companyId: req.user.company },
-          { adminId: req.user.adminId, companyId: null }
+          { adminId: req.user.adminId } // Allows older holidays created without companyId to still show
       ];
     }
 
@@ -80,7 +88,7 @@ router.get("/", async (req, res) => {
     res.json(holidays);
   } catch (error) {
     console.error("Get holidays error:", error);
-    res.status(500).json({ message: "Failed to fetch holidays" });
+    res.status(500).json({ message: "Failed to fetch holidays", error: error.message });
   }
 });
 
@@ -93,7 +101,7 @@ router.delete("/:id", onlyAdmin, async (req, res) => {
     res.json({ message: "Holiday deleted successfully" });
   } catch (error) {
     console.error("Delete holiday error:", error);
-    res.status(500).json({ message: "Failed to delete holiday" });
+    res.status(500).json({ message: "Failed to delete holiday", error: error.message });
   }
 });
 

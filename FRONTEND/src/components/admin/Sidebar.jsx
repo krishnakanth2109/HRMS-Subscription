@@ -3,26 +3,36 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   FaTachometerAlt,
-  FaUsers,
-  FaCalendarCheck,
-  FaClipboardList,
-  FaChartPie,
-  FaBars,
-  FaCalendarAlt,
-  FaFileAlt,
-  FaConnectdevelop,
-  FaAngleDown,
-  FaAngleRight,
+  FaUsersCog,
+  FaUserTie,
   FaUserClock,
-  FaLayerGroup,
-  FaMapMarkerAlt,
-  FaTimes
+  FaCalendarCheck,
+  FaChartLine,
+  FaCheckDouble,
+  FaMoneyBillWave,
+  FaBullhorn,
+  FaCalendarAlt,
+  FaBusinessTime,
+  FaMapMarkedAlt,
+  FaUserPlus,
+  FaClock,
+  FaReceipt,
+  FaBars,
+  FaTimes,
+  FaAngleDown,
+  FaConnectdevelop,
+  FaAngleRight,
+  FaClipboardList,
+FaSignOutAlt,
+FaUserCheck,
 } from "react-icons/fa";
+
 import { io } from "socket.io-client";
 import { 
   getLeaveRequests, 
   getAllOvertimeRequests, 
-  getAllNoticesForAdmin
+  getAllNoticesForAdmin,
+  // getAllStatusCorrectionRequests // ADDED: Import for attendance requests
 } from "../../api";
 import { AlarmClockCheck } from "lucide-react";
 import api from "../../api";
@@ -35,79 +45,72 @@ const SOCKET_URL =
 
 // REORGANIZED NAV LINKS WITH GROUPS
 const navLinks = [
+  // ⭐ OVERVIEW
   { to: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
 
-  // --- GROUP: EMPLOYEES ---
+  // 👥 WORKFORCE MANAGEMENT
   {
-    label: "Employees",
-    icon: <FaUsers />,
-    children: [
-      { to: "/employees", label: "Employee Management", icon: <FaUsers /> },
-      { to: "/admin/groups", label: "Group Management", icon: <FaLayerGroup /> },
-      { 
-        to: "/attendance", 
-        label: "Employees Attendance", 
-        icon: <FaUserClock />,
-        isPunchOutRequests: true // ✅ For punch out requests count
-      },
-    ],
+    to: "/employees",
+    label: "Employee Management",
+    icon: <FaUserTie />,
+  },
+  {
+    to: "/attendance",
+    label: "Employees Attendance",
+    icon: <FaUserClock />,
+  },
+  {
+    to: "/admin/settings",
+    label: "Shift Management",
+    icon: <FaUserPlus />,
+  },
+  {
+    to: "/admin/shifttype",
+    label: "Location Settings",
+    icon: <FaMapMarkedAlt />,
   },
 
-  // --- GROUP: LEAVES ---
+  // 🗓️ LEAVE & CALENDAR
   {
-    label: "Leaves",
-    icon: <FaCalendarCheck />,
-    children: [
-      { to: "/admin/leave-summary", label: "Leave Summary", icon: <FaChartPie /> },
-      {
-        to: "/admin/admin-Leavemanage",
-        label: "Leave Approvals",
-        icon: <FaClipboardList />,
-        isLeave: true, // Badge Logic
-      },
-    ],
-  },
-
-  // --- OTHER LINKS ---
-  { to: "/admin/payroll", label: "Payroll", icon: <FaFileAlt /> },
-
-  { 
-    to: "/admin/notices", 
-    label: "Announcements", 
-    icon: <FaClipboardList />,
-    isNotice: true, // For notice badge
+    to: "/admin/leave-summary",
+    label: "Leave Summary",
+    icon: <FaChartLine />,
   },
   { to: "/admin/holiday-calendar", label: "Holiday Calendar", icon: <FaCalendarAlt /> },
 
-  // BADGE LINKS
+  // 💰 FINANCE
+  { to: "/admin/payroll", label: "Payroll", icon: <FaMoneyBillWave /> },
+  // { to: "/admin/expense", label: "Expense Management", icon: <FaReceipt /> },
+
+  // 📢 COMMUNICATION
   {
-    to: "/admin/admin-overtime",
-    label: "Overtime Approval",
-    icon: <FaChartPie />,
-    isOvertime: true,
-  },
-  { 
-    to: "/admin/shifttype", 
-    label: "Location Settings", 
-    icon: <FaMapMarkerAlt />,
-    isWorkModeRequests: true // ✅ For work mode requests count
+    to: "/admin/notices",
+    label: "Announcements",
+    icon: <FaBullhorn />,
+    isNotice: true,
   },
 
-    { 
-    to: "/admin/settings", 
-    label: "Shift Management", 
-    icon:  <FaChartPie />,
-  
-  },
-
-  { 
-    to: "/admin/late-requests", 
-    label: "Late Login Requests", 
-    icon: <AlarmClockCheck />,
-    isLateRequests: true // ✅ For late login requests count
-  },
-  { to: "/admin/expense", label: "Expense Management", icon: <FaClipboardList /> },
+  // 📥 EMPLOYEE REQUESTS
+{
+  to: "/admin/admin-Leavemanage",
+  label: "Leave Requests",
+  icon: <FaCheckDouble />,
+  isLeave: true,
+},
+{
+  to: "/admin/late-requests",
+  label: "Attendance Adjustment",
+  icon: <FaUserCheck />,
+  isLateRequests: true,
+},
+{
+  to: "/admin/admin-overtime",
+  label: "Overtime Requests",
+  icon: <FaBusinessTime />,
+  isOvertime: true,
+},
 ];
+
 
 // ✅ HELPER: Calculate unread notices using SERVER STATE
 const calculateUnreadNotices = (notices, readState) => {
@@ -164,6 +167,7 @@ const Sidebar = () => {
   const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
   const [lateRequestsCount, setLateRequestsCount] = useState(0);
   const [workModeRequestsCount, setWorkModeRequestsCount] = useState(0);
+  const [attendanceRequestsCount, setAttendanceRequestsCount] = useState(0); // ADDED: Attendance requests count
   
   const [socket, setSocket] = useState(null);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
@@ -175,6 +179,7 @@ const Sidebar = () => {
   const prevPunchOutRequests = useRef(0);
   const prevLateRequests = useRef(0);
   const prevWorkModeRequests = useRef(0);
+  const prevAttendanceRequestsCount = useRef(0); // ADDED: Previous attendance requests count ref
   const prevUnreadNoticeCount = useRef(0);
 
   const isOnNoticesPage = useRef(false);
@@ -269,18 +274,6 @@ const Sidebar = () => {
     }
   }, [tempHideNoticeBadge]);
 
-  // -----------------------------
-  // ✅ FETCH PUNCH OUT REQUESTS
-  // -----------------------------
-  const fetchPunchOutRequests = useCallback(async () => {
-    try {
-      const response = await api.get('/api/punchoutreq/all');
-      const pendingCount = response.data.filter(r => r.status === 'Pending').length;
-      setPunchOutRequestsCount(pendingCount);
-    } catch (error) {
-      console.error("Error fetching punch out requests:", error);
-    }
-  }, []);
 
   // -----------------------------
   // ✅ FETCH LATE LOGIN REQUESTS
@@ -310,16 +303,19 @@ const Sidebar = () => {
     }
   }, []);
 
+
+
   // -----------------------------
-  // ✅ FETCH WORK MODE REQUESTS
+  // ✅ FETCH ATTENDANCE REQUESTS (ADDED)
   // -----------------------------
-  const fetchWorkModeRequests = useCallback(async () => {
+  const fetchAttendanceRequests = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/admin/requests");
-      const pendingCount = data.filter(r => r.status === 'Pending').length;
-      setWorkModeRequestsCount(pendingCount);
-    } catch (err) { 
-      console.error("Error fetching work mode requests:", err); 
+      const data = await getAllStatusCorrectionRequests();
+      // Count all requests since AdminAttendanceRequests.jsx shows all pending requests
+      const pendingCount = (data.data || []).length;
+      setAttendanceRequestsCount(pendingCount);
+    } catch (error) {
+      console.error("Error fetching attendance requests:", error);
     }
   }, []);
 
@@ -368,6 +364,9 @@ const Sidebar = () => {
     if (workModeRequestsCount > prevWorkModeRequests.current) playNotificationSound("generic");
     prevWorkModeRequests.current = workModeRequestsCount;
 
+    if (attendanceRequestsCount > prevAttendanceRequestsCount.current) playNotificationSound("generic"); // ADDED
+    prevAttendanceRequestsCount.current = attendanceRequestsCount; // ADDED
+
     if (unreadNoticeCount > prevUnreadNoticeCount.current &&
       unreadNoticeCount > hasPlayedSoundForCurrentCount.current) {
       playNotificationSound("notice");
@@ -382,7 +381,8 @@ const Sidebar = () => {
     pendingOvertime, 
     punchOutRequestsCount, 
     lateRequestsCount, 
-    workModeRequestsCount, 
+    workModeRequestsCount,
+    attendanceRequestsCount, // ADDED
     unreadNoticeCount, 
     playNotificationSound
   ]);
@@ -409,9 +409,10 @@ const Sidebar = () => {
     const fetchAllCounts = async () => {
       await fetchLeaveRequests();
       await fetchOvertimeRequests();
-      await fetchPunchOutRequests();
+
       await fetchLateRequests();
       await fetchWorkModeRequests();
+      await fetchAttendanceRequests(); // ADDED
       await fetchAndCalculateUnreadNotices();
     };
     
@@ -421,9 +422,8 @@ const Sidebar = () => {
   }, [
     fetchLeaveRequests,
     fetchOvertimeRequests,
-    fetchPunchOutRequests,
     fetchLateRequests,
-    fetchWorkModeRequests,
+    fetchAttendanceRequests, // ADDED
     fetchAndCalculateUnreadNotices
   ]);
 
@@ -455,12 +455,10 @@ const Sidebar = () => {
     socket.on("leave:updated", fetchLeaveRequests);
     socket.on("overtime:new", fetchOvertimeRequests);
     socket.on("overtime:updated", fetchOvertimeRequests);
-    socket.on("punchoutreq:new", fetchPunchOutRequests);
-    socket.on("punchoutreq:updated", fetchPunchOutRequests);
     socket.on("latecorrection:new", fetchLateRequests);
     socket.on("latecorrection:updated", fetchLateRequests);
-    socket.on("workmoderequest:new", fetchWorkModeRequests);
-    socket.on("workmoderequest:updated", fetchWorkModeRequests);
+    socket.on("attendancecorrection:new", fetchAttendanceRequests); // ADDED
+    socket.on("attendancecorrection:updated", fetchAttendanceRequests); // ADDED
 
     const handleNewReply = (data) => {
       if (data.sentBy === 'Employee') {
@@ -481,12 +479,12 @@ const Sidebar = () => {
       socket.off("leave:updated", fetchLeaveRequests);
       socket.off("overtime:new", fetchOvertimeRequests); 
       socket.off("overtime:updated", fetchOvertimeRequests);
-      socket.off("punchoutreq:new", fetchPunchOutRequests); 
-      socket.off("punchoutreq:updated", fetchPunchOutRequests);
+
       socket.off("latecorrection:new", fetchLateRequests); 
       socket.off("latecorrection:updated", fetchLateRequests);
-      socket.off("workmoderequest:new", fetchWorkModeRequests); 
-      socket.off("workmoderequest:updated", fetchWorkModeRequests);
+
+      socket.off("attendancecorrection:new", fetchAttendanceRequests); // ADDED
+      socket.off("attendancecorrection:updated", fetchAttendanceRequests); // ADDED
       socket.off("notice:reply:new", handleNewReply);
       socket.off("notice:updated", handleNoticeUpdate);
     };
@@ -494,9 +492,10 @@ const Sidebar = () => {
     socket, 
     fetchLeaveRequests, 
     fetchOvertimeRequests, 
-    fetchPunchOutRequests, 
+
     fetchLateRequests, 
-    fetchWorkModeRequests, 
+
+    fetchAttendanceRequests, // ADDED
     fetchAndCalculateUnreadNotices
   ]);
 
@@ -515,14 +514,39 @@ const Sidebar = () => {
     }
   };
 
+// Locate this function in your Sidebar.jsx and update it:
+const getBadgeCount = (link) => {
+  let count = 0;
+
+  if (link.isLeave) count = pendingLeaves;
+  else if (link.isOvertime) count = pendingOvertime;
+  else if (link.isPunchOutRequests) count = punchOutRequestsCount;
+  
+  // ✅ CHANGE THIS: Add attendanceRequestsCount to LateRequests (Adjustment)
+  else if (link.isLateRequests) {
+    count = lateRequestsCount + attendanceRequestsCount; 
+  }
+  
+  else if (link.isWorkModeRequests) count = workModeRequestsCount;
+  
+  // ✅ CHANGE THIS: Use the flag for Attendance Requests child link
+  else if (link.isAttendanceRequests) {
+    count = attendanceRequestsCount;
+  }
+  
+  else if (link.isNotice && !tempHideNoticeBadge) count = unreadNoticeCount;
+
+  return count;
+};
   const renderBadge = (link) => {
     let count = 0;
-    if (link.isLeave) count = pendingLeaves;
-    else if (link.isOvertime) count = pendingOvertime;
-    else if (link.isPunchOutRequests) count = punchOutRequestsCount;
-    else if (link.isLateRequests) count = lateRequestsCount;
-    else if (link.isWorkModeRequests) count = workModeRequestsCount;
-    else if (link.isNotice && !tempHideNoticeBadge) count = unreadNoticeCount;
+
+    // 🔹 IF PARENT (has children) → SUM child counts
+    if (link.children) {
+      count = link.children.reduce((sum, child) => sum + getBadgeCount(child), 0);
+    } else {
+      count = getBadgeCount(link);
+    }
 
     if (count > 0) {
       return (
@@ -534,8 +558,10 @@ const Sidebar = () => {
         </span>
       );
     }
+
     return null;
   };
+
 
   // -----------------------------
   // CALCULATE SIDEBAR CLASSES
@@ -608,24 +634,54 @@ const Sidebar = () => {
                 <li key={index} className="relative">
                   
                   {/* Parent Item */}
-                  <div 
-                    className={`flex items-center gap-4 px-4 py-2.5 rounded-lg text-base cursor-pointer border-l-4 border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200 ${collapsed && !isMobile ? "justify-center px-2" : "justify-between"}`}
+                  <div
                     onClick={() => handleSubMenuClick(link.label)}
+                    className={`flex items-center gap-4 px-4 py-2.5 rounded-lg text-base cursor-pointer
+                      ${activeMenu === link.label ? "bg-slate-800 text-indigo-400" : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"}
+                      ${collapsed && !isMobile ? "justify-center px-2" : ""}
+                    `}
                   >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <span className="text-xl w-5 flex justify-center shrink-0">{link.icon}</span>
-                      {(!collapsed || isMobile) && <span className="truncate">{link.label}</span>}
-                    </div>
-                    {(!collapsed || isMobile) && <span className="text-xs shrink-0">{isOpen ? <FaAngleDown /> : <FaAngleRight />}</span>}
+                    <span className="text-xl w-5 flex justify-center shrink-0">{link.icon}</span>
+
+                    {(!collapsed || isMobile) && (
+                      <>
+                        <span className="truncate flex-1">{link.label}</span>
+
+                        {/* 🔥 Parent Badge */}
+                        {renderBadge(link)}
+
+                        {/* Arrow icon */}
+                        <span className="ml-2">
+                          {activeMenu === link.label ? <FaAngleDown /> : <FaAngleRight />}
+                        </span>
+                      </>
+                    )}
                   </div>
 
                   {/* Submenu with Smooth Transition */}
                   <ul className={`bg-slate-800/50 rounded-lg overflow-hidden transition-[max-height,opacity,margin] duration-500 ease-in-out ${(isOpen && (!collapsed || isMobile)) ? "max-h-[1000px] opacity-100 mt-1" : "max-h-0 opacity-0 mt-0"}`}>
                     {link.children.map((child) => (
                       <li key={child.to}>
-                        {/* Note: Clicking a child inside keeps the menu open (Standard router behavior, doesn't reset state) */}
-                        <NavLink to={child.to} className={({ isActive }) => `flex items-center gap-3 pl-12 pr-4 py-2 text-sm transition-colors ${isActive ? "text-indigo-400 font-semibold" : "text-slate-400 hover:text-slate-200"}`}>
-                          <span className="flex-1 truncate" title={child.label}>{child.label}</span>{renderBadge(child)}
+                        <NavLink
+                          to={child.to}
+                          className={({ isActive }) =>
+                            `flex items-center gap-3 pl-12 pr-4 py-2 text-sm transition-colors ${
+                              isActive ? "text-indigo-400 font-semibold" : "text-slate-400 hover:text-slate-200"
+                            }`
+                          }
+                        >
+                          {/* ✅ CHILD ICON */}
+                          <span className="text-base w-4 flex justify-center shrink-0">
+                            {child.icon}
+                          </span>
+
+                          {/* LABEL */}
+                          <span className="flex-1 truncate" title={child.label}>
+                            {child.label}
+                          </span>
+
+                          {/* BADGE */}
+                          {renderBadge(child)}
                         </NavLink>
                       </li>
                     ))}

@@ -4,20 +4,25 @@ import Employee from "../models/Employee.js";
 import WorkModeRequest from "../models/WorkModeRequest.js";
 import Admin from "../models/adminModel.js";
 import { sendBrevoEmail } from "../Services/emailService.js";
-import { protect } from "../controllers/authController.js"; // Added protect middleware
+import { protect } from "../controllers/authController.js"; 
 
 const router = express.Router();
 
-// Helper to get scoping query based on user role (Matching employeeRoutes logic)
+// Helper to get scoping query based on user role
 const getScopeQuery = (user) => {
   return user.role === 'admin' 
     ? { adminId: user._id } 
     : { company: user.company };
 };
 
-// Helper to get Admin ID for Settings (Settings are usually tied to the Admin)
+// Helper to get Admin ID for Settings
 const getAdminId = (user) => {
   return user.role === 'admin' ? user._id : user.adminId;
+};
+
+// Helper to get Company ID safely
+const getCompanyId = (user) => {
+  return user.company || user.companyId || user._id;
 };
 
 // =========================================================================
@@ -27,20 +32,33 @@ const getAdminId = (user) => {
 router.get("/settings/office", protect, async (req, res) => {
   try {
     const adminId = getAdminId(req.user);
-    // Find settings specific to this Admin/Company instead of a generic "Global"
     let settings = await OfficeSettings.findOne({ adminId: adminId });
     
     if (!settings) {
-      settings = await OfficeSettings.create({
+      const payload = {
         adminId: adminId,
-        type: "Global", // Keeping the type string but scoped by adminId
+        companyId: getCompanyId(req.user),
+        type: "Global", 
         officeLocation: { latitude: 0, longitude: 0 },
         allowedRadius: 200,
         globalWorkMode: "WFO",
         requireAccurateLocation: true,
         employeeWorkModes: [],
         categories: []
-      });
+      };
+
+      try {
+        settings = await OfficeSettings.create(payload);
+      } catch (dbError) {
+        // 🔥 AUTO-FIX FOR E11000: Drop unique index on "type" if it exists and retry
+        if (dbError.code === 11000 && dbError.keyPattern && dbError.keyPattern.type) {
+          console.log("🛠️ Dropping restrictive unique index 'type_1' to support multi-tenant...");
+          await OfficeSettings.collection.dropIndex("type_1").catch(() => {});
+          settings = await OfficeSettings.create(payload); // Retry creation
+        } else {
+          throw dbError;
+        }
+      }
     }
     res.status(200).json(settings);
   } catch (error) {
@@ -53,11 +71,34 @@ router.put("/settings/office", protect, async (req, res) => {
   try {
     const adminId = getAdminId(req.user);
     const { officeLocation, allowedRadius, globalWorkMode, requireAccurateLocation } = req.body;
-    const settings = await OfficeSettings.findOneAndUpdate(
-      { adminId: adminId },
-      { $set: { officeLocation, allowedRadius, globalWorkMode, requireAccurateLocation } },
-      { new: true, upsert: true }
-    );
+    
+    const updateQuery = { 
+      $set: { officeLocation, allowedRadius, globalWorkMode, requireAccurateLocation },
+      $setOnInsert: { companyId: getCompanyId(req.user), type: "Global" } 
+    };
+
+    let settings;
+    try {
+      settings = await OfficeSettings.findOneAndUpdate(
+        { adminId: adminId },
+        updateQuery,
+        { new: true, upsert: true }
+      );
+    } catch (dbError) {
+       // 🔥 AUTO-FIX FOR E11000: Drop unique index on "type" if it exists and retry
+      if (dbError.code === 11000 && dbError.keyPattern && dbError.keyPattern.type) {
+        console.log("🛠️ Dropping restrictive unique index 'type_1' to support multi-tenant...");
+        await OfficeSettings.collection.dropIndex("type_1").catch(() => {});
+        settings = await OfficeSettings.findOneAndUpdate(
+          { adminId: adminId },
+          updateQuery,
+          { new: true, upsert: true }
+        ); // Retry update
+      } else {
+        throw dbError;
+      }
+    }
+    
     res.status(200).json({ message: "Office settings updated successfully", data: settings });
   } catch (error) {
     console.error("Error updating settings:", error);
@@ -78,13 +119,12 @@ router.put("/settings/employee-mode", protect, async (req, res) => {
       return res.status(400).json({ message: "Employee ID and Rule Type are required" });
     }
 
-    // Ensure employee belongs to this admin/company
     const employeeQuery = { employeeId, ...getScopeQuery(req.user) };
     const employee = await Employee.findOne(employeeQuery);
     if (!employee) return res.status(404).json({ message: "Employee not found in your organization" });
 
     let settings = await OfficeSettings.findOne({ adminId: adminId });
-    if (!settings) settings = new OfficeSettings({ adminId: adminId, type: "Global" });
+    if (!settings) settings = new OfficeSettings({ adminId: adminId, companyId: getCompanyId(req.user), type: "Global" });
 
     const newConfig = {
       employeeId: employee.employeeId,
@@ -126,9 +166,8 @@ router.post("/settings/employee-mode/bulk", protect, async (req, res) => {
     }
 
     let settings = await OfficeSettings.findOne({ adminId: adminId });
-    if (!settings) settings = new OfficeSettings({ adminId: adminId, type: "Global" });
+    if (!settings) settings = new OfficeSettings({ adminId: adminId, companyId: getCompanyId(req.user), type: "Global" });
 
-    // Scoped employee fetch
     const employees = await Employee.find({ 
         employeeId: { $in: employeeIds },
         ...getScopeQuery(req.user)
@@ -181,7 +220,7 @@ router.post("/settings/categories", protect, async (req, res) => {
     if (!name) return res.status(400).json({ message: "Category name required" });
 
     let settings = await OfficeSettings.findOne({ adminId: adminId });
-    if (!settings) settings = new OfficeSettings({ adminId: adminId, type: "Global" });
+    if (!settings) settings = new OfficeSettings({ adminId: adminId, companyId: getCompanyId(req.user), type: "Global" });
 
     settings.categories = settings.categories.filter(c => c.name !== name);
     if (employeeIds && employeeIds.length > 0) {
@@ -273,7 +312,6 @@ const calculateEffectiveMode = (settings, empId) => {
 
 router.get("/settings/employees-modes", protect, async (req, res) => {
   try {
-    // Scoped employee fetch
     const employees = await Employee.find(
         { isActive: true, ...getScopeQuery(req.user) }, 
         { employeeId: 1, name: 1, email: 1, experienceDetails: 1 }
@@ -345,14 +383,13 @@ router.post("/request", protect, async (req, res) => {
     const newRequest = new WorkModeRequest({
       employeeId, employeeName, department,
       requestType, fromDate, toDate, recurringDays, requestedMode, reason,
-      company: req.user.company, // Scope by company
-      adminId: req.user.adminId // Hierarchy
+      company: getCompanyId(req.user), 
+      adminId: getAdminId(req.user)    
     });
 
     await newRequest.save();
 
     try {
-      // Fetch only admins belonging to THIS company
       const admins = await Admin.find({ _id: req.user.adminId }).lean();
       const adminRecipients = admins.map(admin => ({ name: admin.name, email: admin.email }));
 
@@ -363,20 +400,10 @@ router.post("/request", protect, async (req, res) => {
         adminRecipients.push({ name: "Admin", email: specificAdminEmail });
       }
 
-      let dateInfo = "N/A";
-      if (requestType === "Temporary") {
-        dateInfo = `${new Date(fromDate).toLocaleDateString()} to ${new Date(toDate).toLocaleDateString()}`;
-      } else if (requestType === "Recurring") {
-        dateInfo = `Every ${recurringDays ? recurringDays.join(", ") : "N/A"}`;
-      } else if (requestType === "Permanent") {
-        dateInfo = "Starting immediately (Permanent)";
-      }
-
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; max-width: 600px;">
           <h2 style="color: #4f46e5;">New Work Mode Request</h2>
           <p><strong>${employeeName}</strong> (ID: ${employeeId}) has requested a change in work mode.</p>
-          <!-- ... rest of email template ... -->
         </div>
       `;
 
@@ -399,7 +426,6 @@ router.post("/request", protect, async (req, res) => {
 
 router.get("/requests", protect, async (req, res) => {
   try {
-    // Scoped request fetch (Admin only sees their company's requests)
     const requests = await WorkModeRequest.find(getScopeQuery(req.user)).sort({ createdAt: -1 });
     res.status(200).json(requests);
   } catch (error) {
@@ -421,7 +447,6 @@ router.put("/requests/action", protect, async (req, res) => {
     const { requestId, action } = req.body;
     const adminId = getAdminId(req.user);
 
-    // Verify request belongs to this admin's scope
     const request = await WorkModeRequest.findOne({ _id: requestId, ...getScopeQuery(req.user) });
     if (!request) return res.status(404).json({ message: "Request not found or unauthorized" });
 
@@ -436,7 +461,7 @@ router.put("/requests/action", protect, async (req, res) => {
       await request.save();
 
       let settings = await OfficeSettings.findOne({ adminId: adminId });
-      if (!settings) settings = new OfficeSettings({ adminId: adminId, type: "Global" });
+      if (!settings) settings = new OfficeSettings({ adminId: adminId, companyId: getCompanyId(req.user), type: "Global" });
 
       const newConfig = {
         employeeId: request.employeeId,

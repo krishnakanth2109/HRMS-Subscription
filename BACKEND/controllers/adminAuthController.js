@@ -96,8 +96,20 @@ export const loginAdmin = async (req, res) => {
     const expiryDate = new Date(admin.planExpiresAt);
 
     if (admin.planExpiresAt && now > expiryDate) {
+      // ✅ Calculate how many days ago it expired
+      const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
+
       return res.status(403).json({ 
-        message: "Your plan is expired. Please contact support team" 
+        message: "Your plan is expired. Please contact support team",
+        expired: true,
+        adminDetails: {
+          name: admin.name,
+          email: admin.email,
+          plan: admin.plan,
+          planActivatedAt: admin.planActivatedAt,
+          planExpiresAt: admin.planExpiresAt,
+          expiredDaysAgo: expiredDaysAgo,
+        }
       });
     }
 

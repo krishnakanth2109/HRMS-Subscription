@@ -70,13 +70,17 @@ router.get("/", protect, async (req, res) => {
 ============================================================================ */
 router.post("/", protect, async (req, res) => {
   try {
-    const { title, description, recipients } = req.body;
+    const { title, description, recipients, companyId } = req.body;
     const recipientValue = Array.isArray(recipients) && recipients.length > 0 ? recipients : "ALL";
-    const creatorModel = (req.user.role === "admin") ? "Admin" : "Employee";
+    
+    // ✅ FIX: Normalize role check to prevent case-sensitivity bugs 
+    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const creatorModel = isAdmin ? "Admin" : "Employee";
 
     const savedNotice = await Notice.create({
-      adminId: req.user.role === 'admin' ? req.user._id : req.user.adminId,
-      companyId: req.user.role === 'admin' ? req.body.companyId : req.user.company, // Admin picks company
+      adminId: isAdmin ? req.user._id : req.user.adminId,
+      // ✅ FIX: Safely fallback to req.user.company or req.user._id if not provided by frontend
+      companyId: isAdmin ? (companyId || req.user.company || req.user.companyId || req.user._id) : req.user.company, 
       title,
       description,
       date: new Date(),
@@ -87,7 +91,8 @@ router.post("/", protect, async (req, res) => {
 
     res.status(201).json({ message: "Posted", notice: savedNotice });
   } catch (e) {
-    res.status(500).json({ message: "Error creating notice" });
+    console.error("Create Notice Error:", e);
+    res.status(500).json({ message: "Error creating notice", error: e.message });
   }
 });
 
@@ -101,7 +106,8 @@ router.put("/:id", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    const isAdmin = req.user.role === "admin";
+    // ✅ FIX: Standardized role check
+    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const isOwner = notice.createdBy.equals(userId);
 
     // If Admin, verify ownership of tenant
@@ -124,7 +130,8 @@ router.put("/:id", protect, async (req, res) => {
     
     res.json({ message: "Updated", notice: updated });
   } catch (e) {
-    res.status(500).json({ message: "Error updating notice" });
+    console.error("Update Notice Error:", e);
+    res.status(500).json({ message: "Error updating notice", error: e.message });
   }
 });
 
@@ -137,7 +144,8 @@ router.delete("/:id", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    const isAdmin = req.user.role === "admin";
+    // ✅ FIX: Standardized role check
+    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const isOwner = notice.createdBy.equals(userId);
 
     if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
@@ -259,7 +267,8 @@ router.delete("/:id/reply/:replyId", protect, async (req, res) => {
     if (!reply) return res.status(404).json({ message: "Reply not found" });
 
     const userId = req.user._id.toString();
-    const isAdmin = req.user.role === "admin";
+    // ✅ FIX: Standardized role check
+    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const isReplyOwner = (reply.employeeId?.toString() === userId) || (reply.adminId?.toString() === userId);
 
     if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {

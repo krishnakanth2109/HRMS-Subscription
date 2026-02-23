@@ -10,11 +10,15 @@ import {
   FaShieldAlt,
   FaUserShield,
   FaChartBar,
+  FaExclamationTriangle,
+  FaCalendarTimes,
+  FaCrown,
+  FaCheckCircle,
 } from "react-icons/fa";
 import { MdEmail, MdLock } from "react-icons/md";
 
 const Login = () => {
-  const { user, login } = useContext(AuthContext);
+  const { user, login, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
   /* ==================== LOGIN STATE ==================== */
@@ -40,6 +44,15 @@ const Login = () => {
     department: "",
   });
 
+  /* ==================== EXPIRED PLAN STATE ==================== */
+  const [showExpiredModal, setShowExpiredModal] = useState(false);
+  const [expiredAdminDetails, setExpiredAdminDetails] = useState(null);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+
+  // Only paid plans shown in upgrade modal - no free trial
+  const paidPlans = fetchedPlans.filter((p) => Number(p.price) > 0);
+
   /* ==================== FETCH DYNAMIC PLANS ==================== */
   useEffect(() => {
     const getPlans = async () => {
@@ -51,6 +64,23 @@ const Login = () => {
       }
     };
     getPlans();
+  }, []);
+
+  /* ==================== 
+    ON MOUNT: If user came back from Stripe (cancelled or back button),
+    clear stale session so they must re-login and hit the expiry check again.
+  ==================== */
+  useEffect(() => {
+    const paymentPending = sessionStorage.getItem("hrms_payment_pending");
+    if (paymentPending) {
+      // They left for Stripe and came back — wipe session, force fresh login
+      sessionStorage.removeItem("hrms_payment_pending");
+      sessionStorage.removeItem("hrmsUser");
+      sessionStorage.removeItem("hrms-token");
+      sessionStorage.removeItem("token");
+      // Call logout to clear user state in context too
+      logout();
+    }
   }, []);
 
   /* ==================== REDIRECT LOGGED USER ==================== */
@@ -80,14 +110,47 @@ const Login = () => {
       if (userData) sessionStorage.setItem("hrmsUser", JSON.stringify(userData));
       
     } catch (err) {
-      if (err.response?.status === 403) {
-        setError("Your plan is expired. Please contact support team.");
+      // ✅ 403 with expired flag → clear any stale session + show full-page expired modal
+      if (err.response?.status === 403 && err.response?.data?.expired) {
+        // Wipe any leftover session so stale data can never auto-login them
+        sessionStorage.removeItem("hrmsUser");
+        sessionStorage.removeItem("hrms-token");
+        sessionStorage.removeItem("token");
+        logout();
+        setExpiredAdminDetails(err.response.data.adminDetails);
+        setShowExpiredModal(true);
         setLoading(false);
-        return; 
+        return;
       }
       setError(err.response?.data?.message || "Login failed. Please check credentials.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  /* ==================== UPGRADE / RENEW PLAN (DIRECT PAYMENT, NO FREE) ==================== */
+  const handleUpgradePlan = async () => {
+    if (!selectedUpgradePlan) return;
+    setUpgradeLoading(true);
+    try {
+      // ✅ Set flag BEFORE redirecting to Stripe.
+      // If they cancel or go back, this flag tells the page to clear the session on next load.
+      sessionStorage.setItem("hrms_payment_pending", "true");
+
+      const res = await API.post("/api/stripe/create-checkout-session", {
+        plan: selectedUpgradePlan,
+        signupForm: {
+          email: expiredAdminDetails?.email,
+          name: expiredAdminDetails?.name,
+        },
+        isRenewal: true,
+      });
+      window.location.href = res.data.url;
+    } catch (err) {
+      // If the API call itself fails, remove the flag so they aren't stuck
+      sessionStorage.removeItem("hrms_payment_pending");
+      console.error("Upgrade failed:", err);
+      setUpgradeLoading(false);
     }
   };
 
@@ -177,7 +240,7 @@ const Login = () => {
             </div>
 
             {error && (
-              <div className={`p-3 rounded-xl mb-6 text-xs font-bold border ${error.includes("expired") ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse" : "bg-red-50 text-red-600 border-red-100"}`}>
+              <div className="p-3 rounded-xl mb-6 text-xs font-bold border bg-red-50 text-red-600 border-red-100">
                 {error}
               </div>
             )}
@@ -279,10 +342,8 @@ const Login = () => {
               <input placeholder="Full Name" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })} required />
               <input type="email" placeholder="Email Address" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })} required />
               <input type="password" placeholder="Create Password" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })} required />
-              
       
-                <input placeholder="Phone" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })} />
-
+              <input placeholder="Phone" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })} />
 
               <button
                 type="submit"
@@ -292,6 +353,189 @@ const Login = () => {
                 {signupLoading ? "Processing..." : Number(selectedPlan?.price) === 0 ? "Create Free Account" : "Proceed to Payment"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== SUBSCRIPTION EXPIRED FULL-PAGE MODAL ==================== */}
+      {showExpiredModal && expiredAdminDetails && (
+        <div className="fixed inset-0 z-[200] bg-gradient-to-br from-[#0f0a1e] via-[#1a0b2e] to-[#0d1b3e] flex items-center justify-center p-4 overflow-y-auto">
+          {/* Decorative blobs */}
+          <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-red-900/10 rounded-full blur-[150px] pointer-events-none"></div>
+          <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[150px] pointer-events-none"></div>
+
+          <div className="relative w-full max-w-3xl">
+
+            {/* TOP ALERT BANNER */}
+            <div className="bg-gradient-to-r from-red-600/90 to-rose-700/90 backdrop-blur-sm rounded-3xl p-6 mb-4 border border-red-500/30 shadow-2xl shadow-red-900/30">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/10 p-4 rounded-2xl flex-shrink-0">
+                  <FaCalendarTimes className="text-white text-3xl" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="bg-white/20 text-white text-[9px] font-black uppercase tracking-[0.2em] px-2 py-1 rounded-full">
+                      Subscription Expired
+                    </span>
+                    {expiredAdminDetails.expiredDaysAgo > 0 && (
+                      <span className="bg-red-900/50 text-red-200 text-[9px] font-black uppercase tracking-[0.15em] px-2 py-1 rounded-full border border-red-500/40">
+                        {expiredAdminDetails.expiredDaysAgo} day{expiredAdminDetails.expiredDaysAgo > 1 ? "s" : ""} overdue
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-white">Access Suspended</h2>
+                  <p className="text-red-200 text-sm mt-0.5">
+                    Your <span className="font-black">{expiredAdminDetails.plan}</span> subscription has ended. Renew now to restore full access.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* MAIN GRID: Details + Plans */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+              {/* LEFT: Subscription Details from DB */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FaExclamationTriangle className="text-amber-400 text-sm" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Account Details</span>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <p className="text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">Account</p>
+                  <p className="text-white font-bold text-lg leading-tight">{expiredAdminDetails.name}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">{expiredAdminDetails.email}</p>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+                  <p className="text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-2">Previous Plan</p>
+                  <span className="inline-block bg-amber-500/20 text-amber-300 text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full border border-amber-500/30">
+                    {expiredAdminDetails.plan}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-900/20 rounded-2xl p-3 border border-emerald-500/20">
+                    <p className="text-[9px] uppercase tracking-widest text-emerald-400 font-bold mb-1">Activated</p>
+                    <p className="text-white font-bold text-sm">
+                      {new Date(expiredAdminDetails.planActivatedAt).toLocaleDateString("en-IN", {
+                        day: "2-digit", month: "short", year: "numeric",
+                      })}
+                    </p>
+                    <p className="text-emerald-400/70 text-[10px] mt-0.5">
+                      {new Date(expiredAdminDetails.planActivatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <div className="bg-red-900/20 rounded-2xl p-3 border border-red-500/20">
+                    <p className="text-[9px] uppercase tracking-widest text-red-400 font-bold mb-1">Expired On</p>
+                    <p className="text-white font-bold text-sm">
+                      {new Date(expiredAdminDetails.planExpiresAt).toLocaleDateString("en-IN", {
+                        day: "2-digit", month: "short", year: "numeric",
+                      })}
+                    </p>
+                    <p className="text-red-400/70 text-[10px] mt-0.5">
+                      {new Date(expiredAdminDetails.planExpiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-blue-900/20 rounded-2xl p-4 border border-blue-500/20 text-center">
+                  <p className="text-[9px] uppercase tracking-widest text-blue-400 font-bold mb-1">Need Help?</p>
+                  <a href="mailto:ops@arahinfotech.com" className="text-blue-300 text-xs font-bold hover:text-blue-200 transition-colors">
+                    ops@arahinfotech.net
+                  </a>
+                </div>
+              </div>
+
+              {/* RIGHT: Upgrade Plans — Paid only, no free */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 flex flex-col">
+                <div className="flex items-center gap-2 mb-4">
+                  <FaCrown className="text-amber-400 text-sm" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Renew Subscription</span>
+                </div>
+
+                <div className="flex-1 space-y-3">
+                  {paidPlans.length > 0 ? (
+                    paidPlans.map((plan) => (
+                      <button
+                        key={plan._id}
+                        type="button"
+                        onClick={() => setSelectedUpgradePlan(plan)}
+                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
+                          selectedUpgradePlan?._id === plan._id
+                            ? "border-purple-500 bg-purple-900/30 ring-1 ring-purple-500/40"
+                            : "border-white/10 bg-white/5 hover:border-purple-500/40 hover:bg-purple-900/10"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-bold capitalize">{plan.planName}</span>
+                              {selectedUpgradePlan?._id === plan._id && (
+                                <FaCheckCircle className="text-purple-400 text-sm flex-shrink-0" />
+                              )}
+                            </div>
+                            {plan.durationDays && (
+                              <p className="text-gray-400 text-[10px] mt-0.5 uppercase tracking-wide">
+                                {plan.durationDays} days access
+                              </p>
+                            )}
+                            {plan.features && plan.features.length > 0 && (
+                              <p className="text-gray-500 text-[10px] mt-1 truncate">
+                                {plan.features.slice(0, 2).join(" · ")}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-3">
+                            <div className="text-purple-300 font-black text-xl">₹{plan.price}</div>
+                            <div className="text-gray-500 text-[9px] uppercase tracking-wider">one-time</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-3"></div>
+                        <p className="text-gray-500 text-xs">Loading plans...</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleUpgradePlan}
+                  disabled={!selectedUpgradePlan || upgradeLoading}
+                  className={`w-full mt-5 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-xl ${
+                    selectedUpgradePlan && !upgradeLoading
+                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-purple-900/40"
+                      : "bg-white/10 text-gray-500 cursor-not-allowed"
+                  }`}
+                >
+                  {upgradeLoading
+                    ? "Redirecting to Payment..."
+                    : selectedUpgradePlan
+                    ? `Pay ₹${selectedUpgradePlan.price} — Renew Now`
+                    : "Select a Plan to Continue"}
+                </button>
+
+                <p className="text-gray-600 text-[9px] text-center mt-3 uppercase tracking-wider">
+                  Secured by Stripe · No free trials
+                </p>
+              </div>
+            </div>
+
+            {/* BACK TO LOGIN */}
+            <button
+              onClick={() => {
+                setShowExpiredModal(false);
+                setExpiredAdminDetails(null);
+                setSelectedUpgradePlan(null);
+              }}
+              className="w-full text-center text-gray-600 hover:text-gray-400 text-xs font-bold uppercase tracking-widest transition-colors py-3"
+            >
+              ← Back to Login
+            </button>
           </div>
         </div>
       )}

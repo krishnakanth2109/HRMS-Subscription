@@ -64,8 +64,8 @@ const payrollRecordSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Compound index: Unique record per employee per month
-payrollRecordSchema.index({ employeeId: 1, 'payPeriod.monthIdentifier': 1 }, { unique: true });
+// ✅ FIX: Added `adminId` to the index so multiple companies can use the same "EMP001" ID without database crashing
+payrollRecordSchema.index({ employeeId: 1, 'payPeriod.monthIdentifier': 1, adminId: 1 }, { unique: true });
 
 const PayrollRecord = mongoose.model('PayrollRecord', payrollRecordSchema);
 

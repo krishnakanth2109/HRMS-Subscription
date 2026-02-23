@@ -178,7 +178,7 @@ const AdminMonitoring = () => {
                     <td className="p-5">
                       {isExpired ? (
                         <div className="flex items-center gap-2 text-rose-600 bg-rose-50 px-3 py-1 rounded-lg w-fit">
-                          <span className="w-2 h-2 bg-rose-600 rounded-full animate-ping"></span>
+                          <span className=" bg-rose-600 rounded-full animate-ping"></span>
                           <span className="text-sm font-bold">Expired</span>
                         </div>
                       ) : (

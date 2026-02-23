@@ -1,22 +1,25 @@
 // --- START OF FILE AuthProvider.jsx ---
+
 import { useState, useEffect, useCallback } from "react";
 import { AuthContext } from "./AuthContext";
-import axios from "axios"; // Import axios directly to hit the correct endpoint
+import { loginUser } from "../api";      // Old employee login
+import api from "../api";               // Configured axios instance (for admin)
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  /* ================= RESTORE SESSION ON REFRESH ================= */
   useEffect(() => {
-    // 1. Retrieve data from storage
     const savedUser = sessionStorage.getItem("hrmsUser");
-    const token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+    const token =
+      sessionStorage.getItem("token") ||
+      sessionStorage.getItem("hrms-token");
 
     if (savedUser) {
       try {
         const parsedUser = JSON.parse(savedUser);
-        
-        // 2. Validate: Must have a user object AND a token
+
         if (token || parsedUser.token) {
           setUser(parsedUser);
         } else {
@@ -28,77 +31,112 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.clear();
       }
     }
+
     setLoading(false);
   }, []);
 
-  /* ==================== LOGIN (UPDATED TO HIT ADMIN ENDPOINT) ==================== */
+  /* ==================== LOGIN (ADMIN FIRST → EMPLOYEE FALLBACK) ==================== */
   const login = async (email, password) => {
+    // ✅ STEP 1: Always try admin endpoint first (has plan expiry check)
     try {
-      // CRITICAL: We hit /api/admin/login specifically to trigger the plan expiry check logic
-      const response = await axios.post("http://localhost:5000/api/admin/login", { 
-        email, 
-        password 
-      });
+      const response = await api.post("/api/admin/login", { email, password });
 
-      console.log("LOGIN RAW RESPONSE:", response.data);
+      console.log("LOGIN RAW RESPONSE (Admin):", response.data);
 
       const token = response.data.token;
-      // Note: Backend returns 'user', mapping it to 'userData' for your existing logic
       const userData = response.data.user || response.data.data;
 
-      // Validation
       if (!token || !userData) {
         console.error("⚠ INVALID LOGIN RESPONSE STRUCTURE", response.data);
         throw new Error("Invalid login response structure");
       }
 
-      // --- CRITICAL FIX: STORE TOKEN IN ALL EXPECTED LOCATIONS ---
-      
-      // 1. Standard key (used by CurrentEmployeeProfile)
+      // Store token & user
       sessionStorage.setItem("token", token);
-      
-      // 2. Legacy key (used by api.js)
       sessionStorage.setItem("hrms-token", token);
-
-      // 3. Inside User Object (Best practice for Profile page access)
       const userWithToken = { ...userData, token };
       sessionStorage.setItem("hrmsUser", JSON.stringify(userWithToken));
-
       setUser(userWithToken);
 
-      // Return FULL RESPONSE so Login.jsx can redirect using role
       return response;
 
-    } catch (error) {
-      // If the backend returns 403 (from our loginAdmin logic), this catch block will trigger
-      console.error("Login failed:", error.response?.data?.message || error.message);
-      throw error; 
+    } catch (adminError) {
+      // ✅ 403 = Plan expired → re-throw immediately so Login.jsx shows the modal
+      if (adminError.response?.status === 403) {
+        throw adminError;
+      }
+
+      // ✅ 401 = Not an admin account → fall through to employee login below
+      // Any other admin error also falls through to employee
+      if (adminError.response?.status !== 401) {
+        // Non-401 unexpected admin error - still try employee as last resort
+        console.warn("Admin login unexpected error, trying employee:", adminError.response?.status);
+      }
+    }
+
+    // ✅ STEP 2: Admin login failed with 401 (not an admin) → try employee endpoint
+    try {
+      const response = await loginUser(email, password);
+
+      console.log("LOGIN RAW RESPONSE (Employee):", response.data);
+
+      const token = response.data.token;
+      const userData = response.data.user || response.data.data;
+
+      if (!token || !userData) {
+        console.error("⚠ INVALID LOGIN RESPONSE STRUCTURE", response.data);
+        throw new Error("Invalid login response structure");
+      }
+
+      // Store token & user
+      sessionStorage.setItem("token", token);
+      sessionStorage.setItem("hrms-token", token);
+      const userWithToken = { ...userData, token };
+      sessionStorage.setItem("hrmsUser", JSON.stringify(userWithToken));
+      setUser(userWithToken);
+
+      return response;
+
+    } catch (employeeError) {
+      console.error(
+        "Login failed:",
+        employeeError.response?.data?.message || employeeError.message
+      );
+      throw employeeError;
     }
   };
 
+  /* ==================== LOGOUT ==================== */
   const logout = () => {
     sessionStorage.removeItem("hrmsUser");
     sessionStorage.removeItem("hrms-token");
     sessionStorage.removeItem("token");
-    sessionStorage.clear(); 
+    sessionStorage.clear();
     setUser(null);
   };
 
+  /* ==================== UPDATE USER ==================== */
   const updateUser = useCallback((newUserData) => {
-    setUser(prevUser => {
+    setUser((prevUser) => {
       const updatedUser = { ...prevUser, ...newUserData };
+
+      // Prevent losing token during update
       if (prevUser?.token && !updatedUser.token) {
-          updatedUser.token = prevUser.token;
+        updatedUser.token = prevUser.token;
       }
+
       sessionStorage.setItem("hrmsUser", JSON.stringify(updatedUser));
       return updatedUser;
     });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, loading }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, updateUser, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
+
 // --- END OF FILE AuthProvider.jsx ---
