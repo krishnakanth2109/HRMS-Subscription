@@ -32,6 +32,9 @@ const adminSchema = new mongoose.Schema(
     phone: { type: String, default: "" },
     department: { type: String, default: "Administration" },
 
+    /* ==================== LOGIN ACCESS CONTROL ==================== */
+    loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle this
+
     /* ==================== PLAN & BILLING ==================== */
     plan: {
       type: String,

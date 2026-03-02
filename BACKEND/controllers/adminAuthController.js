@@ -1,5 +1,6 @@
 import Admin from "../models/adminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
+import Employee from "../models/employeeModel.js";
 import jwt from "jsonwebtoken";
 
 /* ==================== JWT SIGN (FIXED) ==================== */
@@ -58,6 +59,7 @@ export const registerAdmin = async (req, res) => {
       isPaid: isPaid, 
       planActivatedAt: new Date(),
       planExpiresAt: planExpiresAt, 
+      loginEnabled: true, // Default: login allowed
     });
 
     const token = signToken(admin._id, admin.role);
@@ -80,7 +82,7 @@ export const registerAdmin = async (req, res) => {
   }
 };
 
-/* ==================== LOGIN ADMIN WITH EXPIRY CHECK ==================== */
+/* ==================== LOGIN ADMIN WITH EXPIRY & LOGIN ACCESS CHECK ==================== */
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -91,12 +93,23 @@ export const loginAdmin = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    /* === LOGIN ACCESS BLOCKER === */
+    if (admin.loginEnabled === false) {
+      return res.status(403).json({
+        message: "Your account login is stopped from admin. Please contact support team.",
+        loginStopped: true,
+        adminDetails: {
+          name: admin.name,
+          email: admin.email,
+        },
+      });
+    }
+
     /* === PLAN EXPIRY BLOCKER === */
     const now = new Date();
     const expiryDate = new Date(admin.planExpiresAt);
 
     if (admin.planExpiresAt && now > expiryDate) {
-      // ✅ Calculate how many days ago it expired
       const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
 
       return res.status(403).json({ 
@@ -134,7 +147,6 @@ export const loginAdmin = async (req, res) => {
 /* ==================== UPDATE DYNAMIC PLAN DAYS & PRICE ==================== */
 export const updatePlanSettings = async (req, res) => {
   try {
-    // 👈 Added features to the destructuring
     const { planName, durationDays, price, features } = req.body; 
 
     const setting = await PlanSetting.findOneAndUpdate(
@@ -157,7 +169,7 @@ export const updatePlanSettings = async (req, res) => {
   }
 };
 
-/* ==================== GET ALL PLANS (NEW - REQUIRED FOR LANDING PAGE) ==================== */
+/* ==================== GET ALL PLANS ==================== */
 export const getAllPlanSettings = async (req, res) => {
   try {
     const plans = await PlanSetting.find({});
@@ -186,5 +198,102 @@ export const deletePlan = async (req, res) => {
     res.status(200).json({ message: "Plan deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete plan" });
+  }
+};
+
+/* ==================== TOGGLE ADMIN LOGIN ACCESS ==================== */
+export const toggleAdminLogin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { loginEnabled } = req.body;
+
+    if (typeof loginEnabled !== "boolean") {
+      return res.status(400).json({ message: "loginEnabled must be a boolean" });
+    }
+
+    const admin = await Admin.findByIdAndUpdate(
+      adminId,
+      { loginEnabled },
+      { new: true }
+    );
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({
+      message: `Admin login ${loginEnabled ? "enabled" : "disabled"} successfully`,
+      admin: {
+        id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        loginEnabled: admin.loginEnabled,
+      },
+    });
+  } catch (error) {
+    console.error("❌ TOGGLE ADMIN LOGIN ERROR:", error);
+    res.status(500).json({ message: "Failed to update admin login access" });
+  }
+};
+
+/* ==================== TOGGLE ALL EMPLOYEES LOGIN UNDER AN ADMIN ==================== */
+export const toggleEmployeeLoginByAdmin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { loginEnabled } = req.body;
+
+    if (typeof loginEnabled !== "boolean") {
+      return res.status(400).json({ message: "loginEnabled must be a boolean" });
+    }
+
+    const result = await Employee.updateMany(
+      { adminId },
+      { loginEnabled }
+    );
+
+    res.status(200).json({
+      message: `All employees login ${loginEnabled ? "enabled" : "disabled"} successfully`,
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("❌ TOGGLE EMPLOYEE LOGIN ERROR:", error);
+    res.status(500).json({ message: "Failed to update employees login access" });
+  }
+};
+
+/* ==================== GET LOGIN ACCESS STATUS FOR ALL ADMINS ==================== */
+export const getLoginAccessStatus = async (req, res) => {
+  try {
+    const admins = await Admin.find({})
+      .select("name email plan loginEnabled planExpiresAt createdAt")
+      .sort({ createdAt: -1 });
+
+    // For each admin, also get employee count and employee loginEnabled status
+    const adminData = await Promise.all(
+      admins.map(async (admin) => {
+        const totalEmployees = await Employee.countDocuments({ adminId: admin._id });
+        const disabledEmployees = await Employee.countDocuments({
+          adminId: admin._id,
+          loginEnabled: false,
+        });
+
+        return {
+          id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          plan: admin.plan,
+          loginEnabled: admin.loginEnabled !== false, // default true if field missing
+          planExpiresAt: admin.planExpiresAt,
+          createdAt: admin.createdAt,
+          totalEmployees,
+          disabledEmployees,
+        };
+      })
+    );
+
+    res.status(200).json(adminData);
+  } catch (error) {
+    console.error("❌ GET LOGIN STATUS ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch login access status" });
   }
 };

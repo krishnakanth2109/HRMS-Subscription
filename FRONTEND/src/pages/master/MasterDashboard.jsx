@@ -1,46 +1,49 @@
-import React, { useState, useEffect, useCallback } from "react";
-import api from "../../api"; // Import the configured axios instance
-import {
-  FaRocket, FaUsers, FaClock, FaExclamationTriangle,
-  FaPlus, FaTrash, FaEdit, FaSync, FaShieldAlt,
-  FaChartLine, FaCheckCircle, FaCalendarAlt
-} from "react-icons/fa";
+// AdminDashboard.jsx
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import api from "../../api";
 
-const SuperAdminDashboard = () => {
-  // --- STATE ---
+/* ──────────────────────────────────────────────
+   HELPER FUNCTIONS
+────────────────────────────────────────────── */
+const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+const isPlanExpired = (expiresAt) =>
+  expiresAt ? new Date() > new Date(expiresAt) : false;
+
+const getDaysRemaining = (expiryDate) => {
+  if (!expiryDate) return 0;
+  const diffTime = new Date(expiryDate) - new Date();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+/* ──────────────────────────────────────────────
+   MAIN DASHBOARD
+────────────────────────────────────────────── */
+const AdminDashboard = () => {
   const [admins, setAdmins] = useState([]);
   const [plans, setPlans] = useState([]);
-  const [activeTab, setActiveTab] = useState("monitor"); // monitor | plans
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Form State for Plans
-  const [planForm, setPlanForm] = useState({
-    planName: "",
-    price: 0,
-    durationDays: 30,
-    features: [""]
-  });
-  const [status, setStatus] = useState({ type: "", message: "" });
-
-  // --- REAL-TIME CLOCK ---
+  // Live time update
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- DATA FETCHING ---
+  // Fetch Data
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [adminsRes, plansRes] = await Promise.all([
-        api.get("/api/admin/all-admins"),
+        api.get("/api/admin/login-access"),
         api.get("/api/admin/all-plans")
       ]);
       setAdmins(adminsRes.data);
       setPlans(plansRes.data);
     } catch (err) {
-      console.error("Dashboard Fetch Error:", err);
+      console.error("Failed to load data:", err);
     } finally {
       setLoading(false);
     }
@@ -50,232 +53,335 @@ const SuperAdminDashboard = () => {
     fetchData();
   }, [fetchData]);
 
-  // --- COUNTDOWN LOGIC ---
-  const getTimeRemaining = (expiryDate) => {
-    const total = Date.parse(expiryDate) - Date.parse(currentTime);
-    if (total <= 0) return { total: 0, days: 0, hours: 0, minutes: 0, seconds: 0 };
-    return {
-      total,
-      days: Math.floor(total / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((total / (1000 * 60 * 60)) % 24),
-      minutes: Math.floor((total / 1000 / 60) % 60),
-      seconds: Math.floor((total / 1000) % 60),
-    };
-  };
+  // Stats Calculations
+  const stats = useMemo(() => {
+    const total = admins.length;
+    const active = admins.filter(a => a.loginEnabled !== false && !isPlanExpired(a.planExpiresAt)).length;
+    const expired = admins.filter(a => isPlanExpired(a.planExpiresAt)).length;
+    const blocked = admins.filter(a => a.loginEnabled === false).length;
+    const totalStaff = admins.reduce((sum, a) => sum + (a.totalEmployees || 0), 0);
+    const activeStaff = admins.reduce((sum, a) => sum + (a.totalEmployees - (a.disabledEmployees || 0)), 0);
+    const totalRevenue = plans.reduce((sum, plan) => sum + (plan.price || 0), 0);
+    
+    return { total, active, expired, blocked, totalStaff, activeStaff, totalRevenue };
+  }, [admins, plans]);
 
-  // --- PLAN ACTIONS ---
-  const handleFeatureChange = (index, value) => {
-    const newFeatures = [...planForm.features];
-    newFeatures[index] = value;
-    setPlanForm({ ...planForm, features: newFeatures });
-  };
+  const violations = useMemo(() => {
+    return admins.filter(a => 
+      isPlanExpired(a.planExpiresAt) && 
+      a.disabledEmployees < a.totalEmployees && 
+      a.totalEmployees > 0
+    );
+  }, [admins]);
 
-  const addFeatureField = () => setPlanForm({ ...planForm, features: [...planForm.features, ""] });
+  const expiringSoon = useMemo(() => {
+    return admins
+      .filter(a => {
+        const daysLeft = getDaysRemaining(a.planExpiresAt);
+        return daysLeft > 0 && daysLeft <= 7;
+      })
+      .sort((a, b) => getDaysRemaining(a.planExpiresAt) - getDaysRemaining(b.planExpiresAt))
+      .slice(0, 5);
+  }, [admins]);
 
-  const removeFeatureField = (index) => {
-    if (planForm.features.length > 1) {
-      setPlanForm({ ...planForm, features: planForm.features.filter((_, i) => i !== index) });
-    }
-  };
-
-  const savePlan = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const cleanedFeatures = planForm.features.filter(f => f.trim() !== "");
-      await api.patch("/api/admin/plan-settings", { ...planForm, features: cleanedFeatures });
-      setStatus({ type: "success", message: "Plan Configuration Saved!" });
-      setPlanForm({ planName: "", price: 0, durationDays: 30, features: [""] });
-      fetchData();
-      setTimeout(() => setStatus({ type: "", message: "" }), 3000);
-    } catch (err) {
-      setStatus({ type: "error", message: "Failed to save plan" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deletePlan = async (id) => {
-    if (!window.confirm("Delete this plan?")) return;
-    try {
-      await api.delete(`/api/admin/delete-plan/${id}`);
-      fetchData();
-    } catch (err) { console.error(err); }
-  };
-
-  const handleEditPlan = (plan) => {
-    setPlanForm({
-      planName: plan.planName,
-      price: plan.price,
-      durationDays: plan.durationDays,
-      features: plan.features.length > 0 ? plan.features : [""]
-    });
-    setActiveTab("plans");
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // --- STATS ---
-  const stats = {
-    total: admins.length,
-    active: admins.filter(a => new Date(a.planExpiresAt) > currentTime).length,
-    expired: admins.length - admins.filter(a => new Date(a.planExpiresAt) > currentTime).length,
-    plans: plans.length
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
-
-
-      {/* STATS HEADER */}
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 pt-8 grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        {[
-          { label: "Total Companies", val: stats.total, icon: <FaUsers />, color: "text-blue-600", bg: "bg-blue-100" },
-          { label: "Active Nodes", val: stats.active, icon: <FaRocket />, color: "text-emerald-600", bg: "bg-emerald-100" },
-          { label: "Expired Access", val: stats.expired, icon: <FaExclamationTriangle />, color: "text-rose-600", bg: "bg-rose-100" },
-          { label: "Total Plans", val: stats.plans, icon: <FaChartLine />, color: "text-indigo-600", bg: "bg-indigo-100" },
-        ].map((s, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-5">
-            <div className={`${s.bg} ${s.color} w-14 h-14 rounded-2xl flex items-center justify-center text-2xl`}>{s.icon}</div>
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-              <h3 className="text-3xl font-black text-slate-800">{s.val}</h3>
-            </div>
-          </div>
-        ))}
+    <div className="min-h-screen bg-gray-50 p-6">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <h1 className="text-3xl font-bold text-gray-800"> Dashboard Overview</h1>
+        <p className="text-gray-500 mt-1">
+          {new Date().toLocaleString('en-IN', { 
+            day: '2-digit', 
+            month: 'long', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </p>
       </div>
 
-      {/* TAB SWITCHER */}
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 mb-8">
-        <div className="bg-slate-200/50 p-1.5 rounded-2xl w-fit flex gap-1">
-          <button
-            onClick={() => setActiveTab("monitor")}
-            className={`px-8 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === "monitor" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Real-time Monitoring
-          </button>
-          <button
-            onClick={() => setActiveTab("plans")}
-            className={`px-8 py-3 rounded-xl font-bold text-sm transition-all ${activeTab === "plans" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
-            Plan Architecture
-          </button>
+      {/* Stats Grid */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Total Companies */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full">Total</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-800">{stats.total}</h3>
+          <p className="text-sm text-gray-500 mt-1">Companies Registered</p>
+        </div>
+
+        {/* Active Plans */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">{stats.active} Active</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-800">{stats.active}</h3>
+          <p className="text-sm text-gray-500 mt-1">Companies with Active Plans</p>
+        </div>
+
+        {/* Staff Summary */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">{stats.activeStaff}/{stats.totalStaff}</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-800">{stats.activeStaff}</h3>
+          <p className="text-sm text-gray-500 mt-1">Active Staff Members</p>
+        </div>
+
+        {/* Revenue */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">Total</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-800">₹{stats.totalRevenue.toLocaleString()}</h3>
+          <p className="text-sm text-gray-500 mt-1">Total Plan Value</p>
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 lg:px-8">
-        {activeTab === "monitor" ? (
-          /* MONITORING TABLE */
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Global Company Status</h3>
-              <span className="text-[10px] bg-indigo-100 text-indigo-600 font-black px-3 py-1 rounded-full uppercase">Live Feed</span>
+      {/* Second Row Stats */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Expired Plans */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 rounded-lg">
+              <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="text-[10px] uppercase tracking-widest font-black text-slate-400 border-b border-slate-100">
-                    <th className="p-6">Company / Admin</th>
-                    <th className="p-6">Subscription</th>
-                    <th className="p-6">Expiration Date</th>
-                    <th className="p-6 text-right">Time Remaining</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {admins.map((admin) => {
-                    const time = getTimeRemaining(admin.planExpiresAt);
-                    const expired = time.total <= 0;
-                    return (
-                      <tr key={admin._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase">
-                              {admin.name.charAt(0)}
-                            </div>
-                            <div>
-                              <p className="font-bold text-slate-800">{admin.name}</p>
-                              <p className="text-xs text-slate-400 font-medium">{admin.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-6">
-                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${expired ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"}`}>
-                            {admin.plan} • {expired ? "EXPIRED" : "ACTIVE"}
-                          </span>
-                        </td>
-                        <td className="p-6 font-medium text-slate-600">
-                          <div className="flex items-center gap-2 text-sm">
-                            <FaCalendarAlt className="text-slate-300" />
-                            {new Date(admin.planExpiresAt).toLocaleDateString()}
-                          </div>
-                          <p className="text-[10px] text-slate-400 ml-6 uppercase font-bold">at {new Date(admin.planExpiresAt).toLocaleTimeString()}</p>
-                        </td>
-                        <td className="p-6 text-right">
-                          {expired ? (
-                            <span className="text-rose-500 text-xs font-black uppercase tracking-widest border border-rose-200 px-4 py-2 rounded-xl bg-rose-50">Renewal Required</span>
-                          ) : (
-                            <div className="inline-flex gap-2 font-mono text-indigo-600 font-bold bg-slate-100 px-4 py-2 rounded-xl border border-slate-200 shadow-inner">
-                              <span>{time.days}d</span>
-                              <span className="text-slate-300">:</span>
-                              <span>{String(time.hours).padStart(2, '0')}h</span>
-                              <span className="text-slate-300">:</span>
-                              <span>{String(time.minutes).padStart(2, '0')}m</span>
-                              <span className="text-slate-300">:</span>
-                              <span className="text-indigo-400">{String(time.seconds).padStart(2, '0')}s</span>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-              {admins.length === 0 && <div className="p-20 text-center text-slate-400 italic">No companies connected to the network.</div>}
+            <div>
+              <p className="text-sm text-gray-500">Expired Plans</p>
+              <p className="text-xl font-bold text-gray-800">{stats.expired}</p>
             </div>
           </div>
-        ) : (
-          /* PLAN ARCHITECTURE */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        </div>
 
+        {/* Blocked Access */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Blocked Access</p>
+              <p className="text-xl font-bold text-gray-800">{stats.blocked}</p>
+            </div>
+          </div>
+        </div>
 
-            {/* PLAN CARDS */}
-            <div className="col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {plans.map(plan => (
-                <div key={plan._id} className="bg-white p-8 rounded-3xl border border-slate-200 shadow-md hover:shadow-xl hover:border-indigo-200 transition-all group flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start mb-6">
+        {/* Plans Available */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Available Plans</p>
+              <p className="text-xl font-bold text-gray-800">{plans.length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Companies List */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+            <h2 className="font-semibold text-gray-700">Companies Overview</h2>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {admins.slice(0, 5).map(admin => {
+              const expired = isPlanExpired(admin.planExpiresAt);
+              const daysLeft = getDaysRemaining(admin.planExpiresAt);
+              
+              return (
+                <div key={admin.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                        expired ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {admin.name.charAt(0)}
+                      </div>
                       <div>
-                        <h4 className="text-2xl font-black text-slate-800 capitalize tracking-tight">{plan.planName}</h4>
-                        <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">{plan.durationDays} Days Duration</span>
-                      </div>
-                
-                    </div>
-
-                    <div className="mb-8">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 ml-1">Price Point</p>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black text-slate-900">₹{plan.price}</span>
-                        <span className="text-xs font-bold text-slate-400 uppercase">/ Full Period</span>
+                        <h3 className="font-medium text-gray-800">{admin.name}</h3>
+                        <p className="text-xs text-gray-500">{admin.email}</p>
                       </div>
                     </div>
-
-                    <div className="space-y-3">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Included in Architecture:</p>
-                      {plan.features.map((f, i) => (
-                        <div key={i} className="flex items-center gap-3 text-sm text-slate-600 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100">
-                          <FaCheckCircle className="text-emerald-500 flex-shrink-0" />
-                          {f}
-                        </div>
-                      ))}
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      expired ? 'bg-rose-50 text-rose-600' : 
+                      admin.loginEnabled === false ? 'bg-gray-100 text-gray-600' : 
+                      'bg-emerald-50 text-emerald-600'
+                    }`}>
+                      {expired ? 'Expired' : admin.loginEnabled === false ? 'Blocked' : 'Active'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mt-3 text-xs">
+                    <div>
+                      <p className="text-gray-400">Plan</p>
+                      <p className="font-medium text-gray-700">{admin.plan || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Expires</p>
+                      <p className={`font-medium ${expired ? 'text-rose-600' : 'text-gray-700'}`}>
+                        {formatDate(admin.planExpiresAt)}
+                        {!expired && daysLeft <= 7 && ` (${daysLeft}d left)`}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400">Staff</p>
+                      <p className="font-medium text-gray-700">{admin.totalEmployees - (admin.disabledEmployees || 0)}/{admin.totalEmployees}</p>
                     </div>
                   </div>
+                </div>
+              );
+            })}
+            {admins.length > 5 && (
+              <div className="px-6 py-3 text-center text-sm text-blue-600 hover:bg-blue-50 cursor-pointer">
+                View all {admins.length} companies →
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="space-y-6">
+          {/* Violations Alert */}
+          {violations.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-rose-100 overflow-hidden">
+              <div className="px-6 py-4 bg-rose-50 border-b border-rose-100">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                  </svg>
+                  <h3 className="font-semibold text-rose-700">Violations Detected</h3>
+                  <span className="ml-auto bg-rose-200 text-rose-800 text-xs px-2 py-1 rounded-full">
+                    {violations.length}
+                  </span>
+                </div>
+              </div>
+              <div className="divide-y divide-rose-50">
+                {violations.slice(0, 3).map(v => (
+                  <div key={v.id} className="px-6 py-3">
+                    <p className="text-sm font-medium text-gray-800">{v.name}</p>
+                    <p className="text-xs text-rose-600 mt-1">
+                      {v.totalEmployees - v.disabledEmployees} staff active on expired plan
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expiring Soon */}
+          <div className="bg-white rounded-xl shadow-sm border border-amber-100 overflow-hidden">
+            <div className="px-6 py-4 bg-amber-50 border-b border-amber-100">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 className="font-semibold text-amber-700">Expiring Soon</h3>
+              </div>
+            </div>
+            <div className="divide-y divide-amber-50">
+              {expiringSoon.length > 0 ? expiringSoon.map(admin => {
+                const daysLeft = getDaysRemaining(admin.planExpiresAt);
+                return (
+                  <div key={admin.id} className="px-6 py-3 flex justify-between items-center">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{admin.name}</p>
+                      <p className="text-xs text-gray-500">{admin.plan}</p>
+                    </div>
+                    <span className="text-sm font-bold text-amber-600">{daysLeft} days</span>
+                  </div>
+                );
+              }) : (
+                <div className="px-6 py-4 text-sm text-gray-500 text-center">
+                  No plans expiring soon
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Plans Summary */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+              <h3 className="font-semibold text-gray-700">Available Plans</h3>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {plans.slice(0, 4).map(plan => (
+                <div key={plan._id} className="px-6 py-3 flex justify-between items-center">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{plan.planName}</p>
+                    <p className="text-xs text-gray-500">{plan.durationDays} days</p>
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">₹{plan.price}</span>
                 </div>
               ))}
             </div>
           </div>
-        )}
-      </main>
+        </div>
+      </div>
+
+      {/* Footer Stats */}
+      <div className="max-w-7xl mx-auto mt-8 pt-6 border-t border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center text-sm text-gray-500">
+          <div>
+            <p className="font-medium text-gray-800">{plans.length}</p>
+            <p>Total Plans</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-800">{stats.totalStaff}</p>
+            <p>Total Staff</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-800">{admins.filter(a => a.totalEmployees > 0).length}</p>
+            <p>Companies with Staff</p>
+          </div>
+          <div>
+            <p className="font-medium text-gray-800">{Math.round((stats.active / stats.total) * 100) || 0}%</p>
+            <p>Active Rate</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default SuperAdminDashboard;
+export default AdminDashboard;

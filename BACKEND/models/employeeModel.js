@@ -67,6 +67,9 @@ const EmployeeSchema = new mongoose.Schema({
   emergency: String, 
   emergencyPhone: String, 
   
+  /* ==================== LOGIN ACCESS CONTROL ==================== */
+  loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle per-employee
+
   // STATUS & DEACTIVATION
   isActive: { type: Boolean, default: true },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },

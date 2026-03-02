@@ -44,6 +44,9 @@ const Login = () => {
     department: "",
   });
 
+  /* ==================== LOGIN STOPPED STATE ==================== */
+  const [loginStoppedData, setLoginStoppedData] = useState(null);
+
   /* ==================== EXPIRED PLAN STATE ==================== */
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [expiredAdminDetails, setExpiredAdminDetails] = useState(null);
@@ -110,6 +113,12 @@ const Login = () => {
       if (userData) sessionStorage.setItem("hrmsUser", JSON.stringify(userData));
       
     } catch (err) {
+      // ✅ 403 with loginStopped flag → show login stopped modal
+      if (err.response?.status === 403 && err.response?.data?.loginStopped) {
+        setLoginStoppedData(err.response.data);
+        setLoading(false);
+        return;
+      }
       // ✅ 403 with expired flag → clear any stale session + show full-page expired modal
       if (err.response?.status === 403 && err.response?.data?.expired) {
         // Wipe any leftover session so stale data can never auto-login them
@@ -539,6 +548,47 @@ const Login = () => {
           </div>
         </div>
       )}
+      {/* ==================== LOGIN STOPPED MODAL ==================== */}
+      {loginStoppedData && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#1a0b2e] border border-red-500/30 rounded-3xl shadow-2xl p-8 max-w-md w-full relative">
+            <div className="flex flex-col items-center text-center gap-5">
+              <div className="w-20 h-20 rounded-full bg-red-900/30 border border-red-500/30 flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              </div>
+              <div>
+                <span className="bg-red-500/20 text-red-300 text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border border-red-500/30">
+                  Access Blocked
+                </span>
+                <h2 className="text-2xl font-extrabold text-white mt-3">Login Stopped</h2>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Your account login has been stopped by the admin. Please contact the support team to restore access.
+              </p>
+              <div className="w-full bg-red-900/20 border border-red-500/20 rounded-2xl p-4 text-left space-y-1">
+                <p className="text-[9px] uppercase tracking-[0.2em] text-red-400 font-black">Action Required</p>
+                <p className="text-gray-300 text-xs leading-relaxed">
+                  Reach out to your administrator or contact{" "}
+                  <a href="mailto:support@arahinfotech.com" className="text-purple-400 font-bold hover:text-purple-300 transition-colors">
+                    support@arahinfotech.com
+                  </a>{" "}
+                  to get your login access restored.
+                </p>
+              </div>
+              <button
+                onClick={() => setLoginStoppedData(null)}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-sm uppercase tracking-widest transition-all shadow-xl"
+              >
+                Back to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div> 
   );
 };

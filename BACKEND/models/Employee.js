@@ -12,6 +12,9 @@ const employeeSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true },
   status: { type: String, default: "Active" },
 
+  /* ==================== LOGIN ACCESS CONTROL ==================== */
+  loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle this
+
   // Existing fields from your database
   bankDetails: { type: Object },
   personalDetails: { type: Object },
@@ -30,6 +33,7 @@ const employeeSchema = new mongoose.Schema({
 
   // Company Reference
   company: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
   
   // Company Info (for quick access without population)
   companyName: { type: String },

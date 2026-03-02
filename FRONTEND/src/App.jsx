@@ -82,6 +82,7 @@ import TodayOverview from "./pages/TodayOverview";
 import EmployeeViewRules from "./EmployeePages/EmployeeViewRules";
 import AdminRulesPost from "./pages/AdminRulespost";
 import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
+import ManageLogins from "./pages/master/Managelogins";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -179,6 +180,7 @@ function App() {
         <Route path="dashboard" element={<MasterDashboard />} />
         <Route path="admins" element={<MasterAdminUsers />} />
         <Route path="settings" element={<MasterSettings />} />
+        <Route path="manage-logins" element={<ManageLogins />} />
       </Route>
 
 

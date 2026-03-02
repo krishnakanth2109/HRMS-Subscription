@@ -37,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 
   /* ==================== LOGIN (ADMIN FIRST → EMPLOYEE FALLBACK) ==================== */
   const login = async (email, password) => {
-    // ✅ STEP 1: Always try admin endpoint first (has plan expiry check)
+    // ✅ STEP 1: Always try admin endpoint first (has plan expiry & login access check)
     try {
       const response = await api.post("/api/admin/login", { email, password });
 
@@ -61,15 +61,13 @@ export const AuthProvider = ({ children }) => {
       return response;
 
     } catch (adminError) {
-      // ✅ 403 = Plan expired → re-throw immediately so Login.jsx shows the modal
+      // ✅ 403 = Plan expired OR login stopped → re-throw immediately so Login.jsx handles it
       if (adminError.response?.status === 403) {
         throw adminError;
       }
 
       // ✅ 401 = Not an admin account → fall through to employee login below
-      // Any other admin error also falls through to employee
       if (adminError.response?.status !== 401) {
-        // Non-401 unexpected admin error - still try employee as last resort
         console.warn("Admin login unexpected error, trying employee:", adminError.response?.status);
       }
     }
@@ -98,6 +96,11 @@ export const AuthProvider = ({ children }) => {
       return response;
 
     } catch (employeeError) {
+      // ✅ 403 from employee = login stopped → re-throw so Login.jsx shows the modal
+      if (employeeError.response?.status === 403) {
+        throw employeeError;
+      }
+
       console.error(
         "Login failed:",
         employeeError.response?.data?.message || employeeError.message
