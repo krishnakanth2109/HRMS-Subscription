@@ -1015,11 +1015,11 @@ const PayrollManagement = () => {
   if (loading) return <div className="flex justify-center items-center h-screen bg-gray-50"><div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600"></div></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 font-sans">
+    <div className="min-h-screen p-6 font-sans">
       <div className="max-w-[1800px] mx-auto">
 
         {/* ✅ HEADER UI */}
-        <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="mb-6 bg-white p-6 rounded-xl shadow-sm border border-gray-300 flex flex-col md:flex-row items-center justify-between gap-4">
 
           <div className="flex-shrink-0">
             <h1 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">

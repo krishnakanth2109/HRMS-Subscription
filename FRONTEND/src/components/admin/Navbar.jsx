@@ -12,6 +12,8 @@ import {
   FaUser,
   FaKey,
   FaCog,
+  FaPalette, // Added from Code 2
+  FaCheck,   // Added from Code 2
 } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
@@ -21,28 +23,32 @@ const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000", {
   transports: ["websocket"],
 });
 
-const Navbar = () => {
+// ⭐ Added props: currentTheme and onThemeChange
+const Navbar = ({ currentTheme, onThemeChange }) => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [showMenu, setShowMenu] = useState(false);
-  const [showThemeColors, setShowThemeColors] = useState(false);
+  const [showThemeDropdown, setShowThemeDropdown] = useState(false); // 🔥 Added from Code 2
 
   const menuRef = useRef(null);
+  const themeRef = useRef(null); // 🔥 Added from Code 2
 
   const { unreadCount, setUnreadCount, addNotification } =
     useContext(NotificationContext);
 
-  const { themeColor, setThemeColor } = useTheme();
+  const { themeColor } = useTheme();
 
   const [idlePopup, setIdlePopup] = useState(null);
 
-  // 🧹 Close dropdown on outside click
+  // 🧹 Close dropdowns on outside click (Updated to include themeRef)
   useEffect(() => {
     const handleOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowMenu(false);
-        setShowThemeColors(false);
+      }
+      if (themeRef.current && !themeRef.current.contains(e.target)) {
+        setShowThemeDropdown(false);
       }
     };
 
@@ -114,6 +120,42 @@ const Navbar = () => {
         </h1>
 
         <div className="flex items-center gap-6">
+          
+          {/* 🔥 THEME SELECTION DROPDOWN (Inserted from Code 2) */}
+          <div className="relative" ref={themeRef}>
+            <div 
+              className="cursor-pointer group p-1" 
+              onClick={() => setShowThemeDropdown(!showThemeDropdown)}
+            >
+              <FaPalette className="text-xl text-white group-hover:text-yellow-300 transition" />
+            </div>
+
+            {showThemeDropdown && (
+              <div className="absolute top-10 right-0 bg-white border rounded-lg shadow-xl w-48 z-[100] animate-fade-in py-2">
+                <div className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b mb-1">
+                  Background
+                </div>
+                {[
+                  { id: 'bubbles', label: 'Bubbles Theme' },
+                  { id: 'image', label: 'Green Theme' },
+                  { id: 'white', label: 'Default White' }
+                ].map((t) => (
+                  <div
+                    key={t.id}
+                    onClick={() => {
+                      onThemeChange(t.id);
+                      setShowThemeDropdown(false);
+                    }}
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition text-sm text-gray-700 font-medium"
+                  >
+                    {t.label}
+                    {currentTheme === t.id && <FaCheck className="text-blue-500 text-xs" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 🔔 Notification Icon */}
           <div
             className="relative cursor-pointer group"
@@ -136,7 +178,7 @@ const Navbar = () => {
           >
             <FaUserCircle className="text-3xl text-white shadow" />
 
-            {/* 👇 UPDATED SECTION: Display Name and Plan */}
+            {/* KEEPING ORIGINAL NAME AND PLAN DISPLAY */}
             <div className="hidden md:flex flex-col items-start leading-tight">
               <span className="text-white font-semibold">
                 {user?.name || "Admin"}
@@ -145,7 +187,6 @@ const Navbar = () => {
                 {user?.planType || user?.plan || "Free Plan"}
               </span>
             </div>
-            {/* 👆 END UPDATED SECTION */}
 
             <FaChevronDown
               className={`text-white transition-transform duration-200 ${showMenu ? "rotate-180" : ""
@@ -155,7 +196,7 @@ const Navbar = () => {
             {showMenu && (
               <div
                 className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-56 z-50 text-base animate-fade-in"
-                onClick={(e) => e.stopPropagation()} // 🔥 prevents reopen
+                onClick={(e) => e.stopPropagation()} 
               >
                 <div
                   onClick={() => {

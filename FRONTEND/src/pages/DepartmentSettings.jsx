@@ -88,8 +88,11 @@ const DepartmentSettings = () => {
 
       const empList = Array.isArray(employeesData) ? employeesData : (employeesData?.data || []);
       const shiftList = Array.isArray(shiftsData) ? shiftsData : (shiftsData?.data || []);
+      
+      // ✅ FILTER ONLY ACTIVE EMPLOYEES (isActive === true)
+      const activeEmployees = empList.filter(emp => emp.isActive === true);
 
-      setEmployees(empList);
+      setEmployees(activeEmployees);
       setShifts(shiftList);
 
       // ✅ EXTRACT GROUPS

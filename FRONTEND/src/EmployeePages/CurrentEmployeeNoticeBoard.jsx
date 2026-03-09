@@ -374,12 +374,12 @@ const NoticeList = () => {
       } catch (e) { return null; }
   };
 
-  if (isInitialLoading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center font-bold">Loading Notices...</div>;
+  if (isInitialLoading) return <div className="min-h-screen  flex items-center justify-center font-bold">Loading Notices...</div>;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] overflow-hidden relative font-sans">
+    <div className="min-h-screen overflow-hidden relative font-sans">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply blur-3xl opacity-30 animate-blob"></div>
+        <div className="absolute top-[-10%] left-[-10%] w-96 h-96  rounded-full mix-blend-multiply blur-3xl opacity-30 animate-blob"></div>
       </div>
 
       <div className="relative max-w-4xl mx-auto px-4 py-12">
@@ -485,7 +485,7 @@ const NoticeList = () => {
                             </div>
 
                             {expandedNoticeId === notice._id && isSpecific && !matchedGroup && (
-                                <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                                <div className="mt-3 p-3  border border-slate-200 rounded-xl animate-in slide-in-from-top-2 duration-200">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Selected Employees:</p>
                                     <div className="flex flex-wrap gap-1.5">
                                         {recipientsArr.map((r, i) => {
@@ -679,7 +679,7 @@ const NoticeList = () => {
                     {previewGroup.members.map(id => {
                         const emp = employees.find(e => e._id === String(id));
                         return (
-                            <div key={id} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                            <div key={id} className="flex items-center gap-3 p-2 rounded-lg border border-slate-100">
                                 <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold">
                                     {emp?.name?.charAt(0) || "?"}
                                 </div>
@@ -691,7 +691,7 @@ const NoticeList = () => {
                         );
                     })}
                 </div>
-                <div className="p-3 bg-slate-50 border-t border-slate-100 text-right">
+                <div className="p-3  border-t border-slate-100 text-right">
                     <button onClick={() => setPreviewGroup(null)} className="text-xs font-bold text-indigo-600 px-4 py-2 hover:bg-indigo-50 rounded-lg transition-colors">Close</button>
                 </div>
             </div>

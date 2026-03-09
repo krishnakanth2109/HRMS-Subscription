@@ -1,4 +1,3 @@
-// --- START OF FILE AdminLeaveManagementPanel.jsx ---
 import React, {
   useEffect,
   useState,
@@ -10,16 +9,17 @@ import api, {
   getEmployees,
   approveLeaveRequestById,
   rejectLeaveRequestById,
+  getAttendanceByDateRange,
 } from "../api";
 import {
   FaFilter,
   FaCalendarAlt,
-  FaSearch,
-  FaChevronDown,
   FaCheck,
   FaTimes,
-  FaInfoCircle,
-  FaUserTie
+  FaUsers,
+  FaClock,
+  FaSearch,
+  FaChevronDown
 } from "react-icons/fa";
 import { useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
@@ -43,52 +43,68 @@ const getDayCount = (from, to) => {
   return diffDays || 0;
 };
 
-// ✅ Date format helper: DD/MM/YYYY
-const formatDate = (dateStr) => {
+// ✅ Date format helper: Short Month DD, YYYY (e.g. Feb 20, 2026)
+const formatDateShort = (dateStr) => {
   if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+// ✅ Date & Time format for "Applied On"
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return "-";
   const d = new Date(dateStr);
   const day = String(d.getDate()).padStart(2, "0");
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const year = d.getFullYear();
-  return `${day}-${month}-${year}`;
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; 
+  return `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
 };
 
+// ✅ Initials Helper
+const getInitials = (name) => {
+  if (!name) return "U";
+  const parts = name.split(" ");
+  if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0][0].toUpperCase();
+};
 
 const AdminLeavePanel = () => {
   const location = useLocation();
 
   const [leaveList, setLeaveList] = useState([]);
   const [employeesMap, setEmployeesMap] = useState(new Map());
+  const [allEmployeesList, setAllEmployeesList] = useState([]); // Store raw list for counting
   const [loading, setLoading] = useState(true);
 
-  // --- UI States ---
-  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
+  // --- UI States for Filters & Actions ---
+  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7)); 
   const [filterDept, setFilterDept] = useState("All");
   const [filterStatus, setFilterStatus] = useState(
     location.state?.defaultStatus || "All"
   );
-
   const [searchQuery, setSearchQuery] = useState("");
-  const [showMoreId, setShowMoreId] = useState(null);
-
-  // ✅ Action Dropdown State
   const [openDropdownId, setOpenDropdownId] = useState(null);
-
-  // ✅ Image States
+  
   const [employeeImages, setEmployeeImages] = useState({});
-  const [previewImage, setPreviewImage] = useState(null);
 
-  // Fetch all data
+  // ✅ Fetch all data (Logic aligned with AdminDashboard)
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
       const [leavesData, employeesData] = await Promise.all([
-        getLeaveRequests(),
-        getEmployees(),
+        getLeaveRequests().catch(() => []),
+        getEmployees().catch(() => []),
       ]);
 
-      setLeaveList(leavesData);
+      setLeaveList(Array.isArray(leavesData) ? leavesData : []);
+      setAllEmployeesList(Array.isArray(employeesData) ? employeesData : []);
 
+      // Create map for lookup (using both keys for safety, but we won't use map.size for counting)
       const map = new Map();
       employeesData.forEach((emp) => {
         if (emp.employeeId) map.set(emp.employeeId, emp);
@@ -106,6 +122,13 @@ const AdminLeavePanel = () => {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  // ✅ Derived Data: Active Employees (Same logic as Dashboard)
+  const activeEmployees = useMemo(() => {
+    return allEmployeesList.filter(
+      (e) => e.isActive !== false && (e.status || "").toLowerCase() !== "deactive"
+    );
+  }, [allEmployeesList]);
 
   // Fetch Images
   useEffect(() => {
@@ -134,43 +157,110 @@ const AdminLeavePanel = () => {
   const enrichedLeaveList = useMemo(() => {
     return leaveList.map((leave) => {
       const emp = employeesMap.get(leave.employeeId);
+      const exp = Array.isArray(emp?.experienceDetails)
+        ? emp.experienceDetails.find((e) => e.lastWorkingDate === "Present") || emp.experienceDetails[0]
+        : null;
+
       return {
         ...leave,
-        employeeName: emp?.name || "Unknown",
-        department: emp?.experienceDetails?.[0]?.department || "Unassigned",
+        employeeName: emp?.name || leave.employeeName || "Unknown",
+        department: emp?.currentDepartment || exp?.department || "Unassigned",
       };
     });
   }, [leaveList, employeesMap]);
 
   const allDepartments = useMemo(() => {
-    return Array.from(new Set(Array.from(employeesMap.values()).map((emp) => emp?.experienceDetails?.[0]?.department))).filter(Boolean);
-  }, [employeesMap]);
+    return Array.from(new Set(activeEmployees.map((emp) => {
+      const exp = emp.experienceDetails?.[0];
+      return emp.currentDepartment || exp?.department;
+    }))).filter(Boolean);
+  }, [activeEmployees]);
 
-  // Filter logic
+  // ✅ Filtering Logic
   const filteredRequests = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     return enrichedLeaveList.filter((req) => {
       const matchDept = filterDept === "All" || req.department === filterDept;
       const matchStatus = filterStatus === "All" || req.status === filterStatus || (filterStatus === "Today" && req.status === "Approved" && today >= req.from && today <= req.to);
-      const matchSearch = req.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) || req.employeeName?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchSearch = (req.employeeId || "").toLowerCase().includes(searchQuery.toLowerCase()) || (req.employeeName || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchMonth = filterMonth ? req.from.startsWith(filterMonth) : true;
       return matchDept && matchStatus && matchSearch && matchMonth;
     });
   }, [enrichedLeaveList, filterDept, filterStatus, searchQuery, filterMonth]);
 
-  const todayOnLeave = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return enrichedLeaveList.filter((req) => req.status === "Approved" && today >= req.from && today <= req.to).length;
-  }, [enrichedLeaveList]);
+  const adminPunchOut = async (employeeId, dateOfRecord) => {
+    const location = await new Promise((resolve, reject) => {
+      if (!navigator.geolocation) { reject(new Error("Geolocation not supported")); return; }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => reject(new Error("Unable to get location")),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+    const punchOutTime = new Date().toISOString();
+    return await api.post(`/api/attendance/admin-punch-out`, {
+      employeeId,
+      punchOutTime,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      adminId: 'Admin',
+      date: dateOfRecord,
+    });
+  };
 
-  // ✅ ACTION HANDLER (Approve/Reject)
-  const handleAction = (id, action) => {
-    // 1. Close dropdown immediately
+  const handleAction = async (id, action) => {
     setOpenDropdownId(null);
-
     const isApprove = action === 'approve';
 
-    // 2. Open Confirmation Alert
+    if (isApprove) {
+      const leave = enrichedLeaveList.find((l) => l._id === id);
+      if (leave) {
+        const today = new Date().toISOString().slice(0, 10);
+        const leaveCoversToday = today >= leave.from && today <= leave.to;
+
+        if (leaveCoversToday) {
+          try {
+            const todayRecords = await getAttendanceByDateRange(today, today);
+            const records = Array.isArray(todayRecords) ? todayRecords : [];
+            const todayRecord = records.find((r) => r.employeeId === leave.employeeId);
+            const isWorking = todayRecord && todayRecord.punchIn && !todayRecord.punchOut;
+
+            if (isWorking) {
+              const result = await Swal.fire({
+                title: `⚠️ ${leave.employeeName} is Currently Working!`,
+                html: `<p style="color:#475569;font-size:14px;margin-top:4px;">This employee is punched in today. What would you like to do?</p>`,
+                icon: 'warning',
+                showCancelButton: true,
+                showDenyButton: true,
+                confirmButtonText: '🕐 Punch Out & Approve',
+                denyButtonText: '✅ Approve Only',
+                cancelButtonText: '❌ Cancel',
+                confirmButtonColor: '#3B82F6',
+                denyButtonColor: '#10B981',
+                cancelButtonColor: '#6B7280',
+              });
+
+              if (result.isConfirmed) {
+                Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                await adminPunchOut(leave.employeeId, today);
+                await approveLeaveRequestById(id);
+                await fetchAllData();
+                Swal.fire('Done!', 'Employee punched out and leave approved.', 'success');
+                return;
+              } else if (result.isDenied) {
+                Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                await approveLeaveRequestById(id);
+                await fetchAllData();
+                Swal.fire('Approved!', 'Leave approved without punching out.', 'success');
+                return;
+              }
+              return;
+            }
+          } catch (err) { console.warn(err); }
+        }
+      }
+    }
+
     Swal.fire({
       title: isApprove ? 'Approve Request?' : 'Reject Request?',
       text: `Are you sure you want to ${action} this leave request?`,
@@ -182,54 +272,38 @@ const AdminLeavePanel = () => {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          // 3. Show loading
-          Swal.fire({
-            title: 'Processing...',
-            text: 'Please wait',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-          });
-
-          // 4. Call API
-          if (isApprove) {
-            await approveLeaveRequestById(id);
-          } else {
-            await rejectLeaveRequestById(id);
-          }
-
-          await fetchAllData(); // 5. Refresh Data
-
-          Swal.fire(
-            'Success!',
-            `Leave request has been ${action}d.`,
-            'success'
-          );
+          Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+          isApprove ? await approveLeaveRequestById(id) : await rejectLeaveRequestById(id);
+          await fetchAllData();
+          Swal.fire('Success!', `Leave request has been ${action}d.`, 'success');
         } catch (error) {
-          console.error("Action failed", error);
-          Swal.fire(
-            'Error!',
-            'Failed to update request. Please try again.',
-            'error'
-          );
+          Swal.fire('Error!', 'Failed to update request.', 'error');
         }
       }
     });
   };
 
-  // ✅ Status Badge Component
-  const StatusBadge = ({ status }) => {
-    const styles = {
-      Pending: "bg-amber-100 text-amber-700 border-amber-200 ring-amber-500/20",
-      Approved: "bg-emerald-100 text-emerald-700 border-emerald-200 ring-emerald-500/20",
-      Rejected: "bg-rose-100 text-rose-700 border-rose-200 ring-rose-500/20",
-    };
-
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-bold border ring-1 ${styles[status] || "bg-gray-100"}`}>
-        {status}
-      </span>
-    );
+  const LeaveTypeBadge = ({ type }) => {
+    let bg = "bg-gray-100", text = "text-gray-600";
+    const t = (type || "").toLowerCase();
+    if (t.includes("vacation")) { bg = "bg-blue-100"; text = "text-blue-500"; }
+    else if (t.includes("sick")) { bg = "bg-red-100"; text = "text-red-500"; }
+    else if (t.includes("personal")) { bg = "bg-purple-100"; text = "text-purple-500"; }
+    return <span className={`px-3 py-0.5 rounded-full text-[10px] font-bold ${bg} ${text} ml-2`}>{type || "Leave"}</span>;
   };
+
+  const DecisionBadge = ({ status }) => {
+    const isApproved = status === "Approved";
+    return <span className={`px-4 py-1.5 rounded-md text-xs font-bold ${isApproved ? "bg-green-100 text-green-500" : "bg-red-100 text-red-500"}`}>{status}</span>;
+  };
+
+  const pendingRequests = filteredRequests.filter(l => l.status === "Pending");
+  const recentDecisions = filteredRequests.filter(l => l.status !== "Pending");
+  
+  // ✅ Correct count using activeEmployees list
+  const totalEmployeesCount = activeEmployees.length; 
+  const approvedCount = filteredRequests.filter(l => l.status === "Approved").length;
+  const rejectedCount = filteredRequests.filter(l => l.status === "Rejected").length;
 
   if (loading) return (
     <div className="flex h-screen w-full items-center justify-center bg-slate-50">
@@ -238,70 +312,77 @@ const AdminLeavePanel = () => {
   );
 
   return (
-    <div className="p-6 md:p-8 bg-slate-50 min-h-screen font-sans relative">
-
-      {/* ✅ INVISIBLE BACKDROP TO CLOSE DROPDOWNS */}
+    <div className="p-6 md:p-8  min-h-screen font-sans max-w-[1400px] mx-auto relative">
+      
       {openDropdownId && (
-        <div
-          className="fixed inset-0 z-30 cursor-default"
-          onClick={() => setOpenDropdownId(null)}
-        ></div>
+        <div className="fixed inset-0 z-30 cursor-default" onClick={() => setOpenDropdownId(null)}></div>
       )}
 
-      {/* HEADER */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Leave Management</h2>
-        <p className="text-slate-500 mt-2">Oversee and manage employee leave requests efficiently.</p>
+      {/* HEADER SECTION */}
+      <div className=" bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Leave Management</h2>
+          <p className="text-slate-500 mt-1 text-sm">Oversee and manage employee leave requests efficiently.</p>
+        </div>
+
       </div>
 
       {/* STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {[
-          { title: "On Leave Today", val: todayOnLeave, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-500" },
-          { title: "Approved", val: filteredRequests.filter((r) => r.status === "Approved").length, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-500" },
-          { title: "Pending", val: filteredRequests.filter((r) => r.status === "Pending").length, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-500" }
-        ].map((stat, idx) => (
-          <div key={idx} className={`bg-white p-6 rounded-2xl shadow-sm border-b-4 ${stat.border} flex items-center justify-between transform hover:-translate-y-1 transition-all duration-300`}>
-            <div>
-              <div className="text-slate-400 text-xs font-bold uppercase tracking-wider">{stat.title}</div>
-              <div className="text-4xl font-extrabold text-slate-800 mt-1">{stat.val}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 border-b-4 border-b-blue-500">
+          <div className="flex flex-col gap-1">
+            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 mb-2">
+              <FaUsers size={14} />
             </div>
-            <div className={`p-4 rounded-full ${stat.bg} ${stat.color} text-xl shadow-inner`}>
-              <FaCalendarAlt />
-            </div>
+            <div className="text-3xl font-bold text-slate-800">{totalEmployeesCount}</div>
+            <div className="text-sm font-semibold text-slate-500">Total Employees</div>
           </div>
-        ))}
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 border-b-4 border-b-orange-500">
+          <div className="flex flex-col gap-1">
+            <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 mb-2">
+              <FaClock size={14} />
+            </div>
+            <div className="text-3xl font-bold text-slate-800">{pendingRequests.length}</div>
+            <div className="text-sm font-semibold text-slate-500">Pending Request</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 border-b-4 border-b-green-500">
+          <div className="flex flex-col gap-1">
+            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-500 mb-2">
+              <FaCheck size={14} />
+            </div>
+            <div className="text-3xl font-bold text-slate-800">{approvedCount}</div>
+            <div className="text-sm font-semibold text-slate-500">Approved</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 border-b-4 border-b-red-500">
+          <div className="flex flex-col gap-1">
+            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-500 mb-2">
+              <FaTimes size={14} />
+            </div>
+            <div className="text-3xl font-bold text-slate-800">{rejectedCount}</div>
+            <div className="text-sm font-semibold text-slate-500">Rejected</div>
+          </div>
+        </div>
       </div>
 
       {/* FILTERS & SEARCH */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-6 flex flex-col lg:flex-row gap-4 items-center justify-between z-20 relative">
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-col lg:flex-row gap-4 items-center justify-between z-20 relative">
         <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:border-indigo-300 transition-colors">
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
             <FaFilter className="text-indigo-500" />
             <span className="font-semibold text-sm">Filters:</span>
           </div>
-
-          <input
-            type="month"
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
-          />
-
-          <select
-            value={filterDept}
-            onChange={(e) => setFilterDept(e.target.value)}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer"
-          >
+          <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+          <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer">
             <option value="All">All Departments</option>
             {allDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
-
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer"
-          >
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer">
             <option value="All">All Status</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
@@ -312,220 +393,121 @@ const AdminLeavePanel = () => {
 
         <div className="relative w-full lg:w-80">
           <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search Name or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
-          />
+          <input type="text" placeholder="Search Name or ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner" />
         </div>
       </div>
 
-      {/* DYNAMIC EXTENDABLE TABLE */}
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden flex flex-col h-[600px]">
-        <div className="overflow-x-auto overflow-y-auto flex-1 custom-scrollbar">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead className="bg-slate-50 text-slate-600 uppercase font-bold text-xs sticky top-0 z-10 shadow-sm">
-              <tr>
-                <th className="p-5 tracking-wide">Name</th>
-                <th className="p-5 tracking-wide">Dept</th>
-                <th className="p-5 tracking-wide">From</th>
-                <th className="p-5 tracking-wide">To</th>
-                <th className="p-5 tracking-wide text-center">Duration</th>
-                <th className="p-5 tracking-wide">Type</th>
-                <th className="p-5 tracking-wide">Reason</th>
-                <th className="p-5 tracking-wide">Status</th>
-                <th className="p-5 tracking-wide text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredRequests.map((lv) => {
-                const profilePic = employeeImages[lv.employeeId];
-                const daysCount = getDayCount(lv.from, lv.to);
-                const isDropdownOpen = openDropdownId === lv._id;
-
-                return (
-                  <React.Fragment key={lv._id}>
-                    <tr className="hover:bg-indigo-50/40 transition duration-150 ease-in-out group">
-                      <td className="p-5">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 p-[2px] cursor-pointer shadow-md hover:scale-105 transition-transform"
-                            onClick={() => profilePic && setPreviewImage(profilePic)}
-                          >
-                            <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
-                              {profilePic ? (
-                                <img src={profilePic} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-indigo-600 font-bold text-lg">{(lv.employeeName || "U").charAt(0)}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-800">{lv.employeeName}</div>
-                            <div className="text-xs text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded w-fit mt-0.5">{lv.employeeId}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-5">
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-semibold text-xs border border-slate-200">
-                          {lv.department}
-                        </span>
-                      </td>
-
-                      <td className="p-5 whitespace-nowrap font-medium text-slate-600">
-                        {formatDate(lv.from)}
-                      </td>
-                      <td className="p-5 whitespace-nowrap font-medium text-slate-600">
-                        {formatDate(lv.to)}
-                      </td>
-
-
-                      {/* ✅ DAYS: FIXED LINE BREAK ISSUE */}
-                      <td className="p-5 text-center">
-                        <div className="inline-flex items-center justify-center bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-xs whitespace-nowrap shadow-sm border border-blue-100">
-                          {daysCount} Days
-                        </div>
-                      </td>
-
-                      <td className="p-5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                          <span className="font-medium text-slate-700">{lv.leaveType}</span>
-                        </div>
-                      </td>
-
-                      {/* ✅ REASON: Truncate to prevent table overflow */}
-                      <td className="p-5">
-                        <div className="max-w-[200px] truncate text-slate-500" title={lv.reason}>
-                          {lv.reason}
-                        </div>
-                      </td>
-
-                      <td className="p-5"><StatusBadge status={lv.status} /></td>
-
-                      <td className="p-5 relative text-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenDropdownId(isDropdownOpen ? null : lv._id);
-                          }}
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all
-                                ${isDropdownOpen ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}`}
-                        >
-                          Actions <FaChevronDown size={10} className={`transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {/* ✅ DYNAMIC DROPDOWN MENU */}
-                        {isDropdownOpen && (
-                          <div className="absolute right-8 top-12 w-44 bg-white rounded-xl shadow-2xl border border-slate-100 z-40 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                            <div className="p-1.5 space-y-1">
-                              <button
-                                onClick={() => {
-                                  setOpenDropdownId(null);
-                                  setShowMoreId(showMoreId === lv._id ? null : lv._id);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-indigo-600 rounded-lg flex items-center gap-2 transition-colors"
-                              >
-                                <FaInfoCircle className="text-indigo-400" /> View Details
-                              </button>
-
-                              <div className="h-px bg-slate-100 my-1"></div>
-
-                              {/* ✅ ALWAYS SHOW BUTTONS (Status Changeable) */}
-                              <button
-                                onClick={() => handleAction(lv._id, "approve")}
-                                className="w-full text-left px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg flex items-center gap-2 transition-colors"
-                              >
-                                <FaCheck /> Approve
-                              </button>
-                              <button
-                                onClick={() => handleAction(lv._id, "reject")}
-                                className="w-full text-left px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2 transition-colors"
-                              >
-                                <FaTimes /> Reject
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-
-                    {/* EXPANDABLE ROW */}
-                    {showMoreId === lv._id && (
-                      <tr className="bg-slate-50/50">
-                        <td colSpan="9" className="p-6 border-t border-b border-indigo-100 relative">
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
-                          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 className="font-bold text-sm mb-4 text-slate-800 flex items-center gap-2">
-                              <FaCalendarAlt className="text-indigo-500" /> Daily Breakdown
-                            </h4>
-                            {lv.details?.length ? (
-                              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                {lv.details.map((d, i) => (
-                                  <div key={i} className="border border-slate-200 p-3 rounded-lg text-xs bg-slate-50 hover:bg-white hover:shadow-md transition-all cursor-default">
-                                    <div className="font-bold text-slate-700 mb-1">
-                                      {formatDate(d.date)}
-                                    </div>
-
-                                    <div className="text-slate-500 mb-1">{d.leavecategory}</div>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${d.leaveDayType === 'Full Day' ? 'bg-indigo-100 text-indigo-700' : 'bg-orange-100 text-orange-700'}`}>
-                                      {d.leaveDayType}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-slate-400 italic text-xs">No detailed breakdown provided.</p>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-
-              {filteredRequests.length === 0 && (
-                <tr>
-                  <td colSpan="9" className="p-12 text-center text-slate-400 flex flex-col items-center justify-center w-full">
-                    <div className="bg-slate-100 p-4 rounded-full mb-3 text-slate-300">
-                      <FaSearch size={32} />
+      {/* PENDING REQUESTS SECTION */}
+      <div className="border border-slate-200 rounded-2xl bg-white mb-10 overflow-hidden shadow-sm">
+        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/30">
+          <h3 className="text-xl font-bold text-slate-800">Pending Requests</h3>
+          <span className="bg-amber-100 text-amber-700 font-bold px-3 py-1 rounded-full text-xs">{pendingRequests.length} Pending</span>
+        </div>
+        
+        <div className="flex flex-col">
+          {pendingRequests.length === 0 ? (
+            <div className="p-10 text-center text-slate-500 font-medium">No pending leave requests found.</div>
+          ) : (
+            pendingRequests.map(lv => {
+              const profilePic = employeeImages[lv.employeeId];
+              return (
+                <div key={lv._id} className="p-6 border-b border-slate-100 last:border-0 flex flex-col xl:flex-row justify-between xl:items-center gap-6 hover:bg-slate-50/80 transition duration-150">
+                  <div className="flex gap-4 items-start w-full">
+                    <div className="w-12 h-12 rounded-full shrink-0 border border-slate-200 overflow-hidden bg-white flex items-center justify-center font-bold text-slate-700">
+                      {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : getInitials(lv.employeeName)}
                     </div>
-                    <span className="font-medium">No leave requests found matching your filters.</span>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* FOOTER */}
-        <div className="bg-slate-50 p-3 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center px-6">
-          <span className="font-semibold">Total Records: {filteredRequests.length}</span>
-          <div className="flex gap-4">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Approved</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"></span> Pending</span>
-          </div>
+                    <div className="flex flex-col w-full">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="font-bold text-slate-800 text-base">{lv.employeeName}</span>
+                        <span className="text-xs text-slate-400 font-medium">{lv.department}</span>
+                        <LeaveTypeBadge type={lv.leaveType} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-8 mb-4 max-w-sm">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-slate-400 mb-1">Start Date</span>
+                          <span className="text-sm font-semibold text-slate-700">{formatDateShort(lv.from)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-slate-400 mb-1">End Date</span>
+                          <span className="text-sm font-semibold text-slate-700">{formatDateShort(lv.to)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs text-slate-400 mb-1">Duration</span>
+                          <span className="text-sm font-semibold text-slate-700">{getDayCount(lv.from, lv.to)} Day{getDayCount(lv.from, lv.to)>1?'s':''}</span>
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-2 w-full xl:max-w-md">
+                        <span className="text-xs text-slate-400 block mb-1">Reason</span>
+                        <span className="text-sm text-slate-700 font-medium">{lv.reason}</span>
+                      </div>
+                      <span className="text-xs text-slate-400 font-medium flex items-center gap-1 mt-1">
+                        <FaClock size={10}/> Applied on {formatDateTime(lv.createdAt || lv.appliedDate)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <button onClick={() => handleAction(lv._id, 'approve')} className="flex items-center gap-2 px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-lg font-bold text-sm shadow-sm transition-colors"><FaCheck /> Approve</button>
+                    <button onClick={() => handleAction(lv._id, 'reject')} className="flex items-center gap-2 px-5 py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-lg font-bold text-sm shadow-sm transition-colors"><FaTimes /> Reject</button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
-      {/* Lightbox */}
-      {previewImage && (
-        <div
-          className="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setPreviewImage(null)}
-        >
-          <img src={previewImage} alt="Profile" className="max-h-[85vh] max-w-full rounded-lg shadow-2xl" />
-          <button className="absolute top-6 right-6 text-white/70 hover:text-white p-2">
-            <FaTimes size={24} />
-          </button>
+      {/* RECENT DECISIONS SECTION */}
+      <div className="border border-slate-200 rounded-2xl bg-white p-6 shadow-sm">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-slate-800">Recent Decisions</h3>
+          <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">{recentDecisions.length} Processed</span>
         </div>
-      )}
+        <div className="flex flex-col divide-y divide-slate-100 border-t border-slate-100">
+          {recentDecisions.length === 0 ? (
+            <div className="py-10 text-center text-slate-500 font-medium">No recent decisions found.</div>
+          ) : (
+            recentDecisions.map(lv => {
+              const isDropdownOpen = openDropdownId === lv._id;
+              return (
+                <div key={lv._id} className="py-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:bg-slate-50/50 transition duration-150 px-2 rounded-lg -mx-2">
+                  <div className="flex gap-4 items-center w-full">
+                    <div className="w-10 h-10 rounded-full shrink-0 border border-slate-200 overflow-hidden bg-white flex items-center justify-center font-bold text-slate-700">
+                      {employeeImages[lv.employeeId] ? <img src={employeeImages[lv.employeeId]} alt="" className="w-full h-full object-cover" /> : getInitials(lv.employeeName)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-bold text-slate-800">{lv.employeeName}</span>
+                        <LeaveTypeBadge type={lv.leaveType} />
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs font-medium text-slate-400">
+                        <span>{formatDateShort(lv.from)} - {formatDateShort(lv.to)} ({getDayCount(lv.from, lv.to)} days)</span>
+                        <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-slate-300"></span>
+                        <span className="truncate max-w-[200px]">Reason: {lv.reason}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 relative shrink-0">
+                    <DecisionBadge status={lv.status} />
+                    <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(isDropdownOpen ? null : lv._id); }} className={`p-2 rounded-md border ${isDropdownOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-400'}`}>
+                      <FaChevronDown size={12} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isDropdownOpen && (
+                      <div className="absolute right-0 top-10 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-40 overflow-hidden">
+                        <div className="p-1.5 space-y-1">
+                          <button onClick={() => handleAction(lv._id, "approve")} className="w-full text-left px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg flex items-center gap-2"><FaCheck size={12} /> Mark Approved</button>
+                          <button onClick={() => handleAction(lv._id, "reject")} className="w-full text-left px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-2"><FaTimes size={12} /> Mark Rejected</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
 export default AdminLeavePanel;
-// --- END OF FILE AdminLeaveManagementPanel.jsx ---

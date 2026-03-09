@@ -83,6 +83,7 @@ import EmployeeViewRules from "./EmployeePages/EmployeeViewRules";
 import AdminRulesPost from "./pages/AdminRulespost";
 import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
 import ManageLogins from "./pages/master/Managelogins";
+import SendOnboardingForm from "./pages/InviteEmployee";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -230,6 +231,7 @@ function App() {
         <Route path="/admin/payroll" element={<Payroll />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
         <Route path="/admin/on-leave-today" element={<EmployeesOnLeaveToday />} />
+        <Route path="/admin/onboarding-email" element={<SendOnboardingForm />} />
         {/* 🔥 GROUP MANAGEMENT */}
         <Route path="/admin/groups" element={<AdminGroupPage />} />
 
