@@ -297,3 +297,53 @@ export const getLoginAccessStatus = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch login access status" });
   }
 };
+/* ==================== GET ADMIN PROFILE ==================== */
+export const getAdminProfile = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    // Use req.user._id (which was set in middleware)
+    const admin = await Admin.findById(req.user._id); 
+    
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json(admin);
+  } catch (error) {
+    console.error("Profile Fetch Error:", error);
+    res.status(500).json({ message: "Server error fetching profile" });
+  }
+};
+
+/* ==================== UPDATE ADMIN PROFILE ==================== */
+export const updateAdminProfile = async (req, res) => {
+  try {
+    const { name, phone, department } = req.body;
+
+    // Validate required fields
+    if (!name || !phone) {
+      return res.status(400).json({ message: "Name and Phone are required" });
+    }
+
+    const updatedAdmin = await Admin.findByIdAndUpdate(
+      req.user._id,
+      { name, phone, department },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({
+      message: "Profile updated successfully",
+      admin: updatedAdmin
+    });
+  } catch (error) {
+    console.error("❌ UPDATE PROFILE ERROR:", error);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+};
