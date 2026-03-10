@@ -580,7 +580,7 @@ const EmployeeDailyAttendance = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen font-sans">
+    <div className="p-4 md:p-6 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center mb-6 gap-3">
           <FaRegClock className="text-blue-600 text-3xl" />

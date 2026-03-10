@@ -159,8 +159,8 @@ const AdminLateRequests = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
+    <div className="p-6 min-h-screen font-sans">
+      <div className="flex flex-col border-gray-300 p-4 rounded-2xl bg-white md:flex-row md:justify-between md:items-center mb-6 gap-4">
         <div>
             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                <FaUserClock className="text-orange-600" /> Late Login Requests
@@ -171,7 +171,7 @@ const AdminLateRequests = () => {
         </div>
         <button 
             onClick={() => { setLoading(true); fetchRequests(); }} 
-            className="text-sm bg-white border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-100 transition shadow-sm font-medium"
+            className="text-sm  px-4 py-2 rounded-lg bg-gray-200 border-gray-500 hover:bg-gray-600 transition shadow-sm font-medium"
         >
             Refresh List
         </button>

@@ -1192,11 +1192,11 @@ const handleMonthChange = (e) => {
   );
 
   return (
-    <div className="p-4 md:p-8 bg-slate-100 min-h-screen font-sans">
+    <div className="p-4 md:p-8 min-h-screen font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Daily Log Section */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden">
+        <div className=" bg-white/20 backdrop-blur-md shadow-sm rounded-2xl border border-gray-300 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-slate-50/50">
             {/* Row 1: Heading */}
             <div className="mb-4">
@@ -1365,8 +1365,8 @@ const handleMonthChange = (e) => {
         </div>
 
         {/* Employee Attendance Summary Section */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/80 overflow-hidden mt-8">
-          <div className="p-6 border-b border-slate-200 bg-slate-50/50">
+        <div className="bg-white/20 backdrop-blur-md shadow-sm rounded-2xl border border-gray-300 overflow-hidden mt-8">
+          <div className="p-6 border-b border-slate-200 ">
             <div className="flex flex-col gap-6">
                 
                 <div className="flex items-center gap-3">
@@ -1438,13 +1438,13 @@ const handleMonthChange = (e) => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto ">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100 text-slate-600 uppercase text-xs tracking-wider sticky top-0 z-10 shadow-sm">
+              <thead className="bg-slate-800 text-slate-100 uppercase tracking-wider">
                   <tr>
                       <th className="px-6 py-4 text-left font-semibold border-b">Employee</th>
                       <th className="px-6 py-4 text-center font-semibold border-b">Assigned Hrs</th>
-                      <th className="px-6 py-4 text-center font-semibold border-b text-blue-700 bg-blue-50/50">Present</th>
+                      <th className="px-6 py-4 text-center font-semibold border-b ">Present</th>
                       <th className="px-6 py-4 text-center font-semibold border-b">On Time</th>
                       <th className="px-6 py-4 text-center font-semibold border-b">Late</th>
                       <th className="px-6 py-4 text-center font-semibold border-b">Approved OT</th>

@@ -36,12 +36,12 @@ const SettingsPage = () => {
   );
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
-      <div className="flex flex-wrap items-center gap-3 p-3 bg-white rounded-xl shadow-sm mb-6">
+    <div className="p-4 md:p-6 min-h-screen">
+      <div className="flex flex-wrap items-center gap-3 p-4 bg-white/20 backdrop-blur-md shadow-sm rounded-2xl border border-gray-300 mb-6">
         <TabButton name={TABS.DEPARTMENT} icon={<FaBuilding />} />
       </div>
 
-      <div className="bg-white p-6 rounded-xl shadow-lg animate-fade-in">
+      <div className="bg-white/20 backdrop-blur-md shadow-sm rounded-2xl border border-gray-300  animate-fade-in">
         {renderContent()}
       </div>
     </div>

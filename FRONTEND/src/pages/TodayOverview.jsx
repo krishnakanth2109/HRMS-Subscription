@@ -1025,9 +1025,9 @@ const TodayOverview = () => {
   }, [fetchAllData]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen ">
       {/* Header */}
-      <div className="z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200 ">
+      <div className="z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl max-w-7xl mx-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between h-auto sm:h-20 py-4 sm:py-0 gap-4 sm:gap-0">
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -1077,7 +1077,7 @@ const TodayOverview = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Stats Grid - Counts won't reset to zero when filtering */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl p-4">
           <StatCard
             icon={<FaClock />}
             title="Working"

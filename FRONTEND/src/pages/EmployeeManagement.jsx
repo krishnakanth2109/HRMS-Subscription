@@ -946,8 +946,8 @@ const EmployeeManagement = () => {
           </select>
         </div>
 
-        <div className="rounded-2xl shadow-lg border border-gray-100 relative z-10 overflow-hidden">
-          <div className="overflow-x-auto min-h-[300px]">
+        <div className="bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-300 relative z-10 overflow-hidden">
+          <div className="overflow-x-auto ">
             <table className="min-w-full rounded-2xl">
               <thead className="bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
                 <tr className="text-white uppercase text-sm font-semibold tracking-wide">
@@ -960,7 +960,7 @@ const EmployeeManagement = () => {
                 </tr>
               </thead>
 
-              <tbody className="divide-y bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 divide-gray-100">
+              <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
                     <td colSpan="6" className="p-8 text-center text-gray-500 font-medium text-lg">

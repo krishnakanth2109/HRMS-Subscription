@@ -390,7 +390,7 @@ const DepartmentSettings = () => {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto font-sans">
       {/* HEADER */}
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="mb-6 bg-white p-4 rounded-2xl flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3">
             <span className="p-2 bg-blue-100 rounded-lg text-blue-600"><FaClock /></span>

@@ -310,7 +310,7 @@ const AdminHolidayCalendarPage = () => {
       <div className="max-w-7xl mx-auto">
 
         {/* HEADER */}
-        <div className="flex bg-gray-50 rounded-2xl shadow-sm border border-gray-100 p-5 h-30 justify-between items-center mb-8">
+        <div className="flex bg-white/20 backdrop-blur-md shadow-sm rounded-2xl border border-gray-300 p-5 h-30 justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900">Holiday Calendar</h1>
             <p className="text-slate-500 text-sm mt-1">Manage holidays & track birthdays</p>
