@@ -2,30 +2,30 @@
 import mongoose from "mongoose";
 
 const LocationSchema = new mongoose.Schema({
-  latitude: { type: Number, default: null },
+  latitude:  { type: Number, default: null },
   longitude: { type: Number, default: null },
-  address: { type: String, default: null },
-  timestamp: { type: Date, default: null }
+  address:   { type: String, default: null },
+  timestamp: { type: Date,   default: null }
 }, { _id: false });
 
 const SessionSchema = new mongoose.Schema({
-  punchIn: { type: Date, required: true },
-  punchOut: { type: Date, default: null },
-  durationSeconds: { type: Number, default: 0 } 
+  punchIn:         { type: Date,   required: true },
+  punchOut:        { type: Date,   default: null },
+  durationSeconds: { type: Number, default: 0 }
 }, { _id: false });
 
 const DailySchema = new mongoose.Schema({
   date: { type: String, required: true },
-  
-  punchIn: { type: Date, default: null },
+
+  punchIn:  { type: Date, default: null },
   punchOut: { type: Date, default: null },
 
-  punchInLocation: { type: LocationSchema, default: null },
+  punchInLocation:  { type: LocationSchema, default: null },
   punchOutLocation: { type: LocationSchema, default: null },
 
   sessions: { type: [SessionSchema], default: [] },
 
-  workedHours: { type: Number, default: 0 },
+  workedHours:   { type: Number, default: 0 },
   workedMinutes: { type: Number, default: 0 },
   workedSeconds: { type: Number, default: 0 },
 
@@ -59,26 +59,48 @@ const DailySchema = new mongoose.Schema({
 
   // Request for Late Login Correction
   lateCorrectionRequest: {
-    hasRequest: { type: Boolean, default: false },
-    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
-    requestedTime: { type: Date, default: null }, 
-    reason: { type: String, default: null },
-    adminComment: { type: String, default: null }
+    hasRequest:    { type: Boolean, default: false },
+    status:        { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    requestedTime: { type: Date,   default: null },
+    reason:        { type: String, default: null },
+    adminComment:  { type: String, default: null }
   },
 
-  adminPunchOut: { type: Boolean, default: false },
-  adminPunchOutBy: { type: String, default: null },
-  adminPunchOutTimestamp: { type: Date, default: null }
+  // ✅ NEW: Track if employee did a final punch out (not just a break)
+  isFinalPunchOut: { type: Boolean, default: false },
+
+  adminPunchOut:          { type: Boolean, default: false },
+  adminPunchOutBy:        { type: String,  default: null },
+  adminPunchOutTimestamp: { type: Date,    default: null },
+
+  // ✅ NEW: Status Correction Request
+  statusCorrectionRequest: {
+    hasRequest:        { type: Boolean, default: false },
+    status:            { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    requestedPunchOut: { type: Date,   default: null },
+    reason:            { type: String, default: null },
+    adminComment:      { type: String, default: null }
+  },
 });
 
 const AttendanceSchema = new mongoose.Schema({
-  // HIERARCHY
-  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
+  // ✅ HIERARCHY: Scoped to admin and company
+  adminId:   { type: mongoose.Schema.Types.ObjectId, ref: "Admin",   required: true },
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
 
-  employeeId: { type: String, required: true, unique: true },
+  employeeId:   { type: String, required: true, unique: true },
   employeeName: { type: String, required: true },
-  attendance: [DailySchema],
+  attendance:   [DailySchema],
+
+  // ✅ NEW: Monthly Request Limit Tracking
+  monthlyRequestLimits: {
+    type: Map,
+    of: {
+      limit: { type: Number, default: 5 },
+      used:  { type: Number, default: 0 }
+    },
+    default: {}
+  }
 });
 
 export default mongoose.model("Attendance", AttendanceSchema);

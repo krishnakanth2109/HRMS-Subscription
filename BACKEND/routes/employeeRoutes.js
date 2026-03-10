@@ -1,19 +1,25 @@
 ﻿// --- START OF FILE: routes/employeeRoutes.js ---
 
 import express from "express";
+import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
 import Employee from "../models/employeeModel.js";
 import Company from "../models/CompanyModel.js";
 import Notification from "../models/notificationModel.js";
+import InvitedEmployee from "../models/Invitedemployee.js";
 import { upload } from "../config/cloudinary.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+// Multer memory storage for onboarding (direct-to-cloudinary buffer uploads)
+const memoryUpload = multer({ storage: multer.memoryStorage() });
+
 /* ==============================================================
 ==============
  📁 1. FILE UPLOAD ROUTE
-=================================================================
+================================================================
 =========== */
 router.post("/upload-doc", protect, upload.single("file"), (req, res) => {
   try {
@@ -30,8 +36,308 @@ router.post("/upload-doc", protect, upload.single("file"), (req, res) => {
 
 /* ==============================================================
 ==============
- 👤 2. EMPLOYEE CRUD
-=================================================================
+ 🚀 2. EMPLOYEE ONBOARDING (Public — no auth, invited employee self-registers)
+================================================================
+=========== */
+
+router.post(
+  "/onboard",
+  memoryUpload.fields([
+    { name: "aadhaarCard", maxCount: 1 },
+    { name: "panCard", maxCount: 1 },
+    { name: "companyDocuments" },
+  ]),
+  async (req, res) => {
+    try {
+      // ── Log received files ────────────────────────────────────────
+      console.log("========== ONBOARD REQUEST ==========");
+      console.log("Received files:", {
+        aadhaarCard: req.files?.["aadhaarCard"]
+          ? req.files["aadhaarCard"].length
+          : 0,
+        panCard: req.files?.["panCard"] ? req.files["panCard"].length : 0,
+        companyDocuments: req.files?.["companyDocuments"]
+          ? req.files["companyDocuments"].length
+          : 0,
+      });
+
+      // ── 1. Parse JSON payload ─────────────────────────────────────
+      if (!req.body.jsonData) {
+        return res.status(400).json({ error: "No form data received" });
+      }
+
+      const data = JSON.parse(req.body.jsonData);
+      console.log("Company ID from payload:", data.company);
+      console.log("Email from payload:", data.email);
+
+      // ── 2. Validate company ───────────────────────────────────────
+      const company = await Company.findById(data.company);
+      if (!company) {
+        return res.status(404).json({ error: "Company not found" });
+      }
+
+      // ── 3. Derive adminId from company (employee has no auth token) ──
+      //    Company must have an adminId field linking it to the SaaS admin.
+      const adminId = company.adminId;
+      if (!adminId) {
+        return res
+          .status(400)
+          .json({ error: "Company has no associated admin" });
+      }
+
+      // ── 4. Verify the employee was actually invited ───────────────
+      if (!data.email) {
+        return res
+          .status(400)
+          .json({ error: "Email is required for onboarding" });
+      }
+
+      const invite = await InvitedEmployee.findOne({
+        email: data.email.toLowerCase().trim(),
+        company: data.company,
+      });
+
+      if (!invite) {
+        return res.status(403).json({
+          error:
+            "No active invitation found for this email in the given company",
+        });
+      }
+
+      if (invite.status === "revoked") {
+        return res
+          .status(403)
+          .json({ error: "Your invitation has been revoked" });
+      }
+
+      // ── 5. Generate Employee ID (company prefix + padded count) ──
+      const currentCount = await Employee.countDocuments({
+        company: data.company,
+      });
+      const paddedCount = String(currentCount + 1).padStart(2, "0");
+      const employeeId = `${company.prefix}${paddedCount}`;
+      console.log("Generated Employee ID:", employeeId);
+
+      // ── 6. Build employee object ──────────────────────────────────
+      const newEmployeeData = {
+        ...data,
+        employeeId,
+        adminId,                       // ✅ scoped to the correct admin
+        company: data.company,         // ✅ scoped to the correct company
+        companyName: company.name,     // snapshot for quick access
+        companyPrefix: company.prefix, // snapshot for quick access
+        role: "employee",
+        isActive: true,
+        status: "Active",
+        personalDetails: {
+          ...data.personalDetails,
+          aadhaarFileUrl: null,
+          panFileUrl: null,
+        },
+        companyDocuments: [],
+      };
+
+      // ── 7. Upload Aadhaar Card → Cloudinary ──────────────────────
+      if (
+        req.files &&
+        req.files["aadhaarCard"] &&
+        req.files["aadhaarCard"][0]
+      ) {
+        const file = req.files["aadhaarCard"][0];
+        console.log("Processing Aadhaar Card:", file.originalname);
+
+        try {
+          const b64 = Buffer.from(file.buffer).toString("base64");
+          const dataURI = "data:" + file.mimetype + ";base64," + b64;
+
+          const uploadResult = await cloudinary.uploader.upload(dataURI, {
+            folder: "hrms_employee_documents/aadhaar",
+            resource_type: "image",
+            public_id: `aadhaar_${Date.now()}_${file.originalname.replace(
+              /\.[^/.]+$/,
+              ""
+            )}`,
+            format: file.originalname.split(".").pop(),
+          });
+
+          newEmployeeData.personalDetails.aadhaarFileUrl =
+            uploadResult.secure_url;
+          console.log(
+            "✅ Aadhaar uploaded to Cloudinary:",
+            uploadResult.secure_url
+          );
+        } catch (uploadError) {
+          console.error("❌ Aadhaar upload failed:", uploadError);
+          return res.status(500).json({
+            error: "Failed to upload Aadhaar card",
+            details: uploadError.message,
+          });
+        }
+      } else {
+        console.warn("⚠️ No Aadhaar Card file received");
+        return res.status(400).json({ error: "Aadhaar card is required" });
+      }
+
+      // ── 8. Upload PAN Card → Cloudinary ──────────────────────────
+      if (req.files && req.files["panCard"] && req.files["panCard"][0]) {
+        const file = req.files["panCard"][0];
+        console.log("Processing PAN Card:", file.originalname);
+
+        try {
+          const b64 = Buffer.from(file.buffer).toString("base64");
+          const dataURI = "data:" + file.mimetype + ";base64," + b64;
+
+          const uploadResult = await cloudinary.uploader.upload(dataURI, {
+            folder: "hrms_employee_documents/pan",
+            resource_type: "image",
+            public_id: `pan_${Date.now()}_${file.originalname.replace(
+              /\.[^/.]+$/,
+              ""
+            )}`,
+            format: file.originalname.split(".").pop(),
+          });
+
+          newEmployeeData.personalDetails.panFileUrl = uploadResult.secure_url;
+          console.log(
+            "✅ PAN uploaded to Cloudinary:",
+            uploadResult.secure_url
+          );
+        } catch (uploadError) {
+          console.error("❌ PAN upload failed:", uploadError);
+          return res.status(500).json({
+            error: "Failed to upload PAN card",
+            details: uploadError.message,
+          });
+        }
+      } else {
+        console.warn("⚠️ No PAN Card file received");
+        return res.status(400).json({ error: "PAN card is required" });
+      }
+
+      // ── 9. Upload Company Documents (PDF/DOCX/images) → Cloudinary ──
+      if (
+        req.files &&
+        req.files["companyDocuments"] &&
+        req.files["companyDocuments"].length > 0
+      ) {
+        console.log(
+          `Processing ${req.files["companyDocuments"].length} company documents`
+        );
+
+        for (const file of req.files["companyDocuments"]) {
+          try {
+            console.log(`Uploading ${file.originalname} to Cloudinary...`);
+
+            const b64 = Buffer.from(file.buffer).toString("base64");
+            const dataURI = "data:" + file.mimetype + ";base64," + b64;
+
+            const resourceType = file.mimetype.startsWith("image/")
+              ? "image"
+              : "raw";
+
+            const uploadResult = await cloudinary.uploader.upload(dataURI, {
+              folder: "hrms_employee_documents/company",
+              resource_type: resourceType,
+              public_id: `${Date.now()}_${file.originalname.replace(
+                /\.[^/.]+$/,
+                ""
+              )}`,
+              format: file.originalname.split(".").pop(),
+            });
+
+            newEmployeeData.companyDocuments.push({
+              fileName: file.originalname,
+              fileUrl: uploadResult.secure_url,
+              uploadedAt: new Date(),
+              fileType: file.mimetype,
+              fileSize: file.size,
+            });
+
+            console.log(
+              `✅ Uploaded ${file.originalname}: ${uploadResult.secure_url}`
+            );
+          } catch (uploadError) {
+            console.error(
+              `❌ Error uploading ${file.originalname}:`,
+              uploadError
+            );
+            return res.status(500).json({
+              error: `Failed to upload document: ${file.originalname}`,
+              details: uploadError.message,
+            });
+          }
+        }
+      }
+
+      // ── 10. Final URL validation ─────────────────────────────────
+      if (!newEmployeeData.personalDetails.aadhaarFileUrl) {
+        return res
+          .status(400)
+          .json({ error: "Aadhaar card upload failed — URL missing" });
+      }
+      if (!newEmployeeData.personalDetails.panFileUrl) {
+        return res
+          .status(400)
+          .json({ error: "PAN card upload failed — URL missing" });
+      }
+
+      // ── 11. Save employee to DB ───────────────────────────────────
+      console.log("Saving employee to database...");
+      console.log(
+        "Aadhaar URL:",
+        newEmployeeData.personalDetails.aadhaarFileUrl
+      );
+      console.log("PAN URL:", newEmployeeData.personalDetails.panFileUrl);
+      console.log(
+        "Company Documents:",
+        newEmployeeData.companyDocuments.length
+      );
+      console.log("adminId:", adminId);
+      console.log("company:", data.company);
+
+      const employee = new Employee(newEmployeeData);
+      const result = await employee.save();
+
+      // ── 12. Sync company employee count ──────────────────────────
+      company.employeeCount = await Employee.countDocuments({
+        company: data.company,
+      });
+      await company.save();
+
+      console.log(`✅ Employee onboarded successfully: ${result.employeeId}`);
+      console.log("======================================");
+
+      res.status(201).json({
+        success: true,
+        message: "Onboarding successful",
+        employeeId: result.employeeId,
+      });
+    } catch (err) {
+      console.error("❌ Onboarding error:", err);
+      console.error("Error stack:", err.stack);
+
+      // Duplicate email / employeeId
+      if (err.code === 11000) {
+        const field = Object.keys(err.keyPattern)[0];
+        return res.status(400).json({
+          error: `Duplicate value for ${field}. This email may already be registered.`,
+          field,
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: "Internal Server Error",
+        message: err.message,
+      });
+    }
+  }
+);
+
+/* ==============================================================
+==============
+ 👤 3. EMPLOYEE CRUD
+================================================================
 =========== */
 
 // CREATE employee → ADMIN ONLY
@@ -215,7 +521,7 @@ router.delete("/:id", protect, onlyAdmin, async (req, res) => {
 /* ==============================================================
 ==============
  🔐 DEACTIVATE / REACTIVATE → ADMIN ONLY
-=================================================================
+================================================================
 =========== */
 
 router.patch("/:id/deactivate", protect, onlyAdmin, async (req, res) => {
@@ -265,7 +571,7 @@ router.patch("/:id/reactivate", protect, onlyAdmin, async (req, res) => {
 /* ==============================================================
 ==============
  🔥 IDLE DETECTION → SYSTEM GENERATED
-=================================================================
+================================================================
 =========== */
 router.post("/idle-activity", protect, async (req, res) => {
   try {

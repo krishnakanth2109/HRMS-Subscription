@@ -1,4 +1,6 @@
 import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
+
 import { 
     registerAdmin, 
     loginAdmin, 
@@ -9,6 +11,8 @@ import {
     toggleAdminLogin,
     toggleEmployeeLoginByAdmin,
     getLoginAccessStatus,
+    getAdminProfile ,
+    updateAdminProfile,
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -17,22 +21,17 @@ const router = express.Router();
 router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 
-// Dynamic Settings route (Ideally protected by a SuperAdmin middleware)
-router.patch("/plan-settings", updatePlanSettings);
+// Protected routes (only these two)
+router.get("/profile", protect, getAdminProfile); 
+router.put("/profile/update", protect, updateAdminProfile);
 
-// Admin management
+// Public routes (no protect)
+router.patch("/plan-settings", updatePlanSettings);
 router.get("/all-admins", getAllAdmins);
 router.get("/all-plans", getAllPlanSettings);
 router.delete("/delete-plan/:id", deletePlan);
-
-// ==================== LOGIN ACCESS CONTROL ROUTES ====================
-// Get login access status for all admins (with employee counts)
 router.get("/login-access", getLoginAccessStatus);
-
-// Toggle login for a specific admin (and optionally their employees)
 router.patch("/login-access/admin/:adminId", toggleAdminLogin);
-
-// Toggle login for ALL employees under a specific admin
 router.patch("/login-access/employees/:adminId", toggleEmployeeLoginByAdmin);
 
 export default router;
