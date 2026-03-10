@@ -84,6 +84,7 @@ import AdminRulesPost from "./pages/AdminRulespost";
 import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
 import ManageLogins from "./pages/master/Managelogins";
 import SendOnboardingForm from "./pages/InviteEmployee";
+import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -154,6 +155,7 @@ function App() {
       
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
+      <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />
 
       {/* ------------------ MASTER ROUTES ------------------ */}
       {/* 

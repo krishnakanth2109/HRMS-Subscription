@@ -1,5 +1,3 @@
-// --- START OF FILE EmployeeDashboard.jsx ---
-
 import React, {
   useContext,
   useState,
@@ -45,10 +43,8 @@ import {
   FaUmbrellaBeach,
   FaAngleRight,
   FaLuggageCart,
-  FaCalendarCheck,
   FaClock,
   FaBullhorn,
-  
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 
@@ -60,10 +56,10 @@ import api, {
   getProfilePic,
   deleteProfilePic,
   getShiftByEmployeeId,
-  getHolidays, // ✅ ADDED: Needed for accurate stats
-  getLeaveRequestsForEmployee // ✅ ADDED: Needed for accurate stats
+  getHolidays,
+  getLeaveRequestsForEmployee,
 } from "../api";
-import { useNavigate, Link } from "react-router-dom"; // ✅ Added Link
+import { useNavigate, Link } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
 
 // ✅ Registering Chart Components
@@ -95,7 +91,7 @@ const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
 const formatDateDDMMYYYY = (dateString) => {
   if (!dateString) return "--";
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-GB"); // en-GB outputs dd/mm/yyyy
+  return date.toLocaleDateString("en-GB");
 };
 
 // ✅ Helper: Format Date for Comparison (YYYY-MM-DD) - Local Time
@@ -110,10 +106,10 @@ const toISODateString = (date) => {
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
   const { notices } = useContext(NoticeContext);
-  
+
   // ✅ OPTIMIZATION: Split loading state
-  const [loading, setLoading] = useState(true); // Critical data (Punch/Shift)
-  const [loadingTeamData, setLoadingTeamData] = useState(true); // Background data (Widgets)
+  const [loading, setLoading] = useState(true);
+  const [loadingTeamData, setLoadingTeamData] = useState(true);
 
   const [attendance, setAttendance] = useState([]);
   const [todayLog, setTodayLog] = useState(null);
@@ -130,11 +126,12 @@ const EmployeeDashboard = () => {
   // ✅ NEW: Today's Birthdays and On Leave Today States
   const [todaysBirthdays, setTodaysBirthdays] = useState([]);
   const [onLeaveToday, setOnLeaveToday] = useState([]);
-  
+
   // ✅ NEW: Remote Workers & Leave Balance States
   const [remoteWorkers, setRemoteWorkers] = useState([]);
-  const [leaveBalance, setLeaveBalance] = useState({ available: 1, taken: 0 }); 
-  
+  const [leaveBalance, setLeaveBalance] = useState({ available: 1, taken: 0 });
+  const [showAllRemoteEmp, setShowAllRemoteEmp] = useState(false);
+
   // ✅ NEW: Full Holidays and Leaves for Graph Accuracy
   const [holidays, setHolidays] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -143,12 +140,11 @@ const EmployeeDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const [isShiftDropdownOpen, setIsShiftDropdownOpen] = useState(false);
-
-  // ✅ Break Dropdown State
   const [isBreakDropdownOpen, setIsBreakDropdownOpen] = useState(false);
 
   // ✅ Missed Punch Logic State
   const [missedPunchLog, setMissedPunchLog] = useState(null);
+  const [missedPunchRequestStatus, setMissedPunchRequestStatus] = useState(null);
   const [showReqModal, setShowReqModal] = useState(false);
   const [reqData, setReqData] = useState({ date: "", time: "", reason: "" });
   const [reqLoading, setReqLoading] = useState(false);
@@ -158,19 +154,19 @@ const EmployeeDashboard = () => {
   const [lateReqData, setLateReqData] = useState({ time: "", reason: "" });
   const [lateReqLoading, setLateReqLoading] = useState(false);
 
+  // ✅ NEW: Request Limit State
+  const [requestLimit, setRequestLimit] = useState({ limit: 5, used: 0 });
+
   const dropdownRef = useRef(null);
   const breakDropdownRef = useRef(null);
-
   const navigate = useNavigate();
 
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
-
   const [workedTime, setWorkedTime] = useState(0);
-
   const alarmPlayedRef = useRef(false);
 
-  const todayIso = new Date().toISOString().split("T")[0]; // YYYY-MM-DD for logic
+  const todayIso = new Date().toISOString().split("T")[0];
 
   // --- Voice Feedback ---
   const speak = (text) => {
@@ -198,7 +194,7 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // ✅ UPDATED: Robust Location Fetcher (Retries + Fallback to Low Accuracy)
+  // ✅ UPDATED: Robust Location Fetcher
   const getCurrentLocation = () => {
     const getPosition = (options) => {
       return new Promise((resolve, reject) => {
@@ -250,16 +246,15 @@ const EmployeeDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // ✅ OPTIMIZED: Fetch all team data in one go to reduce API calls
+  // ✅ OPTIMIZED: Fetch all team data
   const fetchOptimizedTeamData = async () => {
     setLoadingTeamData(true);
     try {
-      // 1. Parallel Fetch of Raw Data
       const [
-        employeesRes, 
-        leavesRes, 
-        officeConfigRes, 
-        employeeModesRes, 
+        employeesRes,
+        leavesRes,
+        officeConfigRes,
+        employeeModesRes,
         myLeavesRes
       ] = await Promise.all([
         api.get("/api/employees"),
@@ -269,20 +264,23 @@ const EmployeeDashboard = () => {
         api.get("/api/leaves", { params: { employeeId: user.employeeId } })
       ]);
 
-      const allEmployees = employeesRes.data || [];
-      const allLeaves = leavesRes.data || [];
-      // Set office config here as well to ensure we have it for remote calculations
-      const configData = officeConfigRes.data;
-      setOfficeConfig(configData); 
-      
-      const empModes = employeeModesRes.data?.employees || [];
-      const myLeaves = Array.isArray(myLeavesRes.data) ? myLeavesRes.data : (myLeavesRes.data?.leaves || []);
+      // ✅ FIX: Filter active employees immediately so they don't show in birthdays
+      const allEmployeesRaw = employeesRes.data || [];
+      const allEmployees = allEmployeesRaw.filter(emp => emp.isActive !== false);
 
-      // --- LOGIC 1: BIRTHDAYS ---
+      const allLeaves = leavesRes.data || [];
+      const configData = officeConfigRes.data;
+      setOfficeConfig(configData);
+
+      const empModes = employeeModesRes.data?.employees || [];
+      const myLeavesRaw = myLeavesRes.data;
+      const myLeaves = Array.isArray(myLeavesRaw) ? myLeavesRaw : (myLeavesRaw?.leaves || []);
+
       const today = new Date();
-      const todayMonth = today.getMonth() + 1; 
+      const todayMonth = today.getMonth() + 1;
       const todayDate = today.getDate();
 
+      // --- LOGIC 1: BIRTHDAYS (Active Only) ---
       const birthdays = allEmployees.filter(emp => {
         if (!emp.personalDetails?.dob) return false;
         const dob = new Date(emp.personalDetails.dob);
@@ -291,101 +289,59 @@ const EmployeeDashboard = () => {
         name: emp.name,
         employeeId: emp.employeeId,
         department: emp.department || emp.experienceDetails?.[0]?.department || "N/A",
-        role: emp.role || emp.experienceDetails?.[0]?.role || "N/A"
       }));
       setTodaysBirthdays(birthdays);
 
-      // --- LOGIC 2: ON LEAVE TODAY ---
+      // --- LOGIC 2: ON LEAVE TODAY (Active Only) ---
       const employeeMap = new Map();
       allEmployees.forEach(emp => {
         employeeMap.set(emp.employeeId, {
           name: emp.name,
           employeeId: emp.employeeId,
-          department: emp.department || emp.experienceDetails?.[0]?.department || "N/A",
-          role: emp.role || emp.experienceDetails?.[0]?.role || "N/A"
+          department: emp.department || "N/A",
         });
       });
 
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-
       const todayLeaves = allLeaves.filter(leave => {
         if (leave.status !== 'Approved') return false;
+        if (!employeeMap.has(leave.employeeId)) return false;
         const fromDate = new Date(leave.from);
         const toDate = new Date(leave.to);
-        fromDate.setHours(0, 0, 0, 0);
-        toDate.setHours(23, 59, 59, 999);
+        fromDate.setHours(0, 0, 0, 0); toDate.setHours(23, 59, 59, 999);
         return todayStart >= fromDate && todayStart <= toDate;
       });
 
       const onLeave = todayLeaves.map(leave => {
-        const empDetails = employeeMap.get(leave.employeeId) || {
-          name: leave.employeeName || "Unknown",
-          employeeId: leave.employeeId,
-          department: "N/A", role: "N/A"
-        };
-        return { ...empDetails, leaveType: leave.leaveType || "Casual", leaveReason: leave.reason };
+        const empDetails = employeeMap.get(leave.employeeId);
+        return { ...empDetails, leaveType: leave.leaveType || "Casual" };
       });
-      // Unique leaves
       setOnLeaveToday(Array.from(new Map(onLeave.map(item => [item.employeeId, item])).values()));
 
       // --- LOGIC 3: REMOTE WORKERS ---
       const currentGlobalMode = configData.globalWorkMode || 'WFO';
-      const currentDay = today.getDay();
-      
       let remoteList = [];
       empModes.forEach(emp => {
         const basicInfo = employeeMap.get(emp.employeeId);
-        if(!basicInfo) return;
-
-        let effectiveMode = currentGlobalMode;
-        if (emp.ruleType === "Permanent") {
-          effectiveMode = emp.config.permanentMode;
-        } else if (emp.ruleType === "Temporary" && emp.config.temporary) {
-          const from = new Date(emp.config.temporary.fromDate);
-          const to = new Date(emp.config.temporary.toDate);
-          from.setHours(0, 0, 0, 0);
-          to.setHours(23, 59, 59, 999);
-          if (todayStart >= from && todayStart <= to) effectiveMode = emp.config.temporary.mode;
-        } else if (emp.ruleType === "Recurring" && emp.config.recurring) {
-          if (emp.config.recurring.days.includes(currentDay)) effectiveMode = emp.config.recurring.mode;
-        }
-
-        if (effectiveMode === 'WFH') {
-          remoteList.push({
-            name: basicInfo.name,
-            employeeId: basicInfo.employeeId,
-            department: basicInfo.department || "N/A"
-          });
-        }
+        if (!basicInfo) return;
+        let mode = currentGlobalMode;
+        if (emp.ruleType === "Permanent") mode = emp.config.permanentMode;
+        if (mode === 'WFH') remoteList.push(basicInfo);
       });
       setRemoteWorkers(remoteList);
 
-      // --- LOGIC 4: LEAVE BALANCE ---
-      const currentMonth = today.getMonth();
-      const currentYear = today.getFullYear();
-      const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-      
-      const hasApprovedLeaveThisMonth = myLeaves.some(leave => {
-        if (leave.status !== 'Approved') return false;
-        const leaveFrom = new Date(leave.from);
-        return leaveFrom >= firstDayOfMonth;
-      });
-      
+      // Leave Balance Logic
       let totalDaysTaken = 0;
       myLeaves.forEach(leave => {
         if (leave.status === 'Approved') {
-          const leaveFrom = new Date(leave.from);
-          const leaveTo = new Date(leave.to);
-          if (leaveFrom >= firstDayOfMonth) {
-            const diffTime = Math.abs(leaveTo - leaveFrom);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            if (leave.halfDaySession && leave.from === leave.to) totalDaysTaken += 0.5;
-            else totalDaysTaken += diffDays;
+          const lFrom = new Date(leave.from);
+          if (lFrom >= new Date(today.getFullYear(), today.getMonth(), 1)) {
+            const diffDays = Math.ceil(Math.abs(new Date(leave.to) - lFrom) / 86400000) + 1;
+            totalDaysTaken += (leave.halfDaySession && leave.from === leave.to) ? 0.5 : diffDays;
           }
         }
       });
-      const available = hasApprovedLeaveThisMonth ? 0 : 1;
-      setLeaveBalance({ available, taken: totalDaysTaken, extra: Math.max(0, totalDaysTaken - 1) });
+      setLeaveBalance({ available: totalDaysTaken > 0 ? 0 : 1, taken: totalDaysTaken, extra: Math.max(0, totalDaysTaken - 1) });
 
     } catch (error) {
       console.error("Error fetching background data:", error);
@@ -394,17 +350,29 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // ✅ NEW: Load Holidays and Leaves for Accurate Stats
+  // ✅ NEW: Load monthly request limit from backend
+  const loadRequestLimit = useCallback(async (empId) => {
+    try {
+      const { data } = await api.get(`/api/attendance/request-limit/${empId}`);
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const monthData = data.monthlyRequestLimits?.[currentMonth] || { limit: 5, used: 0 };
+      setRequestLimit(monthData);
+    } catch (err) {
+      console.error("Failed to load request limit", err);
+      setRequestLimit({ limit: 5, used: 0 });
+    }
+  }, []);
+
   const loadHolidaysAndLeaves = useCallback(async (empId) => {
     try {
-        const [hRes, lRes] = await Promise.all([
-            getHolidays().catch(e => []),
-            getLeaveRequestsForEmployee(empId).catch(e => [])
-        ]);
-        setHolidays(Array.isArray(hRes) ? hRes : (hRes.data || []));
-        setLeaves(Array.isArray(lRes) ? lRes : (lRes.data || []));
+      const [hRes, lRes] = await Promise.all([
+        getHolidays().catch(e => []),
+        getLeaveRequestsForEmployee(empId).catch(e => [])
+      ]);
+      setHolidays(Array.isArray(hRes) ? hRes : (hRes.data || []));
+      setLeaves(Array.isArray(lRes) ? lRes : (lRes.data || []));
     } catch (e) {
-        console.error("Failed to load holidays/leaves", e);
+      console.error("Failed to load holidays/leaves", e);
     }
   }, []);
 
@@ -435,9 +403,9 @@ const EmployeeDashboard = () => {
       const todayEntry = attendanceData.find((d) => d.date === todayStr);
       setTodayLog(todayEntry || null);
     } catch (err) { console.error("Attendance fetch error:", err); }
-  }, []
-  );
+  }, []);
 
+  // ✅ UPDATED: Fetch request status from Backend (No localStorage)
   useEffect(() => {
     if (attendance.length > 0) {
       const yesterday = new Date();
@@ -449,11 +417,52 @@ const EmployeeDashboard = () => {
       if (prevLog && prevLog.punchIn && !prevLog.punchOut) {
         setMissedPunchLog(prevLog);
         setReqData(prev => ({ ...prev, date: yesterdayStr }));
+
+        // Fetch status dynamically from backend
+        const fetchStatus = async () => {
+          try {
+            const { data } = await api.get("/api/punchoutreq/status", {
+              params: { employeeId: user.employeeId, date: yesterdayStr }
+            });
+            if (data.found) {
+              setMissedPunchRequestStatus(data.status);
+            } else {
+              setMissedPunchRequestStatus(null);
+            }
+          } catch (error) {
+            console.error("Failed to check request status:", error);
+          }
+        };
+        fetchStatus();
+
       } else {
         setMissedPunchLog(null);
+        setMissedPunchRequestStatus(null);
       }
     }
-  }, [attendance]);
+  }, [attendance, user.employeeId]);
+
+  // ✅ OPTIMIZED BOOTSTRAP: Critical first, background second
+  useEffect(() => {
+    const bootstrap = async () => {
+      if (user && user.employeeId) {
+        setLoading(true);
+        await Promise.all([
+          loadAttendance(user.employeeId),
+          loadShiftTimings(user.employeeId),
+          loadProfilePic(),
+          loadRequestLimit(user.employeeId),
+        ]);
+        setLoading(false);
+
+        fetchOptimizedTeamData();
+        loadHolidaysAndLeaves(user.employeeId);
+      } else {
+        setLoading(false);
+      }
+    };
+    bootstrap();
+  }, [user, loadAttendance, loadShiftTimings, loadHolidaysAndLeaves, loadRequestLimit]);
 
   const loadProfilePic = async () => {
     try {
@@ -464,30 +473,6 @@ const EmployeeDashboard = () => {
       }
     } catch (err) { }
   };
-
-  // ✅ OPTIMIZED BOOTSTRAP: Critical First, Background Second
-  useEffect(() => {
-    const bootstrap = async () => {
-      if (user && user.employeeId) {
-        // 1. Load CRITICAL data for UI (Punching, Shift)
-        setLoading(true);
-        await Promise.all([
-          loadAttendance(user.employeeId),
-          loadShiftTimings(user.employeeId),
-          loadProfilePic(), 
-        ]);
-        setLoading(false); // ✅ UNBLOCK UI HERE
-
-        // 2. Load HEAVY data in background (Widgets, Charts, Team Info)
-        // This runs without blocking the user
-        fetchOptimizedTeamData(); 
-        loadHolidaysAndLeaves(user.employeeId);
-      } else { 
-        setLoading(false); 
-      }
-    };
-    bootstrap();
-  }, [user, loadAttendance, loadShiftTimings, loadHolidaysAndLeaves]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -621,11 +606,23 @@ const EmployeeDashboard = () => {
         await punchIn({ employeeId: user.employeeId, employeeName: user.name, latitude: location.latitude, longitude: location.longitude });
         speak(`${user.name}, punch in successful`);
         Swal.fire({ icon: 'success', title: 'Welcome!', text: 'Punch in recorded successfully.' });
+
+      } else if (action === "BREAK") {
+        // ✅ NEW: Break action — pauses session without final punch-out
+        await api.post('/api/attendance/punch-break', {
+          employeeId: user.employeeId,
+          latitude: location.latitude,
+          longitude: location.longitude
+        });
+        speak(`${user.name}, break started`);
+        Swal.fire({ icon: 'info', title: 'Break Started! ☕', text: 'Your session is paused. Click Punch In to resume work.' });
+
       } else {
         await punchOut({ employeeId: user.employeeId, latitude: location.latitude, longitude: location.longitude });
         speak(`${user.name}, punch out successful`);
         Swal.fire({ icon: 'success', title: 'Goodbye!', text: 'Punch out recorded successfully.' });
       }
+
       await loadAttendance(user.employeeId);
     } catch (err) {
       console.error("Punch error:", err);
@@ -678,8 +675,9 @@ const EmployeeDashboard = () => {
 
       if (workedTime >= fullDaySeconds) { await performPunchAction("OUT"); return; }
 
+      // ✅ UPDATED: Contextual warning message based on hours worked
       let confirmMessage = workedTime < halfDaySeconds
-        ? "“Your worked hours are below the minimum Half-Day limit. If you don't punch in again, today will be marked as ABSENT. Do you want to continue?"
+        ? "Your worked hours are below the minimum Half-Day limit. If you don't punch in again, today will be marked as ABSENT. Do you want to continue?"
         : "Your worked hours are below the Full-Day requirement. If you don't punch in again, today will be marked as HALF-DAY. Do you want to continue?";
 
       Swal.fire({
@@ -696,12 +694,48 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // ✅ NEW: Break handler with confirmation dialog
+  const handleBreak = async () => {
+    if (!user) return;
+    Swal.fire({
+      title: "Take a Break?",
+      text: "Your work session will be paused. You can Punch In again to resume working.",
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#f97316',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, take a break!',
+      cancelButtonText: 'Cancel'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        performPunchAction("BREAK");
+      }
+    });
+  };
+
+  // ✅ UPDATED: Request Submit Validation with State Update (No localStorage)
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
     if (!reqData.time || !reqData.reason) {
       Swal.fire("Error", "Please fill all fields", "error");
       return;
     }
+
+    if (missedPunchLog?.punchIn) {
+      const punchInDate = new Date(missedPunchLog.punchIn);
+      const requestedDate = new Date(`${reqData.date}T${reqData.time}`);
+
+      if (requestedDate <= punchInDate) {
+        Swal.fire({
+          icon: "error",
+          title: "Invalid Time",
+          text: `Requested punch-out time must be after your actual punch-in time (${punchInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}).`,
+          confirmButtonColor: "#3b82f6"
+        });
+        return;
+      }
+    }
+
     setReqLoading(true);
     try {
       const combinedDateTime = new Date(`${reqData.date}T${reqData.time}`);
@@ -714,6 +748,10 @@ const EmployeeDashboard = () => {
       };
       await api.post('/api/punchoutreq/create', payload);
       Swal.fire("Success", "Request sent successfully! Once approved, your record will be updated.", "success");
+
+      // Update state to Pending instantly (no localStorage)
+      setMissedPunchRequestStatus("Pending");
+
       setShowReqModal(false);
       setReqData({ ...reqData, time: "", reason: "" });
     } catch (error) {
@@ -724,42 +762,82 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // ✅ UPDATED HANDLER: Convert Local Time to UTC before sending
+  // ✅ UPDATED: Late correction uses /submit-late-correction endpoint + checks limit
   const handleLateRequestSubmit = async (e) => {
     e.preventDefault();
-    if (!lateReqData.time || !lateReqData.reason) {
-      Swal.fire("Error", "Please enter time and reason", "error");
+
+    if (requestLimit.limit - requestLimit.used <= 0) {
+      Swal.fire({
+        title: "Limit Reached",
+        text: `You have used all ${requestLimit.limit} late correction requests for this month.`,
+        icon: "warning",
+        confirmButtonColor: "#d33"
+      });
       return;
     }
+
     setLateReqLoading(true);
+
     try {
-      // ✅ FIX: Create Date object from local time input
-      const localDateTime = new Date(`${todayIso}T${lateReqData.time}`);
+      const { time, reason } = lateReqData;
+      const todayDate = new Date().toISOString().split("T")[0];
+      const requestedDateTime = new Date(`${todayDate}T${time}:00`);
 
-      // Extract UTC Hours and Minutes
-      const utcHours = String(localDateTime.getUTCHours()).padStart(2, '0');
-      const utcMinutes = String(localDateTime.getUTCMinutes()).padStart(2, '0');
-
-      // Format as HH:mm in UTC
-      const utcTimeStr = `${utcHours}:${utcMinutes}`;
-
-      const payload = {
+      await api.post("/api/attendance/submit-late-correction", {
         employeeId: user.employeeId,
-        date: todayIso,
-        time: utcTimeStr, // ✅ Sending UTC time to server
-        reason: lateReqData.reason
-      };
-      await api.post('/api/attendance/request-correction', payload);
-      Swal.fire("Success", "Request for On-Time login sent to Admin.", "success");
+        date: todayDate,
+        requestedTime: requestedDateTime.toISOString(),
+        reason,
+      });
+
+      await loadRequestLimit(user.employeeId);
+
+      Swal.fire({
+        title: "Request Submitted!",
+        html: `Your late correction request has been sent to admin for approval.<br/>
+               <small class="text-gray-500">Remaining requests: ${requestLimit.limit - requestLimit.used - 1}</small>`,
+        icon: "success",
+        confirmButtonColor: "#10b981"
+      });
+
       setShowLateReqModal(false);
       setLateReqData({ time: "", reason: "" });
+
       await loadAttendance(user.employeeId);
-    } catch (error) {
-      const errMsg = error.response?.data?.message || error.message;
-      Swal.fire("Error", errMsg, "error");
+
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message;
+
+      if (err.response?.data?.limitReached) {
+        await loadRequestLimit(user.employeeId);
+      }
+
+      Swal.fire({
+        title: "Submission Failed",
+        text: errorMsg,
+        icon: "error",
+        confirmButtonColor: "#d33"
+      });
     } finally {
       setLateReqLoading(false);
     }
+  };
+
+  // ✅ NEW: Open late modal — guard with remaining request check
+  const handleOpenLateRequestModal = () => {
+    const remaining = requestLimit.limit - requestLimit.used;
+
+    if (remaining <= 0) {
+      Swal.fire({
+        title: "Limit Reached",
+        text: `You have used all ${requestLimit.limit} late correction requests for this month. Please contact admin for further assistance.`,
+        icon: "warning",
+        confirmButtonColor: "#d33"
+      });
+      return;
+    }
+
+    setShowLateReqModal(true);
   };
 
   const handleImageSelect = (e) => {
@@ -801,11 +879,21 @@ const EmployeeDashboard = () => {
     return `${hours}h ${minutes}m ${seconds}s`;
   };
 
+  // ✅ UPDATED: "Resume Work" detection uses isFinalPunchOut flag from model
   const getPunchButtonContent = (action) => {
     const spinner = <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />;
     if (punchStatus === "FETCHING") return <>{spinner} Extracting...</>;
     if (punchStatus === "PUNCHING") return <>{spinner} {action === "IN" ? "Punching In..." : "Punching Out..."}</>;
-    if (action === "IN") return todayLog?.punchIn ? "Resume Work" : "Punch In";
+    if (action === "IN") {
+      // ✅ Show "Resume Work" when employee is on break (has sessions but not actively working)
+      const isOnBreak = todayLog?.punchIn &&
+        todayLog?.status !== "WORKING" &&
+        todayLog?.isFinalPunchOut !== true &&
+        todayLog?.adminPunchOut !== true &&
+        todayLog?.workedStatus !== "FULL_DAY" &&
+        (todayLog?.sessions || []).length > 0;
+      return isOnBreak ? "Resume Work" : "Punch In";
+    }
     return "Punch Out";
   };
 
@@ -834,22 +922,20 @@ const EmployeeDashboard = () => {
 
   const getWorkedStatusBadge = () => {
     if (!todayLog?.punchIn) return { label: "--", color: "text-gray-500" };
-    if (!todayLog.punchOut) { return { label: "Working...", color: "bg-blue-100 text-blue-800 animate-pulse" }; }
+    if (!todayLog.punchOut) { return { label: "Working...", color: "bg-blue-100 text-blue-800 animate-pulse border border-blue-200" }; }
 
     const fullDaySeconds = shiftTimings ? (shiftTimings.fullDayHours * 3600) : (9 * 3600);
     const halfDaySeconds = shiftTimings ? (shiftTimings.halfDayHours * 3600) : (4.5 * 3600);
     const currentWorkedSeconds = workedTime;
 
-    if (currentWorkedSeconds >= fullDaySeconds) { return { label: "Full Day", color: "bg-green-100 text-green-800" }; } else if (currentWorkedSeconds >= halfDaySeconds) { return { label: "Half Day", color: "bg-yellow-100 text-yellow-800" }; } else { return { label: "Absent", color: "bg-red-100 text-red-800" }; }
+    if (currentWorkedSeconds >= fullDaySeconds) { return { label: "Full Day", color: "bg-green-100 text-green-800 border border-green-200" }; } else if (currentWorkedSeconds >= halfDaySeconds) { return { label: "Half Day", color: "bg-yellow-100 text-yellow-800 border border-yellow-200" }; } else { return { label: "Absent", color: "bg-red-100 text-red-800 border border-red-200" }; }
   };
 
-  // ✅ HELPER: Display Login Status (Calculated Logic)
   const getDisplayLoginStatus = () => {
     if (!todayLog?.punchIn) return "--";
 
     let status = todayLog.loginStatus || "ON_TIME";
 
-    // ✅ FORCE RECALCULATION: Check if shift timings exist and compare time
     if (shiftTimings) {
       const punchTime = new Date(todayLog.punchIn);
       const [sHour, sMin] = shiftTimings.shiftStartTime.split(':').map(Number);
@@ -859,7 +945,6 @@ const EmployeeDashboard = () => {
       const grace = shiftTimings.lateGracePeriod || 15;
       shiftTime.setMinutes(shiftTime.getMinutes() + grace);
 
-      // If punchTime is AFTER shiftTime (including grace), it is LATE
       if (punchTime > shiftTime) {
         status = "LATE";
       } else {
@@ -873,34 +958,31 @@ const EmployeeDashboard = () => {
 
     return (
       <div className="flex flex-col items-start gap-1">
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${status === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
+        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm border ${status === "LATE" ? "bg-red-50 text-red-700 border-red-100" : "bg-green-50 text-green-700 border-green-100"}`}>
           {status}
         </span>
         {status === "LATE" && isPending && (
-          <span className="text-xs text-orange-600 font-semibold animate-pulse">Request Pending...</span>
+          <span className="text-[10px] text-orange-600 font-semibold animate-pulse mt-0.5">Request Pending...</span>
         )}
         {status === "LATE" && isRejected && (
-          <span className="text-xs text-red-600 font-semibold">Request Rejected</span>
+          <span className="text-[10px] text-red-600 font-semibold mt-0.5">Request Rejected</span>
         )}
-        {/* ✅ Added: Request Button inside Table Cell if NO request is pending */}
         {status === "LATE" && !isPending && !isRejected && (
           <button
-            onClick={() => setShowLateReqModal(true)}
-            className="text-xs text-blue-600 hover:text-blue-800 underline font-semibold mt-1"
+            onClick={handleOpenLateRequestModal}
+            className="text-[10px] text-blue-600 hover:text-blue-800 underline font-semibold mt-1"
           >
-            Request On-Time Login
+            Request On-Time Login ({requestLimit.limit - requestLimit.used} left)
           </button>
         )}
       </div>
     );
   };
 
-  // ✅ HELPER: Should show correction button?
   const shouldShowCorrectionButton = () => {
     if (!todayLog?.punchIn) return false;
-    let status = "ON_TIME"; // Default safe
+    let status = "ON_TIME";
 
-    // ✅ FORCE RECALCULATION
     if (shiftTimings) {
       const punchTime = new Date(todayLog.punchIn);
       const [sHour, sMin] = shiftTimings.shiftStartTime.split(':').map(Number);
@@ -918,7 +1000,6 @@ const EmployeeDashboard = () => {
     return status === "LATE" && !isPending;
   };
 
-  // ✅ MEMOIZED CHART DATA
   const workMeterData = useMemo(() => {
     let targetSeconds = 9 * 3600;
     if (shiftTimings?.fullDayHours) {
@@ -933,101 +1014,70 @@ const EmployeeDashboard = () => {
   const commonChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, tooltip: { enabled: true } } };
   const meterChartOptions = { ...commonChartOptions, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (context) { const val = context.raw; const h = Math.floor(val / 3600); const m = Math.floor((val % 3600) / 60); return `${context.label}: ${h}h ${m}m`; } } } } };
 
-  // ✅ MEMOIZED CHART DATA (Updated to match EmployeeDailyAttendance Logic)
-  // This logic now correctly excludes Holidays, Approved Leaves, and Week Offs from the "Absent" count.
   const leaveBarData = useMemo(() => {
-    // 1. Get Settings from Shift Timings or Defaults
     const adminFullDayHours = shiftTimings?.fullDayHours || 9;
     const adminHalfDayHours = shiftTimings?.halfDayHours || 4.5;
-    const weeklyOffDays = shiftTimings?.weeklyOffDays || [0]; // Default Sunday
+    const weeklyOffDays = shiftTimings?.weeklyOffDays || [0];
 
-    // 2. Setup Date Range (Current Month up to Today)
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth();
-    
-    // Get today's date number to limit the loop
+
     const currentDayDate = today.getDate();
 
     let fullDayCount = 0;
     let halfDayCount = 0;
     let absentCount = 0;
 
-    // 3. Iterate through every day of the month up to Today
     for (let day = 1; day <= currentDayDate; day++) {
       const checkDate = new Date(currentYear, currentMonth, day);
-      const checkDateISO = toISODateString(checkDate); // Use local ISO helper
+      const checkDateISO = toISODateString(checkDate);
       const isToday = (day === currentDayDate);
       const dayOfWeek = checkDate.getDay();
 
-      // Find attendance record for this specific date
       const record = attendance.find((a) => a.date === checkDateISO);
 
-      // Check Holiday
       const isHoliday = holidays.some(h => {
-        const start = new Date(h.startDate); start.setHours(0,0,0,0);
-        const end = new Date(h.endDate || h.startDate); end.setHours(23,59,59,999);
+        const start = new Date(h.startDate); start.setHours(0, 0, 0, 0);
+        const end = new Date(h.endDate || h.startDate); end.setHours(23, 59, 59, 999);
         const check = new Date(currentYear, currentMonth, day);
         return check >= start && check <= end;
       });
 
-      // Check Leave (Status must be Approved)
       const isLeave = leaves.some(l => {
-        if(l.status !== 'Approved') return false;
-        const start = new Date(l.from); start.setHours(0,0,0,0);
-        const end = new Date(l.to); end.setHours(23,59,59,999);
+        if (l.status !== 'Approved') return false;
+        const start = new Date(l.from); start.setHours(0, 0, 0, 0);
+        const end = new Date(l.to); end.setHours(23, 59, 59, 999);
         const check = new Date(currentYear, currentMonth, day);
         return check >= start && check <= end;
       });
 
       if (record && record.punchIn) {
-        // --- LOGIC: WORKED HOURS CALCULATION ---
         let workedHours = 0;
-        
+
         if (record.punchOut) {
-          // Completed Shift
           const start = new Date(record.punchIn);
           const end = new Date(record.punchOut);
           workedHours = (end - start) / (1000 * 60 * 60);
         } else if (isToday) {
-          // Currently Working (Live Calculation)
           const start = new Date(record.punchIn);
           const now = new Date();
           workedHours = (now - start) / (1000 * 60 * 60);
         }
 
-        // --- LOGIC: CATEGORIZATION ---
         if (workedHours >= adminFullDayHours) {
           fullDayCount++;
         } else if (workedHours >= adminHalfDayHours) {
           halfDayCount++;
         } else {
-          // If worked less than half day and NOT today (finished day), count as absent/short-leave
-          // Unless it's a valid leave day
           if (!isToday && !isLeave) absentCount++;
         }
 
       } else {
-        // --- LOGIC: NO PUNCH FOUND ---
-        
-        if (isToday) continue; // Don't mark today as absent yet
-
-        // Check if it is a Weekly Off
-        if (weeklyOffDays.includes(dayOfWeek)) {
-          continue; // It's a weekend/off day, ignore
-        }
-
-        // Check if it is a Holiday
-        if (isHoliday) {
-            continue; // Ignore Holidays
-        }
-
-        // Check if it is an Approved Leave
-        if (isLeave) {
-            continue; // Ignore Approved Leaves (Don't count as Unexcused Absent)
-        }
-
-        // If no punch, not a weekly off, not a holiday, not a leave -> Absent
+        if (isToday) continue;
+        if (weeklyOffDays.includes(dayOfWeek)) continue;
+        if (isHoliday) continue;
+        if (isLeave) continue;
         absentCount++;
       }
     }
@@ -1045,8 +1095,7 @@ const EmployeeDashboard = () => {
     };
   }, [attendance, shiftTimings, holidays, leaves]);
 
-  // ✅ UPDATED Loading Logic: Only block UI for critical data
-  if (loading) return <div className="p-8 text-center text-lg font-semibold animate-pulse">Loading Dashboard...</div>;
+  if (loading) return <div className="p-8 text-center text-lg font-semibold animate-pulse text-gray-500">Loading Dashboard...</div>;
   if (!user) return <div className="p-8 text-center text-red-600 font-semibold">Could not load employee data.</div>;
 
   const displayLoginStatusContent = getDisplayLoginStatus();
@@ -1056,28 +1105,33 @@ const EmployeeDashboard = () => {
   const { mode: currentWorkMode, description: workModeDesc } = calculateWorkModeStatus();
 
   const targetSeconds = shiftTimings ? (shiftTimings.fullDayHours * 3600) : (9 * 3600);
-  const isShiftCompleted = todayLog?.punchOut && (todayLog?.workedStatus === "FULL_DAY" || workedTime >= targetSeconds);
+
+  // ✅ UPDATED: Uses isFinalPunchOut + adminPunchOut flags from updated Attendance model
+  const isShiftCompleted =
+    todayLog?.isFinalPunchOut === true ||
+    todayLog?.adminPunchOut === true ||
+    todayLog?.workedStatus === "FULL_DAY";
 
   const isShiftReqCompleted = workedTime >= targetSeconds;
-  const showPunchInButton = !todayLog || todayLog.status !== "WORKING";
 
-  // Check if everyone is remote
+  const showPunchInButton = !todayLog || (todayLog.status !== "WORKING" && !isShiftCompleted);
+
   const isGlobalWFH = officeConfig?.globalWorkMode === 'WFH';
 
-  // Add this inside your component, before the return statement
-const gradients = [
-  "from-blue-400 to-indigo-500",
-  "from-pink-400 to-rose-500",
-  "from-emerald-400 to-teal-500",
-  "from-orange-400 to-amber-500",
-  "from-purple-400 to-violet-500",
-];
+  const gradients = [
+    "from-blue-400 to-indigo-500",
+    "from-pink-400 to-rose-500",
+    "from-emerald-400 to-teal-500",
+    "from-orange-400 to-amber-500",
+    "from-purple-400 to-violet-500",
+  ];
 
   return (
-    <div className="p-4 md:p-8 bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen relative">
+    <div className="p-4 md:p-8 min-h-screen relative font-sans text-gray-800">
 
+      {/* ✅ MISSED PUNCH BANNER — shows Pending/Rejected status + conditionally hides button */}
       {missedPunchLog && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r shadow-md flex flex-col md:flex-row justify-between items-center gap-4 animate-pulse-slow">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 animate-pulse-slow">
           <div className="flex items-center gap-3">
             <FaExclamationTriangle className="text-red-500 text-2xl" />
             <div>
@@ -1086,39 +1140,74 @@ const gradients = [
                 You did not punch out on <b>{formatDateDDMMYYYY(missedPunchLog.date)}</b>.
                 You cannot Punch In for today until this is resolved.
               </p>
+
+              {/* ✅ NEW: Pending Status Logic */}
+              {missedPunchRequestStatus === 'Pending' && (
+                <span className="text-orange-600 font-bold text-xs bg-orange-100 border border-orange-200 px-2 py-1 rounded mt-2 inline-flex items-center gap-1">
+                  <FaRegClock /> Request Pending Approval
+                </span>
+              )}
+              {missedPunchRequestStatus === 'Rejected' && (
+                <span className="text-red-600 font-bold text-xs bg-red-100 border border-red-200 px-2 py-1 rounded mt-2 inline-block">
+                  Request Rejected - Please submit again
+                </span>
+              )}
             </div>
           </div>
-          <button
-            onClick={() => setShowReqModal(true)}
-            className="bg-red-600 text-white px-5 py-2 rounded-lg font-bold shadow hover:bg-red-700 transition flex items-center gap-2 whitespace-nowrap"
-          >
-            <FaPaperPlane /> Request Punch Out
-          </button>
+
+          {/* ✅ NEW: Hide button when Pending */}
+          {missedPunchRequestStatus !== 'Pending' && (
+            <button
+              onClick={() => setShowReqModal(true)}
+              className="bg-red-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-md hover:bg-red-700 transition flex items-center gap-2 whitespace-nowrap active:scale-95"
+            >
+              <FaPaperPlane /> Request Punch Out
+            </button>
+          )}
         </div>
       )}
 
       {/* Profile Section */}
-      <div className="flex flex-col md:flex-row items-center bg-gradient-to-r from-blue-100 to-blue-50 rounded-2xl shadow-lg p-6 mb-8 gap-6 relative">
-        <div className="relative group">
-          <img src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`} alt="Profile" className="w-28 h-28 rounded-full border-4 border-white shadow-md object-cover" />
-          <div className="absolute bottom-1 right-1 flex gap-1">
-            <label htmlFor="profile-upload" className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 ${uploadingImage ? "opacity-50" : ""}`}> {uploadingImage ? <div className="animate-spin">⏳</div> : profileImage ? <FaEdit size={14} /> : <FaCamera size={14} />} </label>
-            {profileImage && (<button onClick={handleDeleteProfilePic} className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700"> <FaTrash size={14} /> </button>)}
+      <div className="bg-white/60 backdrop-blur-md border border-gray-200 rounded-2xl shadow-lg p-6 mb-8 flex flex-col md:flex-row items-center gap-6 relative z-10 overflow-visible">
+        <div className="flex flex-col items-center">
+          <img
+            src={profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=128`}
+            alt="Profile"
+            className="w-28 h-28 rounded-full border-4 border-white shadow-md object-cover relative z-0"
+          />
+
+          <div className="flex justify-center gap-2 -mt-5 relative z-10">
+            <label
+              htmlFor="profile-upload"
+              className={`bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 shadow-lg border-2 border-white ${uploadingImage ? "opacity-50" : ""}`}
+            >
+              {uploadingImage ? <div className="animate-spin text-sm">⏳</div> : profileImage ? <FaEdit size={14} /> : <FaCamera size={14} />}
+            </label>
+
+            {profileImage && (
+              <button
+                onClick={handleDeleteProfilePic}
+                className="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg border-2 border-white"
+              >
+                <FaTrash size={14} />
+              </button>
+            )}
           </div>
+
           <input id="profile-upload" type="file" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
         </div>
 
         <div className="flex-1 w-full">
-          <div className="flex justify-between items-start w-full">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4">
             <div>
-              <h3 className="text-2xl font-bold text-blue-900 flex items-center gap-2"><FaUserCircle /> {name}</h3>
+              <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2"><FaUserCircle className="text-blue-500" /> {name}</h3>
               <div className="mt-3 mb-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold shadow-sm ${currentWorkMode === 'WFH' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
-                    {currentWorkMode === 'WFH' ? <FaLaptopHouse size={16} /> : <FaBuilding size={16} />} {currentWorkMode === 'WFH' ? 'Work From Home' : 'Work From Office'}
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs uppercase tracking-wider font-bold shadow-sm border ${currentWorkMode === 'WFH' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                    {currentWorkMode === 'WFH' ? <FaLaptopHouse size={14} /> : <FaBuilding size={14} />} {currentWorkMode === 'WFH' ? 'Work From Home' : 'Work From Office'}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 font-medium italic flex items-center gap-1 ml-1">
+                <div className="text-[11px] text-gray-500 font-medium italic flex items-center gap-1 ml-1 mt-1">
                   <FaInfoCircle size={10} />
                   {currentWorkMode === 'WFO' && officeConfig?.requireAccurateLocation !== false
                     ? 'Accurate office location required'
@@ -1126,54 +1215,54 @@ const gradients = [
                   }
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-gray-700 mt-2 text-sm">
-                <div><b>ID:</b> {employeeId}</div> <div><b>Email:</b> {email}</div> <div><b>Department:</b> {department}</div> <div><b>Role:</b> {role}</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-gray-600 mt-2 text-sm font-medium">
+                <div><b className="text-gray-800">ID:</b> {employeeId}</div> <div><b className="text-gray-800">Email:</b> {email}</div> <div><b className="text-gray-800">Department:</b> {department}</div> <div><b className="text-gray-800">Role:</b> {role}</div>
               </div>
             </div>
 
-
-            {/* ✅ Right Side Container with Clock & Buttons */}
-            <div className="flex flex-col items-end gap-3">
-
-              {/* ✅ NEW: Real-time Clock */}
-              <div className="text-right">
-                <div className="text-3xl font-extrabold text-gray-800 tracking-wider font-mono">
+            <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+              <div className="text-right bg-white p-3 rounded-xl border border-gray-100 shadow-sm w-full md:w-auto">
+                <div className="text-2xl font-extrabold text-gray-800 tracking-wider font-mono">
                   {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
-                <div className="text-sm font-bold text-blue-600 uppercase">
+                <div className="text-xs font-bold text-blue-600 uppercase mt-0.5">
                   {currentTime.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </div>
               </div>
-              <br />
-              <br />
 
-              {/* Existing Buttons */}
               <div className="flex gap-2 items-start flex-wrap justify-end">
-
-                {/* ✅ Request Correction Button */}
                 {showCorrectionBtn && (
                   <button
-                    onClick={() => setShowLateReqModal(true)}
-                    className="flex items-center gap-2 bg-white text-red-600 border border-red-200 px-4 py-2 rounded-lg shadow-sm hover:bg-red-50 transition-all text-sm font-semibold animate-pulse-slow"
+                    onClick={handleOpenLateRequestModal}
+                    className="flex items-center gap-2 bg-white text-red-600 border border-red-200 px-4 py-2 rounded-xl shadow-sm hover:bg-red-50 transition-all text-sm font-bold animate-pulse-slow"
                   >
-                    <FaPen size={12} /> Request on-time login
+                    <div className="flex flex-col items-start leading-tight">
+                      <span className="flex items-center gap-1.5">
+                        <FaPen size={12} /> Request on-time login
+                      </span>
+                      <span className="text-[10px] text-red-400 font-semibold mt-0.5">
+                        {requestLimit.limit - requestLimit.used} requests remaining
+                      </span>
+                    </div>
                   </button>
                 )}
 
+                {/* ✅ NEW: Breaks & Sessions Dropdown */}
                 {todayLog?.sessions?.length > 0 && (
                   <div className="relative" ref={breakDropdownRef}>
-                    <button onClick={() => setIsBreakDropdownOpen(!isBreakDropdownOpen)} className="flex items-center gap-2 bg-white text-orange-700 border border-orange-200 px-4 py-2 rounded-lg shadow-sm hover:bg-orange-50 transition-all text-sm font-semibold"> <FaHistory /> Breaks & Sessions <FaChevronDown className={`transform transition-transform ${isBreakDropdownOpen ? 'rotate-180' : ''}`} size={12} /> </button>
+                    <button onClick={() => setIsBreakDropdownOpen(!isBreakDropdownOpen)} className="flex items-center gap-2 bg-white text-orange-700 border border-orange-200 px-4 py-2 rounded-xl shadow-sm hover:bg-orange-50 transition-all text-sm font-bold h-[42px]"> <FaHistory /> Breaks & Sessions <FaChevronDown className={`transform transition-transform ${isBreakDropdownOpen ? 'rotate-180' : ''}`} size={12} /> </button>
                     {isBreakDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-4 animate-fade-in-down">
-                        <h4 className="font-bold text-orange-800 border-b pb-2 mb-3">Today's Sessions</h4>
-                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                      <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 z-50 p-5 animate-fade-in-down"
+                        onClick={(e) => e.stopPropagation()}>
+                        <h4 className="font-bold text-gray-800 border-b border-gray-100 pb-2 mb-3 uppercase text-[11px] tracking-wider">Today's Sessions</h4>
+                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                           {todayLog.sessions.map((sess, idx) => (
-                            <div key={idx} className="text-xs bg-gray-50 p-2 rounded border border-gray-100">
-                              <div className="flex justify-between font-semibold text-gray-700 mb-1">
+                            <div key={idx} className="text-xs bg-gray-50 p-3 rounded-xl border border-gray-100">
+                              <div className="flex justify-between font-bold text-gray-700 mb-1">
                                 <span>Session {idx + 1}</span>
-                                <span className={sess.punchOut ? "text-green-600" : "text-blue-600 animate-pulse"}>{sess.punchOut ? "Completed" : "Active"}</span>
+                                <span className={sess.punchOut ? "text-green-600 bg-green-50 px-2 py-0.5 rounded" : "text-blue-600 bg-blue-50 px-2 py-0.5 rounded animate-pulse"}>{sess.punchOut ? "Completed" : "Active"}</span>
                               </div>
-                              <div className="flex justify-between text-gray-500">
+                              <div className="flex justify-between text-gray-500 font-medium">
                                 <span>In: {new Date(sess.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 <span>Out: {sess.punchOut ? new Date(sess.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}</span>
                               </div>
@@ -1187,19 +1276,20 @@ const gradients = [
 
                 {shiftTimings && (
                   <div className="relative" ref={dropdownRef}>
-                    <button onClick={() => setIsShiftDropdownOpen(!isShiftDropdownOpen)} className="flex items-center gap-2 bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition-all text-sm font-semibold"> <FaRegClock /> Shift Details <FaChevronDown className={`transform transition-transform ${isShiftDropdownOpen ? 'rotate-180' : ''}`} size={12} /> </button>
+                    <button onClick={() => setIsShiftDropdownOpen(!isShiftDropdownOpen)} className="flex items-center gap-2 bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-xl shadow-sm hover:bg-blue-50 transition-all text-sm font-bold h-[42px]"> <FaRegClock /> Shift Details <FaChevronDown className={`transform transition-transform ${isShiftDropdownOpen ? 'rotate-180' : ''}`} size={12} /> </button>
                     {isShiftDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-4 animate-fade-in-down">
-                        <h4 className="font-bold text-blue-800 border-b pb-2 mb-3">Admin Assigned Shift</h4>
-                        <div className="space-y-3 text-sm text-gray-700">
-                          <div className="flex justify-between"><span>Start Time:</span> <span className="font-semibold">{formatTimeDisplay(shiftTimings.shiftStartTime)}</span></div>
-                          <div className="flex justify-between"><span>End Time:</span> <span className="font-semibold">{formatTimeDisplay(shiftTimings.shiftEndTime)}</span></div>
+                      <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-200 z-50 p-5 animate-fade-in-down"
+                        onClick={(e) => e.stopPropagation()}>
+                        <h4 className="font-bold text-gray-800 border-b border-gray-100 pb-2 mb-3 uppercase text-[11px] tracking-wider">Assigned Shift</h4>
+                        <div className="space-y-3 text-sm text-gray-700 font-medium">
+                          <div className="flex justify-between"><span>Start Time:</span> <span className="font-bold text-gray-900">{formatTimeDisplay(shiftTimings.shiftStartTime)}</span></div>
+                          <div className="flex justify-between"><span>End Time:</span> <span className="font-bold text-gray-900">{formatTimeDisplay(shiftTimings.shiftEndTime)}</span></div>
 
-                          <div className="flex justify-between bg-blue-50 p-1 rounded"><span>Required Work:</span> <span className="font-bold text-blue-700">{calculatedTargetHours}</span></div>
-                          <div className="flex justify-between text-xs text-gray-500"><span>Min Half Day:</span> <span>{getTargetHalfDayHours()}</span></div>
-                          <div className="flex justify-between text-xs text-gray-500"><span>Late Grace:</span> <span>{shiftTimings.lateGracePeriod} mins</span></div>
+                          <div className="flex justify-between bg-blue-50 p-2 rounded-lg border border-blue-100 mt-2"><span>Required Work:</span> <span className="font-bold text-blue-700">{calculatedTargetHours}</span></div>
+                          <div className="flex justify-between text-[11px] text-gray-500 mt-2"><span>Min Half Day:</span> <span>{getTargetHalfDayHours()}</span></div>
+                          <div className="flex justify-between text-[11px] text-gray-500"><span>Late Grace:</span> <span>{shiftTimings.lateGracePeriod} mins</span></div>
 
-                          <div className="pt-2 border-t mt-2"> <span className="block text-xs text-gray-500 mb-1">Weekly Offs:</span> <div className="font-medium text-blue-600">{getDayNames(shiftTimings.weeklyOffDays)}</div> </div>
+                          <div className="pt-3 border-t border-gray-100 mt-2"> <span className="block text-[11px] uppercase tracking-wider text-gray-500 mb-1">Weekly Offs:</span> <div className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">{getDayNames(shiftTimings.weeklyOffDays)}</div> </div>
                         </div>
                       </div>
                     )}
@@ -1211,120 +1301,132 @@ const gradients = [
         </div>
       </div>
 
-      {/* Attendance Table */}
-      <div className="bg-gradient-to-br from-gray-50 to-blue-100 rounded-2xl shadow-lg p-6 mb-8 animate-fade-in">
-        <div className="flex items-center mb-6 gap-3 border-b border-gray-200 pb-4">
-          <FaRegClock className="text-blue-600 text-2xl" />
-          <h2 className="font-bold text-2xl text-gray-800">Daily Attendance</h2>
+      {/* Daily Attendance Table */}
+      <div className="rounded-2xl shadow-lg border border-gray-200 relative bg-white mb-8 animate-fade-in">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-white/40">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><FaRegClock size={18} /></div>
+            <h2 className="font-bold text-lg text-gray-800">Daily Attendance</h2>
+          </div>
+          <button onClick={() => navigate("/employee/my-attendence")} className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 transition shadow-sm">View History →</button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-blue-600 text-white uppercase tracking-wider">
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-left">First In</th>
-                <th className="px-4 py-3 text-left">Last Out</th>
-                <th className="px-4 py-3 text-left">Worked</th>
-                <th className="px-4 py-3 text-left">Login Status</th>
-                <th className="px-4 py-3 text-left">Worked Status</th>
-                <th className="px-4 py-3 text-left">Break Time</th>
-                <th className="px-4 py-3 text-center">Action</th>
+          <table className="min-w-full text-sm text-left whitespace-nowrap">
+            <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
+              <tr>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4">First In</th>
+                <th className="px-6 py-4">Last Out</th>
+                <th className="px-6 py-4">Worked</th>
+                <th className="px-6 py-4">Login Status</th>
+                <th className="px-6 py-4">Worked Status</th>
+                <th className="px-6 py-4">Break Time</th>
+                <th className="px-6 py-4 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="bg-white">
-              <tr className="text-gray-700 border-b border-gray-200 hover:bg-gray-100 transition-colors duration-200">
-                <td className="px-4 py-3 font-medium">{formatDateDDMMYYYY(todayIso)}</td>
-                <td className="px-4 py-3">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
-                <td className="px-4 py-3">
+            <tbody className="bg-white divide-y divide-gray-100">
+              <tr className="hover:bg-gray-50 transition-colors duration-200">
+                <td className="px-6 py-4 font-semibold text-gray-800">{formatDateDDMMYYYY(todayIso)}</td>
+                <td className="px-6 py-4 font-medium text-gray-600">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
+                <td className="px-6 py-4">
                   {todayLog?.status === "WORKING" ? (
-                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold animate-pulse">Active</span>
+                    <span className="bg-green-50 border border-green-200 text-green-700 px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold animate-pulse">Active</span>
                   ) : (
-                    todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"
+                    <span className="font-medium text-gray-600">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-mono font-bold text-blue-600">{todayLog?.punchIn ? formatWorkedTime(workedTime) : "0h 0m 0s"}</td>
-
-                {/* ✅ UPDATED Login Status Cell */}
-                <td className="px-4 py-3">
-                  {displayLoginStatusContent}
+                <td className="px-6 py-4 font-mono font-bold text-blue-600">{todayLog?.punchIn ? formatWorkedTime(workedTime) : "0h 0m 0s"}</td>
+                <td className="px-6 py-4">{displayLoginStatusContent}</td>
+                <td className="px-6 py-4">
+                  {todayLog?.punchIn ? (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border shadow-sm ${workedStatusBadge.color}`}> {workedStatusBadge.label} </span>) : (<span className="text-gray-400 font-medium">--</span>)}
                 </td>
+                {/* ✅ NEW: Break time column — reads totalBreakSeconds from updated model */}
+                <td className="px-6 py-4 font-mono font-medium text-purple-600"> {todayLog?.totalBreakSeconds ? formatWorkedTime(todayLog.totalBreakSeconds) : "0h 0m 0s"} </td>
 
-                <td className="px-4 py-3 capitalize"> {todayLog?.punchIn ? (<span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${workedStatusBadge.color}`}> {workedStatusBadge.label} </span>) : (<span className="text-gray-500">--</span>)} </td>
-                <td className="px-4 py-3 font-mono text-purple-600"> {todayLog?.totalBreakSeconds ? formatWorkedTime(todayLog.totalBreakSeconds) : "0h 0m 0s"} </td>
-
-                <td className="px-4 py-3 text-center">
+                <td className="px-6 py-4 text-center">
                   {isShiftCompleted ? (
-                    <span className="text-gray-500 font-bold text-xs bg-gray-200 px-3 py-1 rounded-full">Completed</span>
+                    <span className="text-gray-500 font-bold text-[10px] uppercase tracking-wider bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">Shift Completed</span>
                   ) : showPunchInButton ? (
-                    <button className={`px-4 py-2 rounded-md mx-auto flex gap-2 shadow-sm text-white ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'}`} onClick={() => handlePunch("IN")} disabled={punchStatus !== "IDLE"}>{getPunchButtonContent("IN")}</button>
+                    <button
+                      className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                      onClick={() => handlePunch("IN")}
+                      disabled={punchStatus !== "IDLE"}
+                    >
+                      {getPunchButtonContent("IN")}
+                    </button>
                   ) : (
-                    isShiftReqCompleted ? (
-                      <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 disabled:opacity-50 mx-auto flex gap-2 shadow-sm" onClick={() => handlePunch("OUT")} disabled={punchStatus !== "IDLE"}>
-                        {punchStatus === "PUNCHING" ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : null}
+                    // ✅ NEW: Punch Out + Take Break buttons side-by-side
+                    <div className="flex flex-col gap-2 items-center w-full max-w-[140px] mx-auto">
+                      <button
+                        className={`px-4 py-2 rounded-xl w-full flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-500 hover:bg-orange-600'} disabled:opacity-50`}
+                        onClick={() => handlePunch("OUT")}
+                        disabled={punchStatus !== "IDLE"}
+                      >
+                        {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : null}
                         {punchStatus === "PUNCHING" ? "Punching Out..." : "Punch Out"}
                       </button>
-                    ) : (
-                      <button className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50 mx-auto flex gap-2 shadow-sm" onClick={() => handlePunch("OUT")} disabled={punchStatus !== "IDLE"}>
-                        {punchStatus === "PUNCHING" ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : <FaCoffee />}
-                        {punchStatus === "PUNCHING" ? "Starting Break..." : "Break"}
+                      <button
+                        className="px-4 py-2 rounded-xl w-full flex items-center justify-center gap-2 shadow-sm text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 font-bold text-xs transition transform active:scale-95 disabled:opacity-50"
+                        onClick={handleBreak}
+                        disabled={punchStatus !== "IDLE"}
+                      >
+                        {punchStatus === "FETCHING" || punchStatus === "PUNCHING" ? (
+                          <div className="animate-spin h-3 w-3 border-2 border-blue-700 border-t-transparent rounded-full" />
+                        ) : (
+                          <FaCoffee />
+                        )}
+                        Take Break
                       </button>
-                    )
+                    </div>
                   )}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div className="flex justify-between items-center mt-6">
-          <div className="flex items-center gap-3">
-            {todayLog?.punchInLocation && (<button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`, "_blank")} className="bg-blue-100 text-blue-800 px-3 py-1.5 text-xs rounded-full hover:bg-blue-200 flex gap-1"><FaMapMarkerAlt /> In Location</button>)}
-            {todayLog?.punchOutLocation && (<button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`, "_blank")} className="bg-red-100 text-red-800 px-3 py-1.5 text-xs rounded-full hover:bg-red-200 flex gap-1"><FaMapMarkerAlt /> Out Location</button>)}
-          </div>
-          <button onClick={() => navigate("/employee/my-attendence")} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">View Attendance History →</button>
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center gap-3">
+          {todayLog?.punchInLocation && (<button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchInLocation.latitude},${todayLog.punchInLocation.longitude}`, "_blank")} className="bg-white border border-blue-200 text-blue-700 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-sm hover:bg-blue-50 flex items-center gap-1.5 transition"><FaMapMarkerAlt /> In Location</button>)}
+          {todayLog?.punchOutLocation && (<button onClick={() => window.open(`https://www.google.com/maps?q=${todayLog.punchOutLocation.latitude},${todayLog.punchOutLocation.longitude}`, "_blank")} className="bg-white border border-red-200 text-red-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg shadow-sm hover:bg-red-50 flex items-center gap-1.5 transition"><FaMapMarkerAlt /> Out Location</button>)}
         </div>
       </div>
 
-      {/* ✅ GRAPHS SECTION */}
+      {/* GRAPHS SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white rounded-2xl shadow p-6 h-80 flex flex-col">
-          <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-700"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
+        <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white p-6 h-80 flex flex-col">
+          <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-800"><FaCalendarAlt className="text-blue-500" /> Attendance Summary</h2>
           <div className="flex-1 relative">
-             {/* If stats are still loading, show a light placeholder, else show chart */}
-             {loadingTeamData && attendance.length === 0 ? <div className="w-full h-full flex items-center justify-center text-gray-400">Loading Stats...</div> : <Bar data={leaveBarData} options={commonChartOptions} />}
+            {loadingTeamData && attendance.length === 0 ? <div className="w-full h-full flex items-center justify-center text-gray-400 font-medium text-sm">Loading Stats...</div> : <Bar data={leaveBarData} options={commonChartOptions} />}
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow p-6 h-80 flex flex-col">
-          <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-700"><FaChartPie className="text-yellow-500" /> Today Progress</h2>
+        <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white p-6 h-80 flex flex-col">
+          <h2 className="font-bold flex items-center gap-2 mb-4 text-gray-800"><FaChartPie className="text-amber-500" /> Today's Progress</h2>
           <div className="flex-1 relative flex flex-col items-center justify-center">
             <div className="w-full h-full max-h-40 relative">
               <Doughnut data={workMeterData} options={meterChartOptions} />
-              <div className="absolute inset-0 flex items-end justify-center pb-2 pointer-events-none"> <span className="text-2xl font-bold text-gray-700"> {Math.floor((workMeterData.rawValues.currentWorked / workMeterData.rawValues.targetSeconds) * 100)}% </span> </div>
+              <div className="absolute inset-0 flex items-end justify-center pb-2 pointer-events-none"> <span className="text-2xl font-black text-gray-800"> {Math.floor((workMeterData.rawValues.currentWorked / workMeterData.rawValues.targetSeconds) * 100)}% </span> </div>
             </div>
-            <div className="flex justify-between w-full px-8 mt-4 border-t pt-3">
-              <div className="text-center"> <p className="text-xs text-gray-500 uppercase font-semibold">Worked Hrs</p> <p className="text-lg font-bold text-blue-600">{formatWorkedTime(workMeterData.rawValues.currentWorked)}</p> </div>
-              <div className="text-center"> <p className="text-xs text-gray-500 uppercase font-semibold">Target Work</p> <p className="text-lg font-bold text-gray-400">{formatWorkedTime(workMeterData.rawValues.targetSeconds)}</p> </div>
+            <div className="flex justify-between w-full px-8 mt-4 border-t border-gray-100 pt-4">
+              <div className="text-center"> <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Worked Hrs</p> <p className="text-lg font-black text-blue-600">{formatWorkedTime(workMeterData.rawValues.currentWorked)}</p> </div>
+              <div className="text-center"> <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mb-1">Target Work</p> <p className="text-lg font-black text-gray-600">{formatWorkedTime(workMeterData.rawValues.targetSeconds)}</p> </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ✅ DYNAMIC UI: Today's Birthdays and On Leave Today */}
+      {/* BIRTHDAYS & ON LEAVE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
-        {/* 🎂 DYNAMIC BIRTHDAYS SECTION */}
-        <div className="relative overflow-hidden bg-white rounded-2xl shadow-xl border border-gray-100 p-6 group">
-          {/* Decorative Background Blob */}
-          <div className="absolute top-0 right-0 -mr-10 -mt-10 w-32 h-32 bg-gradient-to-br from-orange-400 to-pink-500 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
-
-          <div className="flex items-center justify-between mb-6 relative z-10">
+        {/* 🎂 BIRTHDAYS */}
+        <div className="bg-white rounded-2xl shadow-[0_8px_25px_rgba(0,0,0,0.08)] border border-gray-100 p-6 relative z-10 h-full flex flex-col">
+          <div className="flex items-center justify-between mb-8 relative z-10">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
-                <FaBirthdayCake className="text-xl animate-bounce-slow" />
+              <div className="p-2 bg-orange-50 rounded-lg text-orange-500">
+                <FaBirthdayCake className="text-lg animate-bounce-slow" />
               </div>
-              <h2 className="font-bold text-lg text-gray-800 tracking-tight">Birthdays</h2>
+              <h2 className="font-bold text-lg text-gray-800">Birthdays</h2>
             </div>
-            <span className="bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
-              {todaysBirthdays.length} Today
+            <span className="bg-gradient-to-r from-orange-500 to-pink-500 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-sm tracking-wider">
+              {todaysBirthdays.length} TODAY
             </span>
           </div>
 
@@ -1333,64 +1435,47 @@ const gradients = [
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-orange-500"></div>
             </div>
           ) : todaysBirthdays.length > 0 ? (
-            <div className="flex flex-wrap gap-6 relative z-10 pl-2">
+            <div className="flex flex-wrap gap-8 relative z-10 px-2">
               {todaysBirthdays.map((person, index) => (
                 <div key={index} className="group/avatar flex flex-col items-center cursor-pointer relative">
-
-                  {/* ✨ Dynamic Avatar with Gradient Ring */}
                   <div className="relative">
-                    {/* Spinning/Gradient Ring */}
-                    <div className="absolute -inset-1 bg-gradient-to-tr from-yellow-400 via-orange-500 to-pink-500 rounded-full opacity-80 group-hover/avatar:opacity-100 blur-[1px] group-hover/avatar:blur-[2px] transition-all duration-300"></div>
-
-                    {/* The Image/Initial */}
-                    <div className="relative w-14 h-14 bg-white rounded-full flex items-center justify-center border-2 border-white shadow-sm group-hover/avatar:scale-105 transition-transform duration-300">
+                    <div className="absolute -inset-1 bg-gradient-to-tr from-yellow-400 via-orange-500 to-pink-500 rounded-full opacity-80 blur-[1px]"></div>
+                    <div className="relative w-14 h-14 bg-white rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                       <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-orange-500 to-pink-600 text-lg">
                         {person.name.charAt(0).toUpperCase()}
                       </span>
                     </div>
-
-                    {/* Celebration Emoji Element */}
-                    <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-xs">
-                      🎉
-                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5 shadow-sm text-[10px] border border-gray-100">🎉</div>
                   </div>
-
-                  {/* Name */}
-                  <p className="mt-2 text-xs font-bold text-gray-700 text-center w-20 truncate group-hover/avatar:text-orange-600 transition-colors">
-                    {person.name.split(' ')[0]}
+                  <p className="mt-2 text-[11px] font-bold text-gray-700 text-center w-24 truncate">
+                    {person.name}
                   </p>
-
-                  {/* 💬 Floating Tooltip (Visible on Hover) */}
-                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover/avatar:opacity-100 transform translate-y-2 group-hover/avatar:translate-y-0 transition-all duration-200 pointer-events-none z-20 shadow-xl">
-                    <p className="font-semibold">{person.name}</p>
-                    <p className="text-gray-300 text-[10px]">{person.department || 'Team Member'}</p>
-                    {/* Tiny triangle arrow */}
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max px-3 py-1.5 bg-gray-900 text-white text-[10px] rounded-lg opacity-0 group-hover/avatar:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
+                    <p className="font-bold">{person.name}</p>
+                    <p className="text-gray-400">{person.department}</p>
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                   </div>
-
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 bg-gray-50 rounded-xl border-dashed border-2 border-gray-200">
+            <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
               <p className="text-gray-400 text-sm font-medium">No cakes to cut today 🎂</p>
             </div>
           )}
         </div>
 
-        {/* 🏖️ DYNAMIC ON LEAVE SECTION */}
-        <div className="relative overflow-hidden bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
-          {/* Decorative Background Blob */}
-          <div className="absolute top-0 left-0 -ml-10 -mt-10 w-32 h-32 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-full blur-3xl opacity-20 pointer-events-none"></div>
-
+        {/* 🏖️ ON LEAVE */}
+        <div className="relative overflow-hidden bg-white rounded-2xl shadow-[0_8px_25px_rgba(0,0,0,0.08)] border border-gray-200 p-6 z-10 h-full flex flex-col">
+          <div className="absolute top-0 left-0 -ml-10 -mt-10 w-32 h-32 bg-gradient-to-br from-blue-400 to-cyan-300 rounded-full blur-3xl opacity-10 pointer-events-none"></div>
           <div className="flex items-center justify-between mb-6 relative z-10">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                <FaUmbrellaBeach className="text-xl" />
+              <div className="p-2.5 bg-blue-50 border border-blue-100 rounded-xl text-blue-500 shadow-sm">
+                <FaUmbrellaBeach className="text-lg" />
               </div>
-              <h2 className="font-bold text-lg text-gray-800 tracking-tight">On Leave</h2>
+              <h2 className="font-bold text-lg text-gray-800">On Leave</h2>
             </div>
-            <span className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+            <span className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-full shadow-sm">
               {onLeaveToday.length} Away
             </span>
           </div>
@@ -1403,285 +1488,219 @@ const gradients = [
             <div className="flex flex-wrap gap-6 relative z-10 pl-2">
               {onLeaveToday.map((person, index) => (
                 <div key={index} className="group/avatar flex flex-col items-center cursor-pointer relative">
-
-                  {/* ✨ Dynamic Avatar with Status Indicator */}
                   <div className="relative">
-                    {/* Ring (Subtler for leave) */}
                     <div className="absolute -inset-0.5 bg-gradient-to-b from-blue-300 to-cyan-500 rounded-full opacity-50 group-hover/avatar:opacity-100 transition-opacity duration-300"></div>
-
-                    {/* Image/Initial */}
-                    <div className="relative w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center border-2 border-white shadow-sm group-hover/avatar:scale-105 transition-transform duration-300">
+                    <div className="relative w-14 h-14 bg-white rounded-full flex items-center justify-center border-2 border-white shadow-sm group-hover/avatar:scale-105 transition-transform duration-300">
                       <span className="font-bold text-gray-500 text-lg group-hover/avatar:text-blue-600 transition-colors">
                         {person.name.charAt(0).toUpperCase()}
                       </span>
                     </div>
-
-                    {/* Status Dot (Red/Orange/Green based on type if needed, or just Gray for 'Away') */}
                     <div className="absolute bottom-0 right-0 w-4 h-4 bg-amber-400 border-2 border-white rounded-full shadow-sm z-10" title="Away"></div>
                   </div>
-
-                  {/* Name */}
                   <p className="mt-2 text-xs font-bold text-gray-700 text-center w-20 truncate group-hover/avatar:text-blue-600 transition-colors">
                     {person.name.split(' ')[0]}
                   </p>
-
-                  {/* 💬 Floating Tooltip */}
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-max px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover/avatar:opacity-100 transform translate-y-2 group-hover/avatar:translate-y-0 transition-all duration-200 pointer-events-none z-20 shadow-xl">
                     <p className="font-semibold">{person.name}</p>
                     <div className="flex items-center gap-1 mt-0.5">
                       <span className={`w-1.5 h-1.5 rounded-full ${person.leaveType === 'SICK' ? 'bg-red-400' : 'bg-amber-400'}`}></span>
                       <span className="text-gray-300 text-[10px] capitalize">{person.leaveType?.toLowerCase() || 'On Leave'}</span>
                     </div>
-                    {/* Tiny triangle arrow */}
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
                   </div>
-
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-6 bg-gray-50 rounded-xl border-dashed border-2 border-gray-200">
+            <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
               <p className="text-gray-400 text-sm font-medium">Full house today! 🏠</p>
             </div>
           )}
         </div>
-
       </div>
-      
 
-      {/* ✅ NEW SECTIONS: Leave Balances & Remote Work */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-    {/* 🏠 Working Remotely Section */}
-  <div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 p-6 flex flex-col relative overflow-visible group hover:shadow-xl transition-all duration-300">
-     
-     <div className="flex items-center justify-between mb-6 z-10">
-       <div className="flex items-center gap-3">
-         <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100">
-           <FaLaptopHouse className="text-lg" />
-         </div>
-         <div>
-           <h2 className="font-bold text-gray-800 text-lg leading-tight">Working Remotely </h2>
+      {/* REMOTE WORK & QUICK ACTIONS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
 
-         </div>
-       </div>
-       <div className="flex items-center gap-2">
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border ${isGlobalWFH ? 'bg-green-50 text-green-600 border-green-100' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
-            <span className={`w-2 h-2 rounded-full ${isGlobalWFH ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
-            {isGlobalWFH ? 'Global Remote' : 'Hybrid Mode'}
-          </span>
-       </div>
-     </div>
-     
-     <div className="flex-1 flex flex-col justify-center z-10">
-        {loadingTeamData ? (
-           <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-           </div>
-        ) : isGlobalWFH ? (
-          <div className="flex flex-col items-center justify-center py-4 bg-indigo-50/50 rounded-2xl border border-indigo-50 border-dashed">
-            <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
-              <FaLaptopHouse className="text-2xl text-indigo-500" />
+        {/* 🏠 Working Remotely */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 flex flex-col relative z-10 overflow-visible group transition-all duration-300">
+          <div className="flex items-center justify-between mb-6 z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-sm">
+                <FaLaptopHouse className="text-lg" />
+              </div>
+              <h2 className="font-bold text-gray-800 text-lg">Working Remotely</h2>
             </div>
-            <h3 className="font-bold text-indigo-900 text-sm">Full Remote Day</h3>
-            <p className="text-xs text-indigo-400/80 mt-1 font-medium">Everyone is working from home.</p>
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider shadow-sm ${isGlobalWFH ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>
+                <span className={`w-2 h-2 rounded-full ${isGlobalWFH ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></span>
+                {isGlobalWFH ? 'Global Remote' : 'Hybrid Mode'}
+              </span>
+            </div>
           </div>
-        ) : remoteWorkers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-4 bg-gray-50/50 rounded-2xl border border-gray-100 border-dashed">
-             <FaBuilding className="text-3xl text-gray-300 mb-2" />
-             <p className="text-sm font-bold text-gray-500">Full Office Attendance</p>
-             <p className="text-[11px] text-gray-400">No one is working remotely today.</p>
-          </div>
-        ) : (
-          <div className="w-full flex flex-col items-center pt-2">
-            {/* Dynamic Avatar Stack */}
-            <div className="flex -space-x-4 items-end justify-center py-4 min-h-[80px]">
-              {remoteWorkers.slice(0, 5).map((worker, i) => (
-                <div 
-                  key={i} 
-                  /* CHANGED: using group/avatar to isolate hover events */
-                  className="group/avatar relative transition-all duration-300 hover:-translate-y-2 hover:z-20 z-0"
-                >
-                  {/* Tooltip / Name Dropdown */}
-                  {/* CHANGED: using group-hover/avatar so it only triggers on specific avatar hover */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max opacity-0 group-hover/avatar:opacity-100 transform translate-y-2 group-hover/avatar:translate-y-0 transition-all duration-200 pointer-events-none z-50">
-                    <div className="bg-gray-900 text-white text-[10px] font-bold py-1.5 px-3 rounded-md shadow-xl relative">
-                      {worker.name}
-                      {/* Little arrow pointing down */}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+
+          <div className="flex-1 flex flex-col justify-center z-10">
+            {loadingTeamData ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+              </div>
+            ) : isGlobalWFH ? (
+              <div className="flex flex-col items-center justify-center py-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 border-dashed">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3 border border-indigo-100">
+                  <FaLaptopHouse className="text-xl text-indigo-500" />
+                </div>
+                <h3 className="font-bold text-indigo-800 text-sm">Full Remote Day</h3>
+                <p className="text-xs text-indigo-500 mt-1 font-medium">Everyone is working from home.</p>
+              </div>
+            ) : remoteWorkers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-4 bg-gray-50 rounded-2xl border border-gray-200 border-dashed">
+                <FaBuilding className="text-3xl text-gray-300 mb-2" />
+                <p className="text-sm font-bold text-gray-500">Full Office Attendance</p>
+                <p className="text-[11px] text-gray-400">No one is working remotely today.</p>
+              </div>
+            ) : (
+              <div className="w-full flex flex-col items-center pt-2">
+                <div className="flex -space-x-4 items-end justify-center py-4 min-h-[80px]">
+                  {(showAllRemoteEmp ? remoteWorkers : remoteWorkers.slice(0, 5)).map((worker, i) => (
+                    <div key={i} className="group/avatar relative transition-all duration-300 hover:-translate-y-2 hover:z-20 z-0">
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max opacity-0 group-hover/avatar:opacity-100 transform translate-y-2 group-hover/avatar:translate-y-0 transition-all duration-200 pointer-events-none z-50">
+                        <div className="bg-gray-900 text-white text-[10px] font-bold py-1.5 px-3 rounded-md shadow-xl relative">
+                          {worker.name}
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      </div>
+                      <div className={`relative w-12 h-12 rounded-full ring-4 ring-white bg-gradient-to-tr ${gradients[i % gradients.length]} flex items-center justify-center shadow-md cursor-pointer border border-white`}>
+                        <span className="text-white font-bold text-sm">{worker.name.charAt(0)}</span>
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Avatar Circle */}
-                  <div className={`relative w-12 h-12 rounded-full ring-4 ring-white bg-gradient-to-tr ${gradients[i % gradients.length]} flex items-center justify-center shadow-lg cursor-pointer`}>
-                    <span className="text-white font-bold text-sm text-shadow-sm">
-                       {worker.name.charAt(0)}
-                    </span>
-               
-
-                  </div>
+                  ))}
+                  {!showAllRemoteEmp && remoteWorkers.length > 5 && (
+                    <button onClick={() => setShowAllRemoteEmp(true)} className="relative z-0 hover:z-10 transition-transform hover:scale-105 cursor-pointer">
+                      <div className="w-12 h-12 rounded-full ring-4 ring-white bg-gray-50 border border-gray-200 flex items-center justify-center font-bold text-gray-600 text-xs shadow-sm">
+                        +{remoteWorkers.length - 5}
+                      </div>
+                    </button>
+                  )}
+                  {showAllRemoteEmp && remoteWorkers.length > 5 && (
+                    <button onClick={() => setShowAllRemoteEmp(false)} className="relative z-0 hover:z-10 transition-transform hover:scale-105 cursor-pointer">
+                      <div className="w-12 h-12 rounded-full ring-4 ring-white bg-gray-50 border border-gray-200 flex items-center justify-center font-bold text-gray-600 text-xs shadow-sm">
+                        −
+                      </div>
+                    </button>
+                  )}
                 </div>
-              ))}
-              
-              {/* Overflow Counter */}
-              {remoteWorkers.length > 5 && (
-                <div className="relative z-0 hover:z-10 transition-transform hover:scale-105 cursor-pointer">
-                   <div className="w-12 h-12 rounded-full ring-4 ring-white bg-gray-100 flex items-center justify-center font-bold text-gray-500 text-xs shadow-md">
-                     +{remoteWorkers.length - 5}
-                   </div>
-                </div>
-              )}
-            </div>
-            
-            <p className="text-center text-xs text-gray-400 font-medium mt-2 bg-gray-50 px-3 py-1 rounded-full">
-              <span className="text-indigo-600 font-bold">{remoteWorkers.length}</span> team members remote
-            </p>
+                {showAllRemoteEmp && (
+                  <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    {remoteWorkers.map((w, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-100">
+                        <span className="text-xs font-bold text-gray-700">{w.name}</span>
+                        <span className="text-[10px] uppercase font-semibold tracking-wider text-gray-500">{w.department}</span>
+                      </div>
+                    ))}
+                    <button onClick={() => setShowAllRemoteEmp(false)} className="col-span-full text-center text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg py-2 uppercase tracking-wider mt-1 hover:bg-indigo-100 transition shadow-sm">
+                      Show Less
+                    </button>
+                  </div>
+                )}
+                <p className="text-center text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                  <span className="text-indigo-600 text-xs">{remoteWorkers.length}</span> Remote Today
+                </p>
+              </div>
+            )}
           </div>
-        )}
-     </div>
-  </div>
+        </div>
 
-  {/* 🌿 Leave Balances Section */}
-<div className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 p-6 flex flex-col justify-between relative overflow-hidden group hover:shadow-xl transition-all duration-300">
-  
-  {/* Decorative Background */}
-  <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-50 to-transparent rounded-bl-full opacity-50 transition-transform duration-700 group-hover:scale-110"></div>
-  
-  <div className="flex items-center justify-between mb-6 z-10 relative">
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center text-cyan-600 shadow-sm border border-cyan-100">
-        <FaLuggageCart className="text-lg" />
-      </div>
-      <h2 className="font-bold text-gray-800 text-lg">Quick Actions</h2>
-    </div>
-  </div>
+        {/* 🌿 Quick Actions */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 flex flex-col justify-between relative overflow-hidden group transition-all duration-300 z-10">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-50 to-transparent rounded-bl-full opacity-30 transition-transform duration-700 group-hover:scale-110 pointer-events-none"></div>
 
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 z-10 relative">
-    {/* Request Leave */}
-    <Link 
-      to="/employee/leave-management" 
-      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-cyan-50 hover:to-white border border-gray-200 hover:border-cyan-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-    >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
-        <FaLuggageCart className="text-lg" />
-      </div>
-      <div className="flex-1">
-        <h3 className="font-bold text-gray-800 group-hover/link:text-cyan-700 transition-colors">Request Leave</h3>
-        <p className="text-xs text-gray-500 mt-1">Apply for time off</p>
-      </div>
-      <FaAngleRight className="text-gray-400 group-hover/link:text-cyan-600 group-hover/link:translate-x-1 transition-all" />
-    </Link>
+          <div className="flex items-center justify-between mb-6 z-10 relative">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-50 border border-cyan-100 flex items-center justify-center text-cyan-500 shadow-sm">
+                <FaLuggageCart className="text-lg" />
+              </div>
+              <h2 className="font-bold text-gray-800 text-lg">Quick Actions</h2>
+            </div>
+          </div>
 
-    {/* Holidays */}
-    <Link 
-      to="/employee/holiday-calendar" 
-      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-emerald-50 hover:to-white border border-gray-200 hover:border-emerald-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-    >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
-        <FaCalendarAlt className="text-lg" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 z-10 relative">
+            <Link to="/employee/leave-management" className="group/link bg-white hover:bg-cyan-50/50 border border-gray-200 hover:border-cyan-200 rounded-xl p-4 flex items-center gap-4 transition-all duration-200 shadow-sm hover:shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center shadow-sm border border-cyan-100"><FaLuggageCart /></div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm group-hover/link:text-cyan-700 transition-colors">Request Leave</h3><p className="text-[10px] uppercase font-bold text-gray-400 mt-0.5">Apply for time off</p></div>
+              <FaAngleRight className="text-gray-300 group-hover/link:text-cyan-500 group-hover/link:translate-x-1 transition-all" />
+            </Link>
+            <Link to="/employee/holiday-calendar" className="group/link bg-white hover:bg-emerald-50/50 border border-gray-200 hover:border-emerald-200 rounded-xl p-4 flex items-center gap-4 transition-all duration-200 shadow-sm hover:shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-sm border border-emerald-100"><FaCalendarAlt /></div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm group-hover/link:text-emerald-700 transition-colors">Holidays</h3><p className="text-[10px] uppercase font-bold text-gray-400 mt-0.5">View calendar dates</p></div>
+              <FaAngleRight className="text-gray-300 group-hover/link:text-emerald-500 group-hover/link:translate-x-1 transition-all" />
+            </Link>
+            <Link to="/employee/empovertime" className="group/link bg-white hover:bg-amber-50/50 border border-gray-200 hover:border-amber-200 rounded-xl p-4 flex items-center gap-4 transition-all duration-200 shadow-sm hover:shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shadow-sm border border-amber-100"><FaClock /></div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm group-hover/link:text-amber-700 transition-colors">Request Overtime</h3><p className="text-[10px] uppercase font-bold text-gray-400 mt-0.5">Log extra hours</p></div>
+              <FaAngleRight className="text-gray-300 group-hover/link:text-amber-500 group-hover/link:translate-x-1 transition-all" />
+            </Link>
+            <Link to="/employee/notices" className="group/link bg-white hover:bg-purple-50/50 border border-gray-200 hover:border-purple-200 rounded-xl p-4 flex items-center gap-4 transition-all duration-200 shadow-sm hover:shadow-md">
+              <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shadow-sm border border-purple-100"><FaBullhorn /></div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm group-hover/link:text-purple-700 transition-colors">Announcements</h3><p className="text-[10px] uppercase font-bold text-gray-400 mt-0.5">Company updates</p></div>
+              <FaAngleRight className="text-gray-300 group-hover/link:text-purple-500 group-hover/link:translate-x-1 transition-all" />
+            </Link>
+            <Link to="/employee/payslip" className="group/link bg-white hover:bg-blue-50/50 border border-gray-200 hover:border-blue-200 rounded-xl p-4 flex items-center gap-4 transition-all duration-200 shadow-sm hover:shadow-md col-span-1 sm:col-span-2">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shadow-sm border border-blue-100 font-black text-lg">₹</div>
+              <div className="flex-1"><h3 className="font-bold text-gray-800 text-sm group-hover/link:text-blue-700 transition-colors">Payslips</h3><p className="text-[10px] uppercase font-bold text-gray-400 mt-0.5">View your monthly salary breakdown</p></div>
+              <FaAngleRight className="text-gray-300 group-hover/link:text-blue-500 group-hover/link:translate-x-1 transition-all" />
+            </Link>
+          </div>
+        </div>
       </div>
-      <div className="flex-1">
-        <h3 className="font-bold text-gray-800 group-hover/link:text-emerald-700 transition-colors">Holidays</h3>
-        <p className="text-xs text-gray-500 mt-1">View calendar & dates</p>
-      </div>
-      <FaAngleRight className="text-gray-400 group-hover/link:text-emerald-600 group-hover/link:translate-x-1 transition-all" />
-    </Link>
 
-    {/* Request Overtime */}
-    <Link 
-      to="/employee/empovertime" 
-      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-amber-50 hover:to-white border border-gray-200 hover:border-amber-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-    >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white shadow-lg shadow-amber-500/30">
-        <FaClock className="text-lg" />
-      </div>
-      <div className="flex-1">
-        <h3 className="font-bold text-gray-800 group-hover/link:text-amber-700 transition-colors">Request Overtime</h3>
-        <p className="text-xs text-gray-500 mt-1">Extra hours & compensation</p>
-      </div>
-      <FaAngleRight className="text-gray-400 group-hover/link:text-amber-600 group-hover/link:translate-x-1 transition-all" />
-    </Link>
+      {/* ===== MODALS ===== */}
 
-    {/* Announcement */}
-    <Link 
-      to="/employee/notices" 
-      className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-purple-50 hover:to-white border border-gray-200 hover:border-purple-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
-    >
-      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-500/30">
-        <FaBullhorn className="text-lg" />
-      </div>
-      <div className="flex-1">
-        <h3 className="font-bold text-gray-800 group-hover/link:text-purple-700 transition-colors">Announcement</h3>
-        <p className="text-xs text-gray-500 mt-1">Latest news & updates</p>
-      </div>
-      <FaAngleRight className="text-gray-400 group-hover/link:text-purple-600 group-hover/link:translate-x-1 transition-all" />
-    </Link>
-    {/* Add inside the grid in EmployeeDashboard where other links exist */}
-<Link 
-  to="/employee/payslip" 
-  className="group/link bg-gradient-to-r from-white to-gray-50 hover:from-blue-50 hover:to-white border border-gray-200 hover:border-blue-200 rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
->
-  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
-    <span className="text-xl font-bold">₹</span>
-  </div>
-  <div className="flex-1">
-    <h3 className="font-bold text-gray-800 group-hover/link:text-blue-700 transition-colors">Payslips</h3>
-    <p className="text-xs text-gray-500 mt-1">View monthly salary</p>
-  </div>
-  <FaAngleRight className="text-gray-400 group-hover/link:text-blue-600 group-hover/link:translate-x-1 transition-all" />
-</Link>
-  </div>
-</div>
-
-
-
-</div>
-
-      {/* ✅ MODAL: Missed Punch Yesterday Request */}
+      {/* Missed Punch Yesterday — Request Modal */}
       {showReqModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-down">
-            <div className="bg-blue-600 px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-down border border-gray-200">
+            <div className="bg-red-600 px-6 py-5 flex justify-between items-center">
               <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaPaperPlane /> Request Punch Out</h3>
-              <button onClick={() => setShowReqModal(false)} className="text-white hover:bg-blue-700 p-1 rounded"><FaTimes /></button>
+              <button onClick={() => setShowReqModal(false)} className="text-white hover:text-red-200 transition"><FaTimes size={18} /></button>
             </div>
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4 bg-yellow-50 border border-yellow-200 p-2 rounded">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-red-800 mb-5 bg-red-50 border border-red-100 p-3 rounded-lg">
                 You missed punching out on <b>{formatDateDDMMYYYY(reqData.date)}</b>. Please provide the actual time you left work.
               </p>
-              <form onSubmit={handleRequestSubmit} className="space-y-4">
+              <form onSubmit={handleRequestSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Missed Date</label>
-                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-100">
-                    <FaCalendarAlt className="text-gray-400 mr-2" />
-                    <input type="text" value={formatDateDDMMYYYY(reqData.date)} disabled className="bg-transparent outline-none w-full text-gray-500 cursor-not-allowed" />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Missed Date</label>
+                  <div className="flex items-center border border-gray-200 rounded-xl px-4 py-2.5 bg-gray-50 shadow-sm">
+                    <FaCalendarAlt className="text-gray-400 mr-3" />
+                    <input type="text" value={formatDateDDMMYYYY(reqData.date)} disabled className="bg-transparent outline-none w-full text-gray-500 font-semibold cursor-not-allowed" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Actual Out Time</label>
-                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-white focus-within:ring-2 ring-blue-200 transition">
-                    <FaRegClock className="text-gray-400 mr-2" />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Actual Out Time (in 24 HRS format)</label>
+                  <div className="flex items-center border border-gray-200 rounded-xl px-4 py-2.5 bg-white focus-within:ring-2 focus-within:ring-blue-500 transition shadow-sm">
+                    <FaRegClock className="text-gray-400 mr-3" />
                     <input
                       type="time"
                       value={reqData.time}
                       onChange={(e) => setReqData({ ...reqData, time: e.target.value })}
-                      className="bg-transparent outline-none w-full text-gray-700"
+                      className="bg-transparent outline-none w-full text-gray-800 font-semibold"
                       required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Reason</label>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reason</label>
                   <textarea
                     value={reqData.reason}
                     onChange={(e) => setReqData({ ...reqData, reason: e.target.value })}
                     placeholder="e.g. Forgot to punch out, Network issue..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 ring-blue-200 h-24 resize-none transition"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 h-24 resize-none transition shadow-sm text-sm font-medium"
                     required
                   />
                 </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => setShowReqModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-                  <button type="submit" disabled={reqLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow-sm disabled:opacity-50 flex items-center gap-2">
+                <div className="flex justify-end gap-3 pt-3">
+                  <button type="button" onClick={() => setShowReqModal(false)} className="px-5 py-2.5 text-gray-600 bg-white border border-gray-200 font-bold text-sm hover:bg-gray-50 rounded-xl transition shadow-sm">Cancel</button>
+                  <button type="submit" disabled={reqLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md disabled:opacity-50 flex items-center gap-2 transition active:scale-95">
                     {reqLoading ? "Sending..." : "Submit Request"}
                   </button>
                 </div>
@@ -1691,53 +1710,90 @@ const gradients = [
         </div>
       )}
 
-      {/* ✅ NEW MODAL: Late Login Correction Request (Today) */}
+      {/* ✅ Late Login Correction Modal — with request limit progress bar */}
       {showLateReqModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-down">
-            <div className="bg-orange-600 px-6 py-4 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-down border border-gray-200">
+            <div className="bg-orange-500 px-6 py-5 flex justify-between items-center">
               <h3 className="text-lg font-bold text-white flex items-center gap-2"><FaRegClock /> Request On-Time Login</h3>
-              <button onClick={() => setShowLateReqModal(false)} className="text-white hover:bg-orange-700 p-1 rounded"><FaTimes /></button>
+              <button onClick={() => setShowLateReqModal(false)} className="text-white hover:text-orange-200 transition"><FaTimes size={18} /></button>
             </div>
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-4 bg-orange-50 border border-orange-200 p-2 rounded">
-                You are marked as <b>LATE</b>. If you arrived on time but missed punching in, or If you have a valid reason for the delay, Raise a correction request.
+
+              {/* ✅ NEW: Monthly request limit progress bar */}
+              <div className="mb-5 bg-purple-50 border border-purple-100 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Monthly Request Limit</span>
+                  <span className="text-lg font-black text-purple-800">
+                    {requestLimit.limit - requestLimit.used} / {requestLimit.limit}
+                  </span>
+                </div>
+                <div className="w-full bg-purple-200/50 rounded-full h-2 border border-purple-200">
+                  <div
+                    className="bg-purple-500 h-1.5 rounded-full transition-all duration-300 m-[1px]"
+                    style={{ width: `${Math.min(((requestLimit.limit - requestLimit.used) / requestLimit.limit) * 100, 100)}%` }}
+                  ></div>
+                </div>
+                <p className="text-[10px] uppercase font-bold tracking-wider text-purple-500 mt-2">
+                  {requestLimit.limit - requestLimit.used === 0 ? (
+                    <span className="text-red-500">⚠️ No requests remaining</span>
+                  ) : (
+                    `${requestLimit.limit - requestLimit.used} request${requestLimit.limit - requestLimit.used !== 1 ? 's' : ''} remaining`
+                  )}
+                </p>
+              </div>
+
+              <p className="text-[11px] font-bold text-orange-800 uppercase tracking-wider mb-5 bg-orange-50 border border-orange-100 p-3 rounded-lg leading-relaxed">
+                You are marked as <b>LATE</b>. If you arrived on time but missed punching in, or have a valid reason, raise a correction request.
               </p>
-              <form onSubmit={handleLateRequestSubmit} className="space-y-4">
+
+              <form onSubmit={handleLateRequestSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Today's Date</label>
-                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-gray-100">
-                    <FaCalendarAlt className="text-gray-400 mr-2" />
-                    <input type="text" value={formatDateDDMMYYYY(todayIso)} disabled className="bg-transparent outline-none w-full text-gray-500 cursor-not-allowed" />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Today's Date</label>
+                  <div className="flex items-center border border-gray-200 rounded-xl px-4 py-2.5 bg-gray-50 shadow-sm">
+                    <FaCalendarAlt className="text-gray-400 mr-3" />
+                    <input type="text" value={formatDateDDMMYYYY(todayIso)} disabled className="bg-transparent outline-none w-full text-gray-500 font-semibold cursor-not-allowed" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Actual Arrival Time</label>
-                  <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 bg-white focus-within:ring-2 ring-orange-200 transition">
-                    <FaRegClock className="text-gray-400 mr-2" />
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Actual Arrival Time</label>
+                  <div className="flex items-center border border-gray-200 rounded-xl px-4 py-2.5 bg-white focus-within:ring-2 focus-within:ring-orange-400 transition shadow-sm">
+                    <FaRegClock className="text-gray-400 mr-3" />
                     <input
                       type="time"
                       value={lateReqData.time}
                       onChange={(e) => setLateReqData({ ...lateReqData, time: e.target.value })}
-                      className="bg-transparent outline-none w-full text-gray-700"
+                      className="bg-transparent outline-none w-full text-gray-800 font-semibold"
                       required
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Reason</label>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Reason</label>
                   <textarea
                     value={lateReqData.reason}
                     onChange={(e) => setLateReqData({ ...lateReqData, reason: e.target.value })}
                     placeholder="Reason for late login..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 ring-orange-200 h-24 resize-none transition"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-orange-400 h-24 resize-none transition shadow-sm text-sm font-medium"
                     required
                   />
                 </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => setShowLateReqModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
-                  <button type="submit" disabled={lateReqLoading} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg font-semibold shadow-sm disabled:opacity-50 flex items-center gap-2">
-                    {lateReqLoading ? "Sending..." : "Submit Request"}
+                <div className="flex justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowLateReqModal(false)}
+                    className="px-5 py-2.5 text-gray-600 bg-white border border-gray-200 font-bold text-sm hover:bg-gray-50 rounded-xl transition shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={lateReqLoading || (requestLimit.limit - requestLimit.used) === 0}
+                    className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition active:scale-95"
+                  >
+                    {lateReqLoading ? "Sending..." :
+                      (requestLimit.limit - requestLimit.used) === 0 ? "Limit Reached" :
+                        "Submit Request"}
                   </button>
                 </div>
               </form>
@@ -1752,4 +1808,3 @@ const gradients = [
 };
 
 export default EmployeeDashboard;
-// --- END OF FILE EmployeeDashboard.jsx ---
