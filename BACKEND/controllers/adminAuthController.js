@@ -1,6 +1,7 @@
 import Admin from "../models/adminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
 import Employee from "../models/employeeModel.js";
+import Feature from "../models/featureModel.js"; // ⭐ NEW: Import Feature model
 import jwt from "jsonwebtoken";
 
 /* ==================== JWT SIGN (FIXED) ==================== */
@@ -154,7 +155,7 @@ export const updatePlanSettings = async (req, res) => {
       { 
         durationDays: Number(durationDays),
         price: Number(price),
-        features: features 
+        features: features  // ⭐ features is now an array of route strings e.g. ["/admin/dashboard", "/employees"]
       },
       { upsert: true, new: true }
     );
@@ -297,6 +298,7 @@ export const getLoginAccessStatus = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch login access status" });
   }
 };
+
 /* ==================== GET ADMIN PROFILE ==================== */
 export const getAdminProfile = async (req, res) => {
   try {
@@ -345,5 +347,47 @@ export const updateAdminProfile = async (req, res) => {
   } catch (error) {
     console.error("❌ UPDATE PROFILE ERROR:", error);
     res.status(500).json({ message: "Failed to update profile" });
+  }
+};
+
+/* ==================== ⭐ GET ALL AVAILABLE FEATURES (for MasterSettings) ==================== */
+export const getAllFeatures = async (req, res) => {
+  try {
+    const features = await Feature.find({}).sort({ label: 1 });
+    res.status(200).json(features);
+  } catch (error) {
+    console.error("❌ FETCH FEATURES ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch features" });
+  }
+};
+
+/* ==================== ⭐ GET CURRENT ADMIN'S PLAN FEATURES (for Sidebar) ==================== */
+// Returns the array of route strings that are enabled for the logged-in admin's plan.
+// The Sidebar uses these routes to filter which nav links to display.
+export const getMyPlanFeatures = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    const admin = await Admin.findById(req.user._id).select("plan");
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const plan = await PlanSetting.findOne({ planName: admin.plan });
+
+    // If no plan found or no features, return empty (Sidebar will show all or nothing based on your preference)
+    if (!plan || !plan.features || plan.features.length === 0) {
+      return res.status(200).json({ planName: admin.plan, allowedRoutes: [] });
+    }
+
+    res.status(200).json({
+      planName: plan.planName,
+      allowedRoutes: plan.features, // array of route strings e.g. ["/admin/dashboard", "/employees"]
+    });
+  } catch (error) {
+    console.error("❌ GET MY PLAN FEATURES ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch plan features" });
   }
 };
