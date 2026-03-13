@@ -37,6 +37,9 @@ import ChangePasswordPage from "./pages/ChangePasswordPage";
 import SettingsPage from "./pages/SettingsPage";
 import Payroll from "./pages/Payroll";
 import SubsHome from "./SubscriptionPages/SubsHome"
+import EmployeePayslip from "./EmployeePages/EmployeePayslip";
+import ConnectWithEmployee from "./EmployeePages/ConnectwithEmployee";
+
 
 // Attendance Features
 import OvertimeManagement from "./pages/OvertimeManagement";
@@ -279,6 +282,9 @@ function App() {
         <Route path="/employee/my-attendence" element={<EmployeeDailyAttendance />} />
         <Route path="/employee/new-attendence" element={<NewEmployeeAttendance />} />
         <Route path="/employee/rules" element={<EmployeeViewRules />} />
+        <Route path="/employee/payslip" element={<EmployeePayslip />} />
+        <Route path="/employee/chatting" element={<ConnectWithEmployee />} />
+
 
         <Route
           path="/employee/teams"

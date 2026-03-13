@@ -241,10 +241,10 @@ const EmployeeWorkModeRequest = () => {
           </div>
           
           {/* Detailed Description like Dashboard */}
-          <div className="flex items-start gap-2 bg-black/20 backdrop-blur-md p-3 rounded-lg text-sm font-medium border border-white/10">
-            <FaInfoCircle className="mt-0.5 flex-shrink-0" size={14} />
+          {/* <div className="flex items-start gap-2 bg-black/20 backdrop-blur-md p-3 rounded-lg text-sm font-medium border border-white/10"> */}
+            {/* <FaInfoCircle className="mt-0.5 flex-shrink-0" size={14} /> */}
             <span className="leading-tight">{description}</span>
-          </div>
+          {/* </div> */}
         </div>
       </div>
     );
@@ -259,7 +259,7 @@ const EmployeeWorkModeRequest = () => {
   };
 
   return (
-    <div className="p-4 md:p-8 bg-gray-50 min-h-screen font-sans">
+    <div className="p-4 md:p-8  min-h-screen font-sans">
       <div className="max-w-6xl mx-auto">
         
         {/* 1. PINNED CURRENT STATUS */}
@@ -397,6 +397,14 @@ const EmployeeWorkModeRequest = () => {
                           {req.requestType === "Permanent" && "Permanent Change"}
                         </span>
                       </div>
+
+                      {/* Fetched Reason for Request section */}
+                      {req.reason && (
+                        <div className="text-xs text-gray-600 bg-gray-50/80 p-2.5 rounded-lg mb-3 italic border border-gray-100">
+                          <span className="font-semibold not-italic text-gray-700 block mb-0.5">Reason:</span>
+                          {req.reason}
+                        </div>
+                      )}
 
                       <div className="flex justify-between items-center pt-2 border-t border-gray-50">
                         {getStatusBadge(req.status)}

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Swal from "sweetalert2"; // ✅ ADDED: SweetAlert import
 import {
   getLeaveRequestsForEmployee,
   applyForLeave,
@@ -13,7 +14,7 @@ import {
   getShiftByEmployeeId // ✅ ADDED: To get week off days
 } from "../api";
 
-const REASON_LIMIT = 50;
+const REASON_LIMIT = 100; // Max characters for reason input
 
 // --- LEAVE YEAR CONFIGURATION ---
 const LEAVE_YEAR_START_MONTH = 1; // Jan
@@ -938,6 +939,13 @@ const EmployeeLeavemanagement = () => {
     e.preventDefault();
     const { from, to, reason, halfDaySession, leaveType } = form;
     if (!from || !to || !reason || !leaveType) {
+      // SweetAlert validation
+      Swal.fire({
+        icon: 'warning',
+        title: 'Missing Fields',
+        text: 'All fields are required.',
+        confirmButtonColor: '#3085d6'
+      });
       setSubmitError("All fields are required.");
       return;
     }
@@ -962,6 +970,18 @@ const EmployeeLeavemanagement = () => {
   const submitLeaveRequest = async () => {
     const { from, to, reason, halfDaySession, leaveType } = form;
     setSubmitError("");
+
+    // SweetAlert Loading state to prevent multiple clicks
+    Swal.fire({
+      title: 'Submitting Request...',
+      text: 'Please wait while we process your leave.',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     try {
       const payload = {
         employeeId: user.employeeId,
@@ -998,6 +1018,16 @@ const EmployeeLeavemanagement = () => {
       }
 
       playRequestSound();
+      
+      // Show SweetAlert Success
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Leave request submitted successfully!',
+        timer: 3000,
+        showConfirmButton: false
+      });
+
       setSubmitSuccess("Leave request submitted successfully!");
       setForm({
         from: "",
@@ -1020,12 +1050,42 @@ const EmployeeLeavemanagement = () => {
       }, 3000);
     } catch (err) {
       console.error("submit error", err);
+      // Show SweetAlert Error
+      Swal.fire({
+        icon: 'error',
+        title: 'Submission Failed',
+        text: err?.message || "Failed to submit leave request.",
+        confirmButtonColor: '#d33'
+      });
       setSubmitError(err?.message || "Failed to submit leave request.");
     }
   };
 
   const handleCancelLeave = async (leaveId) => {
-    if (!window.confirm("Are you sure you want to cancel this leave request?")) return;
+    // SweetAlert confirmation for cancelling leave
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "Do you want to cancel this leave request?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, cancel it!'
+    });
+
+    if (!result.isConfirmed) return;
+
+    // Show loading alert during cancellation
+    Swal.fire({
+      title: 'Cancelling...',
+      text: 'Please wait',
+      allowOutsideClick: false,
+      showConfirmButton: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
     try {
       let canceled = false;
       if (typeof cancelLeaveRequestById === "function") {
@@ -1045,10 +1105,24 @@ const EmployeeLeavemanagement = () => {
         }
       }
       await fetchAllData();
-      alert("Leave request cancelled successfully!");
+      
+      // Show cancel success alert
+      Swal.fire({
+        icon: 'success',
+        title: 'Cancelled!',
+        text: 'Leave request cancelled successfully!',
+        timer: 2000,
+        showConfirmButton: false
+      });
     } catch (err) {
       console.error("cancel error", err);
-      alert("Failed to cancel the leave request.");
+      // Show cancel error alert
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Failed to cancel the leave request.',
+        confirmButtonColor: '#d33'
+      });
     }
   };
 
@@ -1125,13 +1199,13 @@ const EmployeeLeavemanagement = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen p-4">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8"
+          className="flex flex-col lg:flex-row items-start lg:items-center border border-gray-200 shadow-sm bg-white rounded-2xl p-4 justify-between mb-8"
         >
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">Leave Management</h1>
@@ -1958,3 +2032,4 @@ const EmployeeLeavemanagement = () => {
 };
 
 export default EmployeeLeavemanagement;
+// --- END OF FILE EmployeeLeavemanagement.jsx ---

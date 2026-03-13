@@ -126,6 +126,9 @@ export const loginUser = async (email, password) => {
    EMPLOYEE MANAGEMENT
 ============================================================================= */
 export const getEmployees = async () => (await api.get("/api/employees")).data;
+export const requestStatusCorrection = async (data) => 
+  (await api.post("/api/attendance/request-status-correction", data)).data;
+
 export const getEmployeeById = async (id) =>
   (await api.get(`/api/employees/${id}`)).data;
 export const addEmployee = async (data) =>

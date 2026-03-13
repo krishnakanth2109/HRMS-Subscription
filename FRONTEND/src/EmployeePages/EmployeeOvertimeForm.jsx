@@ -111,7 +111,7 @@ const OvertimeWithModal = () => {
   return (
     <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex  justify-between border border-gray-200 shadow-sm p-4 bg-white rounded-2xl items-center mb-8">
         <h2 className="text-4xl font-extrabold text-indigo-900 tracking-wide">
           My Overtime Requests
         </h2>

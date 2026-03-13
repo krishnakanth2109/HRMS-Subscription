@@ -91,7 +91,7 @@ const EmployeePayslip = () => {
   const leavesTaken = payslipData ? (payslipData.attendanceSummary.totalDaysInMonth - payslipData.attendanceSummary.workedDays) : 0;
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 font-sans print:bg-white print:p-0 print:m-0">
+    <div className="min-h-screen p-4 font-sans print:bg-white print:p-0 print:m-0">
       
       {/* --- Controls (Hidden on Print) --- */}
 <div className="max-w-5xl mx-auto mb-8 print:hidden">
@@ -130,7 +130,7 @@ const EmployeePayslip = () => {
 </div>
 
       {/* --- Content Area --- */}
-      <div className="max-w-[850px] mx-auto print:max-w-none print:w-full print:mx-0">
+      <div className="max-w-5xl mx-auto print:max-w-none print:w-full print:mx-0">
         
         {loading ? (
           <div className="text-center p-10 bg-white">Loading...</div>
