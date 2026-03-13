@@ -469,12 +469,12 @@ const AdminLateRequests = () => {
             </button>
           )}
         </div>
-        <button 
+        {/* <button 
             onClick={() => { setLoading(true); fetchRequests(); }} 
             className="text-sm  px-4 py-2 rounded-lg bg-gray-200 border-gray-500 hover:bg-gray-600 transition shadow-sm font-medium"
         >
             Refresh List
-        </button>
+        </button> */}
       </div>
 
       {/* Search Bar + Bulk Actions */}

@@ -75,7 +75,7 @@ const LayoutAdmin = () => {
 
             {theme === "image" && (
               <div className="absolute inset-0 opacity-60 transition-opacity duration-700"
-                style={{ backgroundImage: `url(${themeBgImage})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
+                style={{ backgroundImage: `url(https://image2url.com/r2/default/images/1773292744536-6fd3f832-9e97-4fb8-8a1d-1ddb3b5e2b15.png)`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}
               />
             )}
           </div>

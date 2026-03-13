@@ -13,6 +13,8 @@ import {
     getLoginAccessStatus,
     getAdminProfile ,
     updateAdminProfile,
+    getAllFeatures,
+    getMyPlanFeatures
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -33,5 +35,7 @@ router.delete("/delete-plan/:id", deletePlan);
 router.get("/login-access", getLoginAccessStatus);
 router.patch("/login-access/admin/:adminId", toggleAdminLogin);
 router.patch("/login-access/employees/:adminId", toggleEmployeeLoginByAdmin);
+router.get("/all-features",      protect, getAllFeatures);   
+router.get("/my-plan-features",  protect, getMyPlanFeatures);
 
 export default router;

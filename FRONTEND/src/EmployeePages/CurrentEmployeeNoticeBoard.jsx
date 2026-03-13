@@ -408,7 +408,10 @@ const NoticeList = () => {
 
         {/* --- EXISTING NOTICES LIST RENDERING --- */}
         <div className="space-y-5">
-          {notices.map((notice) => {
+          {notices.length === 0 ? (
+            <div className="text-center text-gray-500 py-20 font-semibold">No Notices to Read</div>
+          ) : (
+            notices.map((notice) => {
             const { date, time } = formatDateTime(notice.date);
             const isRead = notice.readBy?.some(record => (record.employeeId?._id || record.employeeId) === currentUserId);
             const isOwner = (notice.createdBy?._id || notice.createdBy) === currentUserId;
@@ -526,7 +529,7 @@ const NoticeList = () => {
                 </div>
               </div>
             );
-          })}
+          }) )}
         </div>
       </div>
 

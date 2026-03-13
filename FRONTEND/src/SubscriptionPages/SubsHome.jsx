@@ -67,6 +67,21 @@ const DynamicHRMSLandingPage = () => {
         setSignupSuccess("");
     };
 
+    const featureLabels = {
+  "/admin/dashboard": "Dashboard",
+  "/employees": "Employee Management",
+  "/attendance": "Employees Attendance",
+  "/admin/settings": "Shift Management",
+  "/admin/shifttype": "Location Settings",
+  "/admin/leave-summary": "Leave Summary",
+  "/admin/holiday-calendar": "Holiday Calendar",
+  "/admin/payroll": "Payroll",
+  "/admin/notices": "Announcements",
+  "/admin/admin-Leavemanage": "Leave Requests",
+  "/admin/late-requests": "Attendance Adjustment",
+  "/admin/admin-overtime": "Overtime Requests",
+};
+
     // --- REGISTER HANDLER (same logic as Login.jsx) ---
     const handleAdminRegister = async (e) => {
         e.preventDefault();
@@ -241,6 +256,7 @@ const DynamicHRMSLandingPage = () => {
             </section>
 
             {/* Pricing Section */}
+       {/* Pricing Section */}
             <section id="pricing" className="py-24 px-8 bg-gradient-to-b from-[#030712] to-[#080c14]">
                 <div className="container mx-auto">
                     <div className="text-center mb-16">
@@ -281,7 +297,10 @@ const DynamicHRMSLandingPage = () => {
                                                 plan.features.map((feature, fIdx) => (
                                                     <li key={fIdx} className="flex items-start text-sm group">
                                                         <span className="text-blue-500 mr-3 font-bold text-lg leading-none">✓</span>
-                                                        <span className="text-gray-300 group-hover:text-white transition-colors">{feature}</span>
+                                                        {/* ⭐ Updated line to use the mapping dictionary */}
+                                                        <span className="text-gray-300 group-hover:text-white transition-colors">
+                                                            {featureLabels[feature] || feature}
+                                                        </span>
                                                     </li>
                                                 ))
                                             ) : (
@@ -310,7 +329,6 @@ const DynamicHRMSLandingPage = () => {
                     )}
                 </div>
             </section>
-
             {/* Footer */}
             <footer className="py-16 px-8 bg-[#030712] border-t border-white/5">
                 <div className="container mx-auto text-center">

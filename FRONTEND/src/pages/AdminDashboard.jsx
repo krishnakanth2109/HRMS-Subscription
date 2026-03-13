@@ -579,15 +579,23 @@ const AdminDashboard = () => {
           </Link>
 
           {/* Leave Requests */}
-          <div className="bg-white rounded-[20px] p-5 shadow-sm h-[130px] flex flex-col justify-between border border-gray-100 transition-all hover:shadow-md">
-            <div className="w-11 h-11 bg-[#F4F7FE] rounded-xl flex items-center justify-center text-[#4318FF] text-lg">
-              <FaPlane />
-            </div>
-            <div>
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Leave Requests</p>
-              <h3 className="text-3xl font-bold text-[#2B3674] tracking-tight">{totalPendingLeavesCount}</h3>
-            </div>
-          </div>
+<div
+  onClick={() => navigate("/admin/admin-Leavemanage")}
+  className="bg-white rounded-[20px] p-5 shadow-sm h-[130px] flex flex-col justify-between border border-gray-100 transition-all hover:shadow-md cursor-pointer"
+>
+  <div className="w-11 h-11 bg-[#F4F7FE] rounded-xl flex items-center justify-center text-[#4318FF] text-lg">
+    <FaPlane />
+  </div>
+
+  <div>
+    <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+      Leave Requests
+    </p>
+    <h3 className="text-3xl font-bold text-[#2B3674] tracking-tight">
+      {totalPendingLeavesCount}
+    </h3>
+  </div>
+</div>
         </div>
 
         {/* 2. CHARTS SECTION */}
