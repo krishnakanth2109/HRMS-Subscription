@@ -34,6 +34,7 @@ import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js"; // Import the routes
 import invitedEmployeeRoutes from "./routes/invitedEmployeeRoutes.js";
 import mailRoutes from "./routes/mailRoutes.js";
+import issueRoutes from "./routes/issueRoutes.js";
 
 /* ==================== 🔹 STRIPE IMPORTS (IMPORTANT) ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
@@ -156,6 +157,7 @@ app.use("/api/admin", adminAuthRoutes);
 app.use("/api/companies", companyRoutes); 
 app.use("/api/invited-employees", invitedEmployeeRoutes);
 app.use("/api/mail", mailRoutes);
+app.use("/api/issues", issueRoutes);
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);

@@ -15,6 +15,7 @@ const LayoutMaster = () => {
     { label: "Dashboard", path: "/master/dashboard", icon: <LayoutDashboard size={20} /> },
     { label: "Subscribers", path: "/master/admins", icon: <Users size={20} /> },
     { label: "Plan Settings", path: "/master/settings", icon: <Settings size={20} /> },
+    
   ];
 
   return (

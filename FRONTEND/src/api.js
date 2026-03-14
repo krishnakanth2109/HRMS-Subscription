@@ -761,4 +761,80 @@ export const getInbox = async () => {
   }
 };
 
+/* =============================================================================
+   TECHNICAL ISSUES
+============================================================================= */
+
+// Create Issue (Employee/Admin)
+export const createTechnicalIssue = async (formData) => {
+  try {
+    const response = await api.post("/api/issues", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Create issue error:", error);
+    throw error;
+  }
+};
+
+// Get All Issues
+export const getTechnicalIssues = async () => {
+  try {
+    const response = await api.get("/api/issues");
+    return response.data;
+  } catch (error) {
+    console.error("Get issues error:", error);
+    throw error;
+  }
+};
+
+// Admin Approve Issue
+export const approveTechnicalIssue = async (id) => {
+  try {
+    const response = await api.patch(`/api/issues/${id}/approve`);
+    return response.data;
+  } catch (error) {
+    console.error("Approve issue error:", error);
+    throw error;
+  }
+};
+
+// Admin Reject Issue
+export const rejectTechnicalIssue = async (id, resolvedMessage) => {
+  try {
+    const response = await api.patch(`/api/issues/${id}/reject`, {
+      resolvedMessage,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Reject issue error:", error);
+    throw error;
+  }
+};
+
+// SuperAdmin Resolve Issue
+export const resolveTechnicalIssue = async (id, resolvedMessage) => {
+  try {
+    const response = await api.patch(`/api/issues/${id}/resolve`, {
+      resolvedMessage,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Resolve issue error:", error);
+    throw error;
+  }
+};
+
+// Delete Issue
+export const deleteTechnicalIssue = async (id) => {
+  try {
+    const response = await api.delete(`/api/issues/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Delete issue error:", error);
+    throw error;
+  }
+};
+
 export default api;

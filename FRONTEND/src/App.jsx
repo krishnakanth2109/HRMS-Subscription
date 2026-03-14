@@ -88,6 +88,9 @@ import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
 import ManageLogins from "./pages/master/Managelogins";
 import SendOnboardingForm from "./pages/InviteEmployee";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
+import SuperAdminIssues from "./pages/SuperAdminIssues";
+import AdminIssues from "./pages/AdminIssues";
+import EmployeeIssues from "./pages/EmployeeIssues";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -187,6 +190,7 @@ function App() {
         <Route path="admins" element={<MasterAdminUsers />} />
         <Route path="settings" element={<MasterSettings />} />
         <Route path="manage-logins" element={<ManageLogins />} />
+         <Route path="manage-issues" element={<SuperAdminIssues/>} />
       </Route>
 
 
@@ -208,6 +212,7 @@ function App() {
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
         <Route path="/attendance" element={<AdminViewAttendance />} />
+     
 
 
         <Route
@@ -257,6 +262,7 @@ function App() {
         <Route path="/admin/meeting" element={<MeetingGenerator />} />
         <Route path="/admin/today-overview" element={<TodayOverview />} />
         <Route path="/admin/rules" element={<AdminRulesPost />} />
+        <Route path="/admin/issues" element={<AdminIssues/>} />
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}
@@ -284,7 +290,7 @@ function App() {
         <Route path="/employee/rules" element={<EmployeeViewRules />} />
         <Route path="/employee/payslip" element={<EmployeePayslip />} />
         <Route path="/employee/chatting" element={<ConnectWithEmployee />} />
-
+        <Route path="/employee/issues" element={<EmployeeIssues />} />
 
         <Route
           path="/employee/teams"

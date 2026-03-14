@@ -27,11 +27,18 @@ const LayoutMaster = () => {
     { label: "Dashboard", path: "/master/dashboard", icon: <LayoutDashboard size={22} /> },
     { label: "Our Subscribers", path: "/master/admins", icon: <Users size={22} /> },
     { label: "Plan Settings", path: "/master/settings", icon: <Settings size={22} /> },
+
 { 
   label: "Manage Logins", 
   path: "/master/manage-logins", 
   icon: <UserCog size={22} /> 
+},
+{ 
+  label: "Technical Issues", 
+  path: "/master/manage-issues", 
+  icon: <UserCog size={22} /> 
 }
+
   ];
 
   return (

@@ -21,6 +21,7 @@ import {
   FaSignOutAlt,
   FaUserCheck,
   FaLock,
+  FaReceipt,
 } from "react-icons/fa";
 
 import { io } from "socket.io-client";
@@ -53,6 +54,7 @@ const ALL_NAV_LINKS = [
   { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests",        icon: <FaCheckDouble />,   isLeave: true },
   { to: "/admin/late-requests",     route: "/admin/late-requests",     label: "Attendance Adjustment", icon: <FaUserCheck />,     isLateRequests: true },
   { to: "/admin/admin-overtime",    route: "/admin/admin-overtime",    label: "Overtime Requests",     icon: <FaBusinessTime />,  isOvertime: true },
+  { to: "/admin/issues",   route: "/admin/issues",   label: "Technical Issues",    icon: <FaReceipt />,  isIssues: true },
 ];
 
 // ✅ HELPER: Calculate unread notices

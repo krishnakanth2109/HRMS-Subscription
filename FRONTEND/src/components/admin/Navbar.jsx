@@ -227,6 +227,15 @@ const Navbar = ({ currentTheme, onThemeChange }) => {
                 >
                   <FaCog className="text-blue-600" /> Company Rules & Regulations
                 </div>
+                      <div
+                  onClick={() => {
+                    navigate("/admin/issues");
+                    setShowMenu(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition border-t"
+                >
+                  <FaCog className="text-blue-600" /> Technical Issues
+                </div>
 
                 {/* LOGOUT */}
                 <div
