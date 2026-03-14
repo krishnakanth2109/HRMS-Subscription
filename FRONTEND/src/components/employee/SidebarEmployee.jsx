@@ -33,7 +33,7 @@ const navLinks = [
   { to: "/employee/reuestworkmode", label: "WorkMode Request", icon: <FaLaptopHouse /> },
   { to: "/employee/payslip", label: "Pay-Slip", icon: <FaMoneyCheckAlt /> },
   { to: "/employee/chatting", label: "Connect with Employee", icon: <FaUserFriends /> },
-  { to: "/employee/expense", label: "Add Expense", icon: <FaReceipt /> }
+  // { to: "/employee/expense", label: "Add Expense", icon: <FaReceipt /> }
 ];
 
 const SidebarEmployee = () => {

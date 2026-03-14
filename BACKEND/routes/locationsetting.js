@@ -383,7 +383,7 @@ router.post("/request", protect, async (req, res) => {
     const newRequest = new WorkModeRequest({
       employeeId, employeeName, department,
       requestType, fromDate, toDate, recurringDays, requestedMode, reason,
-      company: getCompanyId(req.user), 
+      companyId: getCompanyId(req.user),
       adminId: getAdminId(req.user)    
     });
 
