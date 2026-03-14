@@ -131,9 +131,13 @@ function ReportModal({ onClose, onSuccess, userInfo }) {
       fd.append("subject", form.subject.trim());
       fd.append("message", form.message.trim());
       
-      // ✅ ADDED: Sending Employee Name and Email from Props
+      // ✅ Sending Basic Info
       fd.append("raisedByName", userInfo.name);
       fd.append("raisedByEmail", userInfo.email);
+
+      // ✅ ADDED: Sending Hierarchical Data to fix Validation Errors
+      if (userInfo.adminId) fd.append("adminId", userInfo.adminId);
+      if (userInfo.companyId) fd.append("companyId", userInfo.companyId);
 
       files.forEach((f) => fd.append("images", f));
       
@@ -216,8 +220,8 @@ export default function EmployeeIssues() {
   const [tab, setTab]             = useState("all");
   const [showModal, setShowModal] = useState(false);
   
-  // ✅ State for Employee Data
-  const [userInfo, setUserInfo] = useState({ name: "", email: "" });
+  // ✅ Updated State for Employee Data to include IDs
+  const [userInfo, setUserInfo] = useState({ name: "", email: "", adminId: "", companyId: "" });
 
   useEffect(() => {
     // 1. Fetch Issues
@@ -225,14 +229,16 @@ export default function EmployeeIssues() {
       .then((data) => { if (data.success) setIssues(data.issues); })
       .finally(() => setLoading(false));
 
-    // 2. ✅ Fetch Employee Info from Session Storage (Logic matched to CurrentEmployeeProfile)
+    // 2. ✅ Fetch Employee Info and Hierarchy IDs from Session Storage
     const saved = sessionStorage.getItem("hrmsUser");
     if (saved && saved !== "undefined") {
       try {
         const parsed = JSON.parse(saved);
         setUserInfo({
             name: parsed.name || "Employee",
-            email: parsed.email || ""
+            email: parsed.email || "",
+            adminId: parsed.adminId || parsed.creatorId || "",
+            companyId: parsed.companyId || parsed.company || ""
         });
       } catch (e) {
         console.error("Error parsing user info", e);
@@ -297,7 +303,7 @@ export default function EmployeeIssues() {
         {showModal && (
           <ReportModal 
             onClose={() => setShowModal(false)} 
-            userInfo={userInfo} // ✅ Pass Employee Info to Modal
+            userInfo={userInfo} 
             onSuccess={(newIssue) => {
               setIssues(prev => [newIssue, ...prev]);
               Swal.fire("Submitted!", "Thank you for reporting your issue. It has been sent to Admin review.", "success");
