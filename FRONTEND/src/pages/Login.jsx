@@ -22,6 +22,7 @@ const Login = () => {
   const navigate = useNavigate();
 
   /* ==================== LOGIN STATE ==================== */
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -348,11 +349,65 @@ const Login = () => {
             </div>
 
             <form onSubmit={handleAdminRegister} className="space-y-4">
-              <input placeholder="Full Name" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })} required />
-              <input type="email" placeholder="Email Address" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })} required />
-              <input type="password" placeholder="Create Password" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })} required />
+<input
+  placeholder="Full Name"
+  pattern="^[A-Za-z\s]+$"
+  title="Only alphabets allowed"
+  className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all"
+  onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
+  required
+/>
+<input
+  type="email"
+  placeholder="Email Address"
+  pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+  title="Enter valid Gmail address"
+  className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all"
+  onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+  required
+/>
+<div className="relative">
+
+<input
+  type={showPassword ? "text" : "password"}
+  placeholder="Create Password"
+  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
+  title="Minimum 8 characters with uppercase, lowercase, number and symbol"
+  className="w-full bg-gray-50 border border-gray-100 px-4 py-3 pr-10 rounded-xl outline-none transition-all"
+  onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+  required
+/>
+
+<button
+  type="button"
+  onClick={() => setShowPassword(!showPassword)}
+  className="absolute right-3 top-1/2 -translate-y-1/2"
+>
+
+{showPassword ? (
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+<path d="M17.94 17.94A10.94 10.94 0 0112 19C7 19 2.73 16.11 1 12a11.05 11.05 0 012.29-3.57"/>
+<path d="M9.9 4.24A10.94 10.94 0 0112 5c5 0 9.27 2.89 11 7a11.05 11.05 0 01-4.23 5.07"/>
+<line x1="1" y1="1" x2="23" y2="23"/>
+</svg>
+) : (
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/>
+<circle cx="12" cy="12" r="3"/>
+</svg>
+)}
+
+</button>
+
+</div>
       
-              <input placeholder="Phone" className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all" onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })} />
+<input
+  placeholder="Phone"
+  pattern="[0-9]{10}"
+  title="Enter 10 digit phone number"
+  className="w-full bg-gray-50 border border-gray-100 px-4 py-3 rounded-xl outline-none transition-all"
+  onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+/>
 
               <button
                 type="submit"

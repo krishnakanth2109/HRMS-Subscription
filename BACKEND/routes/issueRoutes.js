@@ -3,11 +3,12 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import jwt from "jsonwebtoken";
-import mongoose from "mongoose"; // Added mongoose import
+import mongoose from "mongoose";
 import TechnicalIssue from "../models/TechnicalIssue.js";
 
 const router = express.Router();
 
+// ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
 const setUser = (req, res, next) => {
   try {
     let token = req.headers.authorization?.split(" ")[1];
@@ -24,7 +25,6 @@ const setUser = (req, res, next) => {
       role: userRole,
       name: decoded.name || "",
       email: decoded.email || "",
-      // Attempt to get hierarchy from token
       adminId: decoded.adminId,
       companyId: decoded.companyId || decoded.company,
     };
@@ -36,7 +36,13 @@ const setUser = (req, res, next) => {
   }
 };
 
-// ... Multer/Cloudinary config remains the same ...
+// ─── Cloudinary Config ────────────────────────────────────────────────────────
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -45,96 +51,65 @@ const storage = new CloudinaryStorage({
     transformation: [{ width: 1920, height: 1080, crop: "limit", quality: "auto" }],
   },
 });
+
 const upload = multer({ storage });
 
-// ─── POST ISSUE ───────────────────────────────────────────────────────────────
+// ─── POST ISSUE (WITH HIERARCHY FIX) ──────────────────────────────────────────
 router.post("/", setUser, upload.array("images", 5), async (req, res) => {
   try {
     const { subject, message, raisedByName, raisedByEmail } = req.body;
     const { _id: userId, role } = req.user;
     
-    // 1. Initial attempt from token
     let finalAdminId = req.user.adminId;
     let finalCompanyId = req.user.companyId || req.user.company;
 
-    if (!["employee", "admin"].includes(role)) {
-      return res.status(403).json({ success: false, message: "SuperAdmin cannot raise issues" });
-    }
-
-    // 2. STRENGTHENED LOOKUP LOGIC
     if (role === "employee") {
-      const employeeDoc = await mongoose.model("Employee").findById(userId).lean();
-      
-      if (!employeeDoc) {
-        return res.status(404).json({ success: false, message: "Employee record not found" });
+      const emp = await mongoose.model("Employee").findById(userId).lean();
+      if (emp) {
+        finalAdminId = finalAdminId || emp.adminId || emp.creatorId || emp.admin;
+        finalCompanyId = finalCompanyId || emp.companyId || emp.company || emp.tenantId;
       }
-
-      finalAdminId = finalAdminId || employeeDoc.adminId || employeeDoc.creatorId || employeeDoc.admin;
-      finalCompanyId = finalCompanyId || employeeDoc.companyId || employeeDoc.company || employeeDoc.tenantId;
-
     } else if (role === "admin") {
-      // For Admins, they are the root of the hierarchy
-      finalAdminId = userId; 
-      
-      // Try to find a company link in the Admin document
-      const adminDoc = await mongoose.model("Admin").findById(userId).lean();
-      
-      // FIX: If adminDoc exists, check for company fields. 
-      // FALLBACK: If no company link found, the Admin's own ID is the Company Identity.
-      finalCompanyId = finalCompanyId || (adminDoc ? (adminDoc.companyId || adminDoc.company) : null) || userId;
+      finalAdminId = userId;
+      const adm = await mongoose.model("Admin").findById(userId).lean();
+      finalCompanyId = finalCompanyId || (adm ? (adm.companyId || adm.company) : userId);
     }
 
-    // 3. FINAL VALIDATION (Crucial for DB constraints)
     if (!finalAdminId || !finalCompanyId) {
-      console.error("DEBUG HIERARCHY FAILURE:", {
-        role,
-        userId,
-        resolved_admin: finalAdminId,
-        resolved_company: finalCompanyId
-      });
-      return res.status(400).json({ 
-        success: false, 
-        message: "Missing Company/Admin Link. Your profile is not fully configured." 
-      });
+        return res.status(400).json({ success: false, message: "Hierarchy IDs missing" });
     }
 
-    const images = (req.files || []).map((f) => ({
-      url: f.path,
-      publicId: f.filename,
-    }));
+    const images = (req.files || []).map((f) => ({ url: f.path, publicId: f.filename }));
 
-    // 4. SAVE TO DB
     const issue = await TechnicalIssue.create({
-      subject:       subject.trim(),
-      message:       message.trim(),
+      subject: subject.trim(),
+      message: message.trim(),
       images,
-      raisedBy:      userId,
-      raisedByName:  raisedByName || req.user.name || "Admin User",
-      raisedByEmail: raisedByEmail || req.user.email || "No Email",
+      raisedBy: userId,
+      raisedByName: raisedByName || req.user.name,
+      raisedByEmail: raisedByEmail || req.user.email,
       role,
-      adminId:       finalAdminId,
-      companyId:     finalCompanyId,
-      status:        role === "admin" ? "approved" : "pending", 
+      adminId: finalAdminId,
+      companyId: finalCompanyId,
+      status: role === "admin" ? "approved" : "pending",
       approvalByAdmin: role === "admin",
     });
 
     res.status(201).json({ success: true, issue });
   } catch (err) {
-    console.error("POST Issue Error:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// ─── GET ALL ISSUES (Scoping for Admin) ───────────────────────────────────
+// ─── GET ALL ISSUES (SCOPED) ──────────────────────────────────────────────────
 router.get("/", setUser, async (req, res) => {
   try {
     const { role, _id } = req.user;
     let filter = {};
 
     if (role === "employee") {
-      filter = { raisedBy: _id }; 
+      filter = { raisedBy: _id };
     } else if (role === "admin") {
-      // Admin sees issues they raised AND issues raised by their employees
       filter = { adminId: _id }; 
     } else if (role === "superadmin") {
       filter = {
@@ -152,45 +127,91 @@ router.get("/", setUser, async (req, res) => {
   }
 });
 
-// GET route filtered by Admin ID
-router.get("/", setUser, async (req, res) => {
-    try {
-      const { role, _id } = req.user;
-      let filter = {};
-  
-      if (role === "employee") {
-        filter = { raisedBy: _id };
-      } else if (role === "admin") {
-        // Only fetch issues belonging to this Admin's company/ID
-        filter = { adminId: _id, role: "employee" }; 
-      } else if (role === "superadmin") {
-        filter = {
-          $or: [
-            { role: "admin" },
-            { role: "employee", status: { $in: ["approved", "resolved", "rejected"] } },
-          ],
-        };
-      }
-  
-      const issues = await TechnicalIssue.find(filter).sort({ createdAt: -1 });
-      res.json({ success: true, issues });
-    } catch (err) {
-      res.status(500).json({ success: false, message: err.message });
-    }
+// ─── ADMIN APPROVE ────────────────────────────────────────────────────────────
+router.patch("/:id/approve", setUser, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") return res.status(403).json({ success: false });
+
+    const issue = await TechnicalIssue.findOneAndUpdate(
+      { _id: req.params.id, adminId: req.user._id, status: "pending" },
+      { status: "approved", approvalByAdmin: true },
+      { new: true }
+    );
+
+    if (!issue) return res.status(404).json({ success: false, message: "Issue not found" });
+    res.json({ success: true, issue });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// ... Keep other routes (patch, delete, etc.) but add adminId check to filters ...
-router.patch("/:id/approve", setUser, async (req, res) => {
-    try {
-      if (req.user.role !== "admin") return res.status(403).json({ success: false });
-      const issue = await TechnicalIssue.findOneAndUpdate(
-        { _id: req.params.id, adminId: req.user._id, status: "pending" }, // Scoped to admin
-        { status: "approved", approvalByAdmin: true },
-        { new: true }
-      );
-      if (!issue) return res.status(404).json({ success: false, message: "Issue not found" });
-      res.json({ success: true, issue });
-    } catch (err) { res.status(500).json({ success: false }); }
+// ─── ADMIN REJECT ─────────────────────────────────────────────────────────────
+router.patch("/:id/reject", setUser, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") return res.status(403).json({ success: false });
+
+    const { resolvedMessage } = req.body;
+    const issue = await TechnicalIssue.findOneAndUpdate(
+      { _id: req.params.id, adminId: req.user._id, status: "pending" },
+      { status: "rejected", resolvedMessage },
+      { new: true }
+    );
+
+    if (!issue) return res.status(404).json({ success: false, message: "Issue not found" });
+    res.json({ success: true, issue });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── SUPERADMIN RESOLVE (THIS FIXES YOUR 404) ─────────────────────────────────
+router.patch("/:id/resolve", setUser, async (req, res) => {
+  try {
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { resolvedMessage } = req.body;
+    if (!resolvedMessage?.trim()) {
+      return res.status(400).json({ success: false, message: "Resolution message is required" });
+    }
+
+    const issue = await TechnicalIssue.findOneAndUpdate(
+      { _id: req.params.id, status: "approved" },
+      { status: "resolved", resolvedMessage },
+      { new: true }
+    );
+
+    if (!issue) return res.status(404).json({ success: false, message: "Issue not found or not in approved status" });
+
+    res.json({ success: true, issue });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── DELETE ISSUE ─────────────────────────────────────────────────────────────
+router.delete("/:id", setUser, async (req, res) => {
+  try {
+    const issue = await TechnicalIssue.findById(req.params.id);
+    if (!issue) return res.status(404).json({ success: false, message: "Not found" });
+
+    const isOwner = issue.raisedBy.toString() === req.user._id.toString();
+    const isAdminOfIssue = req.user.role === "admin" && issue.adminId.toString() === req.user._id.toString();
+
+    if (!isOwner && !isAdminOfIssue && req.user.role !== "superadmin") {
+        return res.status(403).json({ success: false });
+    }
+
+    for (const img of issue.images) {
+      if (img.publicId) await cloudinary.uploader.destroy(img.publicId).catch(() => {});
+    }
+
+    await issue.deleteOne();
+    res.json({ success: true, message: "Deleted" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 export default router;
