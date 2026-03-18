@@ -14,6 +14,13 @@ const SessionSchema = new mongoose.Schema({
   durationSeconds: { type: Number, default: 0 }
 }, { _id: false });
 
+// ✅ NEW: Individual break session — records from/to of each break taken
+const BreakSessionSchema = new mongoose.Schema({
+  from:            { type: Date,   default: null },
+  to:              { type: Date,   default: null },
+  durationSeconds: { type: Number, default: 0 }
+}, { _id: false });
+
 const DailySchema = new mongoose.Schema({
   date: { type: String, required: true },
 
@@ -24,6 +31,12 @@ const DailySchema = new mongoose.Schema({
   punchOutLocation: { type: LocationSchema, default: null },
 
   sessions: { type: [SessionSchema], default: [] },
+
+  // ✅ NEW: isOnBreak flag — true while employee is on an active break
+  isOnBreak:      { type: Boolean, default: false },
+
+  // ✅ NEW: Break sessions — each break records from/to/durationSeconds
+  breakSessions:  { type: [BreakSessionSchema], default: [] },
 
   workedHours:   { type: Number, default: 0 },
   workedMinutes: { type: Number, default: 0 },

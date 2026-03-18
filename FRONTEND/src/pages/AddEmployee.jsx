@@ -1,78 +1,57 @@
-// --- START OF FILE AddEmployee.jsx ---
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2"; // ✅ Added SweetAlert2
 import {
   FaUser, FaEnvelope, FaBuilding, FaIdBadge, FaPhone, FaMapMarkerAlt,
   FaCalendarAlt, FaBriefcase, FaMoneyBill, FaBirthdayCake, FaFlag,
   FaHeartbeat, FaUniversity, FaCreditCard, FaCodeBranch,
-  FaEye, FaEyeSlash, FaPlus, FaTimes, FaTrash, FaEdit // ✅ Added FaEdit
+  FaEye, FaEyeSlash, FaPlus, FaTimes, FaTrash, FaEdit
 } from "react-icons/fa";
+
 // ✅ IMPORT THE CENTRALIZED API FUNCTIONS
 import { 
   getEmployees, 
   addEmployee, 
   getAllCompanies, 
   createCompany, 
-  updateCompany, // ✅ Added updateCompany
+  updateCompany, 
   getNextEmployeeId, 
   deleteCompany 
 } from "../api";
 
-// Snackbar hook
-const useSnackbar = (timeout = 2500) => {
-  const [message, setMessage] = useState("");
-  const show = (msg) => {
-    setMessage(msg);
-    setTimeout(() => setMessage(""), timeout);
-  };
-  return { message, show };
-};
-
 const AddEmployee = () => {
   const navigate = useNavigate();
-  const snackbar = useSnackbar();
   const [employees, setEmployees] = useState([]);
   const [companies, setCompanies] = useState([]);
 
   // Company Modal State (Add)
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false);
   const [newCompanyData, setNewCompanyData] = useState({
-    name: "",
-    prefix: "",
-    description: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
+    name: "", prefix: "", description: "", email: "", phone: "",
+    address: "", city: "", state: "", zipCode: "", country: "",
   });
-  const [addingCompany, setAddingCompany] = useState(false);
 
-  // ✅ NEW: Company Modal State (Edit)
+  // Company Modal State (Edit)
   const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
   const [editCompanyData, setEditCompanyData] = useState({
-    _id: "",
-    name: "",
-    prefix: "",
-    description: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
+    _id: "", name: "", prefix: "", description: "", email: "", phone: "",
+    address: "", city: "", state: "", zipCode: "", country: "",
   });
-  const [updatingCompany, setUpdatingCompany] = useState(false);
 
-  // State for Password Visibility
   const [showPassword, setShowPassword] = useState(false);
-
-  // State for Custom Dropdown Visibility
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    company: "", companyName: "", companyPrefix: "",
+    employeeId: "", name: "", email: "", password: "", employmentType: "Full-Time",
+    phone: "", address: "", joiningDate: "", emergency: "",
+    bankDetails: { accountNumber: "", bankName: "", ifsc: "", branch: "" },
+    personalDetails: { dob: "", gender: "Male", maritalStatus: "Single", nationality: "" },
+    currentRole: "", currentDepartment: "", currentSalary: "",
+  });
+
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Fetch companies and employees
   useEffect(() => {
@@ -89,43 +68,34 @@ const AddEmployee = () => {
       setEmployees(employeesData || []);
     } catch (err) {
       console.error("Error fetching data:", err);
-      snackbar.show("Error loading companies and employees");
+      Swal.fire("Error", "Error loading companies and employees", "error");
     }
   };
 
-  // Form state
-  const [formData, setFormData] = useState({
-    company: "", // Company selection
-    companyName: "",
-    companyPrefix: "",
-    employeeId: "", name: "", email: "", password: "", employmentType: "Full-Time",
-    phone: "", address: "", joiningDate: "", emergency: "",
-    bankDetails: { accountNumber: "", bankName: "", ifsc: "", branch: "" },
-    personalDetails: { dob: "", gender: "Male", maritalStatus: "Single", nationality: "" },
-    currentRole: "", currentDepartment: "", currentSalary: "",
-  });
-
-  const [error, setError] = useState("");
-  // State for field-specific errors
-  const [fieldErrors, setFieldErrors] = useState({});
+  // Helper for showing Loading
+  const showLoading = (msg = "Processing...") => {
+    Swal.fire({
+      title: msg,
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+  };
 
   // Handle Company Selection and Auto-Generate Employee ID
   const handleCompanyChange = async (companyId) => {
     const selectedCompany = companies.find(c => c._id === companyId);
     if (selectedCompany) {
+      showLoading("Generating Employee ID...");
       try {
-        // REFRESH employees list to get latest data
         const latestEmployees = await getEmployees();
         setEmployees(latestEmployees || []);
         
-        // USE BACKEND API to get the next employee ID
         const idResponse = await getNextEmployeeId(companyId);
-        
         let nextId = idResponse?.nextEmployeeId || idResponse?.employeeId || idResponse?.data?.nextEmployeeId;
 
-        if (!nextId) {
-          throw new Error(`Invalid response from server: ${JSON.stringify(idResponse)}`);
-        }
+        if (!nextId) throw new Error("Invalid ID response");
 
         setFormData(prev => ({
           ...prev,
@@ -134,10 +104,10 @@ const AddEmployee = () => {
           companyPrefix: selectedCompany.prefix,
           employeeId: nextId,
         }));
-        snackbar.show(`Generated ID: ${nextId}`);
+        Swal.close();
       } catch (err) {
-        console.error("Error generating employee ID:", err);
-        snackbar.show("Error generating employee ID");
+        console.error("Error generating ID:", err);
+        Swal.fire("Error", "Error generating employee ID", "error");
       }
     }
   };
@@ -145,48 +115,31 @@ const AddEmployee = () => {
   // Handle Add Company
   const handleAddCompany = async (e) => {
     e.preventDefault();
-
     if (!newCompanyData.name.trim() || !newCompanyData.prefix.trim()) {
-      snackbar.show("Company name and prefix are required");
+      Swal.fire("Warning", "Company name and prefix are required", "warning");
       return;
     }
 
-    setAddingCompany(true);
+    showLoading("Adding Company...");
     try {
       const response = await createCompany(newCompanyData);
-      snackbar.show("Company added successfully!");
-
-      // Add to companies list
       setCompanies([...companies, response.data]);
-
-      // Auto-select the new company
       handleCompanyChange(response.data._id);
-
-      // Reset form and close modal
+      
       setNewCompanyData({
-        name: "",
-        prefix: "",
-        description: "",
-        email: "",
-        phone: "",
-        address: "",
-        city: "",
-        state: "",
-        zipCode: "",
-        country: "",
+        name: "", prefix: "", description: "", email: "", phone: "",
+        address: "", city: "", state: "", zipCode: "", country: "",
       });
       setShowAddCompanyModal(false);
+      Swal.fire("Success", "Company added successfully!", "success");
     } catch (err) {
-      console.error("Error adding company:", err);
-      snackbar.show(err.response?.data?.message || "Error adding company");
-    } finally {
-      setAddingCompany(false);
+      Swal.fire("Error", err.response?.data?.message || "Error adding company", "error");
     }
   };
 
-  // ✅ NEW: Handle Edit Click (Opens Modal with Data)
+  // Handle Edit Click
   const handleEditClick = (e, company) => {
-    e.stopPropagation(); // Prevent dropdown selection
+    e.stopPropagation();
     setEditCompanyData({
       _id: company._id,
       name: company.name,
@@ -194,8 +147,8 @@ const AddEmployee = () => {
       description: company.description || "",
       email: company.email || "",
       phone: company.phone || "",
-      address: company.officeLocation?.address || "", // Assuming structure matches backend
-      city: company.city || "", // Add if specific field exists
+      address: company.officeLocation?.address || "",
+      city: company.city || "",
       state: company.state || "",
       zipCode: company.zipCode || "",
       country: company.country || ""
@@ -203,27 +156,20 @@ const AddEmployee = () => {
     setShowEditCompanyModal(true);
   };
 
-  // ✅ NEW: Handle Update Company
+  // Handle Update Company
   const handleUpdateCompany = async (e) => {
     e.preventDefault();
-
     if (!editCompanyData.name.trim() || !editCompanyData.prefix.trim()) {
-      snackbar.show("Company name and prefix are required");
+      Swal.fire("Warning", "Company name and prefix are required", "warning");
       return;
     }
 
-    setUpdatingCompany(true);
+    showLoading("Updating Company...");
     try {
       const response = await updateCompany(editCompanyData._id, editCompanyData);
-      snackbar.show("Company updated successfully!");
-
-      // Update local state
-      const updatedList = companies.map(c => 
-        c._id === editCompanyData._id ? response.data : c
-      );
+      const updatedList = companies.map(c => c._id === editCompanyData._id ? response.data : c);
       setCompanies(updatedList);
 
-      // If the edited company was currently selected in the form, update form display
       if (formData.company === editCompanyData._id) {
         setFormData(prev => ({
           ...prev,
@@ -233,38 +179,36 @@ const AddEmployee = () => {
       }
 
       setShowEditCompanyModal(false);
+      Swal.fire("Success", "Company updated successfully!", "success");
     } catch (err) {
-      console.error("Error updating company:", err);
-      snackbar.show(err.response?.data?.message || "Error updating company");
-    } finally {
-      setUpdatingCompany(false);
+      Swal.fire("Error", err.response?.data?.message || "Error updating company", "error");
     }
   };
 
   // Handle Delete Company
   const handleDeleteCompany = async (e, companyId, companyName) => {
-    e.stopPropagation(); // Prevent closing dropdown
-    if (window.confirm(`Permanently delete "${companyName}" from the database? This cannot be undone.`)) {
+    e.stopPropagation();
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `Permanently delete "${companyName}"? This cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!'
+    });
+
+    if (result.isConfirmed) {
+      showLoading("Deleting Company...");
       try {
         await deleteCompany(companyId);
-        snackbar.show(`Company "${companyName}" deleted successfully`);
-
-        // Remove from local state
         setCompanies(prev => prev.filter(c => c._id !== companyId));
-
-        // If the deleted company was selected, clear selection
         if (formData.company === companyId) {
-          setFormData(prev => ({
-            ...prev,
-            company: "",
-            companyName: "",
-            companyPrefix: "",
-            employeeId: ""
-          }));
+          setFormData(prev => ({ ...prev, company: "", companyName: "", companyPrefix: "", employeeId: "" }));
         }
-        snackbar.show("Company removed from list.");
+        Swal.fire("Deleted!", "Company has been removed.", "success");
       } catch (err) {
-        console.error("Error removing company:", err);
+        Swal.fire("Error", "Error removing company.", "error");
       }
     }
   };
@@ -272,47 +216,26 @@ const AddEmployee = () => {
   // Handle form input change
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (fieldErrors[name]) setFieldErrors(prev => ({ ...prev, [name]: "" }));
 
-    // Clear field-specific error when user types
-    if (fieldErrors[name]) {
-      setFieldErrors(prev => ({ ...prev, [name]: "" }));
-    }
-
-    if (name === "name") {
-      if (!/^[a-zA-Z\s]*$/.test(value)) return;
-    }
-
-    if (name === "phone") {
-      if (!/^\d*$/.test(value)) return; 
-      if (value.length > 10) return;   
-    }
-
-    if (name === "password") {
-      if (value.length > 12) return;
-    }
+    if (name === "name" && !/^[a-zA-Z\s]*$/.test(value)) return;
+    if (name === "phone" && (!/^\d*$/.test(value) || value.length > 10)) return;
+    if (name === "password" && value.length > 12) return;
 
     if (name.startsWith("bankDetails.")) {
       const field = name.split(".")[1];
       if (field === "accountNumber" && !/^\d*$/.test(value)) return;
       if (field === "branch" && !/^[a-zA-Z\s]*$/.test(value)) return;
       if (field === "ifsc" && value.length > 11) return;
-
-      setFormData((prev) => ({
-        ...prev,
-        bankDetails: { ...prev.bankDetails, [field]: value },
-      }));
+      setFormData(prev => ({ ...prev, bankDetails: { ...prev.bankDetails, [field]: value } }));
     } else if (name.startsWith("personalDetails.")) {
       const field = name.split(".")[1];
-      setFormData((prev) => ({
-        ...prev,
-        personalDetails: { ...prev.personalDetails, [field]: value },
-      }));
+      setFormData(prev => ({ ...prev, personalDetails: { ...prev.personalDetails, [field]: value } }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  // Validation
   const validate = () => {
     if (!formData.company) return "Company is required.";
     if (!formData.name.trim()) return "Full Name is required.";
@@ -325,18 +248,11 @@ const AddEmployee = () => {
     if (!formData.joiningDate) return "Joining Date is required.";
     if (!formData.currentSalary || isNaN(formData.currentSalary)) return "Salary is required.";
     if (formData.address && formData.address.length < 10) return "Address must be at least 10 characters long.";
-
     if (formData.bankDetails.accountNumber) {
-      if (!/^\d+$/.test(formData.bankDetails.accountNumber)) return "Bank Account Number must contain only digits.";
-      if (formData.bankDetails.accountNumber.length < 9 || formData.bankDetails.accountNumber.length > 18) return "Bank Account Number should be between 9 and 18 digits.";
+      if (formData.bankDetails.accountNumber.length < 9 || formData.bankDetails.accountNumber.length > 18) return "Bank Account Number should be 9-18 digits.";
     }
-
     if (formData.bankDetails.ifsc && formData.bankDetails.ifsc.length !== 11) return "IFSC Code must be exactly 11 characters.";
-
-    if (formData.employeeId.trim()) {
-      const exists = employees.some(emp => emp.employeeId === formData.employeeId.trim());
-      if (exists) return "Employee ID already exists.";
-    }
+    if (formData.employeeId.trim() && employees.some(emp => emp.employeeId === formData.employeeId.trim())) return "Employee ID already exists.";
     return "";
   };
 
@@ -345,8 +261,7 @@ const AddEmployee = () => {
     e.preventDefault();
     const err = validate();
     if (err) {
-      setError(err);
-      setTimeout(() => setError(""), 2500);
+      Swal.fire("Validation Error", err, "warning");
       return;
     }
 
@@ -376,19 +291,24 @@ const AddEmployee = () => {
       }],
     };
 
+    showLoading("Saving Employee...");
     try {
       await addEmployee(newEmployee);
-      const updatedEmployees = await getEmployees();
-      setEmployees(updatedEmployees || []);
-      snackbar.show("Employee added successfully!");
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Employee added successfully!',
+        timer: 2000,
+        showConfirmButton: false
+      });
       navigate("/employees");
     } catch (err) {
       console.error(err);
       if (err.response && err.response.status === 400 && err.response.data.field) {
         setFieldErrors({ [err.response.data.field]: err.response.data.error });
-        snackbar.show(err.response.data.error);
+        Swal.fire("Error", err.response.data.error, "error");
       } else {
-        snackbar.show(err.response?.data?.message || err.response?.data?.error || "Error adding employee. Try again!");
+        Swal.fire("Error", err.response?.data?.message || "Error adding employee.", "error");
       }
     }
   };
@@ -408,12 +328,6 @@ const AddEmployee = () => {
           Add New Employee
         </h2>
 
-        {error && (
-          <div className="mb-6 text-center text-red-600 font-semibold bg-red-100 rounded-lg py-3 px-4 shadow">
-            {error}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* COMPANY SELECTION SECTION */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border rounded-xl bg-yellow-50/50 shadow-inner">
@@ -422,7 +336,6 @@ const AddEmployee = () => {
             <div className="relative">
               <FaBuilding className="absolute left-3 top-4 text-gray-400" />
               <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Select Company *</label>
-              {/* CUSTOM DROPDOWN REPLACEMENT */}
               <div className="relative">
                 <button
                   type="button"
@@ -460,7 +373,6 @@ const AddEmployee = () => {
                           </span>
                           
                           <div className="flex gap-2">
-                             {/* ✅ NEW: Edit Button */}
                              <button
                               type="button"
                               onClick={(e) => handleEditClick(e, company)}
@@ -469,8 +381,6 @@ const AddEmployee = () => {
                             >
                               <FaEdit />
                             </button>
-
-                            {/* Delete Button */}
                             <button
                               type="button"
                               onClick={(e) => handleDeleteCompany(e, company._id, company.name)}
@@ -501,18 +411,16 @@ const AddEmployee = () => {
             </div>
 
             {formData.company && (
-              <>
-                <div className="relative">
-                  <FaIdBadge className="absolute left-3 top-4 text-gray-400" />
-                  <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Generated Employee ID</label>
-                  <input
-                    type="text"
-                    value={formData.employeeId}
-                    readOnly
-                    className="w-full pl-10 pr-4 pt-5 pb-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-semibold"
-                  />
-                </div>
-              </>
+              <div className="relative">
+                <FaIdBadge className="absolute left-3 top-4 text-gray-400" />
+                <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Generated Employee ID</label>
+                <input
+                  type="text"
+                  value={formData.employeeId}
+                  readOnly
+                  className="w-full pl-10 pr-4 pt-5 pb-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-semibold"
+                />
+              </div>
             )}
           </div>
 
@@ -524,15 +432,50 @@ const AddEmployee = () => {
               value={formData.password} onChange={handleChange} placeholder="Enter password" required maxLength={12}
               endIcon={showPassword ? <FaEyeSlash /> : <FaEye />} onEndIconClick={() => setShowPassword(!showPassword)}
             />
-            <InputField icon={<FaEnvelope />} name="email" label="Email Address" type="email" value={formData.email} onChange={handleChange} placeholder="e.g., john@example.com" error={fieldErrors.email} required />
+            <InputField
+              icon={<FaEnvelope />}
+              name="email"
+              label="Email Address"
+              type="email"
+              value={formData.email}
+              onChange={(e) => {
+                let value = e.target.value;
+                const index = value.indexOf(".com");
+                if (index !== -1) value = value.substring(0, index + 4);
+                setFormData({ ...formData, email: value });
+              }}
+              placeholder="e.g., john@example.com"
+              required
+            />
             <InputField icon={<FaPhone />} name="phone" label="Phone Number" type="tel" value={formData.phone} onChange={handleChange} placeholder="e.g., 9876543210" maxLength={10} error={fieldErrors.phone} />
             <InputField icon={<FaMapMarkerAlt />} name="address" label="Address" value={formData.address} onChange={handleChange} placeholder="e.g., Hyderabad" />
-            <InputField icon={<FaHeartbeat />} name="emergency" label="Emergency Contact" value={formData.emergency} onChange={handleChange} placeholder="e.g., Jane Doe - 9999999999" />
+            <InputField
+              icon={<FaHeartbeat />}
+              name="emergency"
+              label="Emergency Contact"
+              value={formData.emergency}
+              onChange={handleChange}
+              placeholder="Enter 10 digit number"
+              maxLength="10"
+              onInput={(e) => e.target.value = e.target.value.replace(/[^0-9]/g, "")}
+              error={fieldErrors.emergency}
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border rounded-xl bg-green-50/50 shadow-inner">
             <h3 className="md:col-span-2 text-xl font-bold text-green-700 border-b pb-3 mb-3">Job Details</h3>
-            <InputField icon={<FaBuilding />} name="currentDepartment" label="Department" value={formData.currentDepartment} onChange={handleChange} placeholder="e.g., Marketing" required />
+            <InputField
+              icon={<FaBuilding />}
+              name="currentDepartment"
+              label="Department"
+              value={formData.currentDepartment}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                setFormData({ ...formData, currentDepartment: value });
+              }}
+              placeholder="e.g., Marketing"
+              required
+            />
             <div className="relative">
               <FaBriefcase className="absolute left-3 top-4 text-gray-400" />
               <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Employment Type</label>
@@ -543,19 +486,71 @@ const AddEmployee = () => {
                 <option value="Intern">Intern</option>
               </select>
             </div>
-            <InputField icon={<FaBriefcase />} name="currentRole" label="Job Role" value={formData.currentRole} onChange={handleChange} placeholder="e.g., Manager" required />
-            <InputField icon={<FaMoneyBill />} name="currentSalary" label="Current Salary (INR)" type="number" value={formData.currentSalary} onChange={handleChange} placeholder="e.g., 85000" required />
+            <InputField
+              icon={<FaBriefcase />}
+              name="currentRole"
+              label="Job Role"
+              value={formData.currentRole}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[0-9]/g, "");
+                setFormData({ ...formData, currentRole: value });
+              }}
+              placeholder="e.g., Manager"
+              required
+            />
+            <InputField icon={<FaMoneyBill />} name="currentSalary" label="Salary (INR)" type="number" value={formData.currentSalary} onChange={handleChange} placeholder="e.g., 85000" required />
             <InputField icon={<FaCalendarAlt />} name="joiningDate" label="Joining Date" type="date" value={formData.joiningDate} onChange={handleChange} required />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border rounded-xl bg-purple-50/50 shadow-inner">
             <h3 className="md:col-span-2 text-xl font-bold text-purple-700 border-b pb-3 mb-3">Personal & Bank Details</h3>
             <InputField icon={<FaBirthdayCake />} name="personalDetails.dob" label="Date of Birth" type="date" value={formData.personalDetails.dob} onChange={handleChange} />
-            <InputField icon={<FaFlag />} name="personalDetails.nationality" label="Nationality" value={formData.personalDetails.nationality} onChange={handleChange} placeholder="e.g., Indian" />
+            <InputField
+              icon={<FaFlag />}
+              name="personalDetails.nationality"
+              label="Nationality"
+              value={formData.personalDetails.nationality}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                setFormData({ ...formData, personalDetails: { ...formData.personalDetails, nationality: value } });
+              }}
+              placeholder="e.g., Indian"
+            />
             <InputField icon={<FaCreditCard />} name="bankDetails.accountNumber" label="Account Number" value={formData.bankDetails.accountNumber} onChange={handleChange} placeholder="e.g., 1234567890" maxLength={18} />
-            <InputField icon={<FaUniversity />} name="bankDetails.bankName" label="Bank Name" value={formData.bankDetails.bankName} onChange={handleChange} placeholder="e.g., SBI" />
-            <InputField icon={<FaCodeBranch />} name="bankDetails.ifsc" label="IFSC Code" value={formData.bankDetails.ifsc} onChange={handleChange} placeholder="e.g., SBIN0001234" maxLength={11} />
-            <InputField icon={<FaMapMarkerAlt />} name="bankDetails.branch" label="Branch" value={formData.bankDetails.branch} onChange={handleChange} placeholder="e.g., Hyderabad Main" />
+            <InputField
+              icon={<FaUniversity />}
+              name="bankDetails.bankName"
+              label="Bank Name"
+              value={formData.bankDetails.bankName}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                setFormData({ ...formData, bankDetails: { ...formData.bankDetails, bankName: value } });
+              }}
+              placeholder="e.g., SBI"
+            />
+            <InputField
+              icon={<FaCodeBranch />}
+              name="bankDetails.ifsc"
+              label="IFSC Code"
+              value={formData.bankDetails.ifsc}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+                setFormData({ ...formData, bankDetails: { ...formData.bankDetails, ifsc: value } });
+              }}
+              placeholder="e.g., SBIN0001234"
+              maxLength={11}
+            />
+            <InputField
+              icon={<FaMapMarkerAlt />}
+              name="bankDetails.branch"
+              label="Branch"
+              value={formData.bankDetails.branch}
+              onChange={(e) => {
+                let value = e.target.value.replace(/[^a-zA-Z\s]/g, "");
+                setFormData({ ...formData, bankDetails: { ...formData.bankDetails, branch: value } });
+              }}
+              placeholder="e.g., Hyderabad Main"
+            />
           </div>
 
           <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200 shadow-lg text-lg">
@@ -564,300 +559,68 @@ const AddEmployee = () => {
         </form>
       </div>
 
-      {snackbar.message && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fadein">
-          {snackbar.message}
-        </div>
-      )}
-
       {/* ADD COMPANY MODAL */}
       {showAddCompanyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-blue-800">Add New Company</h3>
-              <button
-                type="button"
-                onClick={() => setShowAddCompanyModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                <FaTimes />
-              </button>
+              <button type="button" onClick={() => setShowAddCompanyModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl"><FaTimes /></button>
             </div>
-
             <form onSubmit={handleAddCompany} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Company Name *</label>
-                <input
-                  type="text"
-                  value={newCompanyData.name}
-                  onChange={(e) => setNewCompanyData({ ...newCompanyData, name: e.target.value })}
-                  placeholder="e.g., ARAH Infotech"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                  required
-                />
+                <input type="text" value={newCompanyData.name} onChange={(e) => setNewCompanyData({ ...newCompanyData, name: e.target.value })} placeholder="e.g., ARAH Infotech" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" required />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Employee ID Prefix (3-4 chars) *</label>
-                <input
-                  type="text"
-                  value={newCompanyData.prefix}
-                  onChange={(e) => setNewCompanyData({ ...newCompanyData, prefix: e.target.value.toUpperCase() })}
-                  placeholder="e.g., ARA"
-                  maxLength={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
-                  required
-                />
+                <input type="text" value={newCompanyData.prefix} onChange={(e) => setNewCompanyData({ ...newCompanyData, prefix: e.target.value.toUpperCase() })} placeholder="e.g., ARA" maxLength={4} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase" required />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={newCompanyData.description}
-                  onChange={(e) => setNewCompanyData({ ...newCompanyData, description: e.target.value })}
-                  placeholder="Optional: Brief description"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                  rows="2"
-                />
+                <textarea value={newCompanyData.description} onChange={(e) => setNewCompanyData({ ...newCompanyData, description: e.target.value })} placeholder="Brief description" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" rows="2" />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={newCompanyData.email}
-                  onChange={(e) => setNewCompanyData({ ...newCompanyData, email: e.target.value })}
-                  placeholder="Optional"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                />
+                <input type="email" value={newCompanyData.email} onChange={(e) => setNewCompanyData({ ...newCompanyData, email: e.target.value })} placeholder="Enter email" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={newCompanyData.phone}
-                  onChange={(e) => setNewCompanyData({ ...newCompanyData, phone: e.target.value })}
-                  placeholder="Optional"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                />
+                <input type="tel" value={newCompanyData.phone} onChange={(e) => setNewCompanyData({ ...newCompanyData, phone: e.target.value })} placeholder="Enter phone" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" />
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
-                <input
-                  type="text"
-                  value={newCompanyData.address}
-                  onChange={(e) => setNewCompanyData({ ...newCompanyData, address: e.target.value })}
-                  placeholder="Optional"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">City</label>
-                  <input
-                    type="text"
-                    value={newCompanyData.city}
-                    onChange={(e) => setNewCompanyData({ ...newCompanyData, city: e.target.value })}
-                    placeholder="Optional"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">State</label>
-                  <input
-                    type="text"
-                    value={newCompanyData.state}
-                    onChange={(e) => setNewCompanyData({ ...newCompanyData, state: e.target.value })}
-                    placeholder="Optional"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Zip Code</label>
-                  <input
-                    type="text"
-                    value={newCompanyData.zipCode}
-                    onChange={(e) => setNewCompanyData({ ...newCompanyData, zipCode: e.target.value })}
-                    placeholder="Optional"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Country</label>
-                  <input
-                    type="text"
-                    value={newCompanyData.country}
-                    onChange={(e) => setNewCompanyData({ ...newCompanyData, country: e.target.value })}
-                    placeholder="Optional"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-
               <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAddCompanyModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={addingCompany}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-                >
-                  {addingCompany ? "Adding..." : "Add Company"}
-                </button>
+                <button type="button" onClick={() => setShowAddCompanyModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Add Company</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ✅ NEW: EDIT COMPANY MODAL */}
+      {/* EDIT COMPANY MODAL */}
       {showEditCompanyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-blue-800">Edit Company</h3>
-              <button
-                type="button"
-                onClick={() => setShowEditCompanyModal(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                <FaTimes />
-              </button>
+              <button type="button" onClick={() => setShowEditCompanyModal(false)} className="text-gray-500 hover:text-gray-700 text-2xl"><FaTimes /></button>
             </div>
-
             <form onSubmit={handleUpdateCompany} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Company Name *</label>
-                <input
-                  type="text"
-                  value={editCompanyData.name}
-                  onChange={(e) => setEditCompanyData({ ...editCompanyData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                  required
-                />
+                <input type="text" value={editCompanyData.name} onChange={(e) => setEditCompanyData({ ...editCompanyData, name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" required />
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Employee ID Prefix (3-4 chars) *</label>
-                <input
-                  type="text"
-                  value={editCompanyData.prefix}
-                  onChange={(e) => setEditCompanyData({ ...editCompanyData, prefix: e.target.value.toUpperCase() })}
-                  maxLength={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
-                  required
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Employee ID Prefix *</label>
+                <input type="text" value={editCompanyData.prefix} onChange={(e) => setEditCompanyData({ ...editCompanyData, prefix: e.target.value.toUpperCase() })} maxLength={4} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase" required />
               </div>
-
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={editCompanyData.description}
-                  onChange={(e) => setEditCompanyData({ ...editCompanyData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                  rows="2"
-                />
+                <textarea value={editCompanyData.description} onChange={(e) => setEditCompanyData({ ...editCompanyData, description: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none" rows="2" />
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  value={editCompanyData.email}
-                  onChange={(e) => setEditCompanyData({ ...editCompanyData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Phone</label>
-                <input
-                  type="tel"
-                  value={editCompanyData.phone}
-                  onChange={(e) => setEditCompanyData({ ...editCompanyData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Address</label>
-                <input
-                  type="text"
-                  value={editCompanyData.address}
-                  onChange={(e) => setEditCompanyData({ ...editCompanyData, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">City</label>
-                  <input
-                    type="text"
-                    value={editCompanyData.city}
-                    onChange={(e) => setEditCompanyData({ ...editCompanyData, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">State</label>
-                  <input
-                    type="text"
-                    value={editCompanyData.state}
-                    onChange={(e) => setEditCompanyData({ ...editCompanyData, state: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Zip Code</label>
-                  <input
-                    type="text"
-                    value={editCompanyData.zipCode}
-                    onChange={(e) => setEditCompanyData({ ...editCompanyData, zipCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Country</label>
-                  <input
-                    type="text"
-                    value={editCompanyData.country}
-                    onChange={(e) => setEditCompanyData({ ...editCompanyData, country: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-
               <div className="flex gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowEditCompanyModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updatingCompany}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-                >
-                  {updatingCompany ? "Updating..." : "Update Company"}
-                </button>
+                <button type="button" onClick={() => setShowEditCompanyModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-semibold hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">Update Company</button>
               </div>
             </form>
           </div>
@@ -867,7 +630,7 @@ const AddEmployee = () => {
   );
 };
 
-// Input Component with optional End Icon and Error styling support
+// Input Component
 const InputField = ({ icon, label, endIcon, onEndIconClick, error, ...props }) => (
   <div className="relative">
     <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${error ? "text-red-500" : "text-gray-400"}`}>{icon}</div>
@@ -875,17 +638,11 @@ const InputField = ({ icon, label, endIcon, onEndIconClick, error, ...props }) =
     <input
       {...props}
       className={`w-full pl-10 pt-5 pb-2 border rounded-lg outline-none bg-gray-50 transition-colors
-        ${error
-          ? "border-red-500 focus:ring-2 focus:ring-red-400 text-red-900 placeholder-red-300"
-          : "border-gray-300 focus:ring-2 focus:ring-blue-400 text-gray-700"
-        } 
+        ${error ? "border-red-500 focus:ring-2 focus:ring-red-400 text-red-900 placeholder-red-300" : "border-gray-300 focus:ring-2 focus:ring-blue-400 text-gray-700"} 
         ${endIcon ? 'pr-10' : 'pr-4'}`}
     />
     {endIcon && (
-      <div
-        className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer hover:text-gray-600 ${error ? "text-red-400" : "text-gray-400"}`}
-        onClick={onEndIconClick}
-      >
+      <div className={`absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer hover:text-gray-600 ${error ? "text-red-400" : "text-gray-400"}`} onClick={onEndIconClick}>
         {endIcon}
       </div>
     )}

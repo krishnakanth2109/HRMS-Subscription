@@ -54,29 +54,37 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
-// ─── POST ISSUE (WITH HIERARCHY FIX) ──────────────────────────────────────────
 router.post("/", setUser, upload.array("images", 5), async (req, res) => {
   try {
     const { subject, message, raisedByName, raisedByEmail } = req.body;
     const { _id: userId, role } = req.user;
     
     let finalAdminId = req.user.adminId;
-    let finalCompanyId = req.user.companyId || req.user.company;
+    let finalCompanyId = req.user.companyId;
+    let fallbackEmail = req.user.email;
+    let fallbackName = req.user.name;
 
+    // ─── FETCH USER DETAILS FROM DB TO ENSURE EMAIL IS CAPTURED ───
     if (role === "employee") {
       const emp = await mongoose.model("Employee").findById(userId).lean();
       if (emp) {
-        finalAdminId = finalAdminId || emp.adminId || emp.creatorId || emp.admin;
-        finalCompanyId = finalCompanyId || emp.companyId || emp.company || emp.tenantId;
+        finalAdminId = finalAdminId || emp.adminId || emp.creatorId;
+        finalCompanyId = finalCompanyId || emp.companyId || emp.tenantId;
+        fallbackEmail = fallbackEmail || emp.email;
+        fallbackName = fallbackName || emp.name;
       }
-    } else if (role === "admin") {
-      finalAdminId = userId;
+    } else if (role === "admin" || role === "superadmin") {
       const adm = await mongoose.model("Admin").findById(userId).lean();
-      finalCompanyId = finalCompanyId || (adm ? (adm.companyId || adm.company) : userId);
+      if (adm) {
+        finalAdminId = userId;
+        finalCompanyId = finalCompanyId || adm.companyId || adm.company || userId;
+        fallbackEmail = fallbackEmail || adm.email;
+        fallbackName = fallbackName || adm.name;
+      }
     }
 
     if (!finalAdminId || !finalCompanyId) {
-        return res.status(400).json({ success: false, message: "Hierarchy IDs missing" });
+      return res.status(400).json({ success: false, message: "Hierarchy IDs missing" });
     }
 
     const images = (req.files || []).map((f) => ({ url: f.path, publicId: f.filename }));
@@ -86,13 +94,14 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
       message: message.trim(),
       images,
       raisedBy: userId,
-      raisedByName: raisedByName || req.user.name,
-      raisedByEmail: raisedByEmail || req.user.email,
+      // Priority: 1. Request Body, 2. Database Lookup, 3. Token, 4. Empty String
+      raisedByName: raisedByName || fallbackName || "User",
+      raisedByEmail: raisedByEmail || fallbackEmail || "", 
       role,
       adminId: finalAdminId,
       companyId: finalCompanyId,
-      status: role === "admin" ? "approved" : "pending",
-      approvalByAdmin: role === "admin",
+      status: (role === "admin" || role === "superadmin") ? "approved" : "pending",
+      approvalByAdmin: (role === "admin" || role === "superadmin"),
     });
 
     res.status(201).json({ success: true, issue });

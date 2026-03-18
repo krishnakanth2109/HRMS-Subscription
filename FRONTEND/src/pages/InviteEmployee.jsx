@@ -488,7 +488,24 @@ HR Team
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Email Address*</label>
-                    <input required type="email" placeholder="employee@company.com" className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" value={singleData.email} onChange={e => setSingleData({ ...singleData, email: e.target.value })} />
+<input
+  required
+  type="email"
+  placeholder="Email address"
+  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+  value={singleData.email}
+  onChange={(e) => {
+    let value = e.target.value;
+
+    // Stop typing after .com
+    const index = value.indexOf(".com");
+    if (index !== -1) {
+      value = value.substring(0, index + 4);
+    }
+
+    setSingleData({ ...singleData, email: value });
+  }}
+/>
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">

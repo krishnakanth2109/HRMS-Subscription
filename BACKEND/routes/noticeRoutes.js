@@ -1,4 +1,3 @@
-// --- START OF FILE routes/noticeRoutes.js ---
 import express from "express";
 import Notice from "../models/Notice.js";
 import { protect } from "../controllers/authController.js";
@@ -36,15 +35,30 @@ router.get("/all", protect, onlyAdmin, async (req, res) => {
 
 /* ============================================================================
    👤 EMPLOYEE → GET NOTICES (SCOPED)
+   FIXED: Improved filtering for "ALL" recipients to ensure company-wide visibility
 ============================================================================ */
 router.get("/", protect, async (req, res) => {
   try {
     const userId = req.user._id.toString();
+    
+    // Identify the organization context
+    const userCompany = req.user.company || req.user.companyId;
+    const userAdmin = req.user.adminId;
+
     const query = {
-        // Scoped to this company OR global for this Admin
         $or: [
-            { recipients: "ALL", companyId: req.user.company }, 
+            // Case 1: Notice is for everyone in the company/under the admin
+            { 
+              recipients: "ALL", 
+              $or: [
+                { companyId: userCompany },
+                { adminId: userAdmin },
+                { adminId: userId } // If the user is the admin themselves
+              ]
+            }, 
+            // Case 2: User is specifically mentioned in recipients array
             { recipients: { $in: [userId] } },
+            // Case 3: User created the notice
             { createdBy: userId } 
         ]
     };
@@ -56,31 +70,39 @@ router.get("/", protect, async (req, res) => {
       .populate("replies.adminId", "name")
       .sort({ date: -1 });
 
-    // Show all replies
+    // Convert to plain objects
     notices = notices.map(notice => notice.toObject());
 
     res.json(notices);
   } catch (error) {
+    console.error("Fetch Notices Error:", error);
     res.status(500).json({ message: "Failed to fetch notices" });
   }
 });
 
 /* ============================================================================
    ✉️ CREATE NOTICE (SCOPED)
+   FIXED: Ensures companyId and adminId are consistently saved
 ============================================================================ */
 router.post("/", protect, async (req, res) => {
   try {
     const { title, description, recipients, companyId } = req.body;
-    const recipientValue = Array.isArray(recipients) && recipients.length > 0 ? recipients : "ALL";
     
-    // ✅ FIX: Normalize role check to prevent case-sensitivity bugs 
+    // If recipients is empty or explicitly "ALL", store as "ALL"
+    const recipientValue = (Array.isArray(recipients) && recipients.length > 0) ? recipients : "ALL";
+    
     const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const creatorModel = isAdmin ? "Admin" : "Employee";
 
+    // Determine Admin and Company IDs
+    const assignedAdminId = isAdmin ? req.user._id : req.user.adminId;
+    const assignedCompanyId = isAdmin 
+      ? (companyId || req.user.company || req.user.companyId || req.user._id) 
+      : req.user.company;
+
     const savedNotice = await Notice.create({
-      adminId: isAdmin ? req.user._id : req.user.adminId,
-      // ✅ FIX: Safely fallback to req.user.company or req.user._id if not provided by frontend
-      companyId: isAdmin ? (companyId || req.user.company || req.user.companyId || req.user._id) : req.user.company, 
+      adminId: assignedAdminId,
+      companyId: assignedCompanyId,
       title,
       description,
       date: new Date(),
@@ -101,16 +123,13 @@ router.post("/", protect, async (req, res) => {
 ============================================================================ */
 router.put("/:id", protect, async (req, res) => {
   try {
-    // Only fetch if admin owns or user created (scoped)
     const notice = await Notice.findById(req.params.id);
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    // ✅ FIX: Standardized role check
     const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const isOwner = notice.createdBy.equals(userId);
 
-    // If Admin, verify ownership of tenant
     if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
         return res.status(403).json({ message: "Unauthorized" });
     }
@@ -120,7 +139,7 @@ router.put("/:id", protect, async (req, res) => {
     }
 
     const { title, description, recipients } = req.body;
-    const recipientValue = Array.isArray(recipients) && recipients.length > 0 ? recipients : "ALL";
+    const recipientValue = (Array.isArray(recipients) && recipients.length > 0) ? recipients : "ALL";
 
     const updated = await Notice.findByIdAndUpdate(
       req.params.id, 
@@ -144,7 +163,6 @@ router.delete("/:id", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    // ✅ FIX: Standardized role check
     const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const isOwner = notice.createdBy.equals(userId);
 
@@ -175,7 +193,7 @@ router.put("/:id/read", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     if (!notice.readBy) notice.readBy = [];
-    const isAlreadyRead = notice.readBy.some(r => r.employeeId.toString() === employeeId.toString());
+    const isAlreadyRead = notice.readBy.some(r => r.employeeId?.toString() === employeeId.toString());
 
     if (!isAlreadyRead) {
       notice.readBy.push({ employeeId, readAt: new Date() });
@@ -188,7 +206,7 @@ router.put("/:id/read", protect, async (req, res) => {
 });
 
 /* ============================================================================
-   💬 REPLY ROUTES (EMPLOYEE & ADMIN)
+   💬 REPLY ROUTES
 ============================================================================ */
 router.post("/:id/reply", protect, upload.single("image"), async (req, res) => {
   try {
@@ -267,7 +285,6 @@ router.delete("/:id/reply/:replyId", protect, async (req, res) => {
     if (!reply) return res.status(404).json({ message: "Reply not found" });
 
     const userId = req.user._id.toString();
-    // ✅ FIX: Standardized role check
     const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
     const isReplyOwner = (reply.employeeId?.toString() === userId) || (reply.adminId?.toString() === userId);
 

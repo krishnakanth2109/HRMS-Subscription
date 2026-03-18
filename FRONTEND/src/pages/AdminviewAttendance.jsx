@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import api, { getAttendanceByDateRange, getAllOvertimeRequests, getEmployees, getAllShifts, getHolidays } from "../api"; 
-import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaBell, FaCheck, FaBan, FaTrash, FaHistory } from "react-icons/fa";
+import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaBell, FaCheck, FaBan, FaTrash, FaHistory, FaCoffee, FaChevronDown } from "react-icons/fa";
 import { toBlob } from 'html-to-image'; 
 
 // ==========================================
@@ -104,6 +104,34 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
 const normalizeDateStr = (dateInput) => {
   const d = new Date(dateInput);
   return d.toISOString().split('T')[0];
+};
+
+// ✅ NEW: Format seconds into readable break duration
+const formatBreakDuration = (seconds) => {
+  if (!seconds || seconds <= 0) return "0m 0s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+};
+
+// ✅ NEW: Sum all break session durations (active break counts from 'from' to now)
+const calcTotalBreakSeconds = (breakSessions) => {
+  if (!Array.isArray(breakSessions) || breakSessions.length === 0) return 0;
+  const now = new Date();
+  return breakSessions.reduce((total, brk) => {
+    if (!brk.from) return total;
+    const diff = ((brk.to ? new Date(brk.to) : now) - new Date(brk.from)) / 1000;
+    return total + (diff > 0 ? diff : 0);
+  }, 0);
+};
+
+// ✅ NEW: Duration of a single break session in seconds
+const calcBreakSessionDuration = (brk) => {
+  if (!brk || !brk.from) return 0;
+  const diff = ((brk.to ? new Date(brk.to) : new Date()) - new Date(brk.from)) / 1000;
+  return diff > 0 ? diff : 0;
 };
 
 const isHoliday = (dateStr, holidays) => {
@@ -645,46 +673,111 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
 // ✅ UPDATED: Include employeeImages prop
 const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages }) => {
   if (!isOpen) return null;
+
+  const isOnBreakModal = title === "On Break";
+
+  // Get start time of active break session
+  const getBreakStartTime = (emp) => {
+    if (!emp.breakSessions || emp.breakSessions.length === 0) return null;
+    const openBreak = [...emp.breakSessions].reverse().find(b => !b.to);
+    return openBreak ? openBreak.from : emp.breakSessions[emp.breakSessions.length - 1]?.from;
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70 rounded-t-2xl">
-          <div><h3 className="text-xl font-bold text-slate-800">{title}</h3><p className="text-sm text-slate-500 font-semibold">{employees.length} Employees</p></div>
+          <div className="flex items-center gap-2">
+            {isOnBreakModal && <FaCoffee className="text-amber-500" size={18} />}
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+              <p className="text-sm text-slate-500 font-semibold">{employees.length} Employees</p>
+            </div>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-800 p-2"><FaTimes size={20} /></button>
         </div>
         <div className="p-5 overflow-y-auto">
-          {employees.length > 0 ? (<ul className="divide-y divide-slate-200">{employees.map((emp, index) => {
-             // Get image
-             const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
-
-             return (
-              <li key={emp.employeeId || index} className="py-3 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    {/* ✅ UPDATED: Profile Picture */}
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-blue-700 font-bold border border-slate-300 overflow-hidden">
-                        {profilePic ? (
-                            <img src={profilePic} alt={emp.name || emp.employeeName} className="w-full h-full object-cover" />
-                        ) : (
-                            (emp.name || emp.employeeName || "U").charAt(0)
+          {employees.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 text-slate-500 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="px-5 py-3 text-left">Employee</th>
+                    <th className="px-5 py-3 text-left">Role</th>
+                    {/* ✅ On Break columns */}
+                    {isOnBreakModal && <th className="px-5 py-3 text-left">Break At</th>}
+                    {isOnBreakModal && <th className="px-5 py-3 text-left">Total Break</th>}
+                    {/* Other modals */}
+                    {!isOnBreakModal && <th className="px-5 py-3 text-left">Login Status</th>}
+                    {!isOnBreakModal && <th className="px-5 py-3 text-left">Worked Status</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {employees.map((emp, index) => {
+                    const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                    const breakStart   = isOnBreakModal ? getBreakStartTime(emp) : null;
+                    const totalBrkSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
+                    return (
+                      <tr key={emp.employeeId || index} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-blue-700 font-bold border border-slate-300 overflow-hidden flex-shrink-0">
+                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-800">{emp.name || emp.employeeName}</p>
+                              <p className="text-xs text-slate-500 font-mono">{emp.employeeId}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                            {emp.role || "N/A"}
+                          </span>
+                        </td>
+                        {/* ✅ Break At */}
+                        {isOnBreakModal && (
+                          <td className="px-5 py-3">
+                            {breakStart ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100">
+                                <FaCoffee size={10} /> {new Date(breakStart).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            ) : <span className="text-slate-400 text-xs">--</span>}
+                          </td>
                         )}
-                    </div>
-                    <div><p className="font-semibold text-slate-800">{emp.name || emp.employeeName}</p><p className="text-sm text-slate-500 font-mono">{emp.employeeId}</p></div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                    {emp.displayLoginStatus && <span className={`text-xs px-2 py-1 rounded-full ${emp.displayLoginStatus === 'LATE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{emp.displayLoginStatus}</span>}
-                    {emp.workedStatus && (
-                         <span className={`text-xs px-2 py-1 rounded-full font-bold ${
-                            emp.workedStatus === 'Full Day' ? 'bg-green-100 text-green-800' :
-                            emp.workedStatus === 'Half Day' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                        }`}>
-                            {emp.workedStatus}
-                        </span>
-                    )}
-                </div>
-            </li>
-             );
-          })}</ul>) : (<p className="text-center text-slate-500 py-8">No employees in this category.</p>)}
+                        {/* ✅ Total Break Time */}
+                        {isOnBreakModal && (
+                          <td className="px-5 py-3">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100 font-mono">
+                              {formatBreakDuration(totalBrkSecs)}
+                            </span>
+                          </td>
+                        )}
+                        {!isOnBreakModal && (
+                          <td className="px-5 py-3">
+                            {emp.displayLoginStatus && (
+                              <span className={`text-xs px-2 py-1 rounded-full ${emp.displayLoginStatus === 'LATE' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                {emp.displayLoginStatus}
+                              </span>
+                            )}
+                          </td>
+                        )}
+                        {!isOnBreakModal && (
+                          <td className="px-5 py-3">
+                            {emp.workedStatus && (
+                              <span className={`text-xs px-2 py-1 rounded-full font-bold ${emp.workedStatus === 'Full Day' ? 'bg-green-100 text-green-800' : emp.workedStatus === 'Half Day' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                                {emp.workedStatus}
+                              </span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="text-center text-slate-500 py-8">No employees in this category.</p>}
         </div>
       </div>
     </div>
@@ -750,6 +843,9 @@ const [summaryStartDate, setSummaryStartDate] = useState(() => {
   const [employeeImages, setEmployeeImages] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
 
+  // ✅ NEW: Track which row's break dropdown is open
+  const [openBreakDropdownId, setOpenBreakDropdownId] = useState(null);
+
   const fetchShifts = useCallback(async () => {
     try {
       const response = await getAllShifts();
@@ -782,12 +878,20 @@ const [summaryStartDate, setSummaryStartDate] = useState(() => {
   
   const fetchDailyData = useCallback(async (start, end) => { 
     setLoading(true); 
-    try { const data = await getAttendanceByDateRange(start, end); setRawDailyData(Array.isArray(data) ? data : []); } catch (error) { setRawDailyData([]); } finally { setLoading(false); } 
+    try {
+      // ✅ Dedicated route returns ALL fields: isOnBreak, isFinalPunchOut, breakSessions etc.
+      const { data } = await api.get(`/api/attendance/admin/date-range?start=${start}&end=${end}`);
+      setRawDailyData(Array.isArray(data) ? data : []);
+    } catch (error) { setRawDailyData([]); } finally { setLoading(false); } 
   }, []);
   
   const fetchSummaryData = useCallback(async (start, end) => { 
     setSummaryLoading(true); 
-    try { const data = await getAttendanceByDateRange(start, end); setRawSummaryData(Array.isArray(data) ? data : []); } catch (error) { setRawSummaryData([]); } finally { setSummaryLoading(false); } 
+    try {
+      // ✅ Same dedicated route for summary
+      const { data } = await api.get(`/api/attendance/admin/date-range?start=${start}&end=${end}`);
+      setRawSummaryData(Array.isArray(data) ? data : []);
+    } catch (error) { setRawSummaryData([]); } finally { setSummaryLoading(false); } 
   }, []);
 
   const fetchPunchOutRequests = useCallback(async () => {
@@ -979,15 +1083,18 @@ const handleMonthChange = (e) => {
         const shift = shiftsMap[item.employeeId];
         const adminFullDayHours = shift?.fullDayHours || 9;
         const adminHalfDayHours = shift?.halfDayHours || 4.5;
-        
         const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
-        
+        const brkSessions = Array.isArray(item.breakSessions) ? item.breakSessions : [];
         return {
             ...item,
             employeeName: realName,
             assignedHours: adminFullDayHours, 
             workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, adminFullDayHours, adminHalfDayHours),
-            displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
+            displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus),
+            // ✅ Carry break fields explicitly
+            isOnBreak:        item.isOnBreak || false,
+            breakSessions:    brkSessions,
+            rowTotalBreakSecs: calcTotalBreakSeconds(brkSessions), // pre-computed once
         };
     });
     mapped.sort((a, b) => {
@@ -1117,23 +1224,21 @@ const handleMonthChange = (e) => {
   }, [allEmployees, rawDailyData, loading, startDate, endDate]);
 
   const dailyStats = useMemo(() => {
-      const fullList = rawDailyData.map(item => {
-        const shift = shiftsMap[item.employeeId];
-        const adminFullDayHours = shift?.fullDayHours || 9;
-        const adminHalfDayHours = shift?.halfDayHours || 4.5;
-        
-        const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
-        return {
-            ...item,
-            employeeName: realName,
-            workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, adminFullDayHours, adminHalfDayHours),
-            displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus)
-        };
-      });
-      const working = fullList.filter(item => item.punchIn && !item.punchOut);
-      const completed = fullList.filter(item => item.punchIn && item.punchOut);
-      return { workingList: working, workingCount: working.length, completedList: completed, completedCount: completed.length, absentCount: startDate === endDate ? absentEmployees.length : 0 };
-  }, [rawDailyData, shiftsMap, absentEmployees, startDate, endDate, empNameMap]);
+    // ✅ Reuse processedDailyData — no re-mapping needed
+    // Use DB flags directly: mutually exclusive, no overlap
+    // On Break  → isOnBreak === true
+    // Completed → isFinalPunchOut === true OR adminPunchOut === true
+    // Working   → status === "WORKING"
+    const onBreak   = processedDailyData.filter(item => item.isOnBreak === true);
+    const completed = processedDailyData.filter(item => item.isFinalPunchOut === true || item.adminPunchOut === true);
+    const working   = processedDailyData.filter(item => item.status === "WORKING");
+    return {
+      workingList: working, workingCount: working.length,
+      completedList: completed, completedCount: completed.length,
+      absentCount: startDate === endDate ? absentEmployees.length : 0,
+      onBreakList: onBreak, onBreakCount: onBreak.length
+    };
+  }, [processedDailyData, absentEmployees, startDate, endDate]);
   
   const paginatedDailyData = useMemo(() => processedDailyData.slice((dailyCurrentPage - 1) * dailyItemsPerPage, dailyCurrentPage * dailyItemsPerPage), [processedDailyData, dailyCurrentPage, dailyItemsPerPage]);
   const paginatedSummaryData = useMemo(() => employeeSummaryStats.slice((summaryCurrentPage - 1) * summaryItemsPerPage, summaryCurrentPage * summaryItemsPerPage), [employeeSummaryStats, summaryCurrentPage, summaryItemsPerPage]);
@@ -1183,6 +1288,8 @@ const handleMonthChange = (e) => {
       if (type === 'WORKING') setStatusListModal({ isOpen: true, title: "Currently Working", employees: dailyStats.workingList });
       else if (type === 'COMPLETED') setStatusListModal({ isOpen: true, title: "Shift Completed", employees: dailyStats.completedList });
       else if (type === 'ABSENT' && startDate === endDate) setStatusListModal({ isOpen: true, title: "Login Required", employees: absentEmployees });
+      // ✅ NEW: On Break modal
+      else if (type === 'ON_BREAK') setStatusListModal({ isOpen: true, title: "On Break", employees: dailyStats.onBreakList });
   };
 
   const StatCard = ({ icon, title, value, colorClass, onClick }) => (
@@ -1263,9 +1370,11 @@ const handleMonthChange = (e) => {
             </div>
           </div>
 
-          <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="p-5 grid grid-cols-1 md:grid-cols-4 gap-5">
             <StatCard icon={<FaClock className="text-orange-500 text-3xl"/>} title="Currently Working" value={dailyStats.workingCount} colorClass="border-orange-500" onClick={() => handleOpenStatusModal('WORKING')} />
             <StatCard icon={<FaCheckCircle className="text-green-500 text-3xl"/>} title="Shift Completed" value={dailyStats.completedCount} colorClass="border-green-500" onClick={() => handleOpenStatusModal('COMPLETED')} />
+            {/* ✅ NEW: On Break stat card */}
+            <StatCard icon={<FaCoffee className="text-amber-500 text-3xl"/>} title="On Break" value={dailyStats.onBreakCount} colorClass="border-amber-500" onClick={() => handleOpenStatusModal('ON_BREAK')} />
             {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-3xl"/>} title="Login Required" value={loading ? '...' : dailyStats.absentCount} colorClass="border-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />)}
           </div>
           <div className="overflow-x-auto">
@@ -1280,37 +1389,29 @@ const handleMonthChange = (e) => {
                     <th className="px-6 py-4 text-left">Duration</th>
                     <th className="px-6 py-4 text-left">Login Status</th>
                     <th className="px-6 py-4 text-left">Worked Status</th>
+                    {/* ✅ NEW: Breaks column */}
+                    <th className="px-6 py-4 text-left">Breaks</th>
                     <th className="px-6 py-4 text-left">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                {loading ? (<tr><td colSpan="9" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="9" className="text-center p-10 text-slate-500">No records found.</td></tr>) : paginatedDailyData.map((item, idx) => {
+                {loading ? (<tr><td colSpan="10" className="text-center p-10 font-medium text-slate-500">Loading daily log...</td></tr>) : paginatedDailyData.length === 0 ? (<tr><td colSpan="10" className="text-center p-10 text-slate-500">No records found.</td></tr>) : paginatedDailyData.map((item, idx) => {
                   const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
-                  const canPunchOut = item.punchIn && !item.punchOut;
-                  
-                  // Color Logic for Punch In: Red if Late, Green if On Time
+                  // ✅ canPunchOut only when actively WORKING (not on break, not final punchout)
+                  const canPunchOut = item.punchIn && !item.isFinalPunchOut && !item.adminPunchOut && item.status === "WORKING";
                   const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
-
-                  // Color Logic for Punch Out: Green if Full Day, Red if Short Day/Half Day
                   const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
-
-                  // Get Profile Pic
                   const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
+                  // ✅ Use pre-computed break data from processedDailyData
+                  const rowBreakSessions  = item.breakSessions   || [];
+                  const rowTotalBreakSecs = item.rowTotalBreakSecs || 0;
 
                   return (
                     <tr key={item._id || idx} className={`hover:bg-blue-50/60 transition-colors ${isAbsent ? "bg-red-50" : ""}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                          <div className="flex items-center gap-3">
-                             {/* ✅ UPDATED: Profile Picture */}
-                             <div 
-                                className="w-9 h-9 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold overflow-hidden bg-white cursor-pointer"
-                                onClick={() => profilePic && setPreviewImage(profilePic)}
-                             >
-                                {profilePic ? (
-                                    <img src={profilePic} alt={item.employeeName} className="w-full h-full object-cover" />
-                                ) : (
-                                    (item.employeeName || "U").charAt(0)
-                                )}
+                             <div className="w-9 h-9 rounded-full border border-slate-300 flex items-center justify-center text-slate-600 font-bold overflow-hidden bg-white cursor-pointer" onClick={() => profilePic && setPreviewImage(profilePic)}>
+                                {profilePic ? <img src={profilePic} alt={item.employeeName} className="w-full h-full object-cover" /> : (item.employeeName || "U").charAt(0)}
                              </div>
                              <div>
                                 <div className="font-semibold text-slate-800">{item.employeeName}</div>
@@ -1318,43 +1419,93 @@ const handleMonthChange = (e) => {
                              </div>
                          </div>
                       </td>
-                      {/* ✅ DD/MM/YYYY */}
                       <td className="px-6 py-4 whitespace-nowrap text-slate-600">{formatDateDMY(item.date)}</td>
-                      
-                      {/* Merged Punch In & Location */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                         <div className={`font-medium ${punchInColor}`}>
-                            {item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
-                         </div>
+                         <div className={`font-medium ${punchInColor}`}>{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</div>
                          {item.punchIn && <LocationViewButton location={item.punchInLocation} />}
                       </td>
-
-                      {/* Merged Punch Out & Location */}
+                      {/* ✅ Punch Out — On Break employees show badge instead of break-start time */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                         <div className={`font-medium ${item.punchOut ? punchOutColor : 'text-slate-400'}`}>
-                             {item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}
-                         </div>
-                         {item.punchOut && <LocationViewButton location={item.punchOutLocation} />}
-                      </td>
-
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-600">{formatDecimalHours(item.assignedHours)}</td>
-                      
-                      {/* Duration: Live Timer if Active, else Static */}
-                      <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">
-                        {(!item.punchOut && item.punchIn) ? (
-                            <LiveTimer startTime={item.punchIn} />
+                        {item.isOnBreak ? (
+                          <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-[11px] bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full animate-pulse"><FaCoffee size={9} /> On Break</span>
                         ) : (
-                            item.displayTime || "0h 0m 0s"
+                          <>
+                            <div className={`font-medium ${item.punchOut ? punchOutColor : 'text-slate-400'}`}>{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</div>
+                            {item.punchOut && <LocationViewButton location={item.punchOutLocation} />}
+                          </>
                         )}
                       </td>
-                      
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-600">{formatDecimalHours(item.assignedHours)}</td>
+                      {/* ✅ Duration — LiveTimer only for WORKING; break/completed show stored displayTime */}
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-700">
+                        {item.status === "WORKING" && item.punchIn ? <LiveTimer startTime={item.punchIn} /> : (item.displayTime || "0h 0m 0s")}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.displayLoginStatus === "LATE" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>{item.displayLoginStatus}</span></td>
-                      <td className="px-6 py-4 whitespace-nowrap font-semibold"><span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{item.workedStatus}</span></td>
-                      
+                      {/* ✅ Worked Status — On Break badge when isOnBreak */}
+                      <td className="px-6 py-4 whitespace-nowrap font-semibold">
+                        {item.isOnBreak ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse">
+                            <FaCoffee size={9} /> On Break
+                          </span>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${item.workedStatus === "Full Day" ? "bg-green-100 text-green-800" : item.workedStatus === "Half Day" ? "bg-yellow-100 text-yellow-800" : isAbsent ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-800"}`}>{item.workedStatus}</span>
+                        )}
+                      </td>
+
+                      {/* ✅ NEW: Breaks dropdown — from→to per session + individual duration + total */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {rowBreakSessions.length > 0 ? (
+                          <div className="relative">
+                            <button
+                              onClick={() => setOpenBreakDropdownId(openBreakDropdownId === (item._id || idx) ? null : (item._id || idx))}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold rounded-lg hover:bg-amber-100 transition-colors"
+                            >
+                              <FaCoffee size={10} />
+                              {rowBreakSessions.length} Break{rowBreakSessions.length > 1 ? "s" : ""}
+                              <FaChevronDown size={8} className={`transition-transform duration-200 ${openBreakDropdownId === (item._id || idx) ? "rotate-180" : ""}`} />
+                            </button>
+                            {openBreakDropdownId === (item._id || idx) && (
+                              <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden">
+                                <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5">
+                                  <FaCoffee className="text-amber-500" size={10} />
+                                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Break Sessions</span>
+                                </div>
+                                {rowBreakSessions.map((brk, bIdx) => {
+                                  const dur = calcBreakSessionDuration(brk);
+                                  return (
+                                    <div key={bIdx} className="px-3 py-2.5 border-b border-slate-50 last:border-b-0 hover:bg-slate-50">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-slate-400 w-6">#{bIdx + 1}</span>
+                                        <div className="flex items-center gap-1 text-[11px] font-semibold">
+                                          <span className="text-green-600">{brk.from ? new Date(brk.from).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                                          <span className="text-slate-300">→</span>
+                                          <span className="text-red-600">{brk.to ? new Date(brk.to).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-amber-500 animate-pulse">Active</span>}</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded font-mono">{formatBreakDuration(dur)}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                                <div className="px-3 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Break</span>
+                                  <span className="text-[11px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100 font-mono">{formatBreakDuration(rowTotalBreakSecs)}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">--</span>
+                        )}
+                      </td>
+
                       <td className="px-6 py-4 whitespace-nowrap">
                         {canPunchOut ? (
                           <button onClick={() => setPunchOutModal({ isOpen: true, employee: item })} className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500" title="Admin Punch Out"><FaSignOutAlt /> Punch Out</button>
-                        ) : item.punchOut ? <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 text-xs font-semibold rounded-md"><FaCheckCircle /> Done</span> : <span className="text-slate-400 text-xs">--</span>}
+                        ) : (item.isFinalPunchOut || item.adminPunchOut) ? (
+                          <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-100 text-green-700 text-xs font-semibold rounded-md"><FaCheckCircle /> Done</span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">--</span>
+                        )}
                       </td>
                     </tr>
                   )})}

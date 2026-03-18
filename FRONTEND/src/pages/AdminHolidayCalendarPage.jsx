@@ -125,6 +125,23 @@ const AdminHolidayCalendarPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      if (!holidayData.name.trim()) {
+  Swal.fire("Validation Error", "Holiday name is required", "warning");
+  setLoading(false);
+  return;
+}
+
+if (!holidayData.startDate) {
+  Swal.fire("Validation Error", "Start date is required", "warning");
+  setLoading(false);
+  return;
+}
+
+if (holidayData.endDate && holidayData.endDate < holidayData.startDate) {
+  Swal.fire("Validation Error", "End date cannot be before start date", "warning");
+  setLoading(false);
+  return;
+}
       const payload = { ...holidayData, endDate: holidayData.endDate || holidayData.startDate };
       if (isEditing) {
         await updateHoliday(editId, payload);
@@ -136,9 +153,19 @@ const AdminHolidayCalendarPage = () => {
       fetchHolidays();
       handleCloseModal();
     } catch (error) {
-      console.error(error);
-      Swal.fire('Error', 'Operation failed', 'error');
-    } finally {
+  console.error("Holiday Error:", error);
+
+  const errorMessage =
+    error?.response?.data?.message ||   // backend error message
+    error?.message ||                   // JS error
+    "Something went wrong";
+
+  Swal.fire({
+    icon: "error",
+    title: "Validation Error",
+    text: errorMessage
+  });
+}finally {
       setLoading(false);
     }
   };

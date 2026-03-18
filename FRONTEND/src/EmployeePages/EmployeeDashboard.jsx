@@ -164,6 +164,8 @@ const EmployeeDashboard = () => {
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
   const [workedTime, setWorkedTime] = useState(0);
+  // ✅ NEW: Live break time counter (seconds)
+  const [breakTime, setBreakTime] = useState(0);
   const alarmPlayedRef = useRef(false);
 
   const todayIso = new Date().toISOString().split("T")[0];
@@ -534,6 +536,34 @@ const EmployeeDashboard = () => {
     }
     return () => { if (interval) clearInterval(interval); };
   }, [todayLog, shiftTimings]);
+
+  // ✅ NEW: Live break time counter
+  // When isOnBreak=true: ticks from open breakSession.from + already accumulated totalBreakSeconds
+  // When not on break: shows static totalBreakSeconds
+  useEffect(() => {
+    let interval;
+    const isOnBreak = todayLog?.isOnBreak === true;
+
+    if (isOnBreak) {
+      const updateBreakTimer = () => {
+        const now = new Date();
+        const alreadyDone = todayLog.totalBreakSeconds || 0;
+        const breakSessions = todayLog.breakSessions || [];
+        const openBreak = [...breakSessions].reverse().find(b => !b.to);
+        let currentBreakSeconds = 0;
+        if (openBreak && openBreak.from) {
+          currentBreakSeconds = (now - new Date(openBreak.from)) / 1000;
+        }
+        setBreakTime(Math.floor(alreadyDone + currentBreakSeconds));
+      };
+      updateBreakTimer();
+      interval = setInterval(updateBreakTimer, 1000);
+    } else {
+      setBreakTime(Math.floor(todayLog?.totalBreakSeconds || 0));
+    }
+
+    return () => { if (interval) clearInterval(interval); };
+  }, [todayLog]);
 
   const calculateWorkModeStatus = useCallback(() => {
     const defaults = {
@@ -922,6 +952,12 @@ const EmployeeDashboard = () => {
 
   const getWorkedStatusBadge = () => {
     if (!todayLog?.punchIn) return { label: "--", color: "text-gray-500" };
+
+    // ✅ NEW: Show ON_BREAK when employee is currently on break
+    if (todayLog?.isOnBreak === true) {
+      return { label: "On Break", color: "bg-amber-100 text-amber-800 animate-pulse border border-amber-200" };
+    }
+
     if (!todayLog.punchOut) { return { label: "Working...", color: "bg-blue-100 text-blue-800 animate-pulse border border-blue-200" }; }
 
     const fullDaySeconds = shiftTimings ? (shiftTimings.fullDayHours * 3600) : (9 * 3600);
@@ -1331,6 +1367,8 @@ const EmployeeDashboard = () => {
                 <td className="px-6 py-4">
                   {todayLog?.status === "WORKING" ? (
                     <span className="bg-green-50 border border-green-200 text-green-700 px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold animate-pulse">Active</span>
+                  ) : todayLog?.isOnBreak ? (
+                    <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold animate-pulse">On Break</span>
                   ) : (
                     <span className="font-medium text-gray-600">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</span>
                   )}
@@ -1340,8 +1378,12 @@ const EmployeeDashboard = () => {
                 <td className="px-6 py-4">
                   {todayLog?.punchIn ? (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border shadow-sm ${workedStatusBadge.color}`}> {workedStatusBadge.label} </span>) : (<span className="text-gray-400 font-medium">--</span>)}
                 </td>
-                {/* ✅ NEW: Break time column — reads totalBreakSeconds from updated model */}
-                <td className="px-6 py-4 font-mono font-medium text-purple-600"> {todayLog?.totalBreakSeconds ? formatWorkedTime(todayLog.totalBreakSeconds) : "0h 0m 0s"} </td>
+                {/* ✅ UPDATED: Live break timer — counts up when on break, static otherwise */}
+                <td className="px-6 py-4 font-mono font-medium">
+                  <span className={todayLog?.isOnBreak ? 'text-amber-600 animate-pulse' : 'text-purple-600'}>
+                    {formatWorkedTime(breakTime)}
+                  </span>
+                </td>
 
                 <td className="px-6 py-4 text-center">
                   {isShiftCompleted ? (
@@ -1808,5 +1850,3 @@ const EmployeeDashboard = () => {
 };
 
 export default EmployeeDashboard;
-
-

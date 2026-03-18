@@ -83,6 +83,12 @@ const ALL_FEATURES = [
     iconKey: "FaBusinessTime",
     description: "Review and manage employee overtime requests",
   },
+    {
+    label: "Idle Time",
+    route: "/admin/admin-overtime",
+    iconKey: "FaBusinessTime",
+    description: "View and track employee idle time",
+  },
 ];
 
 const seedFeatures = async () => {
