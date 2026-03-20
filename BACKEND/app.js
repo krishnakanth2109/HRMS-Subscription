@@ -28,7 +28,7 @@ import punchOutRoutes from "./routes/punchOutRequestRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import rulesRoutes from "./routes/rules.js";
-import chatRoutes from "./routes/messageRoutes.js"; // ✅ updated import path
+import chatRoutes from "./routes/messageRoutes.js";
 import payrollRoutes from "./routes/payroll.js";
 import adminAuthRoutes from "./routes/adminAuthRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
@@ -44,20 +44,11 @@ import masterRoutes from "./routes/masterRoutes.js";
 const app = express();
 const server = http.createServer(app);
 
-/* ==================== CORS CONFIG ==================== */
-const allowedOrigins = [
-  "https://hrms-420.netlify.app",
-  "http://localhost:5173",
-  "https://hrms-ask.onrender.com",
-  "https://hrms-ask-1.onrender.com",
-  "http://localhost:5000",
-  "https://hrms-vaz.netlify.app/",
-  "https://hrms-subscription.onrender.com",
-  "https://hanshithacreations.com",
-  "https://vwsync.com/",
-];
-
 /* ==================== SOCKET.IO ==================== */
+// ✅ FIX FOR RENDER.COM:
+// Render's infrastructure proxies HTTP but can be inconsistent with raw WebSocket
+// on first connect. Starting with polling lets the handshake always succeed,
+// then Socket.IO automatically upgrades to WebSocket after the connection is stable.
 const userSocketMap = new Map();
 
 const io = new Server(server, {
@@ -66,13 +57,27 @@ const io = new Server(server, {
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   },
+  // ✅ KEY FIX: polling FIRST so Render's proxy always lets the handshake through
+  transports: ["polling", "websocket"],
+  // ✅ Longer timeouts to survive Render's cold starts and proxy delays
+  pingTimeout:           60000,
+  pingInterval:          25000,
+  upgradeTimeout:        30000,
+  allowUpgrades:         true,
+  // ✅ Allow large payloads
+  maxHttpBufferSize:     1e6,
 });
 
 app.set("io", io);
 app.set("userSocketMap", userSocketMap);
 
 io.on("connection", (socket) => {
-  console.log("🔥 Socket connected:", socket.id);
+  console.log("🔥 Socket connected:", socket.id, "| transport:", socket.conn.transport.name);
+
+  // Log transport upgrades (polling → websocket)
+  socket.conn.on("upgrade", (transport) => {
+    console.log(`⬆️  Transport upgraded to: ${transport.name} for socket: ${socket.id}`);
+  });
 
   // ── Existing registration (keep for other features) ──────────────────────
   socket.on("register", (userId) => {
@@ -82,19 +87,18 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ── ✅ NEW: Chat room join — frontend emits 'authenticate' after connect ──
-  // This joins the socket into a private room named user_<id> so that
-  // io.to(`user_${receiverId}`) in messageRoutes can deliver messages instantly
+  // ── Chat room join — frontend emits 'authenticate' after every (re)connect ─
+  // Joins a private room user_<id> so io.to(`user_${id}`) delivers messages
   socket.on("authenticate", (userId) => {
     if (!userId) return;
     const id = userId.toString();
     socket.join(`user_${id}`);
     socket.data.userId = id;
     socket.emit("authenticated", { userId: id });
-    console.log(`✅ Chat authenticated, joined room: user_${id}`);
+    console.log(`✅ Chat room joined: user_${id}`);
   });
 
-  // ── ✅ NEW: Typing indicators ────────────────────────────────────────────
+  // ── Typing indicators ────────────────────────────────────────────────────
   socket.on("typing_start", ({ receiverId, senderId, senderName }) => {
     if (receiverId && senderId) {
       io.to(`user_${receiverId}`).emit("user_typing", {
@@ -113,15 +117,14 @@ io.on("connection", (socket) => {
   });
 
   // ── Disconnect ───────────────────────────────────────────────────────────
-  socket.on("disconnect", () => {
-    // Clean up userSocketMap (existing logic)
+  socket.on("disconnect", (reason) => {
     for (const [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
         userSocketMap.delete(userId);
         break;
       }
     }
-    console.log(`❌ Socket disconnected: ${socket.data.userId || socket.id}`);
+    console.log(`❌ Disconnected: ${socket.data.userId || socket.id} | reason: ${reason}`);
   });
 });
 
@@ -192,7 +195,7 @@ app.use("/api/punchoutreq", punchOutRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/rules", rulesRoutes);
-app.use("/api/chat", chatRoutes);   // ✅ messageRoutes.js
+app.use("/api/chat", chatRoutes);
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/admin", adminAuthRoutes);
 app.use("/api/companies", companyRoutes);
