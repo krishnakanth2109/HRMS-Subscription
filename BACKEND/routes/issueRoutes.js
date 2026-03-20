@@ -54,13 +54,16 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage });
 
+// --- In issueRoutes.js ---
 router.post("/", setUser, upload.array("images", 5), async (req, res) => {
   try {
-    const { subject, message, raisedByName, raisedByEmail } = req.body;
+    // 1. EXTRACT adminId and companyId FROM req.body
+    const { subject, message, raisedByName, raisedByEmail, adminId, companyId } = req.body;
     const { _id: userId, role } = req.user;
     
-    let finalAdminId = req.user.adminId;
-    let finalCompanyId = req.user.companyId;
+    // 2. ASSIGN FROM req.body FIRST, THEN FALLBACK TO TOKEN
+    let finalAdminId = adminId || req.user.adminId;
+    let finalCompanyId = companyId || req.user.companyId;
     let fallbackEmail = req.user.email;
     let fallbackName = req.user.name;
 
@@ -68,15 +71,16 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
     if (role === "employee") {
       const emp = await mongoose.model("Employee").findById(userId).lean();
       if (emp) {
-        finalAdminId = finalAdminId || emp.adminId || emp.creatorId;
-        finalCompanyId = finalCompanyId || emp.companyId || emp.tenantId;
+        // 3. ADDED 'emp.admin' and 'emp.company' FALLBACKS
+        finalAdminId = finalAdminId || emp.adminId || emp.creatorId || emp.admin;
+        finalCompanyId = finalCompanyId || emp.companyId || emp.tenantId || emp.company;
         fallbackEmail = fallbackEmail || emp.email;
         fallbackName = fallbackName || emp.name;
       }
     } else if (role === "admin" || role === "superadmin") {
       const adm = await mongoose.model("Admin").findById(userId).lean();
       if (adm) {
-        finalAdminId = userId;
+        finalAdminId = finalAdminId || userId;
         finalCompanyId = finalCompanyId || adm.companyId || adm.company || userId;
         fallbackEmail = fallbackEmail || adm.email;
         fallbackName = fallbackName || adm.name;
@@ -84,7 +88,7 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
     }
 
     if (!finalAdminId || !finalCompanyId) {
-      return res.status(400).json({ success: false, message: "Hierarchy IDs missing" });
+      return res.status(400).json({ success: false, message: "Hierarchy IDs missing. Unable to map issue to a Company/Admin." });
     }
 
     const images = (req.files || []).map((f) => ({ url: f.path, publicId: f.filename }));
@@ -94,7 +98,6 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
       message: message.trim(),
       images,
       raisedBy: userId,
-      // Priority: 1. Request Body, 2. Database Lookup, 3. Token, 4. Empty String
       raisedByName: raisedByName || fallbackName || "User",
       raisedByEmail: raisedByEmail || fallbackEmail || "", 
       role,

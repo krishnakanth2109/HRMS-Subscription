@@ -170,13 +170,12 @@ const DynamicHRMSLandingPage = () => {
             <nav className={`fixed w-full z-40 py-4 px-4 md:px-8 ${themeClasses.navBg}`}>
                 <div className="container mx-auto flex justify-between items-center">
                     <div className="flex items-center space-x-2">
-                        <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-sm md:text-lg text-white shadow-lg shadow-blue-500/30">H</div>
-                        <span className="text-lg md:text-xl font-bold tracking-tight">HR<span className="text-blue-400">360*</span></span>
+                        <span className="text-lg md:text-xl font-bold tracking-tight"><span className="text-blue-400">vwsync</span></span>
                     </div>
-                    
+
                     {/* Desktop Navigation */}
                     <div className="hidden md:flex space-x-8 text-sm font-medium">
-                        {['Features', 'Pricing', 'Benefits', 'Support'].map((item) => (
+                        {['Features', 'Benefits', 'Pricing', 'Support'].map((item) => (
                             <a key={item} href={`#${item.toLowerCase()}`} className={`${themeClasses.textSecondary} hover:text-blue-400 transition-colors`}>
                                 {item}
                             </a>
@@ -214,18 +213,17 @@ const DynamicHRMSLandingPage = () => {
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-700">Into seamless Digital experience</span>
                         </h1>
                         <p className={`text-base md:text-xl ${themeClasses.textSecondary} mb-8 md:mb-10 max-w-lg leading-relaxed`}>
-                            This HR360* platform to manage your global workforce, automate payroll, and track performance without the spreadsheet chaos.
+                            This vwsync platform to manage your global workforce, automate payroll, and track performance without the spreadsheet chaos.
                         </p>
                         <div className="flex flex-wrap gap-4 md:gap-5">
                             <button onClick={() => navigate("/login")} className="px-6 md:px-8 py-3 md:py-4 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-all transform hover:-translate-y-1 shadow-lg shadow-blue-600/30 text-sm md:text-base">
                                 Sign In
                             </button>
                             <a href="#pricing">
-                                <button className={`px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all transform hover:-translate-y-1 text-sm md:text-base ${
-                                    isDarkMode 
-                                        ? 'bg-white text-black hover:bg-blue-400 hover:text-white' 
-                                        : 'bg-white text-blue-600 hover:bg-blue-50 border-2 border-blue-600'
-                                }`}>
+                                <button className={`px-6 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all transform hover:-translate-y-1 text-sm md:text-base ${isDarkMode
+                                    ? 'bg-white text-black hover:bg-blue-400 hover:text-white'
+                                    : 'bg-white text-blue-600 hover:bg-blue-50 border-2 border-blue-600'
+                                    }`}>
                                     View Pricing
                                 </button>
                             </a>
@@ -295,10 +293,15 @@ const DynamicHRMSLandingPage = () => {
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
                         {[
-                            { icon: '🗄️', title: 'Database Management', desc: 'Secure employee data storage with real-time sync and backup.', color: 'blue' },
-                            { icon: '💰', title: 'Payroll Management', desc: 'Automated salary processing with tax compliance and reports.', color: 'green' },
+                          
+                                                        { icon: '👥', title: 'Employee Management', desc: 'Manage employee profiles, roles, and organizational structure efficiently.', color: 'indigo' },
                             { icon: '⏰', title: 'Attendance Management', desc: 'Biometric integration and real-time attendance tracking.', color: 'yellow' },
-                            { icon: '📊', title: 'Performance Management', desc: 'Goal tracking, reviews, and performance analytics dashboard.', color: 'purple' }
+                            { icon: '📊', title: 'Performance Management', desc: 'Goal tracking, reviews, and performance analytics dashboard.', color: 'purple' },
+  { icon: '🗄️', title: 'Database Management', desc: 'Secure employee data storage with real-time sync and backup.', color: 'blue' },
+                            { icon: '📅', title: 'Leave Management', desc: 'Apply, approve, and track employee leaves with automated workflows.', color: 'red' },
+                            { icon: '🔐', title: 'Access Control', desc: 'Role-based access to ensure data security and proper authorization.', color: 'pink' },
+                                                        { icon: '💰', title: 'Payroll Management', desc: 'Automated salary processing with tax compliance and reports.', color: 'green' },        
+                            { icon: '📈', title: 'Reports & Analytics', desc: 'Generate detailed reports and insights for better decision making.', color: 'teal' }
                         ].map((feature, i) => (
                             <div key={i} className={`${themeClasses.cardBg} p-4 md:p-6 rounded-2xl ${themeClasses.cardBorder} ${themeClasses.cardHover} transition-all group shadow-sm`}>
                                 <div className={`text-2xl md:text-4xl mb-2 md:mb-4 group-hover:scale-110 transition-transform text-${feature.color}-600`}>
@@ -317,7 +320,7 @@ const DynamicHRMSLandingPage = () => {
                 <div className="container mx-auto">
                     <div className="text-center mb-12 md:mb-16">
                         <h2 className={`text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 ${themeClasses.text}`}>
-                            Why Choose <span className="text-blue-600">HR360*</span>
+                            Why Choose <span className="text-blue-600">vwsync</span>
                         </h2>
                         <p className={`${themeClasses.textSecondary} max-w-2xl mx-auto text-sm md:text-base`}>
                             Discover the advantages that make us the preferred choice for modern businesses
@@ -392,67 +395,6 @@ const DynamicHRMSLandingPage = () => {
                 </div>
             </section>
 
-            {/* Support Section */}
-            <section id="support" className={`py-16 md:py-24 px-4 md:px-8 ${themeClasses.sectionBg}`}>
-                <div className="container mx-auto">
-                    <div className="text-center mb-12 md:mb-16">
-                        <h2 className={`text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 ${themeClasses.text}`}>
-                            We're Here to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">Help You</span>
-                        </h2>
-                        <p className={`${themeClasses.textSecondary} max-w-2xl mx-auto text-sm md:text-base`}>
-                            Get the support you need, when you need it most
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-5xl mx-auto">
-                        {/* WhatsApp Support */}
-                        <div className={`group relative ${themeClasses.cardBg} p-4 md:p-6 lg:p-8 rounded-2xl ${themeClasses.cardBorder} hover:border-blue-400 transition-all hover:transform hover:-translate-y-2 duration-300 shadow-sm`}>
-                            <h3 className={`text-base md:text-lg lg:text-xl font-bold mb-2 md:mb-3 ${themeClasses.text}`}>Whatsapp Support</h3>
-                            <p className={`text-xs md:text-sm ${themeClasses.textSecondary} mb-3 md:mb-4`}>
-                                Get instant answers from our support team, available 24/7.
-                            </p>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] md:text-xs text-blue-600 font-bold">Response in 2 minutes</span>
-                                <button className={`text-[10px] md:text-xs ${themeClasses.textSecondary} hover:text-blue-600 transition-colors font-bold`}>
-                                    Start Chat →
-                                </button>
-                            </div>
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 scale-x-0 group-hover:scale-x-100 transition-transform rounded-b-2xl"></div>
-                        </div>
-
-                        {/* Email Support */}
-                        <div className={`group relative ${themeClasses.cardBg} p-4 md:p-6 lg:p-8 rounded-2xl ${themeClasses.cardBorder} hover:border-green-400 transition-all hover:transform hover:-translate-y-2 duration-300 shadow-sm`}>
-                            <h3 className={`text-base md:text-lg lg:text-xl font-bold mb-2 md:mb-3 ${themeClasses.text}`}>Email Support</h3>
-                            <p className={`text-xs md:text-sm ${themeClasses.textSecondary} mb-3 md:mb-4`}>
-                                Send us your queries and get detailed responses within hours.
-                            </p>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] md:text-xs text-green-600 font-bold">Response in 4 hours</span>
-                                <button className={`text-[10px] md:text-xs ${themeClasses.textSecondary} hover:text-green-600 transition-colors font-bold`}>
-                                    Send Email →
-                                </button>
-                            </div>
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform rounded-b-2xl"></div>
-                        </div>
-
-                        {/* Phone Support */}
-                        <div className={`group relative ${themeClasses.cardBg} p-4 md:p-6 lg:p-8 rounded-2xl ${themeClasses.cardBorder} hover:border-purple-400 transition-all hover:transform hover:-translate-y-2 duration-300 shadow-sm`}>
-                            <h3 className={`text-base md:text-lg lg:text-xl font-bold mb-2 md:mb-3 ${themeClasses.text}`}>Phone Support</h3>
-                            <p className={`text-xs md:text-sm ${themeClasses.textSecondary} mb-3 md:mb-4`}>
-                                Speak directly with our support specialists for urgent issues.
-                            </p>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[10px] md:text-xs text-purple-600 font-bold">Mon-Fri, 9AM-8PM EST</span>
-                                <button className={`text-[10px] md:text-xs ${themeClasses.textSecondary} hover:text-purple-600 transition-colors font-bold`}>
-                                    Request Call →
-                                </button>
-                            </div>
-                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 scale-x-0 group-hover:scale-x-100 transition-transform rounded-b-2xl"></div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             {/* Pricing Section */}
             <section id="pricing" className={`py-16 md:py-24 px-4 md:px-8 ${themeClasses.sectionAltBg}`}>
                 <div className="container mx-auto">
@@ -470,11 +412,10 @@ const DynamicHRMSLandingPage = () => {
                             <div className="animate-spin rounded-full h-8 w-8 md:h-10 md:w-10 border-b-2 border-blue-600"></div>
                         </div>
                     ) : (
-                        <div className={`grid gap-4 md:gap-6 lg:gap-8 max-w-6xl mx-auto ${
-                            plans.length === 1 ? 'grid-cols-1 max-w-md' :
-                            plans.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl' : 
-                            'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
-                        }`}>
+                        <div className={`grid gap-4 md:gap-6 lg:gap-8 max-w-6xl mx-auto ${plans.length === 1 ? 'grid-cols-1 max-w-md' :
+                            plans.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl' :
+                                'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                            }`}>
                             {plans.map((plan, index) => {
                                 return (
                                     <div
@@ -521,11 +462,10 @@ const DynamicHRMSLandingPage = () => {
 
                                         <button
                                             onClick={() => handlePlanClick(plan)}
-                                            className={`w-full py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-xs md:text-xs uppercase tracking-widest transition-all shadow-sm ${
-                                                isDarkMode
-                                                    ? 'border border-white/10 hover:bg-white/10 text-white'
-                                                    : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
-                                            }`}
+                                            className={`w-full py-3 md:py-4 rounded-xl md:rounded-2xl font-black text-xs md:text-xs uppercase tracking-widest transition-all shadow-sm ${isDarkMode
+                                                ? 'border border-white/10 hover:bg-white/10 text-white'
+                                                : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
+                                                }`}
                                         >
                                             {Number(plan.price) === 0 ? "Get Started Free" : "Subscribe Now →"}
                                         </button>
@@ -536,31 +476,102 @@ const DynamicHRMSLandingPage = () => {
                     )}
                 </div>
             </section>
-            
+
+            {/* Support Section */}
+            <section id="support" className={`py-16 md:py-24 px-4 md:px-8 ${themeClasses.sectionBg}`}>
+                <div className="container mx-auto">
+                    <div className="text-center mb-12 md:mb-16">
+                        <h2 className={`text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 ${themeClasses.text}`}>
+                            We're Here to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-600">Help You</span>
+                        </h2>
+                        <p className={`${themeClasses.textSecondary} max-w-2xl mx-auto text-sm md:text-base`}>
+                            Get the support you need, when you need it most
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-5xl mx-auto">
+                        {/* WhatsApp Support */}
+                        <div className={`group relative ${themeClasses.cardBg} p-4 md:p-6 lg:p-8 rounded-2xl ${themeClasses.cardBorder} hover:border-blue-400 transition-all hover:transform hover:-translate-y-2 duration-300 shadow-sm`}>
+                            <h3 className={`text-base md:text-lg lg:text-xl font-bold mb-2 md:mb-3 ${themeClasses.text}`}>WhatsApp Support</h3>
+                            <p className={`text-xs md:text-sm ${themeClasses.textSecondary} mb-3 md:mb-4`}>
+                                Get instant answers from our support team, available 24/7.
+                            </p>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] md:text-xs text-blue-600 font-bold">Send Whatsapp Message</span>
+                                <a
+                                    href="https://wa.me/918919801095?text=Hi%2C%20I%E2%80%99d%20like%20more%20information%20about%20your%20HRMS%20product.%20Please%20share%20the%20details."
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Start Chat →
+                                </a>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 scale-x-0 group-hover:scale-x-100 transition-transform rounded-b-2xl"></div>
+                        </div>
+
+                        {/* Email Support */}
+                        <div className={`group relative ${themeClasses.cardBg} p-4 md:p-6 lg:p-8 rounded-2xl ${themeClasses.cardBorder} hover:border-green-400 transition-all hover:transform hover:-translate-y-2 duration-300 shadow-sm`}>
+                            <h3 className={`text-base md:text-lg lg:text-xl font-bold mb-2 md:mb-3 ${themeClasses.text}`}>Email Support</h3>
+                            <p className={`text-xs md:text-sm ${themeClasses.textSecondary} mb-3 md:mb-4`}>
+                                Send us your queries and get detailed responses within hours.
+                            </p>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] md:text-xs text-green-600 font-bold break-all">ops@arahinfotech.net</span>
+                                <a
+                                    href="https://mail.google.com/mail/?view=cm&fs=1&to=ops@arahinfotech.net&su=HRMS%20Enquiry&body=Hi%2C%20I%E2%80%99d%20like%20more%20information%20about%20your%20HRMS%20product.%20Please%20share%20the%20details."
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`text-[10px] md:text-xs ${themeClasses.textSecondary} hover:text-green-600 transition-colors font-bold`}
+                                >
+                                    Send Email →
+                                </a>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-500 to-emerald-500 scale-x-0 group-hover:scale-x-100 transition-transform rounded-b-2xl"></div>
+                        </div>
+
+                        {/* Phone Support */}
+                        <div className={`group relative ${themeClasses.cardBg} p-4 md:p-6 lg:p-8 rounded-2xl ${themeClasses.cardBorder} hover:border-purple-400 transition-all hover:transform hover:-translate-y-2 duration-300 shadow-sm`}>
+                            <h3 className={`text-base md:text-lg lg:text-xl font-bold mb-2 md:mb-3 ${themeClasses.text}`}>Phone Support</h3>
+                            <p className={`text-xs md:text-sm ${themeClasses.textSecondary} mb-3 md:mb-4`}>
+                                Speak directly with our support specialists for urgent issues.
+                            </p>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] md:text-xs text-purple-600 font-bold">8919801095</span>
+                                <a
+                                    href="tel:8919801095"
+                                    className={`text-[10px] md:text-xs ${themeClasses.textSecondary} hover:text-purple-600 transition-colors font-bold`}
+                                >
+                                    Call Now →
+                                </a>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 scale-x-0 group-hover:scale-x-100 transition-transform rounded-b-2xl"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* Footer */}
             <footer className={`relative pt-16 md:pt-20 pb-6 md:pb-10 px-4 md:px-8 ${themeClasses.footerBg} overflow-hidden`}>
                 {/* Background decorative elements */}
                 <div className={`absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-blue-300 to-transparent`}></div>
                 <div className={`absolute -top-40 -left-40 w-60 md:w-80 h-60 md:h-80 ${isDarkMode ? 'bg-blue-500/5' : 'bg-blue-200'} rounded-full blur-[100px] ${isDarkMode ? '' : 'opacity-30'}`}></div>
                 <div className={`absolute -bottom-40 -right-40 w-60 md:w-80 h-60 md:h-80 ${isDarkMode ? 'bg-cyan-500/5' : 'bg-cyan-200'} rounded-full blur-[100px] ${isDarkMode ? '' : 'opacity-30'}`}></div>
-                
+
                 <div className="container mx-auto relative z-10">
                     {/* Main Footer Content */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-8 mb-12 md:mb-16">
                         {/* Brand Column */}
                         <div className="lg:col-span-2">
                             <div className="flex items-center space-x-2 mb-4 md:mb-6">
-                                <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-xl flex items-center justify-center font-bold text-base md:text-xl text-white shadow-lg shadow-blue-500/30">
-                                    H
-                                </div>
+                     
                                 <span className={`text-lg md:text-xl lg:text-2xl font-bold tracking-tight bg-gradient-to-r ${isDarkMode ? 'from-white to-gray-300' : 'from-gray-800 to-gray-600'} bg-clip-text text-transparent`}>
-                                    HR<span className="text-blue-600">360*</span>
+                                    <span className="text-blue-600">vwsync</span>
                                 </span>
                             </div>
                             <p className={`${themeClasses.textMuted} text-xs md:text-sm leading-relaxed mb-4 md:mb-6 max-w-md`}>
                                 Transforming human resource management into seamless digital experiences. Trusted by over 10,000+ companies worldwide.
                             </p>
-                            
+
                             {/* Social Links */}
                             <div className="flex space-x-2 md:space-x-4">
                                 {[
@@ -624,36 +635,12 @@ const DynamicHRMSLandingPage = () => {
                         </div>
                     </div>
 
-                    {/* Newsletter & Contact */}
-                    <div className="grid md:grid-cols-2 gap-6 md:gap-8 py-6 md:py-8 border-t border-gray-200">
-                        <div>
-                            <h5 className={`${themeClasses.text} text-xs md:text-sm font-bold mb-2 md:mb-3`}>Subscribe to our newsletter</h5>
-                            <div className="flex max-w-md">
-                                <input
-                                    type="email"
-                                    placeholder="Enter your email"
-                                    className={`flex-1 ${themeClasses.inputBg} ${themeClasses.inputBorder} ${themeClasses.text} placeholder-gray-400 px-3 md:px-4 py-2 rounded-l-xl outline-none ${themeClasses.inputFocus} text-xs md:text-sm`}
-                                />
-                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 md:px-6 py-2 rounded-r-xl text-xs md:text-sm font-bold transition-colors">
-                                    Subscribe
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex justify-start md:justify-end items-center">
-                            <div className="text-left md:text-right">
-                                <p className={`text-xs md:text-sm ${themeClasses.textMuted} mb-1`}>Need help? Contact us 24/7</p>
-                                <a href="mailto:support@hr360.com" className="text-blue-600 hover:text-blue-700 font-bold text-xs md:text-sm">
-                                    support@hr360.com
-                                </a>
-                                <p className={`${themeClasses.textMuted} text-[10px] md:text-xs mt-1`}>+1 (888) 555-0123</p>
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* Bottom Bar */}
                     <div className={`mt-6 md:mt-8 pt-6 md:pt-8 border-t ${themeClasses.border} flex flex-col md:flex-row justify-between items-center text-[8px] md:text-xs ${themeClasses.textMuted}`}>
                         <div className="flex flex-wrap items-center justify-center gap-2 mb-2 md:mb-0">
-                            <span>© 2026 HR360*. All rights reserved.</span>
+                            <span>© 2026 vwsync. All rights reserved.</span>
                             <span className={isDarkMode ? 'text-gray-700' : 'text-gray-300'}>|</span>
                             <a href="#" className="hover:text-blue-600 transition-colors">Privacy Policy</a>
                             <span className={isDarkMode ? 'text-gray-700' : 'text-gray-300'}>|</span>
@@ -664,15 +651,8 @@ const DynamicHRMSLandingPage = () => {
                         <div className="flex items-center space-x-1">
                             <span>Made with</span>
                             <FaHeart className="text-red-500 mx-1" size={10} />
-                            <span>by HR360* Team</span>
+                            <span>by vwsync Team</span>
                         </div>
-                    </div>
-
-                    {/* Trust Badges */}
-                    <div className="mt-6 md:mt-8 flex flex-wrap justify-center items-center gap-4 md:gap-8 opacity-50">
-                        {['SOC2', 'GDPR', 'ISO 27001', 'PCI DSS'].map((badge, i) => (
-                            <span key={i} className={`text-[8px] md:text-[10px] ${themeClasses.textMuted} font-bold tracking-wider uppercase`}>{badge}</span>
-                        ))}
                     </div>
                 </div>
             </footer>
@@ -734,11 +714,10 @@ const DynamicHRMSLandingPage = () => {
                                                     key={plan._id}
                                                     type="button"
                                                     onClick={() => setSelectedPlan(plan)}
-                                                    className={`w-full text-left p-2 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all ${
-                                                        selectedPlan?._id === plan._id
-                                                            ? 'border-blue-500 bg-blue-50'
-                                                            : `${isDarkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'} hover:border-blue-300 hover:bg-blue-50`
-                                                    }`}
+                                                    className={`w-full text-left p-2 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all ${selectedPlan?._id === plan._id
+                                                        ? 'border-blue-500 bg-blue-50'
+                                                        : `${isDarkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'} hover:border-blue-300 hover:bg-blue-50`
+                                                        }`}
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex-1 min-w-0">
@@ -798,16 +777,16 @@ const DynamicHRMSLandingPage = () => {
                                             </div>
                                             <div>
                                                 <label className={`text-[8px] md:text-[10px] font-bold uppercase tracking-wider ${themeClasses.textMuted} ml-1 mb-0.5 md:mb-1 block`}>Email Address</label>
-                              <input
-  type="email"
-  placeholder="example@gmail.com"
-  className={`w-full ${themeClasses.inputBg} ${themeClasses.inputBorder} ${themeClasses.text} placeholder-gray-400 px-3 md:px-4 py-2 md:py-3 rounded-xl outline-none ${themeClasses.inputFocus} transition-all text-xs md:text-sm`}
-  value={signupForm.email}
-  onChange={(e) =>
-    setSignupForm({ ...signupForm, email: e.target.value })
-  }
-  required
-/>
+                                                <input
+                                                    type="email"
+                                                    placeholder="example@gmail.com"
+                                                    className={`w-full ${themeClasses.inputBg} ${themeClasses.inputBorder} ${themeClasses.text} placeholder-gray-400 px-3 md:px-4 py-2 md:py-3 rounded-xl outline-none ${themeClasses.inputFocus} transition-all text-xs md:text-sm`}
+                                                    value={signupForm.email}
+                                                    onChange={(e) =>
+                                                        setSignupForm({ ...signupForm, email: e.target.value })
+                                                    }
+                                                    required
+                                                />
                                             </div>
                                             <div>
                                                 <label className={`text-[8px] md:text-[10px] font-bold uppercase tracking-wider ${themeClasses.textMuted} ml-1 mb-0.5 md:mb-1 block`}>Password</label>
@@ -844,19 +823,19 @@ const DynamicHRMSLandingPage = () => {
                                             </div>
                                             <div>
                                                 <label className={`text-[8px] md:text-[10px] font-bold uppercase tracking-wider ${themeClasses.textMuted} ml-1 mb-0.5 md:mb-1 block`}>Phone</label>
-                        <input
-  placeholder="+91 98765 43210"
-  className={`w-full ${themeClasses.inputBg} ${themeClasses.inputBorder} ${themeClasses.text} placeholder-gray-400 px-3 md:px-4 py-2 md:py-3 rounded-xl outline-none ${themeClasses.inputFocus} transition-all text-xs md:text-sm`}
-  value={signupForm.phone}
-  onChange={(e) => {
-    // Allow only numbers
-    const value = e.target.value.replace(/[^0-9]/g, "");
-    setSignupForm({ ...signupForm, phone: value });
-  }}
-  pattern="[0-9]{10}"
-  maxLength={10}
-  required
-/>
+                                                <input
+                                                    placeholder="+91 98765 43210"
+                                                    className={`w-full ${themeClasses.inputBg} ${themeClasses.inputBorder} ${themeClasses.text} placeholder-gray-400 px-3 md:px-4 py-2 md:py-3 rounded-xl outline-none ${themeClasses.inputFocus} transition-all text-xs md:text-sm`}
+                                                    value={signupForm.phone}
+                                                    onChange={(e) => {
+                                                        // Allow only numbers
+                                                        const value = e.target.value.replace(/[^0-9]/g, "");
+                                                        setSignupForm({ ...signupForm, phone: value });
+                                                    }}
+                                                    pattern="[0-9]{10}"
+                                                    maxLength={10}
+                                                    required
+                                                />
                                             </div>
 
                                             {/* Selected plan summary */}

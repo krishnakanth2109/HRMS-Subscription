@@ -223,28 +223,31 @@ export default function EmployeeIssues() {
   // ✅ Updated State for Employee Data to include IDs
   const [userInfo, setUserInfo] = useState({ name: "", email: "", adminId: "", companyId: "" });
 
-  useEffect(() => {
-    // 1. Fetch Issues
-    getTechnicalIssues()
-      .then((data) => { if (data.success) setIssues(data.issues); })
-      .finally(() => setLoading(false));
+// --- Inside EmployeeIssues.jsx (in your useEffect block) ---
 
-    // 2. ✅ Fetch Employee Info and Hierarchy IDs from Session Storage
-    const saved = sessionStorage.getItem("hrmsUser");
-    if (saved && saved !== "undefined") {
-      try {
-        const parsed = JSON.parse(saved);
-        setUserInfo({
-            name: parsed.name || "Employee",
-            email: parsed.email || "",
-            adminId: parsed.adminId || parsed.creatorId || "",
-            companyId: parsed.companyId || parsed.company || ""
-        });
-      } catch (e) {
-        console.error("Error parsing user info", e);
-      }
+useEffect(() => {
+  // 1. Fetch Issues
+  getTechnicalIssues()
+    .then((data) => { if (data.success) setIssues(data.issues); })
+    .finally(() => setLoading(false));
+
+  // 2. Fetch Employee Info and Hierarchy IDs from Session Storage
+  const saved = sessionStorage.getItem("hrmsUser");
+  if (saved && saved !== "undefined") {
+    try {
+      const parsed = JSON.parse(saved);
+      setUserInfo({
+          name: parsed.name || "Employee",
+          email: parsed.email || "",
+          // ADDED parsed.admin as a fail-safe fallback
+          adminId: parsed.adminId || parsed.creatorId || parsed.admin || "", 
+          companyId: parsed.companyId || parsed.company || ""
+      });
+    } catch (e) {
+      console.error("Error parsing user info", e);
     }
-  }, []);
+  }
+}, []);
 
   const filtered = tab === "all" ? issues : issues.filter((i) => i.status === tab);
 

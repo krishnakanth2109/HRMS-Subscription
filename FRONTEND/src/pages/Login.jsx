@@ -230,7 +230,7 @@ const Login = () => {
               </span>
             </h1>
             <p className="text-gray-400 text-base lg:text-lg max-w-md leading-relaxed">
-              Arah Info Tech HRMS delivers seamless workforce management with AI-powered insights.
+              Arah Info Tech vwsync delivers seamless workforce management with AI-powered insights.
             </p>
           </div>
 
@@ -325,12 +325,12 @@ const Login = () => {
                   <label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-500">
                     Password
                   </label>
-                  <button 
+                  {/* <button 
                     type="button" 
                     className="text-[10px] sm:text-[11px] font-bold text-purple-600 hover:text-purple-700 transition-colors"
                   >
                     Forgot? &rarr;
-                  </button>
+                  </button> */}
                 </div>
                 <div className="relative group">
                   <MdLock className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg sm:text-xl group-hover:text-purple-500 transition-colors" />
@@ -376,9 +376,17 @@ const Login = () => {
               >
                 Subscribe Our HRMS
               </button>
-              <p className="text-[8px] sm:text-[10px] text-gray-400 pt-4 sm:pt-6 border-t border-gray-100 w-full">
-                Need help? support@arahinfotech.com
-              </p>
+        <p className="text-[8px] sm:text-[10px] text-gray-400 pt-4 sm:pt-6 border-t border-gray-100 w-full">
+  Need help? 
+  <a
+    href="https://mail.google.com/mail/?view=cm&fs=1&to=ops@arahinfotech.com&su=I%20need%20help%20in%20your%20vwsync%20platform&body=Hi%2C%20I%20need%20help%20in%20your%20vwsync%20platform.%20Please%20assist%20me."
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-blue-500 hover:underline ml-1"
+  >
+    ops@arahinfotech.com
+  </a>
+</p>
             </div>
           </div>
         </div>
@@ -669,8 +677,8 @@ const Login = () => {
                 <p className="text-[8px] sm:text-[9px] uppercase tracking-[0.2em] text-red-400 font-black">Action Required</p>
                 <p className="text-gray-300 text-xs leading-relaxed">
                   Contact{" "}
-                  <a href="mailto:support@arahinfotech.com" className="text-purple-400 font-bold hover:text-purple-300 transition-colors">
-                    support@arahinfotech.com
+                  <a href="mailto:ops@arahinfotech.com" className="text-purple-400 font-bold hover:text-purple-300 transition-colors">
+                    ops@arahinfotech.com
                   </a>
                 </p>
               </div>

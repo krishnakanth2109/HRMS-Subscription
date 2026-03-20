@@ -53,6 +53,7 @@ const ALL_NAV_LINKS = [
   { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests",        icon: <FaCheckDouble />,   isLeave: true },
   { to: "/admin/late-requests",     route: "/admin/late-requests",     label: "Attendance Adjustment", icon: <FaUserCheck />,     isLateRequests: true },
   { to: "/admin/admin-overtime",    route: "/admin/admin-overtime",    label: "Overtime Requests",     icon: <FaBusinessTime />,  isOvertime: true },
+  { to: "/admin/live-tracking",     route: "/admin/live-tracking",     label: "Idle Tracking",         icon: <FaMapMarkedAlt />,   isLiveTracking: true },
 ];
 
 const calculateUnreadNotices = (notices, readState) => {
@@ -124,22 +125,15 @@ const Sidebar = () => {
   }, [allowedRoutes]);
 
   // ⭐ SWEET ALERT FOR DISABLED FEATURES
-  const handleDisabledClick = (featureLabel) => {
-    Swal.fire({
-      title: 'Feature Restricted',
-      text: `The "${featureLabel}" feature is not allocated to your current plan. If you want to use this feature, please upgrade your plan.`,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonText: 'Upgrade Plan',
-      confirmButtonColor: '#6366f1',
-      cancelButtonText: 'OK',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Optional: window.location.href = "/admin/billing"
-      }
-    });
-  };
-
+const handleDisabledClick = (featureLabel) => {
+  Swal.fire({
+    title: `${featureLabel} Feature Restricted`,
+    text: `The ${featureLabel} feature is not allocated to your current plan. Please contact support if you need access.`,
+    icon: 'info',
+    confirmButtonText: 'OK',
+    confirmButtonColor: '#6366f1',
+  });
+};
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -380,7 +374,7 @@ const Sidebar = () => {
         <div className={`flex items-center mb-6 p-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
           <div className={`flex items-center gap-3 transition-all ${collapsed && !isMobile ? "w-0 opacity-0 hidden" : "w-full opacity-100 flex"}`}>
             <span className="text-3xl text-indigo-400"><FaConnectdevelop /></span>
-            <span className="text-xl font-bold text-slate-200 truncate">HRMS</span>
+            <span className="text-xl font-bold text-slate-200 truncate">VWSYNC</span>
           </div>
           <button
             className="p-2 rounded-lg text-slate-400 hover:bg-slate-800"

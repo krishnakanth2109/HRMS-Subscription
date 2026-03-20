@@ -1,5 +1,7 @@
 // AdminDashboard.jsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
+
 import api from "../../api";
 
 /* ──────────────────────────────────────────────
@@ -272,11 +274,13 @@ const AdminDashboard = () => {
                 </div>
               );
             })}
-            {admins.length > 5 && (
-              <div className="px-6 py-3 text-center text-sm text-blue-600 hover:bg-blue-50 cursor-pointer">
-                View all {admins.length} companies →
-              </div>
-            )}
+      {admins.length > 5 && (
+  <Link to="/master/admins">
+    <div className="px-6 py-3 text-center text-sm text-blue-600 hover:bg-blue-50 cursor-pointer">
+      View all {admins.length} companies →
+    </div>
+  </Link>
+)}
           </div>
         </div>
 

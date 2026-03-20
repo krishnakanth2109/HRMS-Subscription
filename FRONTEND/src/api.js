@@ -145,28 +145,8 @@ export const activateEmployeeById = async (id, data) =>
 /* =============================================================================
    IDLE TIME TRACKING
 ============================================================================= */
-export const sendIdleActivity = async (data) => {
-  try {
-    const response = await api.post("/idletime", data);
-    return response.data;
-  } catch (error) {
-    console.error("Idle time API error:", error.response?.data || error.message);
-    throw error;
-  }
-};
 
-export const getAllIdleTimeRecords = async () => {
-  try {
-    const res = await api.get("/idletime/all");
-    return res.data;
-  } catch (error) {
-    console.error(
-      "Get all idle time error:",
-      error.response?.data || error.message
-    );
-    throw error;
-  }
-};
+
 
 /* =============================================================================
    HOLIDAYS
@@ -833,6 +813,43 @@ export const deleteTechnicalIssue = async (id) => {
     return response.data;
   } catch (error) {
     console.error("Delete issue error:", error);
+    throw error;
+  }
+};
+
+/* =============================================================================
+   IDLE TIME TRACKING
+============================================================================= */
+export const sendIdleActivity = async (data) => {
+  try {
+    const response = await api.post("/api/idletime", data);
+    return response.data;
+  } catch (error) {
+    console.error("Idle time API error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+
+export const getIdleTimeForEmployeeByDate = async (employeeId, date) => {
+  try {
+    const res = await api.get(`/api/idletime/${employeeId}/${date}`);
+    return res.data;
+  } catch (error) {
+    console.error("Get idle time by date error:", error);
+    throw error;
+  }
+};
+
+export const getAllIdleTimeRecords = async () => {
+  try {
+    const res = await api.get("/api/idletime/all");
+    return res.data;
+  } catch (error) {
+    console.error(
+      "Get all idle time error:",
+      error.response?.data || error.message
+    );
     throw error;
   }
 };

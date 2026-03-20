@@ -276,12 +276,7 @@ const AdminNotifications = () => {
               <FaTrash /> Clear All
             </button>
 
-            <button
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-300 text-gray-700 hover:bg-gray-400 transition"
-              onClick={restoreAll}
-            >
-              <FaUndo /> Restore Hidden
-            </button>
+   
           </div>
         </div>
 
