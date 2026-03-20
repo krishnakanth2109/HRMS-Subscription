@@ -12,22 +12,19 @@ import {
   FaCommentDots, FaPen, FaTrash,
 } from "react-icons/fa";
 
-// ✅ PRODUCTION FIX:
-// Pull the backend URL from env. In Netlify set VITE_SOCKET_URL = https://your-render-app.onrender.com
-// Falls back to VITE_API_URL, then localhost for local dev.
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL ||
   import.meta.env.VITE_API_URL ||
   "http://localhost:5000";
 
-// Safe ObjectId comparison — works whether value is ObjectId object or plain string
+const POLL_INTERVAL = 3000; // silent background refresh every 3 seconds
+
 const sameId = (a, b) => !!a && !!b && a.toString() === b.toString();
 
 const ConnectWithEmployee = () => {
   const { user } = useContext(AuthContext);
   const currentUserId = user?._id || user?.id;
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [employees, setEmployees]               = useState([]);
   const [chatList, setChatList]                 = useState([]);
   const [selectedChatUser, setSelectedChatUser] = useState(null);
@@ -45,7 +42,6 @@ const ConnectWithEmployee = () => {
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [socketConnected, setSocketConnected]   = useState(false);
 
-  // ── Refs ───────────────────────────────────────────────────────────────────
   const directChatEndRef    = useRef(null);
   const chatContainerRef    = useRef(null);
   const sidebarContainerRef = useRef(null);
@@ -53,12 +49,124 @@ const ConnectWithEmployee = () => {
   const typingTimeoutRef    = useRef(null);
   const selectedChatUserRef = useRef(null);
   const currentUserIdRef    = useRef(null);
+  // Refs used by silent polling to avoid stale closures
+  const directMessagesRef   = useRef([]);
+  const chatListRef         = useRef([]);
+  const pollTimerRef        = useRef(null);
+  const isSendingRef        = useRef(false);
 
   useEffect(() => { selectedChatUserRef.current = selectedChatUser; }, [selectedChatUser]);
   useEffect(() => { currentUserIdRef.current    = currentUserId;    }, [currentUserId]);
+  useEffect(() => { directMessagesRef.current   = directMessages;   }, [directMessages]);
+  useEffect(() => { chatListRef.current         = chatList;         }, [chatList]);
+  useEffect(() => { isSendingRef.current        = sendingMessage;   }, [sendingMessage]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // SOCKET INIT
+  // SILENT BACKGROUND POLL
+  // Merges new data into state without touching loading flags so the UI
+  // never blinks, flashes, or shows a spinner.
+  // ─────────────────────────────────────────────────────────────────────────
+  const silentPollMessages = useCallback(async () => {
+    const peer = selectedChatUserRef.current;
+    if (!peer || isSendingRef.current) return;
+
+    try {
+      const { data: fresh } = await api.get(`/api/chat/history/${peer._id}`);
+      if (!fresh || !Array.isArray(fresh)) return;
+
+      // Only update state if there are genuinely new messages
+      const current = directMessagesRef.current;
+      const currentIds = new Set(current.map(m => m._id));
+      const newMsgs = fresh.filter(m => !currentIds.has(m._id) && !m._id?.toString().startsWith("temp_"));
+
+      if (newMsgs.length > 0) {
+        // Merge: keep optimistic temp messages at end, insert real ones before them
+        setDirectMessages(prev => {
+          const temps   = prev.filter(m => m._id?.toString().startsWith("temp_"));
+          const nonTemp = prev.filter(m => !m._id?.toString().startsWith("temp_"));
+          const existingIds = new Set(nonTemp.map(m => m._id));
+          const toAdd = fresh.filter(m => !existingIds.has(m._id) && !m._id?.toString().startsWith("temp_"));
+          return [...nonTemp, ...toAdd, ...temps];
+        });
+        playNotificationSound();
+      }
+    } catch (_) {
+      // Silently ignore poll errors — don't show any UI feedback
+    }
+  }, []);
+
+  const silentPollChatList = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/chat/users");
+      if (!data || !Array.isArray(data)) return;
+
+      // Only update sidebar if counts or last messages changed
+      const current = chatListRef.current;
+      const hasChanges = data.some(d => {
+        const existing = current.find(c => sameId(c._id, d._id));
+        return !existing ||
+          existing.lastMessage !== d.lastMessage ||
+          existing.unreadCount !== d.unreadCount;
+      });
+
+      if (hasChanges) {
+        setChatList(prev => {
+          // Merge: preserve local unread=0 overrides for the open chat
+          const activePeer = selectedChatUserRef.current;
+          return data.map(d => {
+            const local = prev.find(p => sameId(p._id, d._id));
+            // If this is the open chat, keep unread at 0
+            if (activePeer && sameId(d._id, activePeer._id)) {
+              return { ...d, unreadCount: 0 };
+            }
+            return d;
+          });
+        });
+        const total = data.reduce((a, c) => {
+          const activePeer = selectedChatUserRef.current;
+          if (activePeer && sameId(c._id, activePeer._id)) return a;
+          return a + (c.unreadCount || 0);
+        }, 0);
+        setTotalUnreadCount(total);
+      }
+    } catch (_) {
+      // Silently ignore
+    }
+  }, []);
+
+  // Start / stop the poll timer
+  const startPolling = useCallback(() => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    pollTimerRef.current = setInterval(async () => {
+      await silentPollMessages();
+      await silentPollChatList();
+    }, POLL_INTERVAL);
+  }, [silentPollMessages, silentPollChatList]);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  // Always poll — socket is a bonus if it works
+  useEffect(() => {
+    if (!currentUserId) return;
+    startPolling();
+    return () => stopPolling();
+  }, [currentUserId, startPolling, stopPolling]);
+
+  // Restart poll when user switches chat so new messages load quickly
+  useEffect(() => {
+    if (!currentUserId || !selectedChatUser) return;
+    stopPolling();
+    startPolling();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChatUser?._id]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SOCKET INIT (still used when available; polling is the reliable fallback)
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUserId) return;
@@ -68,19 +176,13 @@ const ConnectWithEmployee = () => {
       localStorage.getItem("authToken") ||
       sessionStorage.getItem("token") || "";
 
-    // ✅ KEY FIX FOR RENDER.COM PRODUCTION:
-    // Render's reverse proxy blocks WebSocket on the FIRST request (the handshake).
-    // Socket.IO must start with "polling" so the HTTP handshake always succeeds,
-    // then it automatically upgrades to WebSocket for subsequent messages.
-    // Using ['websocket', 'polling'] (old order) means: try WS → blocked by Render
-    // → fail → never reconnects properly → shows "Reconnecting..." forever.
     const socket = io(SOCKET_URL, {
-      transports:           ["polling", "websocket"], // ✅ polling FIRST
-      upgrade:              true,                      // ✅ then upgrade to WS
+      transports:           ["polling", "websocket"],
+      upgrade:              true,
       reconnection:         true,
       reconnectionDelay:    2000,
       reconnectionDelayMax: 10000,
-      reconnectionAttempts: Infinity,                 // ✅ keep retrying in production
+      reconnectionAttempts: Infinity,
       timeout:              20000,
       auth:                 { token },
     });
@@ -88,42 +190,27 @@ const ConnectWithEmployee = () => {
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("✅ Socket connected:", socket.id, "| transport:", socket.io.engine.transport.name);
       setSocketConnected(true);
-      // Re-authenticate on every (re)connect so the room is always joined
       socket.emit("authenticate", currentUserIdRef.current);
     });
 
-    socket.on("authenticated", (data) => {
-      console.log("🔐 Joined room: user_" + data.userId);
-    });
+    socket.on("authenticated", () => {});
 
-    socket.on("disconnect", (reason) => {
-      console.log("❌ Socket disconnected:", reason);
-      setSocketConnected(false);
-    });
+    socket.on("disconnect", () => setSocketConnected(false));
+    socket.on("connect_error", () => setSocketConnected(false));
 
-    socket.on("connect_error", (e) => {
-      console.error("❌ Socket connect_error:", e.message);
-      setSocketConnected(false);
-    });
-
-    // ── RECEIVE MESSAGE ─────────────────────────────────────────────────────
+    // Socket delivers message instantly — polling catches it anyway at next tick
     socket.on("receive_message", (msg) => {
-      console.log("📨 receive_message:", msg?._id);
-
       const senderId   = msg.sender?._id ?? msg.sender;
       const activePeer = selectedChatUserRef.current;
 
       if (activePeer && sameId(senderId, activePeer._id)) {
-        // Chat is open — append instantly
         setDirectMessages(prev => {
-          if (prev.some(m => sameId(m._id, msg._id))) return prev; // dedupe
+          if (prev.some(m => sameId(m._id, msg._id))) return prev;
           return [...prev, msg];
         });
-        api.put(`/api/chat/read/${senderId.toString()}`).catch(console.error);
+        api.put(`/api/chat/read/${senderId.toString()}`).catch(() => {});
       } else {
-        // Different chat — bump unread badge only
         setChatList(prev => prev.map(u =>
           sameId(u._id, senderId)
             ? { ...u, unreadCount: (u.unreadCount || 0) + 1, lastMessage: msg.message, lastMessageTime: msg.createdAt }
@@ -133,7 +220,6 @@ const ConnectWithEmployee = () => {
         playNotificationSound();
       }
 
-      // Move sender to top of sidebar
       setChatList(prev => {
         const sid      = senderId?.toString();
         const filtered = prev.filter(u => u._id?.toString() !== sid);
@@ -170,10 +256,7 @@ const ConnectWithEmployee = () => {
       setTypingUsers(prev => { const s = new Set(prev); s.delete(userId?.toString()); return s; });
     });
 
-    return () => {
-      console.log("🔌 Cleaning up socket");
-      socket.disconnect();
-    };
+    return () => { socket.disconnect(); };
   }, [currentUserId]);
 
   // ── Auto-scroll ──────────────────────────────────────────────────────────
@@ -274,7 +357,7 @@ const ConnectWithEmployee = () => {
         setDirectMessages(data || []);
     } catch (err) {
       console.error("fetchDirectMessages:", err);
-      toast.error("Failed to load messages");
+      if (!silent) toast.error("Failed to load messages");
     } finally {
       setIsChatLoading(false);
     }
@@ -286,12 +369,11 @@ const ConnectWithEmployee = () => {
       await api.put(`/api/chat/read/${senderId}`);
       setChatList(prev => prev.map(u => sameId(u._id, senderId) ? { ...u, unreadCount: 0 } : u));
       setTotalUnreadCount(prev => {
-        const u = chatList.find(x => sameId(x._id, senderId));
+        const u = chatListRef.current.find(x => sameId(x._id, senderId));
         return u ? Math.max(0, prev - (u.unreadCount || 0)) : prev;
       });
     } catch (err) { console.error("markMessagesAsRead:", err); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatList]);
+  }, []);
 
   useEffect(() => { fetchEmployees(); fetchChatList(); }, [fetchEmployees, fetchChatList]);
 
@@ -325,7 +407,7 @@ const ConnectWithEmployee = () => {
         await api.put(`/api/chat/${editingMessageId}`, { message: messageToSend });
         setEditingMessageId(null);
         setDirectMessages(prev => prev.filter(m => m._id !== tempId));
-        fetchDirectMessages(selectedChatUser, true);
+        await fetchDirectMessages(selectedChatUser, true);
       } else {
         const { data } = await api.post("/api/chat/send", {
           receiverId: selectedChatUser._id,
@@ -384,9 +466,10 @@ const ConnectWithEmployee = () => {
               </div>
               <div>
                 <h2 className="font-bold text-lg">Employee Connect</h2>
+                {/* Status dot — green when socket live, grey when polling-only */}
                 <p className="text-blue-100 text-xs opacity-80 flex items-center gap-1.5">
-                  <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${socketConnected ? "bg-green-400" : "bg-red-400 animate-pulse"}`} />
-                  {socketConnected ? "Live" : "Reconnecting..."}
+                  <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${socketConnected ? "bg-green-400" : "bg-yellow-300"}`} />
+                  {socketConnected ? "Live" : "Active"}
                 </p>
               </div>
             </div>
@@ -519,7 +602,7 @@ const ConnectWithEmployee = () => {
                         <span className="bg-gray-200 text-gray-600 text-xs font-bold px-4 py-1.5 rounded-full uppercase tracking-wider">{date}</span>
                       </div>
                       {msgs.map((msg, index) => {
-                        const isMe      = sameId(msg.sender?._id ?? msg.sender, currentUserId);
+                        const isMe       = sameId(msg.sender?._id ?? msg.sender, currentUserId);
                         const isMenuOpen = openMenuId === msg._id;
                         const isPending  = msg.isPending || msg.isSending;
                         return (

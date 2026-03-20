@@ -5,7 +5,9 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import http from "http";
+import path from "path";
 import { Server } from "socket.io";
+
 
 /* ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
@@ -207,11 +209,19 @@ app.use("/api/issues", issueRoutes);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/master", masterRoutes);
 
-/* ==================== 404 ==================== */
-app.use("*", (req, res) => {
-  res.status(404).json({ message: "API route not found" });
+
+app.use(express.static(path.join(process.cwd(), "client/build")));
+
+// React routing fix (ONLY for non-API routes)
+app.get("*", (req, res, next) => {
+  if (req.originalUrl.startsWith("/api")) return next();
+  res.sendFile(path.join(process.cwd(), "client/build/index.html"));
 });
 
+/* ==================== 404 ==================== */
+app.use("/api", (req, res) => {
+  res.status(404).json({ message: "API route not found" });
+});
 /* ==================== ERROR HANDLER ==================== */
 app.use((err, req, res, next) => {
   console.error("🚨 Error:", err.stack);
