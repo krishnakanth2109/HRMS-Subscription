@@ -8,6 +8,7 @@ import {
   Hexagon, 
   ChevronLeft, 
   UserCog ,
+  LifeBuoy  ,
   ChevronRight 
 } from "lucide-react";
 
@@ -33,10 +34,11 @@ const LayoutMaster = () => {
   path: "/master/manage-logins", 
   icon: <UserCog size={22} /> 
 },
+
 { 
   label: "Technical Issues", 
   path: "/master/manage-issues", 
-  icon: <UserCog size={22} /> 
+  icon: <LifeBuoy  size={22} /> 
 }
 
   ];

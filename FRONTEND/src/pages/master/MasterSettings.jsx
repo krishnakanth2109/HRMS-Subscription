@@ -17,6 +17,7 @@ const FALLBACK_FEATURES = [
   { label: "Leave Requests",       route: "/admin/admin-Leavemanage", description: "Review and approve/reject employee leave requests" },
   { label: "Attendance Adjustment",route: "/admin/late-requests",     description: "Handle late login and attendance correction requests" },
   { label: "Overtime Requests",    route: "/admin/admin-overtime",    description: "Review and manage employee overtime requests" },
+  { label: "Live Tracking",        route: "/admin/live-tracking",     description: "Monitor employee idle time in real-time" }
 ];
 
 const PlanSettings = () => {

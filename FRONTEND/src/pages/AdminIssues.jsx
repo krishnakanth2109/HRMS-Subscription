@@ -91,7 +91,7 @@ function IssueCard({ issue, onApprove, onReject }) {
               {issue.status === "pending" && issue.role === "employee" && (
                 <div className="flex gap-3 pt-2">
                   <button onClick={() => onReject(issue._id)} className="flex-1 py-3 rounded-2xl bg-white border-2 border-rose-100 text-rose-500 text-sm font-bold hover:bg-rose-50 transition-all">✕ Reject</button>
-                  <button onClick={() => onApprove(issue._id)} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-2">✓ Approve & Forward</button>
+                  <button onClick={() => onApprove(issue._id)} className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-bold shadow-lg transition-all flex items-center justify-center gap-2">✓ Approve&Forward to Technical Support</button>
                 </div>
               )}
             </div>

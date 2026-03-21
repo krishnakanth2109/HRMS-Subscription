@@ -93,6 +93,7 @@ const DynamicHRMSLandingPage = () => {
         "/admin/admin-Leavemanage": "Leave Requests",
         "/admin/late-requests": "Attendance Adjustment",
         "/admin/admin-overtime": "Overtime Requests",
+        "/admin/live-tracking": "Employee Idle Tracking",
     };
 
     // --- REGISTER HANDLER (same logic as Login.jsx) ---
