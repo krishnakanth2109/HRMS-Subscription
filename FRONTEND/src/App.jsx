@@ -92,6 +92,7 @@ import SuperAdminIssues from "./pages/SuperAdminIssues";
 import AdminIssues from "./pages/AdminIssues";
 import EmployeeIssues from "./pages/EmployeeIssues";
 import AdminLiveTracking from "./pages/AdminLiveTracking";
+import OfferLetterPage from "./pages/OfferLetterPage";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -265,6 +266,7 @@ function App() {
         <Route path="/admin/rules" element={<AdminRulesPost />} />
         <Route path="/admin/issues" element={<AdminIssues/>} />
         <Route path="/admin/live-tracking" element={<AdminLiveTracking />} />
+        <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}

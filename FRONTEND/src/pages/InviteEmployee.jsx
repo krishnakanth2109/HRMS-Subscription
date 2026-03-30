@@ -8,21 +8,21 @@ import api from '../api';
 
 const SendOnboardingForm = () => {
   const [activeTab, setActiveTab] = useState('single');
-  const[companies, setCompanies] = useState([]);
+  const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [loadingCompanies, setLoadingCompanies] = useState(true);
 
   // Document Management States
-  const[showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [uploadingDocument, setUploadingDocument] = useState(false);
-  const[selectedDocuments, setSelectedDocuments] = useState([]); // For single invite
+  const [selectedDocuments, setSelectedDocuments] = useState([]); // For single invite
   const [bulkSelectedDocuments, setBulkSelectedDocuments] = useState({}); // For bulk invite
 
   // Configuration States
   const [emailSubject, setEmailSubject] = useState('Welcome to [Company Name] – Complete Your Onboarding Process');
   const [formLink, setFormLink] = useState(`https://hrms-420.netlify.app/employee-onboarding`);
-  const[emailMessage, setEmailMessage] = useState(`Dear [NAME],
+  const [emailMessage, setEmailMessage] = useState(`Dear [NAME],
 
 We are pleased to welcome you to [COMPANY].
 
@@ -42,18 +42,21 @@ Warm regards,
 HR Team  
 [COMPANY]`);
 
-  const[singleData, setSingleData] = useState({ email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' });
+  const [singleData, setSingleData] = useState({ email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' });
   const [bulkRows, setBulkRows] = useState([{ email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' }]);
   const [sending, setSending] = useState(false);
   const [sentHistory, setSentHistory] = useState([]);
+  const [acceptedCandidates, setAcceptedCandidates] = useState([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
 
   useEffect(() => {
     const init = async () => {
       const loadedCompanies = await fetchCompanies();
-      fetchHistory(null, loadedCompanies); // ✅ Pass loaded companies to filter initial history
+      fetchHistory(null, loadedCompanies);
+      fetchAcceptedCandidates();
     };
     init();
-  },[]);
+  }, []);
 
   useEffect(() => {
     if (selectedCompany) {
@@ -72,10 +75,13 @@ HR Team
       const response = await getAllCompanies();
       const data = Array.isArray(response.data) ? response.data : response;
       setCompanies(data);
+      if (data.length === 1) {
+        setSelectedCompany(data[0]._id);
+      }
       return data;
     } catch (error) {
       console.error('Error fetching companies:', error);
-      return[];
+      return [];
     } finally {
       setLoadingCompanies(false);
     }
@@ -86,10 +92,10 @@ HR Team
     try {
       const url = companyId
         ? `/api/invited-employees/history?companyId=${companyId}`
-        : `/api/invited-employees/history`; 
+        : `/api/invited-employees/history`;
       const response = await api.get(url);
-      
-      let historyData = response.data.data ||[];
+
+      let historyData = response.data.data || [];
 
       // ✅ FILTER 1: ALWAYS keep only history records for companies present in the admin's company dropdown
       if (currentCompanies && currentCompanies.length > 0) {
@@ -107,10 +113,44 @@ HR Team
           return cId === companyId.toString();
         });
       }
-      
+
       setSentHistory(historyData);
     } catch (error) {
       console.error("History fetch error", error);
+    }
+  };
+
+  const fetchAcceptedCandidates = async () => {
+    try {
+      setLoadingCandidates(true);
+      const res = await api.get('/api/offer-letters/employees');
+      const all = Array.isArray(res.data) ? res.data : (Array.isArray(res) ? res : []);
+      // Filter for only 'Accepted' candidates
+      const accepted = all.filter(c => c.status === 'Accepted');
+      setAcceptedCandidates(accepted);
+    } catch (err) {
+      console.error("Error fetching accepted candidates:", err);
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const handleAutofillCandidate = (candidateId) => {
+    const cand = acceptedCandidates.find(c => c._id === candidateId);
+    if (!cand) return;
+
+    setSingleData({
+      email: cand.email || '',
+      name: cand.name || '',
+      role: cand.designation || '',
+      department: (cand.department === 'IT' || cand.department === 'NON-IT') ? cand.department : 'IT',
+      employmentType: cand.employment_type || '',
+      salary: cand.compensation?.gross_salary || ''
+    });
+
+    // Optionally set the company if matched
+    if (cand.companyId) {
+      setSelectedCompany(cand.companyId);
     }
   };
 
@@ -121,7 +161,7 @@ HR Team
       console.log('Documents response:', response.data);
 
       if (response.data.success) {
-        setDocuments(response.data.data ||[]);
+        setDocuments(response.data.data || []);
         console.log('Documents set:', response.data.data.length);
       } else {
         setDocuments([]);
@@ -220,7 +260,7 @@ HR Team
 
   const toggleBulkDocumentSelection = (rowIndex, docId) => {
     setBulkSelectedDocuments(prev => {
-      const current = prev[rowIndex] ||[];
+      const current = prev[rowIndex] || [];
       const updated = current.includes(docId)
         ? current.filter(id => id !== docId)
         : [...current, docId];
@@ -284,7 +324,7 @@ HR Team
     try {
       const employeesWithDocs = validRows.map((emp, index) => ({
         ...emp,
-        requiredDocuments: bulkSelectedDocuments[index] ||[]
+        requiredDocuments: bulkSelectedDocuments[index] || []
       }));
 
       await api.post('/api/invited-employees/invite-bulk', {
@@ -365,19 +405,47 @@ HR Team
           </div>
 
           {/* 2. COMPANY SELECTION */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4 text-blue-600 font-bold uppercase text-xs tracking-widest">
-              <Building2 size={16} /> Select Company
-            </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <CheckCircle size={14} className="text-emerald-500" /> Autofill from Accepted Offers
+            </label>
+            <select
+              onChange={(e) => handleAutofillCandidate(e.target.value)}
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700 transition-all appearance-none cursor-pointer"
+            >
+              <option value="">-- Select an Accepted Candidate --</option>
+              {acceptedCandidates.map(c => (
+                <option key={c._id} value={c._id}>
+                  {c.name} ({c.designation})
+                </option>
+              ))}
+              {acceptedCandidates.length === 0 && !loadingCandidates && (
+                <option disabled>No accepted candidates available</option>
+              )}
+            </select>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
+            <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+              <Building2 size={14} className="text-blue-500" /> Select Company
+            </label>
             {loadingCompanies ? (
               <div className="flex items-center gap-2 p-4 bg-slate-50 rounded-lg">
                 <RefreshCw className="animate-spin text-blue-500" size={18} />
                 <span className="text-slate-500 text-sm">Loading companies...</span>
               </div>
             ) : (
-              <select value={selectedCompany} onChange={e => setSelectedCompany(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-semibold">
-                <option value="">-- Select a Company --</option>
-                {companies.map(comp => <option key={comp._id} value={comp._id}>{comp.name}</option>)}
+              <select
+                value={selectedCompany}
+                onChange={(e) => setSelectedCompany(e.target.value)}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700 transition-all appearance-none cursor-pointer"
+              >
+                <option value="">-- Select Company --</option>
+                {companies.map((company) => (
+                  <option key={company._id} value={company._id}>
+                    {company.name}
+                  </option>
+                ))}
               </select>
             )}
           </div>
@@ -488,24 +556,24 @@ HR Team
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Email Address*</label>
-<input
-  required
-  type="email"
-  placeholder="Email address"
-  className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-  value={singleData.email}
-  onChange={(e) => {
-    let value = e.target.value;
+                    <input
+                      required
+                      type="email"
+                      placeholder="Email address"
+                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={singleData.email}
+                      onChange={(e) => {
+                        let value = e.target.value;
 
-    // Stop typing after .com
-    const index = value.indexOf(".com");
-    if (index !== -1) {
-      value = value.substring(0, index + 4);
-    }
+                        // Stop typing after .com
+                        const index = value.indexOf(".com");
+                        if (index !== -1) {
+                          value = value.substring(0, index + 4);
+                        }
 
-    setSingleData({ ...singleData, email: value });
-  }}
-/>
+                        setSingleData({ ...singleData, email: value });
+                      }}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">
@@ -688,7 +756,7 @@ HR Team
                               <label key={doc._id} className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-md hover:bg-blue-50 cursor-pointer text-xs">
                                 <input
                                   type="checkbox"
-                                  checked={(bulkSelectedDocuments[idx] ||[]).includes(doc._id)}
+                                  checked={(bulkSelectedDocuments[idx] || []).includes(doc._id)}
                                   onChange={() => toggleBulkDocumentSelection(idx, doc._id)}
                                   className="w-3 h-3 text-blue-600 rounded"
                                 />

@@ -15,7 +15,7 @@ console.log("🌐 API Base URL:", baseURL);
 // Create a single, consistent Axios instance
 const api = axios.create({
   baseURL,
-  timeout: 500000, 
+  timeout: 500000,
   headers: { "Content-Type": "application/json" },
 });
 
@@ -29,7 +29,7 @@ api.interceptors.request.use(
 
     // 2. If no Master token, check for regular Admin/Employee tokens
     if (!token) {
-        token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+      token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
     }
 
     // 3. If still not found, try finding it inside the user object (Legacy support)
@@ -66,7 +66,7 @@ api.interceptors.response.use(
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;
-    } catch {}
+    } catch { }
 
     const isEmployee = user?.role === "Employee";
 
@@ -114,7 +114,7 @@ export const loginUser = async (email, password) => {
   try {
     // Return full response so AuthProvider can handle status/headers
     const response = await api.post("/api/auth/login", { email, password });
-    return response; 
+    return response;
   } catch (error) {
     console.error("Login failed:", error.response?.data || error.message);
     throw error;
@@ -126,7 +126,7 @@ export const loginUser = async (email, password) => {
    EMPLOYEE MANAGEMENT
 ============================================================================= */
 export const getEmployees = async () => (await api.get("/api/employees")).data;
-export const requestStatusCorrection = async (data) => 
+export const requestStatusCorrection = async (data) =>
   (await api.post("/api/attendance/request-status-correction", data)).data;
 
 export const getEmployeeById = async (id) =>
@@ -481,9 +481,9 @@ export const getAllEmployeesWithWorkModes = async () => {
 // Update specific employee work mode
 export const updateEmployeeWorkMode = async (employeeId, mode) => {
   try {
-    const response = await api.put("/api/admin/settings/employee-mode", { 
-      employeeId, 
-      mode 
+    const response = await api.put("/api/admin/settings/employee-mode", {
+      employeeId,
+      mode
     });
     return response.data;
   } catch (error) {
@@ -596,7 +596,7 @@ export const getPayrollRules = async () => {
     return response;
   } catch (error) {
     console.error("Get payroll rules error:", error);
-    return null; 
+    return null;
   }
 };
 
@@ -610,7 +610,7 @@ export const savePayrollRules = async (rulesData) => {
   }
 };
 // Add this export to your api/index.js file
-export const getEmployeePayroll = (employeeId, month) => 
+export const getEmployeePayroll = (employeeId, month) =>
   api.get(`/api/payroll/record/${employeeId}?month=${month}`);
 
 /* =============================================================================
@@ -853,5 +853,63 @@ export const getAllIdleTimeRecords = async () => {
     throw error;
   }
 };
+
+/* =============================================================================
+   OFFER LETTER MANAGEMENT
+============================================================================= */
+export const getOfferLetterCompanies = async () => {
+  const response = await api.get("/api/companies");
+  return response.data.data || [];
+};
+
+export const getOfferLetterEmployees = async () =>
+  (await api.get("/api/offer-letters/employees")).data;
+
+export const getOfferLetterEmployeeById = async (id) =>
+  (await api.get(`/api/offer-letters/employees/${id}`)).data;
+
+export const createOfferLetterEmployee = async (data) =>
+  (await api.post("/api/offer-letters/employees", data)).data;
+
+export const updateOfferLetterEmployee = async (id, data) =>
+  (await api.put(`/api/offer-letters/employees/${id}`, data)).data;
+
+export const deleteOfferLetterEmployee = async (id) =>
+  (await api.delete(`/api/offer-letters/employees/${id}`)).data;
+
+export const uploadOfferLetterExcel = async (formData) =>
+  (await api.post("/api/offer-letters/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  })).data;
+
+export const downloadOfferLetterExcelTemplate = async () => {
+  const response = await api.get("/api/offer-letters/template", { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", "Employees_Bulk_Upload_Template.xlsx");
+  document.body.appendChild(link);
+  link.click();
+  link.parentNode.removeChild(link);
+};
+export const generateOfferLetter = async (data) =>
+  (await api.post("/api/offer-letters/generate", data)).data;
+
+export const sendOfferLetterEmail = async (data) =>
+  (await api.post("/api/offer-letters/send-email", data)).data;
+
+export const getOfferLetterTemplates = async () =>
+  (await api.get("/api/offer-letters/templates")).data;
+
+export const getOfferLetterTemplate = async (companyName) =>
+  (await api.get(`/api/offer-letters/templates/${encodeURIComponent(companyName)}`)).data;
+
+export const uploadOfferLetterTemplate = async (formData) =>
+  (await api.post("/api/offer-letters/templates/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  })).data;
+
+export const deleteOfferLetterTemplate = async (id) =>
+  (await api.delete(`/api/offer-letters/templates/${id}`)).data;
 
 export default api;

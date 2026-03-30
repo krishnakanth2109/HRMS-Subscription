@@ -17,6 +17,8 @@ const storage = new CloudinaryStorage({
   params: {
     folder: "employee_docs", // Folder name in Cloudinary
     allowed_formats: ["jpg", "jpeg", "png", "pdf"],
+    resource_type: "auto",
+    type: "upload", // Ensure files are public
   },
 });
 

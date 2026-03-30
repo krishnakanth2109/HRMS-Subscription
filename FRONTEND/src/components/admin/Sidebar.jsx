@@ -201,8 +201,8 @@ const handleDisabledClick = (featureLabel) => {
 
   const fetchAttendanceRequests = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/attendance-correction/all-requests");
-      setAttendanceRequestsCount((data || []).filter(r => isPending(r.status)).length);
+      const { data } = await api.get("/api/attendance/admin/status-correction-requests");
+      setAttendanceRequestsCount((data?.data || []).filter(r => isPending(r.status)).length);
     } catch {}
   }, []);
 

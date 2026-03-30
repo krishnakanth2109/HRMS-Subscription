@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { FaUser, FaEdit, FaTrash, FaRedo, FaDownload, FaEye, FaClipboardList, FaCalendarAlt, FaFileExcel, FaTimes } from "react-icons/fa";
+import { FaUser, FaEdit, FaTrash, FaRedo, FaDownload, FaEye, FaClipboardList, FaCalendarAlt, FaFileExcel, FaTimes, FaFileAlt } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 // ✅ IMPORT THE CENTRALIZED API FUNCTIONS
@@ -921,6 +921,9 @@ const EmployeeManagement = () => {
           </div>
 
           <div className="flex gap-4">
+            <button onClick={() => navigate("/admin/offer-letter")} className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105">
+              <FaFileAlt />Offer Letter
+            </button>
             <button onClick={() => navigate("/admin/onboarding-email")} className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105">
               <FaUser />Onboarding Invitation
             </button>

@@ -37,6 +37,8 @@ import companyRoutes from "./routes/companyRoutes.js";
 import invitedEmployeeRoutes from "./routes/invitedEmployeeRoutes.js";
 import mailRoutes from "./routes/mailRoutes.js";
 import issueRoutes from "./routes/issueRoutes.js";
+import offerLetterRoutes from "./routes/offerLetterRoutes.js";
+import offerResponseRoutes from "./routes/offerResponseRoutes.js";
 
 /* ==================== 🔹 STRIPE IMPORTS ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
@@ -140,8 +142,9 @@ app.post(
 );
 
 /* ==================== BODY PARSERS ==================== */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
 
 /* ==================== CORS ==================== */
 app.use(
@@ -153,6 +156,9 @@ app.use(
 );
 
 app.options("*", cors());
+
+/* ==================== STATIC FILES ==================== */
+app.use("/public", express.static(path.join(process.cwd(), "public")));
 
 /* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
@@ -204,18 +210,23 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/invited-employees", invitedEmployeeRoutes);
 app.use("/api/mail", mailRoutes);
 app.use("/api/issues", issueRoutes);
+app.use("/api/offer-letters", offerLetterRoutes);
+app.use("/api/offer-letters", offerResponseRoutes);
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/master", masterRoutes);
 
 
-app.use(express.static(path.join(process.cwd(), "client/build")));
+// In dev we don't serve frontend from here usually, but fix the paths
+app.use(express.static(path.join(process.cwd(), "../FRONTEND/dist")));
 
 // React routing fix (ONLY for non-API routes)
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
-  res.sendFile(path.join(process.cwd(), "client/build/index.html"));
+  res.sendFile(path.join(process.cwd(), "../FRONTEND/dist/index.html"), (err) => {
+    if (err) res.status(500).send("Frontend build not found. Run npm run build in FRONTEND.");
+  });
 });
 
 /* ==================== 404 ==================== */

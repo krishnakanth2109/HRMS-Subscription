@@ -22,7 +22,7 @@ router.get("/by-range", onlyAdmin, async (req, res) => {
       // Stage 0: Filter by Admin ID
       {
         $match: {
-            adminId: req.user._id 
+          adminId: req.user._id
         }
       },
       // Stage 1: Deconstruct the 'attendance' array
