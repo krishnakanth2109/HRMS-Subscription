@@ -41,19 +41,19 @@ const SOCKET_URL =
 
 // ⭐ ALL POSSIBLE NAV LINKS
 const ALL_NAV_LINKS = [
-  { to: "/admin/dashboard",         route: "/admin/dashboard",         label: "Dashboard",             icon: <FaTachometerAlt /> },
-  { to: "/employees",               route: "/employees",               label: "Employee Management",   icon: <FaUserTie /> },
-  { to: "/attendance",              route: "/attendance",              label: "Employees Attendance",  icon: <FaUserClock /> },
-  { to: "/admin/settings",          route: "/admin/settings",          label: "Shift Management",      icon: <FaUserPlus /> },
-  { to: "/admin/shifttype",         route: "/admin/shifttype",         label: "Location Settings",     icon: <FaMapMarkedAlt /> },
-  { to: "/admin/leave-summary",     route: "/admin/leave-summary",     label: "Leave Summary",         icon: <FaChartLine /> },
-  { to: "/admin/holiday-calendar",  route: "/admin/holiday-calendar",  label: "Holiday Calendar",      icon: <FaCalendarAlt /> },
-  { to: "/admin/payroll",           route: "/admin/payroll",           label: "Payroll",               icon: <FaMoneyBillWave /> },
-  { to: "/admin/notices",           route: "/admin/notices",           label: "Announcements",         icon: <FaBullhorn />,      isNotice: true },
-  { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests",        icon: <FaCheckDouble />,   isLeave: true },
-  { to: "/admin/late-requests",     route: "/admin/late-requests",     label: "Attendance Adjustment", icon: <FaUserCheck />,     isLateRequests: true },
-  { to: "/admin/admin-overtime",    route: "/admin/admin-overtime",    label: "Overtime Requests",     icon: <FaBusinessTime />,  isOvertime: true },
-  { to: "/admin/live-tracking",     route: "/admin/live-tracking",     label: "Idle Tracking",         icon: <FaMapMarkedAlt />,   isLiveTracking: true },
+  { to: "/admin/dashboard", route: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+  { to: "/employees", route: "/employees", label: "Employee Management", icon: <FaUserTie /> },
+  { to: "/attendance", route: "/attendance", label: "Employees Attendance", icon: <FaUserClock /> },
+  { to: "/admin/settings", route: "/admin/settings", label: "Shift Management", icon: <FaUserPlus /> },
+  { to: "/admin/shifttype", route: "/admin/shifttype", label: "Location Settings", icon: <FaMapMarkedAlt /> },
+  { to: "/admin/leave-summary", route: "/admin/leave-summary", label: "Leave Summary", icon: <FaChartLine /> },
+  { to: "/admin/holiday-calendar", route: "/admin/holiday-calendar", label: "Holiday Calendar", icon: <FaCalendarAlt /> },
+  { to: "/admin/payroll", route: "/admin/payroll", label: "Payroll", icon: <FaMoneyBillWave /> },
+  { to: "/admin/notices", route: "/admin/notices", label: "Announcements", icon: <FaBullhorn />, isNotice: true },
+  { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests", icon: <FaCheckDouble />, isLeave: true },
+  { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Adjustment", icon: <FaUserCheck />, isLateRequests: true },
+  { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
+  { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
 ];
 
 const calculateUnreadNotices = (notices, readState) => {
@@ -79,36 +79,36 @@ const calculateUnreadNotices = (notices, readState) => {
 
 const Sidebar = () => {
   const location = useLocation();
-  const [collapsed, setCollapsed]   = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const [pendingLeaves, setPendingLeaves]             = useState(0);
-  const [pendingOvertime, setPendingOvertime]         = useState(0);
+  const [pendingLeaves, setPendingLeaves] = useState(0);
+  const [pendingOvertime, setPendingOvertime] = useState(0);
   const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
-  const [lateRequestsCount, setLateRequestsCount]     = useState(0);
+  const [lateRequestsCount, setLateRequestsCount] = useState(0);
   const [workModeRequestsCount, setWorkModeRequestsCount] = useState(0);
   const [attendanceRequestsCount, setAttendanceRequestsCount] = useState(0);
 
   const [allowedRoutes, setAllowedRoutes] = useState(null);
 
-  const [socket, setSocket]                 = useState(null);
+  const [socket, setSocket] = useState(null);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
-  const [serverReadState, setServerReadState]     = useState({});
+  const [serverReadState, setServerReadState] = useState({});
 
-  const prevPendingLeaves           = useRef(0);
-  const prevPendingOvertime         = useRef(0);
-  const prevPunchOutRequests        = useRef(0);
-  const prevLateRequests            = useRef(0);
-  const prevWorkModeRequests        = useRef(0);
+  const prevPendingLeaves = useRef(0);
+  const prevPendingOvertime = useRef(0);
+  const prevPunchOutRequests = useRef(0);
+  const prevLateRequests = useRef(0);
+  const prevWorkModeRequests = useRef(0);
   const prevAttendanceRequestsCount = useRef(0);
-  const prevUnreadNoticeCount       = useRef(0);
-  const isOnNoticesPage             = useRef(false);
+  const prevUnreadNoticeCount = useRef(0);
+  const isOnNoticesPage = useRef(false);
   const hasPlayedSoundForCurrentCount = useRef(0);
-  const actualUnreadCount           = useRef(0);
+  const actualUnreadCount = useRef(0);
 
   const [tempHideNoticeBadge, setTempHideNoticeBadge] = useState(false);
-  const [activeMenu, setActiveMenu]                   = useState(null);
-  const [isMobile, setIsMobile]                       = useState(window.innerWidth < 768);
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
 
@@ -125,15 +125,15 @@ const Sidebar = () => {
   }, [allowedRoutes]);
 
   // ⭐ SWEET ALERT FOR DISABLED FEATURES
-const handleDisabledClick = (featureLabel) => {
-  Swal.fire({
-    title: `${featureLabel} Feature Restricted`,
-    text: `The ${featureLabel} feature is not allocated to your current plan. Please contact support if you need access.`,
-    icon: 'info',
-    confirmButtonText: 'OK',
-    confirmButtonColor: '#6366f1',
-  });
-};
+  const handleDisabledClick = (featureLabel) => {
+    Swal.fire({
+      title: `${featureLabel} Feature Restricted`,
+      text: `The ${featureLabel} feature is not allocated to your current plan. Please contact support if you need access.`,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#6366f1',
+    });
+  };
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -170,7 +170,7 @@ const handleDisabledClick = (featureLabel) => {
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
-    } catch {}
+    } catch { }
   }, []);
 
   const fetchAndCalculateUnreadNotices = useCallback(async (forceUpdate = false) => {
@@ -178,12 +178,12 @@ const handleDisabledClick = (featureLabel) => {
       const data = await getAllNoticesForAdmin();
       const cfg = data.find((n) => n.title === "__SYSTEM_READ_STATE__");
       let state = {};
-      if (cfg) { try { state = JSON.parse(cfg.description); setServerReadState(state); } catch {} }
+      if (cfg) { try { state = JSON.parse(cfg.description); setServerReadState(state); } catch { } }
       const real = data.filter((n) => !n.title.startsWith("__SYSTEM_"));
       const count = calculateUnreadNotices(real, state);
       actualUnreadCount.current = count;
       if (!tempHideNoticeBadge || forceUpdate) setUnreadNoticeCount(count);
-    } catch {}
+    } catch { }
   }, [tempHideNoticeBadge]);
 
   const fetchLateRequests = useCallback(async () => {
@@ -196,7 +196,7 @@ const handleDisabledClick = (featureLabel) => {
         })
       );
       setLateRequestsCount(n);
-    } catch {}
+    } catch { }
   }, []);
 
   const fetchAttendanceRequests = useCallback(async () => {
@@ -204,20 +204,23 @@ const handleDisabledClick = (featureLabel) => {
       const { data } = await api.get("/api/attendance/admin/status-correction-requests");
       setAttendanceRequestsCount((data?.data || []).filter(r => isPending(r.status)).length);
     } catch {}
+      const { data } = await api.get("/api/attendance-correction/all-requests");
+      setAttendanceRequestsCount((data || []).filter(r => isPending(r.status)).length);
+    } catch { }
   }, []);
 
   const fetchOvertimeRequests = useCallback(async () => {
     try {
       const data = await getAllOvertimeRequests();
       setPendingOvertime(data.filter((o) => isPending(o.status)).length);
-    } catch {}
+    } catch { }
   }, []);
 
   const fetchLeaveRequests = useCallback(async () => {
     try {
       const data = await getLeaveRequests();
       setPendingLeaves(data.filter((l) => isPending(l.status)).length);
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -272,7 +275,7 @@ const handleDisabledClick = (featureLabel) => {
       try {
         const raw = sessionStorage.getItem("hrmsUser");
         if (raw) { const u = JSON.parse(raw); if (u?._id || u?.id) s.emit("register", u?._id || u?.id); }
-      } catch {}
+      } catch { }
     });
     setSocket(s);
     return () => s.disconnect();
@@ -373,8 +376,12 @@ const handleDisabledClick = (featureLabel) => {
       <div className={sidebarClasses}>
         <div className={`flex items-center mb-6 p-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
           <div className={`flex items-center gap-3 transition-all ${collapsed && !isMobile ? "w-0 opacity-0 hidden" : "w-full opacity-100 flex"}`}>
-            <span className="text-3xl text-indigo-400"><FaConnectdevelop /></span>
-            <span className="text-xl font-bold text-slate-200 truncate">VWSYNC</span>
+
+            <img
+              src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+              alt="V-Sync Logo"
+              className="inline w-35 h-17 object-contain align-middle ml-1"
+            />
           </div>
           <button
             className="p-2 rounded-lg text-slate-400 hover:bg-slate-800"

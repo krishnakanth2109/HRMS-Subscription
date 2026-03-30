@@ -93,6 +93,8 @@ import AdminIssues from "./pages/AdminIssues";
 import EmployeeIssues from "./pages/EmployeeIssues";
 import AdminLiveTracking from "./pages/AdminLiveTracking";
 import OfferLetterPage from "./pages/OfferLetterPage";
+import AdminDemoRequests from "./pages/master/Admindemorequests";
+import RequestDemo from "./pages/Requestdemo";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -152,6 +154,20 @@ function App() {
           </PublicRoute>
         } 
       />
+
+            <Route 
+        path="/request-demo" 
+        element={
+          <PublicRoute>
+            <RequestDemo />
+          </PublicRoute>
+        } 
+      
+      />
+
+  
+      
+      />
       <Route 
         path="/login" 
         element={
@@ -193,6 +209,7 @@ function App() {
         <Route path="settings" element={<MasterSettings />} />
         <Route path="manage-logins" element={<ManageLogins />} />
          <Route path="manage-issues" element={<SuperAdminIssues/>} />
+         <Route path="manage-demo-requests" element={<AdminDemoRequests />}/>
       </Route>
 
 

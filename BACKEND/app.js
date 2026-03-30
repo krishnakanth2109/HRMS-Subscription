@@ -44,6 +44,7 @@ import offerResponseRoutes from "./routes/offerResponseRoutes.js";
 import stripeRoutes from "./routes/stripeRoutes.js";
 import stripeWebhookHandler from "./controllers/stripeWebhookController.js";
 import masterRoutes from "./routes/masterRoutes.js";
+import demoRequestRoutes from "./routes/Demorequest.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -216,6 +217,7 @@ app.use("/api/offer-letters", offerResponseRoutes);
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/master", masterRoutes);
+app.use("/api/demo-request", demoRequestRoutes);
 
 
 // In dev we don't serve frontend from here usually, but fix the paths

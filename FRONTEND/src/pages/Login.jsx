@@ -230,7 +230,7 @@ const Login = () => {
               </span>
             </h1>
             <p className="text-gray-400 text-base lg:text-lg max-w-md leading-relaxed">
-              Arah Info Tech vwsync delivers seamless workforce management with AI-powered insights.
+              Arah Info Tech V-Sync delivers seamless workforce management with AI-powered insights.
             </p>
           </div>
 
@@ -279,8 +279,12 @@ const Login = () => {
         {/* RIGHT SECTION: Login Card - Full width on mobile */}
         <div className="w-full lg:max-w-md animate-slideUp">
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl lg:rounded-[2.5rem] shadow-2xl p-6 sm:p-8 lg:p-10 relative overflow-hidden">
-            <div className="absolute top-4 sm:top-6 lg:top-8 right-4 sm:right-6 lg:right-8 bg-gradient-to-br from-purple-500 to-indigo-600 text-white px-2 sm:px-3 py-1 sm:py-2 rounded-xl sm:rounded-2xl font-bold text-[10px] sm:text-xs shadow-lg animate-pulse">
-              AI
+<div className="absolute top-4 sm:top-6 lg:top-8 right-4 sm:right-6 lg:right-8 text-white px-2 sm:px-3 py-1 sm:py-2 font-bold text-[10px] sm:text-xs">
+              <img
+    src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+    alt="V-Sync Logo"
+    className="inline w-57 h-20 object-contain align-middle ml-1"
+  />
             </div>
 
             <div className="mb-6 sm:mb-8 lg:mb-10">
@@ -291,7 +295,7 @@ const Login = () => {
                 </span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                Welcome Back
+                  Welcome To
               </h2>
               <p className="text-xs sm:text-sm text-gray-500 mt-1">Sign in to continue</p>
             </div>

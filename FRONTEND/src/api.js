@@ -911,5 +911,51 @@ export const uploadOfferLetterTemplate = async (formData) =>
 
 export const deleteOfferLetterTemplate = async (id) =>
   (await api.delete(`/api/offer-letters/templates/${id}`)).data;
+   DEMO REQUEST
+============================================================================= */
+export const submitDemoRequest = async (data) => {
+  try {
+    const response = await api.post("/api/demo-request", data);
+    return response.data;
+  } catch (error) {
+    console.error("Demo request error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// --- ADD THESE NEW FUNCTIONS ---
+
+// Get all demo requests (with pagination, filters, search)
+export const getDemoRequests = async (params) => {
+  try {
+    const response = await api.get("/api/demo-request", { params });
+    return response.data;
+  } catch (error) {
+    console.error("Get demo requests error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Update demo request status
+export const updateDemoRequestStatus = async (id, status) => {
+  try {
+    const response = await api.patch(`/api/demo-request/${id}/status`, { status });
+    return response.data;
+  } catch (error) {
+    console.error("Update demo request status error:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Delete demo request
+export const deleteDemoRequest = async (id) => {
+  try {
+    const response = await api.delete(`/api/demo-request/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Delete demo request error:", error.response?.data || error.message);
+    throw error;
+  }
+};
 
 export default api;

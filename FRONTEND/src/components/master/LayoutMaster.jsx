@@ -9,7 +9,7 @@ import {
   ChevronLeft, 
   UserCog ,
   LifeBuoy  ,
-  ChevronRight 
+  ChevronRight ,Bug, CalendarCheck
 } from "lucide-react";
 
 const LayoutMaster = () => {
@@ -38,8 +38,14 @@ const LayoutMaster = () => {
 { 
   label: "Technical Issues", 
   path: "/master/manage-issues", 
-  icon: <LifeBuoy  size={22} /> 
+  icon: <Bug size={22} />   // or <Wrench />
+},
+{ 
+  label: "Demo Requests", 
+    path: "/master/manage-demo-requests",  
+  icon: <CalendarCheck size={22} /> 
 }
+
 
   ];
 
