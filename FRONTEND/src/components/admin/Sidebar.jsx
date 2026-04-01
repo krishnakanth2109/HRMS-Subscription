@@ -54,6 +54,11 @@ const ALL_NAV_LINKS = [
   { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Adjustment", icon: <FaUserCheck />, isLateRequests: true },
   { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
   { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
+
+  // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
+  // To add more owner-only features in future, just add them here with ownerOnly: true
+  { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: <FaReceipt />, isPayrollCandidates: true, ownerOnly: true },
+  
 ];
 
 const calculateUnreadNotices = (notices, readState) => {
@@ -90,6 +95,7 @@ const Sidebar = () => {
   const [attendanceRequestsCount, setAttendanceRequestsCount] = useState(0);
 
   const [allowedRoutes, setAllowedRoutes] = useState(null);
+  const [isOwnerPlan, setIsOwnerPlan]     = useState(false); // ✅ true = owner, skip all restrictions
 
   const [socket, setSocket] = useState(null);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
@@ -112,17 +118,25 @@ const Sidebar = () => {
 
   const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
 
-  // ⭐ SORTING LOGIC: Enabled features on top, disabled on bottom
+  // ⭐ SORTING LOGIC:
+  // - ownerOnly links are stripped out entirely for non-owner admins (no lock, no disabled)
+  // - Owner sees all links in original order (no resorting)
+  // - Regular admins: allowed links float to top, restricted links sink to bottom
   const sortedNavLinks = useMemo(() => {
-    if (!allowedRoutes) return ALL_NAV_LINKS;
-    return [...ALL_NAV_LINKS].sort((a, b) => {
+    const visibleLinks = isOwnerPlan
+      ? ALL_NAV_LINKS                             // owner sees every link
+      : ALL_NAV_LINKS.filter((l) => !l.ownerOnly); // others never see ownerOnly links
+
+    if (!allowedRoutes || isOwnerPlan) return visibleLinks;
+
+    return [...visibleLinks].sort((a, b) => {
       const aAllowed = allowedRoutes.includes(a.route);
       const bAllowed = allowedRoutes.includes(b.route);
       if (aAllowed && !bAllowed) return -1;
       if (!aAllowed && bAllowed) return 1;
       return 0;
     });
-  }, [allowedRoutes]);
+  }, [allowedRoutes, isOwnerPlan]);
 
   // ⭐ SWEET ALERT FOR DISABLED FEATURES
   const handleDisabledClick = (featureLabel) => {
@@ -149,8 +163,10 @@ const Sidebar = () => {
     const fetchPlanFeatures = async () => {
       try {
         const res = await api.get("/api/admin/my-plan-features");
-        const routes = res.data?.allowedRoutes || [];
-        setAllowedRoutes(routes);
+        const routes    = res.data?.allowedRoutes || [];
+        const ownerFlag = res.data?.isOwnerPlan   || false;
+        setIsOwnerPlan(ownerFlag);
+        setAllowedRoutes(ownerFlag ? [] : routes); // owner doesn't need routes array checked
       } catch (err) {
         console.error("Could not fetch plan features:", err);
         setAllowedRoutes([]);
@@ -186,28 +202,55 @@ const Sidebar = () => {
     } catch { }
   }, [tempHideNoticeBadge]);
 
-  const fetchLateRequests = useCallback(async () => {
-    try {
-      const { data } = await api.get("/api/attendance/all");
-      let n = 0;
-      (data.data || []).forEach((emp) =>
-        (emp.attendance || []).forEach((day) => {
-          if (day.lateCorrectionRequest?.hasRequest && day.lateCorrectionRequest?.status === "PENDING") n++;
-        })
-      );
-      setLateRequestsCount(n);
-    } catch { }
-  }, []);
+const fetchLateRequests = useCallback(async () => {
+  try {
+    const response = await api.get("/api/attendance/all");
+    const employees = response?.data?.data || [];
 
-  const fetchAttendanceRequests = useCallback(async () => {
-    try {
-      const { data } = await api.get("/api/attendance/admin/status-correction-requests");
-      setAttendanceRequestsCount((data?.data || []).filter(r => isPending(r.status)).length);
-    } catch {}
-      const { data } = await api.get("/api/attendance-correction/all-requests");
-      setAttendanceRequestsCount((data || []).filter(r => isPending(r.status)).length);
-    } catch { }
-  }, []);
+    let count = 0;
+
+    for (let i = 0; i < employees.length; i++) {
+      const emp = employees[i];
+      const attendance = emp.attendance || [];
+
+      for (let j = 0; j < attendance.length; j++) {
+        const day = attendance[j];
+
+        if (
+          day.lateCorrectionRequest &&
+          day.lateCorrectionRequest.hasRequest === true &&
+          day.lateCorrectionRequest.status === "PENDING"
+        ) {
+          count++;
+        }
+      }
+    }
+
+    setLateRequestsCount(count);
+  } catch (error) {
+    console.error("Error fetching late requests:", error);
+  }
+}, []);
+
+const fetchAttendanceRequests = useCallback(async () => {
+  try {
+    const { data } = await api.get("/api/attendance/admin/status-correction-requests");
+
+    const count1 = (data?.data || []).filter((r) =>
+      isPending(r.status)
+    ).length;
+
+    const res2 = await api.get("/api/attendance-correction/all-requests");
+
+    const count2 = (res2?.data || []).filter((r) =>
+      isPending(r.status)
+    ).length;
+
+    setAttendanceRequestsCount(count1 + count2);
+  } catch (error) {
+    console.error("Error fetching attendance requests:", error);
+  }
+}, []);
 
   const fetchOvertimeRequests = useCallback(async () => {
     try {
@@ -400,7 +443,8 @@ const Sidebar = () => {
             </div>
           ) : (
             sortedNavLinks.map((link, index) => {
-              const isAllowed = allowedRoutes.includes(link.route);
+              // Owner → all links allowed; others → check against their plan's allowedRoutes
+              const isAllowed = isOwnerPlan || allowedRoutes.includes(link.route);
 
               if (link.children) {
                 const isOpen = activeMenu === link.label;

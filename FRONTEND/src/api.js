@@ -911,8 +911,8 @@ export const uploadOfferLetterTemplate = async (formData) =>
 
 export const deleteOfferLetterTemplate = async (id) =>
   (await api.delete(`/api/offer-letters/templates/${id}`)).data;
-   DEMO REQUEST
-============================================================================= */
+  //  DEMO REQUEST
+// ============================================================================= */
 export const submitDemoRequest = async (data) => {
   try {
     const response = await api.post("/api/demo-request", data);
@@ -957,5 +957,24 @@ export const deleteDemoRequest = async (id) => {
     throw error;
   }
 };
+
+
+/* =============================================================================
+   PAYROLL CANDIDATE MANAGEMENT
+============================================================================= */
+export const getPayrollCandidates = async () => 
+  (await api.get("/api/payroll/all")).data;
+
+
+export const managePayrollCandidate = async (formData, id = null) => {
+  const url = id ? `/api/payroll/manage/${id}` : "/api/payroll/manage";
+  return (await api.post(url, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  })).data;
+};
+
+export const deletePayrollCandidate = async (id) => 
+  (await api.delete(`/api/payroll/${id}`)).data;
+
 
 export default api;

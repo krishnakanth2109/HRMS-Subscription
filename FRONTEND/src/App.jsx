@@ -95,6 +95,7 @@ import AdminLiveTracking from "./pages/AdminLiveTracking";
 import OfferLetterPage from "./pages/OfferLetterPage";
 import AdminDemoRequests from "./pages/master/Admindemorequests";
 import RequestDemo from "./pages/Requestdemo";
+import PayrollPage from "./pages/PayrollManagement";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -210,6 +211,7 @@ function App() {
         <Route path="manage-logins" element={<ManageLogins />} />
          <Route path="manage-issues" element={<SuperAdminIssues/>} />
          <Route path="manage-demo-requests" element={<AdminDemoRequests />}/>
+
       </Route>
 
 
@@ -284,6 +286,7 @@ function App() {
         <Route path="/admin/issues" element={<AdminIssues/>} />
         <Route path="/admin/live-tracking" element={<AdminLiveTracking />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
+          <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}

@@ -1,46 +1,51 @@
 import React, { useState, useEffect, useRef } from "react";
 import api from "../../api";
-import { FaTrash, FaEdit, FaCheck, FaChevronDown, FaChevronUp } from "react-icons/fa";
-import Swal from "sweetalert2"; // Added SweetAlert2
+import { FaTrash, FaEdit, FaCheck, FaChevronDown, FaChevronUp, FaLock } from "react-icons/fa";
+import Swal from "sweetalert2";
 
-// ⭐ HARDCODED FALLBACK
+// ⭐ HARDCODED FALLBACK — includes owner-exclusive routes at the bottom
 const FALLBACK_FEATURES = [
-  { label: "Dashboard",            route: "/admin/dashboard",         description: "Main dashboard overview with key metrics" },
-  { label: "Employee Management",  route: "/employees",               description: "Add, edit and manage all employee records" },
-  { label: "Employees Attendance", route: "/attendance",              description: "View and manage employee attendance logs" },
-  { label: "Shift Management",     route: "/admin/settings",          description: "Configure and assign employee work shifts" },
-  { label: "Location Settings",    route: "/admin/shifttype",         description: "Manage geo-fencing and location-based settings" },
-  { label: "Leave Summary",        route: "/admin/leave-summary",     description: "Analytics and summary of all employee leaves" },
-  { label: "Holiday Calendar",     route: "/admin/holiday-calendar",  description: "Manage public and company holidays" },
-  { label: "Payroll",              route: "/admin/payroll",           description: "Process and manage employee payroll" },
-  { label: "Announcements",        route: "/admin/notices",           description: "Post and manage company-wide announcements" },
-  { label: "Leave Requests",       route: "/admin/admin-Leavemanage", description: "Review and approve/reject employee leave requests" },
-  { label: "Attendance Adjustment",route: "/admin/late-requests",     description: "Handle late login and attendance correction requests" },
-  { label: "Overtime Requests",    route: "/admin/admin-overtime",    description: "Review and manage employee overtime requests" },
-  { label: "Live Tracking",        route: "/admin/live-tracking",     description: "Monitor employee idle time in real-time" }
+  { label: "Dashboard",              route: "/admin/dashboard",         description: "Main dashboard overview with key metrics" },
+  { label: "Employee Management",    route: "/employees",               description: "Add, edit and manage all employee records" },
+  { label: "Employees Attendance",   route: "/attendance",              description: "View and manage employee attendance logs" },
+  { label: "Shift Management",       route: "/admin/settings",          description: "Configure and assign employee work shifts" },
+  { label: "Location Settings",      route: "/admin/shifttype",         description: "Manage geo-fencing and location-based settings" },
+  { label: "Leave Summary",          route: "/admin/leave-summary",     description: "Analytics and summary of all employee leaves" },
+  { label: "Holiday Calendar",       route: "/admin/holiday-calendar",  description: "Manage public and company holidays" },
+  { label: "Payroll",                route: "/admin/payroll",           description: "Process and manage employee payroll" },
+  { label: "Announcements",          route: "/admin/notices",           description: "Post and manage company-wide announcements" },
+  { label: "Leave Requests",         route: "/admin/admin-Leavemanage", description: "Review and approve/reject employee leave requests" },
+  { label: "Attendance Adjustment",  route: "/admin/late-requests",     description: "Handle late login and attendance correction requests" },
+  { label: "Overtime Requests",      route: "/admin/admin-overtime",    description: "Review and manage employee overtime requests" },
+  { label: "Live Tracking",          route: "/admin/live-tracking",     description: "Monitor employee idle time in real-time" },
+
+  // ✅ Owner-exclusive features — visible in fallback but only assigned to Owner plan via seed
+  { label: "Master Dashboard",       route: "/master/dashboard",        description: "Owner-only: Platform-wide overview & stats" },
+  { label: "Admin Management",       route: "/master/admins",           description: "Owner-only: View & manage all registered companies" },
+  { label: "Plan Management",        route: "/master/plans",            description: "Owner-only: Create, edit and delete subscription plans" },
+  { label: "Login Access Control",   route: "/master/login-access",     description: "Owner-only: Enable/disable admin & employee logins" },
+  { label: "System Settings",        route: "/master/settings",         description: "Owner-only: Global system configuration" },
+  { label: "Billing Overview",       route: "/master/billing",          description: "Owner-only: Subscriptions & payment overview" },
+  { label: "Platform Analytics",     route: "/master/analytics",        description: "Owner-only: Usage analytics across all tenants" },
 ];
 
 const PlanSettings = () => {
   const [planName, setPlanName] = useState("");
   const [price, setPrice] = useState(0);
   const [durationDays, setDurationDays] = useState(30);
-  const [selectedFeatures, setSelectedFeatures] = useState([]); 
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [existingPlans, setExistingPlans] = useState([]);
 
-  // Features List State
   const [allFeatures, setAllFeatures] = useState(FALLBACK_FEATURES);
   const [featuresLoading, setFeaturesLoading] = useState(true);
 
-  // Dynamic Dropdown State
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Existing Plans Expansion State
   const [expandedPlans, setExpandedPlans] = useState({});
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -89,11 +94,20 @@ const PlanSettings = () => {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    
-    // ⭐ SweetAlert Validations
+
     if (!planName) {
       return Swal.fire({ icon: "error", title: "Oops...", text: "Plan name is required!" });
     }
+
+    // ✅ Prevent editing the protected Owner plan via the form
+    if (planName.trim().toLowerCase() === "owner") {
+      return Swal.fire({
+        icon: "warning",
+        title: "Protected Plan",
+        text: "The Owner plan is protected and cannot be modified from the UI.",
+      });
+    }
+
     if (selectedFeatures.length === 0) {
       return Swal.fire({ icon: "error", title: "Action Required", text: "Please select at least one feature for this plan." });
     }
@@ -108,13 +122,12 @@ const PlanSettings = () => {
         features: selectedFeatures,
       });
 
-      // ⭐ SweetAlert Success
       Swal.fire({
         icon: "success",
         title: "Saved Successfully!",
         text: `Plan "${planName}" has been updated.`,
         timer: 2000,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
 
       setPlanName("");
@@ -124,7 +137,6 @@ const PlanSettings = () => {
       setIsDropdownOpen(false);
       fetchPlans();
     } catch (error) {
-      // ⭐ SweetAlert Error
       Swal.fire({
         icon: "error",
         title: "Update Failed",
@@ -135,19 +147,32 @@ const PlanSettings = () => {
     }
   };
 
-  // --- EDIT ---
+  // --- EDIT (blocked for Owner plan) ---
   const handleEdit = (plan) => {
+    if (plan.isOwnerPlan) {
+      return Swal.fire({
+        icon: "info",
+        title: "Protected Plan",
+        text: "The Owner plan is protected and cannot be edited.",
+      });
+    }
     setPlanName(plan.planName);
     setPrice(plan.price);
     setDurationDays(plan.durationDays);
     setSelectedFeatures(plan.features || []);
-    // Scroll up smoothly
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // --- DELETE ---
-  const handleDelete = async (id) => {
-    // ⭐ SweetAlert Confirmation
+  // --- DELETE (blocked for Owner plan) ---
+  const handleDelete = async (id, plan) => {
+    if (plan.isOwnerPlan) {
+      return Swal.fire({
+        icon: "info",
+        title: "Protected Plan",
+        text: "The Owner plan is protected and cannot be deleted.",
+      });
+    }
+
     const result = await Swal.fire({
       title: "Are you sure?",
       text: "You won't be able to revert this!",
@@ -155,7 +180,7 @@ const PlanSettings = () => {
       showCancelButton: true,
       confirmButtonColor: "#d33",
       cancelButtonColor: "#6b7280",
-      confirmButtonText: "Yes, delete it!"
+      confirmButtonText: "Yes, delete it!",
     });
 
     if (!result.isConfirmed) return;
@@ -177,7 +202,7 @@ const PlanSettings = () => {
   const toggleExpandPlan = (planId) => {
     setExpandedPlans((prev) => ({
       ...prev,
-      [planId]: !prev[planId]
+      [planId]: !prev[planId],
     }));
   };
 
@@ -231,8 +256,7 @@ const PlanSettings = () => {
                 </span>
               </div>
 
-              {/* Dropdown Toggle Button */}
-              <div 
+              <div
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 cursor-pointer flex justify-between items-center transition-all hover:bg-gray-100"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               >
@@ -242,30 +266,27 @@ const PlanSettings = () => {
                 {isDropdownOpen ? <FaChevronUp className="text-gray-500 text-sm" /> : <FaChevronDown className="text-gray-500 text-sm" />}
               </div>
 
-              {/* Dropdown Menu Area */}
               {isDropdownOpen && (
                 <div className="absolute z-20 w-full mt-2 bg-white border border-gray-100 shadow-2xl rounded-xl overflow-hidden">
-                  
-                  {/* Dropdown Header: Select All / Clear */}
                   <div className="flex justify-between items-center p-3 bg-gray-50 border-b border-gray-100">
-                     <span className="text-xs font-bold text-gray-500 uppercase">Select Options</span>
-                     <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFeatures(allFeatures.map((f) => f.route))}
-                          className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors"
-                        >
-                          Select All
-                        </button>
-                        <span className="text-gray-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFeatures([])}
-                          className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          Clear All
-                        </button>
-                     </div>
+                    <span className="text-xs font-bold text-gray-500 uppercase">Select Options</span>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFeatures(allFeatures.map((f) => f.route))}
+                        className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors"
+                      >
+                        Select All
+                      </button>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFeatures([])}
+                        className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        Clear All
+                      </button>
+                    </div>
                   </div>
 
                   {featuresLoading ? (
@@ -283,22 +304,16 @@ const PlanSettings = () => {
                             key={feature.route}
                             onClick={() => toggleFeature(feature.route)}
                             className={`flex items-center gap-3 p-3 rounded-lg border border-transparent cursor-pointer transition-all select-none ${
-                              isSelected
-                                ? "bg-purple-50 border-purple-100"
-                                : "hover:bg-gray-50"
+                              isSelected ? "bg-purple-50 border-purple-100" : "hover:bg-gray-50"
                             }`}
                           >
-                            {/* Custom Checkbox inside dropdown */}
                             <div
                               className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                                isSelected
-                                  ? "bg-purple-600 border-purple-600"
-                                  : "border-gray-300 bg-white"
+                                isSelected ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
                               }`}
                             >
                               {isSelected && <FaCheck size={10} className="text-white" />}
                             </div>
-
                             <div className="flex flex-col min-w-0">
                               <span className={`text-sm font-semibold truncate ${isSelected ? "text-purple-800" : "text-gray-700"}`}>
                                 {feature.label}
@@ -374,57 +389,78 @@ const PlanSettings = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingPlans.map((plan) => {
               const isExpanded = expandedPlans[plan._id];
-              // Determine which features to show based on expansion state
               const displayedFeatures = isExpanded ? plan.features : plan.features.slice(0, 3);
               const extraCount = plan.features.length - 3;
+              const isOwner = plan.isOwnerPlan;
 
               return (
-                <div key={plan._id} className="border border-gray-100 p-6 rounded-2xl bg-gray-50 group hover:border-purple-300 hover:shadow-lg transition-all relative overflow-hidden">
+                <div
+                  key={plan._id}
+                  className={`border p-6 rounded-2xl group transition-all relative overflow-hidden ${
+                    isOwner
+                      ? "border-yellow-300 bg-gradient-to-br from-yellow-50 to-amber-50 shadow-md"
+                      : "border-gray-100 bg-gray-50 hover:border-purple-300 hover:shadow-lg"
+                  }`}
+                >
+                  {/* ✅ Owner crown badge */}
+                  {isOwner && (
+                    <div className="absolute top-3 right-3 flex items-center gap-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">
+                      <FaLock size={8} /> Protected
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="font-bold text-gray-900 text-xl">{plan.planName}</h4>
-                      <p className="text-xs text-purple-600 font-bold uppercase tracking-wider bg-purple-100 px-2 py-1 rounded-md mt-1 inline-block">{plan.durationDays} Days</p>
+                      <p className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md mt-1 inline-block bg-purple-100 text-purple-600">
+                        {isOwner ? "Unlimited" : `${plan.durationDays} Days`}
+                      </p>
                     </div>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => handleEdit(plan)} 
-                        className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 transition-colors"
-                        title="Edit Plan"
-                      >
-                        <FaEdit />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(plan._id)} 
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50 bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 transition-colors"
-                        title="Delete Plan"
-                      >
-                        <FaTrash />
-                      </button>
-                    </div>
+
+                    {/* Edit/Delete only for non-owner plans */}
+                    {!isOwner && (
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleEdit(plan)}
+                          className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 transition-colors"
+                          title="Edit Plan"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(plan._id, plan)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 transition-colors"
+                          title="Delete Plan"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  
-                  <div className="text-3xl font-black text-gray-800 mb-4">₹{plan.price}</div>
-                  
+
+                  <div className="text-3xl font-black text-gray-800 mb-4">
+                    {isOwner ? "∞ Free" : `₹${plan.price}`}
+                  </div>
+
                   <ul className="text-sm text-gray-600 space-y-2 mb-2 transition-all">
                     {displayedFeatures.map((route, i) => (
                       <li key={i} className="flex items-start gap-2">
-                         <FaCheck className="text-purple-500 mt-1 shrink-0" size={12} />
-                         <span>{getLabelForRoute(route)}</span>
+                        <FaCheck className={`mt-1 shrink-0 ${isOwner ? "text-yellow-500" : "text-purple-500"}`} size={12} />
+                        <span>{getLabelForRoute(route)}</span>
                       </li>
                     ))}
                   </ul>
 
-                  {/* ⭐ TOGGLE MORE/LESS FEATURES */}
                   {extraCount > 0 && (
-                    <button 
+                    <button
                       type="button"
                       onClick={() => toggleExpandPlan(plan._id)}
                       className="text-purple-600 font-bold text-xs hover:underline flex items-center gap-1 mt-2 focus:outline-none"
                     >
                       {isExpanded ? (
-                        <>Show less <FaChevronUp size={10}/></>
+                        <>Show less <FaChevronUp size={10} /></>
                       ) : (
-                        <>+ {extraCount} more features <FaChevronDown size={10}/></>
+                        <>+ {extraCount} more features <FaChevronDown size={10} /></>
                       )}
                     </button>
                   )}
@@ -435,7 +471,6 @@ const PlanSettings = () => {
         )}
       </div>
 
-      {/* Internal CSS for custom scrollbars */}
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
