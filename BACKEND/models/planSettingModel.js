@@ -8,7 +8,11 @@ const planSettingSchema = new mongoose.Schema({
   },
   durationDays: { type: Number, default: 30 },
   price: { type: Number, default: 0 },
-  features: [{ type: String }]
+  features: [{ type: String }],
+
+  // ✅ NEW: Owner/Unlimited plan flags
+  isUnlimited: { type: Boolean, default: false }, // true = never expires
+  isOwnerPlan: { type: Boolean, default: false },  // true = protected, cannot be deleted/edited from UI
 });
 
 const PlanSetting = mongoose.model("PlanSetting", planSettingSchema);

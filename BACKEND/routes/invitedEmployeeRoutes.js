@@ -210,7 +210,7 @@ router.post('/invite', async (req, res) => {
         existingInvite.department = department || existingInvite.department;
         existingInvite.employmentType = employmentType || existingInvite.employmentType;
         existingInvite.salary = salary || existingInvite.salary;
-        existingInvite.requiredDocuments = requiredDocuments || existingInvite.requiredDocuments; // Added
+        existingInvite.requiredDocuments = requiredDocuments || existingInvite.requiredDocuments;
         existingInvite.invitedAt = new Date();
         if (invitedBy) existingInvite.invitedBy = invitedBy;
         
@@ -239,7 +239,7 @@ router.post('/invite', async (req, res) => {
       department,
       employmentType,
       salary,
-      requiredDocuments: requiredDocuments || [], // Added
+      requiredDocuments: requiredDocuments || [],
       status: 'pending'
     });
 
@@ -247,50 +247,44 @@ router.post('/invite', async (req, res) => {
 
     res.status(201).json({ 
       success: true, 
-      message: 'Email invited successfully',
+      message: 'Invitation sent successfully',
       data: newInvite 
     });
 
   } catch (error) {
-    console.error('Error inviting employee:', error);
+    console.error('Error sending invitation:', error);
     res.status(500).json({ 
       success: false, 
-      error: error.message || 'Failed to invite employee' 
+      error: error.message || 'Failed to send invitation' 
     });
   }
 });
 
-// --- BULK INVITE EMPLOYEES ---
-router.post('/invite-bulk', async (req, res) => {
+// --- BULK INVITE ---
+router.post('/bulk-invite', async (req, res) => {
   try {
-    const { employees, companyId, invitedBy } = req.body; 
+    const { employees, companyId, invitedBy } = req.body;
 
-    if (!employees || !Array.isArray(employees) || employees.length === 0 || !companyId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Valid employee array and Company ID are required' 
-      });
+    if (!employees || !Array.isArray(employees) || employees.length === 0) {
+      return res.status(400).json({ success: false, error: 'Employees array is required' });
     }
 
-    // Check if company exists
-    const company = await Company.findById(companyId);
-    if (!company) {
-      return res.status(404).json({ success: false, error: 'Company not found' });
+    if (!companyId) {
+      return res.status(400).json({ success: false, error: 'Company ID is required' });
     }
 
-    const results = { success: [], failed: [], alreadyInvited: [] };
+    const results = { success: [], alreadyInvited: [], failed: [] };
 
-    for (let emp of employees) {
-      const emailLower = emp.email ? emp.email.toLowerCase().trim() : null;
-      
-      if (!emailLower || !emailLower.includes('@')) {
-        results.failed.push({ email: emp.email, reason: 'Invalid email format' });
+    for (const emp of employees) {
+      const emailLower = emp.email?.toLowerCase();
+      if (!emailLower) {
+        results.failed.push({ email: 'unknown', reason: 'Email is required' });
         continue;
       }
 
       try {
         const existingInvite = await InvitedEmployee.findOne({ email: emailLower });
-        
+
         if (existingInvite) {
           if (existingInvite.status === 'revoked' || existingInvite.status === 'pending') {
             existingInvite.company = companyId;
@@ -300,7 +294,7 @@ router.post('/invite-bulk', async (req, res) => {
             existingInvite.department = emp.department;
             existingInvite.employmentType = emp.employmentType;
             existingInvite.salary = emp.salary;
-            existingInvite.requiredDocuments = emp.requiredDocuments || []; // Added
+            existingInvite.requiredDocuments = emp.requiredDocuments || [];
             existingInvite.invitedAt = new Date();
             if (invitedBy) existingInvite.invitedBy = invitedBy;
             await existingInvite.save();
@@ -314,7 +308,7 @@ router.post('/invite-bulk', async (req, res) => {
             email: emailLower,
             company: companyId,
             invitedBy,
-            requiredDocuments: emp.requiredDocuments || [], // Added
+            requiredDocuments: emp.requiredDocuments || [],
             status: 'pending'
           });
           results.success.push(emailLower);
@@ -336,8 +330,6 @@ router.post('/invite-bulk', async (req, res) => {
   }
 });
 
-
-/* --- Update in invitedEmployeeRoutes.js --- */
 
 router.post('/verify-email', async (req, res) => {
   try {
@@ -407,6 +399,52 @@ router.post('/verify-email', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Failed to verify email' });
+  }
+});
+
+
+// ✅ NEW ROUTE: Fetch full onboarding/compliance data for EmployeeProfile
+// Used by EmployeeProfile.jsx to display Onboarding Compliance, Signature, and Company Docs
+router.get('/profile-by-email', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ success: false, error: 'Email query param is required' });
+
+    const invite = await InvitedEmployee.findOne({
+      email: email.toLowerCase().trim()
+    })
+    .populate('company', 'name _id prefix')
+    .populate('requiredDocuments');
+
+    if (!invite) {
+      return res.status(404).json({ success: false, error: 'No invitation record found for this email' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        email: invite.email,
+        name: invite.name,
+        role: invite.role,
+        department: invite.department,
+        employmentType: invite.employmentType,
+        salary: invite.salary,
+        company: invite.company,
+        status: invite.status,
+        // ✅ Compliance fields — these drive the Onboarding Compliance section
+        onboardedAt: invite.onboardedAt,
+        policyStatus: invite.policyStatus,
+        policyAcceptedAt: invite.policyAcceptedAt,
+        // ✅ Signature uploaded during compliance step
+        signatureUrl: invite.signatureUrl,
+        // ✅ Assigned required documents (templates)
+        requiredDocuments: invite.requiredDocuments,
+        invitedAt: invite.invitedAt,
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching profile by email:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch profile data' });
   }
 });
 
@@ -527,7 +565,7 @@ router.post('/complete-onboarding', upload.single('signature'), async (req, res)
     checkUser.policyStatus = 'accepted';
     checkUser.policyAcceptedAt = new Date();
     checkUser.status = 'onboarded';
-    checkUser.onboardedAt = new Date();
+    checkUser.onboardedAt = checkUser.onboardedAt || new Date(); // preserve if already set
     await checkUser.save();
 
     res.status(200).json({ success: true, message: 'Onboarding completed successfully' });

@@ -41,19 +41,24 @@ const SOCKET_URL =
 
 // ⭐ ALL POSSIBLE NAV LINKS
 const ALL_NAV_LINKS = [
-  { to: "/admin/dashboard",         route: "/admin/dashboard",         label: "Dashboard",             icon: <FaTachometerAlt /> },
-  { to: "/employees",               route: "/employees",               label: "Employee Management",   icon: <FaUserTie /> },
-  { to: "/attendance",              route: "/attendance",              label: "Employees Attendance",  icon: <FaUserClock /> },
-  { to: "/admin/settings",          route: "/admin/settings",          label: "Shift Management",      icon: <FaUserPlus /> },
-  { to: "/admin/shifttype",         route: "/admin/shifttype",         label: "Location Settings",     icon: <FaMapMarkedAlt /> },
-  { to: "/admin/leave-summary",     route: "/admin/leave-summary",     label: "Leave Summary",         icon: <FaChartLine /> },
-  { to: "/admin/holiday-calendar",  route: "/admin/holiday-calendar",  label: "Holiday Calendar",      icon: <FaCalendarAlt /> },
-  { to: "/admin/payroll",           route: "/admin/payroll",           label: "Payroll",               icon: <FaMoneyBillWave /> },
-  { to: "/admin/notices",           route: "/admin/notices",           label: "Announcements",         icon: <FaBullhorn />,      isNotice: true },
-  { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests",        icon: <FaCheckDouble />,   isLeave: true },
-  { to: "/admin/late-requests",     route: "/admin/late-requests",     label: "Attendance Adjustment", icon: <FaUserCheck />,     isLateRequests: true },
-  { to: "/admin/admin-overtime",    route: "/admin/admin-overtime",    label: "Overtime Requests",     icon: <FaBusinessTime />,  isOvertime: true },
-  { to: "/admin/live-tracking",     route: "/admin/live-tracking",     label: "Idle Tracking",         icon: <FaMapMarkedAlt />,   isLiveTracking: true },
+  { to: "/admin/dashboard", route: "/admin/dashboard", label: "Dashboard", icon: <FaTachometerAlt /> },
+  { to: "/employees", route: "/employees", label: "Employee Management", icon: <FaUserTie /> },
+  { to: "/attendance", route: "/attendance", label: "Employees Attendance", icon: <FaUserClock /> },
+  { to: "/admin/settings", route: "/admin/settings", label: "Shift Management", icon: <FaUserPlus /> },
+  { to: "/admin/shifttype", route: "/admin/shifttype", label: "Location Settings", icon: <FaMapMarkedAlt /> },
+  { to: "/admin/leave-summary", route: "/admin/leave-summary", label: "Leave Summary", icon: <FaChartLine /> },
+  { to: "/admin/holiday-calendar", route: "/admin/holiday-calendar", label: "Holiday Calendar", icon: <FaCalendarAlt /> },
+  { to: "/admin/payroll", route: "/admin/payroll", label: "Payroll", icon: <FaMoneyBillWave /> },
+  { to: "/admin/notices", route: "/admin/notices", label: "Announcements", icon: <FaBullhorn />, isNotice: true },
+  { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests", icon: <FaCheckDouble />, isLeave: true },
+  { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Adjustment", icon: <FaUserCheck />, isLateRequests: true },
+  { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
+  { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
+
+  // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
+  // To add more owner-only features in future, just add them here with ownerOnly: true
+  { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: <FaReceipt />, isPayrollCandidates: true, ownerOnly: true },
+  
 ];
 
 const calculateUnreadNotices = (notices, readState) => {
@@ -79,61 +84,70 @@ const calculateUnreadNotices = (notices, readState) => {
 
 const Sidebar = () => {
   const location = useLocation();
-  const [collapsed, setCollapsed]   = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const [pendingLeaves, setPendingLeaves]             = useState(0);
-  const [pendingOvertime, setPendingOvertime]         = useState(0);
+  const [pendingLeaves, setPendingLeaves] = useState(0);
+  const [pendingOvertime, setPendingOvertime] = useState(0);
   const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
-  const [lateRequestsCount, setLateRequestsCount]     = useState(0);
+  const [lateRequestsCount, setLateRequestsCount] = useState(0);
   const [workModeRequestsCount, setWorkModeRequestsCount] = useState(0);
   const [attendanceRequestsCount, setAttendanceRequestsCount] = useState(0);
 
   const [allowedRoutes, setAllowedRoutes] = useState(null);
+  const [isOwnerPlan, setIsOwnerPlan]     = useState(false); // ✅ true = owner, skip all restrictions
 
-  const [socket, setSocket]                 = useState(null);
+  const [socket, setSocket] = useState(null);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
-  const [serverReadState, setServerReadState]     = useState({});
+  const [serverReadState, setServerReadState] = useState({});
 
-  const prevPendingLeaves           = useRef(0);
-  const prevPendingOvertime         = useRef(0);
-  const prevPunchOutRequests        = useRef(0);
-  const prevLateRequests            = useRef(0);
-  const prevWorkModeRequests        = useRef(0);
+  const prevPendingLeaves = useRef(0);
+  const prevPendingOvertime = useRef(0);
+  const prevPunchOutRequests = useRef(0);
+  const prevLateRequests = useRef(0);
+  const prevWorkModeRequests = useRef(0);
   const prevAttendanceRequestsCount = useRef(0);
-  const prevUnreadNoticeCount       = useRef(0);
-  const isOnNoticesPage             = useRef(false);
+  const prevUnreadNoticeCount = useRef(0);
+  const isOnNoticesPage = useRef(false);
   const hasPlayedSoundForCurrentCount = useRef(0);
-  const actualUnreadCount           = useRef(0);
+  const actualUnreadCount = useRef(0);
 
   const [tempHideNoticeBadge, setTempHideNoticeBadge] = useState(false);
-  const [activeMenu, setActiveMenu]                   = useState(null);
-  const [isMobile, setIsMobile]                       = useState(window.innerWidth < 768);
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
 
-  // ⭐ SORTING LOGIC: Enabled features on top, disabled on bottom
+  // ⭐ SORTING LOGIC:
+  // - ownerOnly links are stripped out entirely for non-owner admins (no lock, no disabled)
+  // - Owner sees all links in original order (no resorting)
+  // - Regular admins: allowed links float to top, restricted links sink to bottom
   const sortedNavLinks = useMemo(() => {
-    if (!allowedRoutes) return ALL_NAV_LINKS;
-    return [...ALL_NAV_LINKS].sort((a, b) => {
+    const visibleLinks = isOwnerPlan
+      ? ALL_NAV_LINKS                             // owner sees every link
+      : ALL_NAV_LINKS.filter((l) => !l.ownerOnly); // others never see ownerOnly links
+
+    if (!allowedRoutes || isOwnerPlan) return visibleLinks;
+
+    return [...visibleLinks].sort((a, b) => {
       const aAllowed = allowedRoutes.includes(a.route);
       const bAllowed = allowedRoutes.includes(b.route);
       if (aAllowed && !bAllowed) return -1;
       if (!aAllowed && bAllowed) return 1;
       return 0;
     });
-  }, [allowedRoutes]);
+  }, [allowedRoutes, isOwnerPlan]);
 
   // ⭐ SWEET ALERT FOR DISABLED FEATURES
-const handleDisabledClick = (featureLabel) => {
-  Swal.fire({
-    title: `${featureLabel} Feature Restricted`,
-    text: `The ${featureLabel} feature is not allocated to your current plan. Please contact support if you need access.`,
-    icon: 'info',
-    confirmButtonText: 'OK',
-    confirmButtonColor: '#6366f1',
-  });
-};
+  const handleDisabledClick = (featureLabel) => {
+    Swal.fire({
+      title: `${featureLabel} Feature Restricted`,
+      text: `The ${featureLabel} feature is not allocated to your current plan. Please contact support if you need access.`,
+      icon: 'info',
+      confirmButtonText: 'OK',
+      confirmButtonColor: '#6366f1',
+    });
+  };
   useEffect(() => {
     const onResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -149,8 +163,10 @@ const handleDisabledClick = (featureLabel) => {
     const fetchPlanFeatures = async () => {
       try {
         const res = await api.get("/api/admin/my-plan-features");
-        const routes = res.data?.allowedRoutes || [];
-        setAllowedRoutes(routes);
+        const routes    = res.data?.allowedRoutes || [];
+        const ownerFlag = res.data?.isOwnerPlan   || false;
+        setIsOwnerPlan(ownerFlag);
+        setAllowedRoutes(ownerFlag ? [] : routes); // owner doesn't need routes array checked
       } catch (err) {
         console.error("Could not fetch plan features:", err);
         setAllowedRoutes([]);
@@ -170,7 +186,7 @@ const handleDisabledClick = (featureLabel) => {
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
-    } catch {}
+    } catch { }
   }, []);
 
   const fetchAndCalculateUnreadNotices = useCallback(async (forceUpdate = false) => {
@@ -178,46 +194,76 @@ const handleDisabledClick = (featureLabel) => {
       const data = await getAllNoticesForAdmin();
       const cfg = data.find((n) => n.title === "__SYSTEM_READ_STATE__");
       let state = {};
-      if (cfg) { try { state = JSON.parse(cfg.description); setServerReadState(state); } catch {} }
+      if (cfg) { try { state = JSON.parse(cfg.description); setServerReadState(state); } catch { } }
       const real = data.filter((n) => !n.title.startsWith("__SYSTEM_"));
       const count = calculateUnreadNotices(real, state);
       actualUnreadCount.current = count;
       if (!tempHideNoticeBadge || forceUpdate) setUnreadNoticeCount(count);
-    } catch {}
+    } catch { }
   }, [tempHideNoticeBadge]);
 
-  const fetchLateRequests = useCallback(async () => {
-    try {
-      const { data } = await api.get("/api/attendance/all");
-      let n = 0;
-      (data.data || []).forEach((emp) =>
-        (emp.attendance || []).forEach((day) => {
-          if (day.lateCorrectionRequest?.hasRequest && day.lateCorrectionRequest?.status === "PENDING") n++;
-        })
-      );
-      setLateRequestsCount(n);
-    } catch {}
-  }, []);
+const fetchLateRequests = useCallback(async () => {
+  try {
+    const response = await api.get("/api/attendance/all");
+    const employees = response?.data?.data || [];
 
-  const fetchAttendanceRequests = useCallback(async () => {
-    try {
-      const { data } = await api.get("/api/attendance/admin/status-correction-requests");
-      setAttendanceRequestsCount((data?.data || []).filter(r => isPending(r.status)).length);
-    } catch {}
-  }, []);
+    let count = 0;
+
+    for (let i = 0; i < employees.length; i++) {
+      const emp = employees[i];
+      const attendance = emp.attendance || [];
+
+      for (let j = 0; j < attendance.length; j++) {
+        const day = attendance[j];
+
+        if (
+          day.lateCorrectionRequest &&
+          day.lateCorrectionRequest.hasRequest === true &&
+          day.lateCorrectionRequest.status === "PENDING"
+        ) {
+          count++;
+        }
+      }
+    }
+
+    setLateRequestsCount(count);
+  } catch (error) {
+    console.error("Error fetching late requests:", error);
+  }
+}, []);
+
+const fetchAttendanceRequests = useCallback(async () => {
+  try {
+    const { data } = await api.get("/api/attendance/admin/status-correction-requests");
+
+    const count1 = (data?.data || []).filter((r) =>
+      isPending(r.status)
+    ).length;
+
+    const res2 = await api.get("/api/attendance-correction/all-requests");
+
+    const count2 = (res2?.data || []).filter((r) =>
+      isPending(r.status)
+    ).length;
+
+    setAttendanceRequestsCount(count1 + count2);
+  } catch (error) {
+    console.error("Error fetching attendance requests:", error);
+  }
+}, []);
 
   const fetchOvertimeRequests = useCallback(async () => {
     try {
       const data = await getAllOvertimeRequests();
       setPendingOvertime(data.filter((o) => isPending(o.status)).length);
-    } catch {}
+    } catch { }
   }, []);
 
   const fetchLeaveRequests = useCallback(async () => {
     try {
       const data = await getLeaveRequests();
       setPendingLeaves(data.filter((l) => isPending(l.status)).length);
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -272,7 +318,7 @@ const handleDisabledClick = (featureLabel) => {
       try {
         const raw = sessionStorage.getItem("hrmsUser");
         if (raw) { const u = JSON.parse(raw); if (u?._id || u?.id) s.emit("register", u?._id || u?.id); }
-      } catch {}
+      } catch { }
     });
     setSocket(s);
     return () => s.disconnect();
@@ -373,8 +419,12 @@ const handleDisabledClick = (featureLabel) => {
       <div className={sidebarClasses}>
         <div className={`flex items-center mb-6 p-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
           <div className={`flex items-center gap-3 transition-all ${collapsed && !isMobile ? "w-0 opacity-0 hidden" : "w-full opacity-100 flex"}`}>
-            <span className="text-3xl text-indigo-400"><FaConnectdevelop /></span>
-            <span className="text-xl font-bold text-slate-200 truncate">VWSYNC</span>
+
+            <img
+              src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+              alt="V-Sync Logo"
+              className="inline w-35 h-17 object-contain align-middle ml-1"
+            />
           </div>
           <button
             className="p-2 rounded-lg text-slate-400 hover:bg-slate-800"
@@ -393,7 +443,8 @@ const handleDisabledClick = (featureLabel) => {
             </div>
           ) : (
             sortedNavLinks.map((link, index) => {
-              const isAllowed = allowedRoutes.includes(link.route);
+              // Owner → all links allowed; others → check against their plan's allowedRoutes
+              const isAllowed = isOwnerPlan || allowedRoutes.includes(link.route);
 
               if (link.children) {
                 const isOpen = activeMenu === link.label;

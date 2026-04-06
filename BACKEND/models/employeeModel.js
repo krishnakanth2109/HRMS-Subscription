@@ -34,6 +34,15 @@ const bankSchema = new mongoose.Schema({
   branch: String,
 });
 
+// ✅ NEW: Sub-schema for uploaded company documents (filled by employee during onboarding)
+const companyDocumentSchema = new mongoose.Schema({
+  fileName: { type: String },
+  fileUrl: { type: String },
+  fileType: { type: String },
+  fileSize: { type: Number },
+  uploadedAt: { type: Date, default: Date.now },
+});
+
 // Main Employee Schema
 const EmployeeSchema = new mongoose.Schema({
   // HIERARCHY: Links to Admin and Company
@@ -83,6 +92,9 @@ const EmployeeSchema = new mongoose.Schema({
   bankDetails: bankSchema,
   personalDetails: personalSchema,
   experienceDetails: [experienceSchema],
+
+  // ✅ FIXED: Company documents submitted by employee during onboarding
+  companyDocuments: [companyDocumentSchema],
 
   // ROLES
   role: { type: String, enum: ["employee", "manager"], default: "employee" },

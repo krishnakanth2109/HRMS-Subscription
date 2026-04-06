@@ -154,7 +154,7 @@ function OfferLetterIndex() {
   return (
     <div className="offer-letter-wrapper ol-container">
       <header style={{ marginBottom: '2rem', textAlign: 'center', paddingTop: '1rem' }}>
-        <h1 style={{ fontWeight: 800, color: 'var(--accent-color)', marginBottom: '0.25rem', letterSpacing: '-0.025em' }}>TalentScribe</h1>
+        <h1 style={{ fontWeight: 800, color: 'var(--accent-color)', marginBottom: '0.25rem', letterSpacing: '-0.025em' }}>Offer Letter Management</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Professional Document Automation</p>
       </header>
 

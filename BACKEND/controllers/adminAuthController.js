@@ -1,10 +1,10 @@
 import Admin from "../models/adminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
 import Employee from "../models/employeeModel.js";
-import Feature from "../models/featureModel.js"; // ⭐ NEW: Import Feature model
+import Feature from "../models/featureModel.js";
 import jwt from "jsonwebtoken";
 
-/* ==================== JWT SIGN (FIXED) ==================== */
+/* ==================== JWT SIGN ==================== */
 const signToken = (id, role) => {
   return jwt.sign(
     { id, role },
@@ -16,14 +16,21 @@ const signToken = (id, role) => {
 /* ==================== HELPER: CALCULATE EXPIRY ==================== */
 const getExpiryDate = async (planName) => {
   const setting = await PlanSetting.findOne({ planName });
-  const days = setting ? setting.durationDays : 30; 
-  
+
+  // ✅ Owner / unlimited plan — set expiry far in the future (100 years)
+  if (setting && setting.isUnlimited) {
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 100);
+    return farFuture;
+  }
+
+  const days = setting ? setting.durationDays : 30;
   const expiryDate = new Date();
   expiryDate.setDate(expiryDate.getDate() + days);
   return expiryDate;
 };
 
-/* ==================== REGISTER ADMIN (RE-UPDATED) ==================== */
+/* ==================== REGISTER ADMIN ==================== */
 export const registerAdmin = async (req, res) => {
   try {
     const { name, email, password, phone, role, department, plan } = req.body;
@@ -37,30 +44,27 @@ export const registerAdmin = async (req, res) => {
       return res.status(400).json({ message: "Admin with this email already exists" });
     }
 
-    // 1. Look up the plan in our dynamic PlanSetting collection
     const planInfo = await PlanSetting.findOne({ planName: plan });
-    
-    // 2. If the plan doesn't exist in DB, and it's not the default "Free", throw error
+
     if (!planInfo && plan !== "Free") {
        return res.status(400).json({ message: "The selected plan is invalid or no longer exists." });
     }
 
-    // 3. Determine if paid and get expiry
     const isPaid = planInfo ? planInfo.price > 0 : false;
     const planExpiresAt = await getExpiryDate(plan || "Free");
 
     const admin = await Admin.create({
       name,
       email,
-      password, 
+      password,
       phone: phone || "",
       role: role || "admin",
       department: department || "Administration",
       plan: plan || "Free",
-      isPaid: isPaid, 
+      isPaid: isPaid,
       planActivatedAt: new Date(),
-      planExpiresAt: planExpiresAt, 
-      loginEnabled: true, // Default: login allowed
+      planExpiresAt: planExpiresAt,
+      loginEnabled: true,
     });
 
     const token = signToken(admin._id, admin.role);
@@ -89,7 +93,7 @@ export const loginAdmin = async (req, res) => {
     const { email, password } = req.body;
 
     const admin = await Admin.findOne({ email }).select("+password");
-    
+
     if (!admin || !(await admin.correctPassword(password, admin.password))) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
@@ -106,25 +110,31 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
-    /* === PLAN EXPIRY BLOCKER === */
-    const now = new Date();
-    const expiryDate = new Date(admin.planExpiresAt);
+    /* === ✅ SKIP EXPIRY CHECK FOR OWNER / UNLIMITED PLAN === */
+    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
+    const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
 
-    if (admin.planExpiresAt && now > expiryDate) {
-      const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
+    if (!isUnlimitedPlan) {
+      /* === PLAN EXPIRY BLOCKER (only for non-owner plans) === */
+      const now = new Date();
+      const expiryDate = new Date(admin.planExpiresAt);
 
-      return res.status(403).json({ 
-        message: "Your plan is expired. Please contact support team",
-        expired: true,
-        adminDetails: {
-          name: admin.name,
-          email: admin.email,
-          plan: admin.plan,
-          planActivatedAt: admin.planActivatedAt,
-          planExpiresAt: admin.planExpiresAt,
-          expiredDaysAgo: expiredDaysAgo,
-        }
-      });
+      if (admin.planExpiresAt && now > expiryDate) {
+        const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
+
+        return res.status(403).json({
+          message: "Your plan is expired. Please contact support team",
+          expired: true,
+          adminDetails: {
+            name: admin.name,
+            email: admin.email,
+            plan: admin.plan,
+            planActivatedAt: admin.planActivatedAt,
+            planExpiresAt: admin.planExpiresAt,
+            expiredDaysAgo: expiredDaysAgo,
+          },
+        });
+      }
     }
 
     const token = signToken(admin._id, admin.role);
@@ -137,6 +147,7 @@ export const loginAdmin = async (req, res) => {
         name: admin.name,
         role: admin.role,
         plan: admin.plan,
+        isOwner: isUnlimitedPlan || false, // ✅ frontend can use this flag
       },
     });
   } catch (error) {
@@ -148,21 +159,27 @@ export const loginAdmin = async (req, res) => {
 /* ==================== UPDATE DYNAMIC PLAN DAYS & PRICE ==================== */
 export const updatePlanSettings = async (req, res) => {
   try {
-    const { planName, durationDays, price, features } = req.body; 
+    const { planName, durationDays, price, features } = req.body;
+
+    // ✅ Protect owner plan from being modified via API
+    const existing = await PlanSetting.findOne({ planName });
+    if (existing && existing.isOwnerPlan) {
+      return res.status(403).json({ message: "The Owner plan is protected and cannot be modified." });
+    }
 
     const setting = await PlanSetting.findOneAndUpdate(
       { planName },
-      { 
+      {
         durationDays: Number(durationDays),
         price: Number(price),
-        features: features  // ⭐ features is now an array of route strings e.g. ["/admin/dashboard", "/employees"]
+        features: features,
       },
       { upsert: true, new: true }
     );
 
-    res.status(200).json({ 
-      message: `Plan ${planName} updated successfully`, 
-      setting 
+    res.status(200).json({
+      message: `Plan ${planName} updated successfully`,
+      setting,
     });
   } catch (error) {
     console.error("❌ UPDATE SETTINGS ERROR:", error);
@@ -195,6 +212,13 @@ export const getAllAdmins = async (req, res) => {
 export const deletePlan = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ✅ Protect owner plan from deletion
+    const plan = await PlanSetting.findById(id);
+    if (plan && plan.isOwnerPlan) {
+      return res.status(403).json({ message: "The Owner plan is protected and cannot be deleted." });
+    }
+
     await PlanSetting.findByIdAndDelete(id);
     res.status(200).json({ message: "Plan deleted successfully" });
   } catch (error) {
@@ -269,7 +293,6 @@ export const getLoginAccessStatus = async (req, res) => {
       .select("name email plan loginEnabled planExpiresAt createdAt")
       .sort({ createdAt: -1 });
 
-    // For each admin, also get employee count and employee loginEnabled status
     const adminData = await Promise.all(
       admins.map(async (admin) => {
         const totalEmployees = await Employee.countDocuments({ adminId: admin._id });
@@ -283,7 +306,7 @@ export const getLoginAccessStatus = async (req, res) => {
           name: admin.name,
           email: admin.email,
           plan: admin.plan,
-          loginEnabled: admin.loginEnabled !== false, // default true if field missing
+          loginEnabled: admin.loginEnabled !== false,
           planExpiresAt: admin.planExpiresAt,
           createdAt: admin.createdAt,
           totalEmployees,
@@ -306,9 +329,8 @@ export const getAdminProfile = async (req, res) => {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
-    // Use req.user._id (which was set in middleware)
-    const admin = await Admin.findById(req.user._id); 
-    
+    const admin = await Admin.findById(req.user._id);
+
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
@@ -325,7 +347,6 @@ export const updateAdminProfile = async (req, res) => {
   try {
     const { name, phone, department } = req.body;
 
-    // Validate required fields
     if (!name || !phone) {
       return res.status(400).json({ message: "Name and Phone are required" });
     }
@@ -342,7 +363,7 @@ export const updateAdminProfile = async (req, res) => {
 
     res.status(200).json({
       message: "Profile updated successfully",
-      admin: updatedAdmin
+      admin: updatedAdmin,
     });
   } catch (error) {
     console.error("❌ UPDATE PROFILE ERROR:", error);
@@ -350,7 +371,7 @@ export const updateAdminProfile = async (req, res) => {
   }
 };
 
-/* ==================== ⭐ GET ALL AVAILABLE FEATURES (for MasterSettings) ==================== */
+/* ==================== GET ALL AVAILABLE FEATURES (for MasterSettings) ==================== */
 export const getAllFeatures = async (req, res) => {
   try {
     const features = await Feature.find({}).sort({ label: 1 });
@@ -361,9 +382,7 @@ export const getAllFeatures = async (req, res) => {
   }
 };
 
-/* ==================== ⭐ GET CURRENT ADMIN'S PLAN FEATURES (for Sidebar) ==================== */
-// Returns the array of route strings that are enabled for the logged-in admin's plan.
-// The Sidebar uses these routes to filter which nav links to display.
+/* ==================== GET CURRENT ADMIN'S PLAN FEATURES (for Sidebar) ==================== */
 export const getMyPlanFeatures = async (req, res) => {
   try {
     if (!req.user) {
@@ -377,14 +396,39 @@ export const getMyPlanFeatures = async (req, res) => {
 
     const plan = await PlanSetting.findOne({ planName: admin.plan });
 
-    // If no plan found or no features, return empty (Sidebar will show all or nothing based on your preference)
+    // ✅ Owner / unlimited plan → return ALL features from all plans (no restriction)
+    if (plan && (plan.isOwnerPlan || plan.isUnlimited)) {
+      // Gather every unique route from all plans + owner-exclusive routes
+      const allPlans = await PlanSetting.find({});
+      const allRoutes = new Set();
+      allPlans.forEach((p) => p.features.forEach((route) => allRoutes.add(route)));
+
+      // Also include owner-exclusive routes that may not be in any regular plan
+      const ownerExclusiveRoutes = [
+        "/master/dashboard",
+        "/master/admins",
+        "/master/plans",
+        "/master/login-access",
+        "/master/settings",
+        "/master/billing",
+        "/master/analytics",
+      ];
+      ownerExclusiveRoutes.forEach((r) => allRoutes.add(r));
+
+      return res.status(200).json({
+        planName: admin.plan,
+        isOwnerPlan: true,
+        allowedRoutes: Array.from(allRoutes),
+      });
+    }
+
     if (!plan || !plan.features || plan.features.length === 0) {
       return res.status(200).json({ planName: admin.plan, allowedRoutes: [] });
     }
 
     res.status(200).json({
       planName: plan.planName,
-      allowedRoutes: plan.features, // array of route strings e.g. ["/admin/dashboard", "/employees"]
+      allowedRoutes: plan.features,
     });
   } catch (error) {
     console.error("❌ GET MY PLAN FEATURES ERROR:", error);

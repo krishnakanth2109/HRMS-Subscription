@@ -58,6 +58,7 @@ import api, {
   getShiftByEmployeeId,
   getHolidays,
   getLeaveRequestsForEmployee,
+  getEmployeeById,
 } from "../api";
 import { useNavigate, Link } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
@@ -164,6 +165,8 @@ const EmployeeDashboard = () => {
   const [showCropModal, setShowCropModal] = useState(false);
   const [imageToCrop, setImageToCrop] = useState(null);
   const [workedTime, setWorkedTime] = useState(0);
+  // ✅ FIX: Fresh employee data fetched from API on every mount so edits from EditEmployee reflect immediately
+  const [employeeData, setEmployeeData] = useState(null);
   // ✅ NEW: Live break time counter (seconds)
   const [breakTime, setBreakTime] = useState(0);
   const alarmPlayedRef = useRef(false);
@@ -454,6 +457,10 @@ const EmployeeDashboard = () => {
           loadShiftTimings(user.employeeId),
           loadProfilePic(),
           loadRequestLimit(user.employeeId),
+          // ✅ FIX: Fetch fresh employee data from DB so edits from EditEmployee are reflected immediately
+          getEmployeeById(user.employeeId)
+            .then((freshData) => { if (freshData) setEmployeeData(freshData); })
+            .catch(() => {}),
         ]);
         setLoading(false);
 
@@ -489,10 +496,13 @@ const EmployeeDashboard = () => {
     return () => { document.removeEventListener("mousedown", handleClickOutside); };
   }, []);
 
-  const { name, email, phone, employeeId } = user || {};
-  const latestExp = user?.experienceDetails?.[user.experienceDetails.length - 1];
-  const role = latestExp?.role || user?.role || "N/A";
-  const department = latestExp?.department || user?.department || "N/A";
+  // ✅ FIX: Use freshly fetched employeeData so edits from EditEmployee are visible immediately.
+  // Falls back to AuthContext user if fetch hasn't completed yet.
+  const displayUser = employeeData || user;
+  const { name, email, phone, employeeId } = displayUser || {};
+  const latestExp = displayUser?.experienceDetails?.[displayUser.experienceDetails.length - 1];
+  const role = latestExp?.role || displayUser?.currentRole || displayUser?.role || "N/A";
+  const department = latestExp?.department || displayUser?.currentDepartment || displayUser?.department || "N/A";
 
   useEffect(() => {
     let interval;
@@ -696,6 +706,61 @@ const EmployeeDashboard = () => {
           return;
         }
       }
+
+      // ✅ WEEK OFF GUARD — check if today is assigned week off
+      const todayDayNum = new Date().getDay(); // 0=Sunday … 6=Saturday
+      const weeklyOffDays = shiftTimings?.weeklyOffDays ?? [0];
+      const isTodayWeekOff = Array.isArray(weeklyOffDays) && weeklyOffDays.includes(todayDayNum);
+
+      if (isTodayWeekOff) {
+        try {
+          const todayStr = new Date().toISOString().split("T")[0];
+          const { data: otList } = await api.get(`/api/overtime/${user.employeeId}`);
+          const approvedOT = Array.isArray(otList)
+            ? otList.find(ot => ot.date === todayStr && ot.status === "APPROVED")
+            : null;
+
+          if (!approvedOT) {
+            // No approved OT — block and show informative alert
+            Swal.fire({
+              icon: "warning",
+              title: "🗓️ Today is Your Week Off!",
+              html: `
+                <p style="font-size:15px; color:#374151; margin-bottom:12px">
+                  Punch-in is <b>not allowed</b> on your assigned week off.
+                </p>
+                <div style="background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; padding:12px; text-align:left; font-size:13px; color:#92400e; line-height:1.8">
+                  <b>Want to work today? Follow these steps:</b><br/>
+                  1️⃣ Apply for <b>Overtime</b> from Quick Actions or the Overtime page<br/>
+                  2️⃣ Contact your <b>Admin</b> to approve the overtime request<br/>
+                  3️⃣ Once <b>Approved</b>, come back here to punch in
+                </div>
+              `,
+              showCancelButton: true,
+              confirmButtonText: "Apply Overtime →",
+              cancelButtonText: "Close",
+              confirmButtonColor: "#4f46e5",
+              cancelButtonColor: "#6b7280",
+            }).then((result) => {
+              if (result.isConfirmed) {
+                navigate("/employee/empovertime");
+              }
+            });
+            return; // ❌ Block punch-in
+          }
+          // ✅ Approved OT found — fall through to performPunchAction below
+        } catch (err) {
+          console.error("Week-off OT check failed:", err);
+          // If check fails, let backend decide — don't silently allow
+          Swal.fire({
+            icon: "error",
+            title: "Check Failed",
+            text: "Could not verify your overtime status. Please try again.",
+          });
+          return;
+        }
+      }
+      // ✅ Either not a week off, or approved OT exists — proceed to punch in
       performPunchAction("IN");
     }
 
@@ -705,9 +770,8 @@ const EmployeeDashboard = () => {
 
       if (workedTime >= fullDaySeconds) { await performPunchAction("OUT"); return; }
 
-      // ✅ UPDATED: Contextual warning message based on hours worked
       let confirmMessage = workedTime < halfDaySeconds
-        ? "Your worked hours are below the minimum Half-Day limit. If you don't punch in again, today will be marked as ABSENT. Do you want to continue?"
+        ? "“Your worked hours are below the minimum Half-Day limit. If you don't punch in again, today will be marked as ABSENT. Do you want to continue?"
         : "Your worked hours are below the Full-Day requirement. If you don't punch in again, today will be marked as HALF-DAY. Do you want to continue?";
 
       Swal.fire({

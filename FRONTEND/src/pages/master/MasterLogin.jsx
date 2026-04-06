@@ -94,7 +94,7 @@ const MasterLogin = () => {
               </span>
             </h1>
             <p className="text-slate-400 text-lg leading-relaxed">
-              Securely oversee your entire HR vwsync ecosystem. Manage subscribers, configure global billing plans, and monitor system health from a single unified dashboard.
+              Securely oversee your entire HR V-Sync ecosystem. Manage subscribers, configure global billing plans, and monitor system health from a single unified dashboard.
             </p>
           </motion.div>
 

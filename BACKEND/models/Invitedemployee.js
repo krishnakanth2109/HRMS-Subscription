@@ -25,7 +25,7 @@ const invitedEmployeeSchema = new mongoose.Schema({
     enum: ['pending', 'onboarded', 'revoked'],
     default: 'pending'
   },
-  employmentType: { type: String, enum: ['Full-time', 'Intern', 'Contract'] },
+  employmentType: { type: String, enum: ['Full-Time', 'Intern', 'Contract'] },
   salary: { type: Number },
   invitedAt: {
     type: Date,
