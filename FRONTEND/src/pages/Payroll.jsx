@@ -135,6 +135,39 @@ const getCurrentEmploymentType = (employee) => {
   return "N/A";
 };
 
+// Helper function to get date range based on selected month
+const getDateRangeFromMonth = (yearMonth) => {
+  if (!yearMonth) {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    return {
+      startDate: formatDate(firstDay),
+      endDate: formatDate(today)
+    };
+  }
+  
+  const [year, month] = yearMonth.split('-').map(Number);
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0); // Last day of month
+  
+  const today = new Date();
+  const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  
+  // If selected month is current month, end date is today
+  if (yearMonth === currentYearMonth) {
+    return {
+      startDate: formatDate(startDate),
+      endDate: formatDate(today)
+    };
+  }
+  
+  // For past months, end date is last day of that month
+  return {
+    startDate: formatDate(startDate),
+    endDate: formatDate(endDate)
+  };
+};
+
 // --- CONFIGURATION MODAL ---
 const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
   const [rules, setRules] = useState(currentRules);
@@ -436,7 +469,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                <td>TOTAL DEDUCTIONS</td>
                <td class="text-right">${formatCurrency(employee.totalDeductions)}</td>
               </tr>
-           </table>
+            </table>
 
           <div style="background: #1e3a8a; color: white; padding: 10px; text-align: center; font-weight: bold;">
              NET PAYABLE: ${formatCurrency(employee.netPayableSalary)}
@@ -570,10 +603,10 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                     <td className="py-2">Other Allowance</td>
                     <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td>
                   </tr>
-                  {/* <tr>
+                  <tr>
                     <td className="py-2">Special</td>
                     <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.special)}</td>
-                  </tr> */}
+                  </tr>
                   <tr className="bg-green-50">
                     <td className="py-2 font-bold">Gross Total</td>
                     <td className="text-right font-bold text-green-800">{formatCurrency(employee.breakdown.gross)}</td>
@@ -641,18 +674,15 @@ const PayrollManagement = () => {
   const [payrollRules, setPayrollRules] = useState(DEFAULT_RULES);
   const [saving, setSaving] = useState(false); // Loading state for saving
 
-  // ✅ DATE LOGIC
+  // ✅ MONTH SELECTION LOGIC
   const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const formatDateForInput = (d) => {
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const [summaryStartDate, setSummaryStartDate] = useState(formatDateForInput(firstDayOfMonth));
-  const [summaryEndDate, setSummaryEndDate] = useState(formatDateForInput(today));
+  const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+  const [selectedMonth, setSelectedMonth] = useState(currentYearMonth);
+  
+  // Generate date range based on selected month
+  const dateRange = useMemo(() => getDateRangeFromMonth(selectedMonth), [selectedMonth]);
+  const summaryStartDate = dateRange.startDate;
+  const summaryEndDate = dateRange.endDate;
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -661,6 +691,19 @@ const PayrollManagement = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [shifts, setShifts] = useState([]);
+
+  // Generate available months (last 12 months including current)
+  const availableMonths = useMemo(() => {
+    const months = [];
+    const currentDate = new Date();
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthName = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+      months.push({ value: yearMonth, label: monthName });
+    }
+    return months;
+  }, []);
 
   useEffect(() => {
     const loadData = async () => {
@@ -1065,69 +1108,151 @@ const PayrollManagement = () => {
       <div className="max-w-[1800px] mx-auto">
 
         {/* ✅ HEADER UI */}
-        <div className="mb-6 bg-white p-6 rounded-xl shadow-sm border border-gray-300 flex flex-col md:flex-row items-center justify-between gap-4">
-
-          <div className="flex-shrink-0">
-            <h1 className="text-xl font-extrabold text-gray-900 flex items-center gap-2">
-              Payroll Management
-            </h1>
-          </div>
-
-          <div className="flex flex-1 items-center gap-3 overflow-x-auto w-full md:w-auto">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-              <input
-                type="text"
-                placeholder="Search ID/Name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 w-48 transition"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 text-sm bg-gray-50 px-3 py-1 rounded-lg border border-gray-200">
-              <span className="text-gray-500 font-bold text-xs">FROM</span>
-              <input
-                type="date"
-                value={summaryStartDate}
-                onChange={e => setSummaryStartDate(e.target.value)}
-                className="bg-transparent border-none p-0 text-gray-700 font-semibold focus:ring-0 text-sm w-28"
-              />
-              <span className="text-gray-300">|</span>
-              <span className="text-gray-500 font-bold text-xs">TO</span>
-              <input
-                type="date"
-                value={summaryEndDate}
-                onChange={e => setSummaryEndDate(e.target.value)}
-                className="bg-transparent border-none p-0 text-gray-700 font-semibold focus:ring-0 text-sm w-28"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => setShowConfig(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg shadow transition active:scale-95 flex items-center gap-1"
-            >
-              Manage Rules
-            </button>
-
-            {/* ✅ NEW BUTTON FOR SAVING TO DB */}
-            <button
-              onClick={handleSaveDatabase}
-              disabled={saving}
-              className={`text-white text-sm font-medium py-1.5 px-3 rounded-lg shadow transition flex items-center gap-1 ${saving ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}
-            >
-              {saving ? 'Saving...' : '💾 Save Payroll'}
-            </button>
-            <button
-              onClick={handleExportAll}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-1.5 px-3 rounded-lg shadow transition flex items-center gap-1"
-            >
-              📊 Export
-            </button>
-          </div>
+{/* ✅ MODERN DYNAMIC HEADER UI - REFINED */}
+<div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden transition-all duration-300">
+  
+  {/* Top Header Section with Gradient Accent */}
+  <div className="relative px-6 pt-6 pb-4 bg-gradient-to-r from-gray-50 via-white to-gray-50/30 border-b border-gray-200/60">
+    {/* Decorative accent line */}
+    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600"></div>
+    
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2.5 rounded-xl shadow-md">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
         </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            Payroll Management
+          </h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage employee salaries & payroll rules</p>
+        </div>
+      </div>
+      
+      {/* Month and Date Range - Desktop */}
+      <div className="hidden sm:flex items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100">
+          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className="text-sm font-medium text-gray-700">
+            {summaryStartDate} - {summaryEndDate}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Action Bar - All controls in one cohesive row */}
+  <div className="px-6 py-4 bg-white flex flex-wrap items-center justify-between gap-4">
+    
+    {/* Left: Search & Filters */}
+    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[200px]">
+      {/* Search Box */}
+      <div className="relative group flex-1 min-w-[180px] sm:max-w-[260px]">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          placeholder="Search by ID or name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="block w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 hover:bg-white hover:border-gray-300"
+        />
+      </div>
+
+      {/* Month Selector */}
+      <div className="relative">
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 cursor-pointer group-focus-within:ring-2 group-focus-within:ring-blue-500">
+          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="bg-transparent border-none p-0 text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer appearance-none pr-6"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25rem' }}
+          >
+            {availableMonths.map(month => (
+              <option key={month.value} value={month.value}>
+                {month.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Mobile Date Range */}
+      <div className="sm:hidden flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100">
+        <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <span className="text-xs font-medium text-gray-600">
+          {summaryStartDate} - {summaryEndDate}
+        </span>
+      </div>
+    </div>
+
+    {/* Right: Action Buttons */}
+    <div className="flex items-center gap-2 flex-wrap">
+      {/* Manage Rules Button */}
+      <button
+        onClick={() => setShowConfig(true)}
+        className="group relative px-4 py-2 bg-white border border-gray-200 hover:border-blue-400 rounded-xl text-sm font-medium text-gray-700 hover:text-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span>Manage Payroll Calculations</span>
+      </button>
+
+      {/* Release Payslip Button */}
+      <button
+        onClick={handleSaveDatabase}
+        disabled={saving}
+        className={`group relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm ${
+          saving 
+            ? 'bg-gray-400 cursor-not-allowed' 
+            : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 hover:shadow-lg active:scale-95 text-white'
+        }`}
+      >
+        {saving ? (
+          <>
+            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Saving...</span>
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            <span>Release Payslip</span>
+          </>
+        )}
+      </button>
+
+      {/* Export Button */}
+      <button
+        onClick={handleExportAll}
+        className="group relative px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl text-sm font-medium text-white transition-all duration-200 hover:shadow-lg active:scale-95 flex items-center gap-2"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        <span>Export</span>
+      </button>
+    </div>
+  </div>
+</div>
 
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">

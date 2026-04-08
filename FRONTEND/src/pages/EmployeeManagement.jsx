@@ -38,7 +38,7 @@ const getSecureUrl = (url) => {
   return url;
 };
 
-const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
 
 // Helper: Get Department (Prioritize root, then experience)
 const getCurrentDepartment = (employee) => {
@@ -182,6 +182,7 @@ const EmployeeRow = ({
   profilePic,
   onImageClick,
 }) => {
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const isEven = idx % 2 === 0;
   const currentDepartment = getCurrentDepartment(emp);
   const currentRole = getCurrentRole(emp);

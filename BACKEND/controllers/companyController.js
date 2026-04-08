@@ -10,7 +10,7 @@ export const getAllCompanies = async (req, res) => {
     const companies = await Company.find({ 
         adminId: req.user._id,
         isActive: true 
-    }).select("_id name prefix employeeCount");
+    }).select("_id name prefix employeeCount description email phone officeLocation website registrationNumber");
     
     res.status(200).json({
       success: true,
@@ -41,7 +41,20 @@ export const getCompanyById = async (req, res) => {
 // ✅ CREATE NEW COMPANY
 export const createCompany = async (req, res) => {
   try {
-    const { name, prefix, description, email, phone, address, city, state, zipCode, country, registrationNumber, website } = req.body;
+    const { 
+      name, 
+      prefix, 
+      description, 
+      email, 
+      phone, 
+      address, 
+      city, 
+      state, 
+      zipCode, 
+      country, 
+      registrationNumber, 
+      website 
+    } = req.body;
 
     if (!name || !prefix) {
       return res.status(400).json({ success: false, message: "Name/Prefix required" });
@@ -60,16 +73,21 @@ export const createCompany = async (req, res) => {
       adminId: req.user._id, // LINK TO ADMIN
       name: name.trim(),
       prefix: prefix.toUpperCase().trim(),
-      description,
-      email,
-      phone,
-      address,
-      city,
-      state,
-      zipCode,
-      country,
-      registrationNumber,
-      website,
+      description: description || "",
+      email: email || "",
+      phone: phone || "",
+      website: website || "",
+      registrationNumber: registrationNumber || "",
+      officeLocation: {
+        address: address || "",
+        city: city || "",
+        state: state || "",
+        zipCode: zipCode || "",
+        country: country || "",
+        latitude: null,
+        longitude: null,
+        allowedRadius: 200
+      },
       employeeCount: 0,
     });
 
@@ -89,14 +107,68 @@ export const createCompany = async (req, res) => {
 export const updateCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const { 
+      name, 
+      prefix, 
+      description, 
+      email, 
+      phone, 
+      address, 
+      city, 
+      state, 
+      zipCode, 
+      country, 
+      registrationNumber, 
+      website 
+    } = req.body;
 
-    // Security check logic omitted for brevity, but ideally verify name/prefix uniqueness if changed
+    // Check if name or prefix already exists for another company
+    if (name || prefix) {
+      const existingCompany = await Company.findOne({
+        _id: { $ne: id },
+        $or: []
+      });
+      
+      if (name) {
+        existingCompany.$or.push({ name: name.trim() });
+      }
+      if (prefix) {
+        existingCompany.$or.push({ prefix: prefix.toUpperCase().trim() });
+      }
+      
+      if (existingCompany.$or.length > 0) {
+        const duplicate = await Company.findOne(existingCompany);
+        if (duplicate) {
+          return res.status(400).json({ success: false, message: "Company Name or Prefix already taken by another company." });
+        }
+      }
+    }
+    
+    // Build update object
+    const updateData = {};
+    if (name) updateData.name = name.trim();
+    if (prefix) updateData.prefix = prefix.toUpperCase().trim();
+    if (description !== undefined) updateData.description = description;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (website !== undefined) updateData.website = website;
+    if (registrationNumber !== undefined) updateData.registrationNumber = registrationNumber;
+    
+    // Update officeLocation fields
+    if (address !== undefined || city !== undefined || state !== undefined || 
+        zipCode !== undefined || country !== undefined) {
+      updateData.officeLocation = {};
+      if (address !== undefined) updateData.officeLocation.address = address;
+      if (city !== undefined) updateData.officeLocation.city = city;
+      if (state !== undefined) updateData.officeLocation.state = state;
+      if (zipCode !== undefined) updateData.officeLocation.zipCode = zipCode;
+      if (country !== undefined) updateData.officeLocation.country = country;
+    }
     
     // Ensure Admin owns it
     const company = await Company.findOneAndUpdate(
         { _id: id, adminId: req.user._id }, 
-        updates, 
+        updateData, 
         { new: true, runValidators: true }
     );
 
@@ -114,6 +186,16 @@ export const updateCompany = async (req, res) => {
 export const deleteCompany = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Check if company has employees before deleting
+    const employeeCount = await Employee.countDocuments({ company: id });
+    if (employeeCount > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot delete company with ${employeeCount} employee(s). Please reassign or delete employees first.` 
+      });
+    }
+    
     const company = await Company.findOneAndDelete({ _id: id, adminId: req.user._id });
 
     if (!company) {

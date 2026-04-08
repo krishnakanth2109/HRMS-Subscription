@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2"; // ✅ Added SweetAlert2
+import Swal from "sweetalert2";
 import {
   FaUser,
   FaEnvelope,
@@ -23,9 +23,11 @@ import {
   FaTimes,
   FaTrash,
   FaEdit,
+  FaGlobe,
+  FaRegBuilding,
 } from "react-icons/fa";
 
-// ✅ IMPORT THE CENTRALIZED API FUNCTIONS
+// IMPORT THE CENTRALIZED API FUNCTIONS
 import {
   getEmployees,
   addEmployee,
@@ -54,6 +56,8 @@ const AddEmployee = () => {
     state: "",
     zipCode: "",
     country: "",
+    registrationNumber: "",
+    website: "",
   });
 
   // Company Modal State (Edit)
@@ -70,6 +74,8 @@ const AddEmployee = () => {
     state: "",
     zipCode: "",
     country: "",
+    registrationNumber: "",
+    website: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -168,13 +174,25 @@ const AddEmployee = () => {
   // Handle Add Company
   const handleAddCompany = async (e) => {
     e.preventDefault();
+    
+    // Validation
     if (!newCompanyData.name.trim() || !newCompanyData.prefix.trim()) {
       Swal.fire("Warning", "Company name and prefix are required", "warning");
       return;
     }
 
+    if (newCompanyData.prefix.length < 2 || newCompanyData.prefix.length > 5) {
+      Swal.fire("Warning", "Prefix must be 2-5 characters", "warning");
+      return;
+    }
+
     if (newCompanyData.phone && newCompanyData.phone.length !== 10) {
       Swal.fire("Warning", "Phone number must be exactly 10 digits", "warning");
+      return;
+    }
+
+    if (newCompanyData.website && !/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/.test(newCompanyData.website)) {
+      Swal.fire("Warning", "Please enter a valid website URL", "warning");
       return;
     }
 
@@ -184,6 +202,7 @@ const AddEmployee = () => {
       setCompanies([...companies, response.data]);
       handleCompanyChange(response.data._id);
 
+      // Reset form
       setNewCompanyData({
         name: "",
         prefix: "",
@@ -195,15 +214,30 @@ const AddEmployee = () => {
         state: "",
         zipCode: "",
         country: "",
+        registrationNumber: "",
+        website: "",
       });
       setShowAddCompanyModal(false);
       Swal.fire("Success", "Company added successfully!", "success");
     } catch (err) {
-      Swal.fire(
-        "Error",
-        err.response?.data?.message || "Error adding company",
-        "error",
-      );
+      // Handle duplicate company error
+      const errorMessage = err.response?.data?.message || "Error adding company";
+      if (errorMessage.toLowerCase().includes("already taken") || 
+          errorMessage.toLowerCase().includes("duplicate") ||
+          errorMessage.toLowerCase().includes("exists")) {
+        Swal.fire({
+          icon: "warning",
+          title: "Company Already Exists",
+          text: "A company with this name or prefix already exists. Please use different values.",
+          confirmButtonColor: "#3085d6",
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: errorMessage,
+        });
+      }
     }
   };
 
@@ -217,11 +251,13 @@ const AddEmployee = () => {
       description: company.description || "",
       email: company.email || "",
       phone: company.phone || "",
-      address: company.officeLocation?.address || "",
+      address: company.address || "",
       city: company.city || "",
       state: company.state || "",
       zipCode: company.zipCode || "",
       country: company.country || "",
+      registrationNumber: company.registrationNumber || "",
+      website: company.website || "",
     });
     setShowEditCompanyModal(true);
   };
@@ -231,6 +267,11 @@ const AddEmployee = () => {
     e.preventDefault();
     if (!editCompanyData.name.trim() || !editCompanyData.prefix.trim()) {
       Swal.fire("Warning", "Company name and prefix are required", "warning");
+      return;
+    }
+
+    if (editCompanyData.prefix.length < 2 || editCompanyData.prefix.length > 5) {
+      Swal.fire("Warning", "Prefix must be 2-5 characters", "warning");
       return;
     }
 
@@ -256,11 +297,22 @@ const AddEmployee = () => {
       setShowEditCompanyModal(false);
       Swal.fire("Success", "Company updated successfully!", "success");
     } catch (err) {
-      Swal.fire(
-        "Error",
-        err.response?.data?.message || "Error updating company",
-        "error",
-      );
+      const errorMessage = err.response?.data?.message || "Error updating company";
+      if (errorMessage.toLowerCase().includes("already taken") || 
+          errorMessage.toLowerCase().includes("duplicate")) {
+        Swal.fire({
+          icon: "warning",
+          title: "Company Already Exists",
+          text: "Another company with this name or prefix already exists.",
+          confirmButtonColor: "#3085d6",
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: errorMessage,
+        });
+      }
     }
   };
 
@@ -564,15 +616,14 @@ const AddEmployee = () => {
             {formData.company && (
               <div className="relative">
                 <FaIdBadge className="absolute left-3 top-4 text-gray-400" />
-                <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Employee ID (Auto or Manual)</label>
+
                 <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">
-                  Generated Employee ID
+                  Generated Employee ID 
                 </label>
                 <input
                   type="text"
                   value={formData.employeeId}
                   onChange={(e) => {
-                    // Keep prefix locked; allow editing the full ID freely
                     const value = e.target.value.toUpperCase();
                     setFormData(prev => ({ ...prev, employeeId: value }));
                   }}
@@ -580,7 +631,7 @@ const AddEmployee = () => {
                   className="w-full pl-10 pr-4 pt-5 pb-2 border border-blue-400 rounded-lg bg-white text-gray-800 font-semibold focus:ring-2 focus:ring-blue-400 outline-none"
                 />
                 <p className="text-xs text-gray-400 mt-1 pl-1">
-                  Auto-generated — edit freely. Next serial will continue from the highest number in DB.
+                  Auto-generated — Edit as needed. Next serial will continue from the highest number in DB.
                 </p>
               </div>
             )}
@@ -828,10 +879,10 @@ const AddEmployee = () => {
         </form>
       </div>
 
-      {/* ADD COMPANY MODAL */}
+      {/* ADD COMPANY MODAL - UPDATED WITH ALL FIELDS */}
       {showAddCompanyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-blue-800">
                 Add New Company
@@ -845,43 +896,56 @@ const AddEmployee = () => {
               </button>
             </div>
             <form onSubmit={handleAddCompany} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Company Name *
-                </label>
-                <input
-                  type="text"
-                  value={newCompanyData.name}
-                  onChange={(e) =>
-                    setNewCompanyData({
-                      ...newCompanyData,
-                      name: e.target.value,
-                    })
-                  }
-                  placeholder="e.g., ARAH Infotech"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                  required
-                />
+              {/* Basic Information Section */}
+              <div className="border-b pb-3 mb-3">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaRegBuilding /> Basic Information
+                </h4>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Employee ID Prefix (3-4 chars) *
-                </label>
-                <input
-                  type="text"
-                  value={newCompanyData.prefix}
-                  onChange={(e) =>
-                    setNewCompanyData({
-                      ...newCompanyData,
-                      prefix: e.target.value.toUpperCase(),
-                    })
-                  }
-                  placeholder="e.g., ARA"
-                  maxLength={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
-                  required
-                />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Company Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompanyData.name}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        name: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., ARAH Infotech"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Employee ID Prefix (2-5 chars) *
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompanyData.prefix}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        prefix: e.target.value.toUpperCase(),
+                      })
+                    }
+                    placeholder="e.g., ARA"
+                    maxLength={5}
+                    minLength={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Used for employee ID generation (e.g., ARA001)</p>
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Description
@@ -894,47 +958,201 @@ const AddEmployee = () => {
                       description: e.target.value,
                     })
                   }
-                  placeholder="Brief description"
+                  placeholder="Brief description of the company"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
                   rows="2"
                 />
               </div>
+
+              {/* Contact Information Section */}
+              <div className="border-b pb-3 mb-3 mt-4">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaEnvelope /> Contact Information
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newCompanyData.email}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        email: e.target.value,
+                      })
+                    }
+                    placeholder="contact@company.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={newCompanyData.phone}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, "");
+                      if (value.length <= 10) {
+                        setNewCompanyData({ ...newCompanyData, phone: value });
+                      }
+                    }}
+                    placeholder="10 digit phone number"
+                    maxLength={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={newCompanyData.website}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        website: e.target.value,
+                      })
+                    }
+                    placeholder="https://www.company.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Address Section */}
+              <div className="border-b pb-3 mb-3 mt-4">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaMapMarkerAlt /> Address Information
+                </h4>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Email
+                  Street Address
                 </label>
                 <input
-                  type="email"
-                  value={newCompanyData.email}
+                  type="text"
+                  value={newCompanyData.address}
                   onChange={(e) =>
                     setNewCompanyData({
                       ...newCompanyData,
-                      email: e.target.value,
+                      address: e.target.value,
                     })
                   }
-                  placeholder="Enter email"
+                  placeholder="Street address, building number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompanyData.city}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        city: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., Mumbai"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompanyData.state}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        state: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., Maharashtra"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    ZIP / Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompanyData.zipCode}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, "");
+                      if (value.length <= 10) {
+                        setNewCompanyData({ ...newCompanyData, zipCode: value });
+                      }
+                    }}
+                    placeholder="e.g., 400001"
+                    maxLength={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompanyData.country}
+                    onChange={(e) =>
+                      setNewCompanyData({
+                        ...newCompanyData,
+                        country: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., India"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Registration Information */}
+              <div className="border-b pb-3 mb-3 mt-4">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaIdBadge /> Registration Information
+                </h4>
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Phone
+                  Registration Number / GST
                 </label>
                 <input
-                  type="tel"
-                  value={newCompanyData.phone}
-                  onChange={(e) => {
-                    let value = e.target.value.replace(/[^0-9]/g, ""); // allow digits only
-
-                    if (value.length <= 10) {
-                      setNewCompanyData({ ...newCompanyData, phone: value });
-                    }
-                  }}
-                  placeholder="Enter 10 digit phone number"
-                  maxLength={10}
+                  type="text"
+                  value={newCompanyData.registrationNumber}
+                  onChange={(e) =>
+                    setNewCompanyData({
+                      ...newCompanyData,
+                      registrationNumber: e.target.value,
+                    })
+                  }
+                  placeholder="Company registration or GST number"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
                 />
               </div>
+
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
@@ -955,10 +1173,10 @@ const AddEmployee = () => {
         </div>
       )}
 
-      {/* EDIT COMPANY MODAL */}
+      {/* EDIT COMPANY MODAL - UPDATED WITH ALL FIELDS */}
       {showEditCompanyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6 overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-bold text-blue-800">Edit Company</h3>
               <button
@@ -970,41 +1188,54 @@ const AddEmployee = () => {
               </button>
             </div>
             <form onSubmit={handleUpdateCompany} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Company Name *
-                </label>
-                <input
-                  type="text"
-                  value={editCompanyData.name}
-                  onChange={(e) =>
-                    setEditCompanyData({
-                      ...editCompanyData,
-                      name: e.target.value,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
-                  required
-                />
+              {/* Basic Information Section */}
+              <div className="border-b pb-3 mb-3">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaRegBuilding /> Basic Information
+                </h4>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Employee ID Prefix *
-                </label>
-                <input
-                  type="text"
-                  value={editCompanyData.prefix}
-                  onChange={(e) =>
-                    setEditCompanyData({
-                      ...editCompanyData,
-                      prefix: e.target.value.toUpperCase(),
-                    })
-                  }
-                  maxLength={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
-                  required
-                />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Company Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyData.name}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        name: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Employee ID Prefix (2-5 chars) *
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyData.prefix}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        prefix: e.target.value.toUpperCase(),
+                      })
+                    }
+                    maxLength={5}
+                    minLength={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none uppercase"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Used for employee ID generation (e.g., ARA001)</p>
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Description
@@ -1021,6 +1252,187 @@ const AddEmployee = () => {
                   rows="2"
                 />
               </div>
+
+              {/* Contact Information Section */}
+              <div className="border-b pb-3 mb-3 mt-4">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaEnvelope /> Contact Information
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={editCompanyData.email}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        email: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={editCompanyData.phone}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, "");
+                      if (value.length <= 10) {
+                        setEditCompanyData({ ...editCompanyData, phone: value });
+                      }
+                    }}
+                    maxLength={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={editCompanyData.website}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        website: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Address Section */}
+              <div className="border-b pb-3 mb-3 mt-4">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaMapMarkerAlt /> Address Information
+                </h4>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Street Address
+                </label>
+                <input
+                  type="text"
+                  value={editCompanyData.address}
+                  onChange={(e) =>
+                    setEditCompanyData({
+                      ...editCompanyData,
+                      address: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyData.city}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        city: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyData.state}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        state: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    ZIP / Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyData.zipCode}
+                    onChange={(e) => {
+                      let value = e.target.value.replace(/[^0-9]/g, "");
+                      if (value.length <= 10) {
+                        setEditCompanyData({ ...editCompanyData, zipCode: value });
+                      }
+                    }}
+                    maxLength={10}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value={editCompanyData.country}
+                    onChange={(e) =>
+                      setEditCompanyData({
+                        ...editCompanyData,
+                        country: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Registration Information */}
+              <div className="border-b pb-3 mb-3 mt-4">
+                <h4 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                  <FaIdBadge /> Registration Information
+                </h4>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Registration Number / GST
+                </label>
+                <input
+                  type="text"
+                  value={editCompanyData.registrationNumber}
+                  onChange={(e) =>
+                    setEditCompanyData({
+                      ...editCompanyData,
+                      registrationNumber: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none"
+                />
+              </div>
+
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
