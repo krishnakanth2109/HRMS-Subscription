@@ -34,9 +34,14 @@ router.post("/employees", protect, onlyAdmin, async (req, res) => {
   try {
     const adminId = req.user._id;
     const {
-      name, email, designation, department, joiningDate, employmentType,
+      name, email, designation, department,
+      joiningDate, joining_date,
+      employmentType, employment_type,
       location, emp_id, compensation
     } = req.body;
+
+    const jDate = joiningDate || joining_date || null;
+    const eType = employmentType || employment_type || "Full Time";
 
     const newCandidate = new OfferLetterEmployee({
       adminId,
@@ -46,8 +51,8 @@ router.post("/employees", protect, onlyAdmin, async (req, res) => {
       department,
       location: location || "",
       emp_id: emp_id || "",
-      joining_date: joiningDate || null,
-      employment_type: employmentType || "Full Time",
+      joining_date: jDate,
+      employment_type: eType,
       compensation: compensation || {},
       status: "Pending"
     });
@@ -69,17 +74,22 @@ router.put("/employees/:id", protect, onlyAdmin, async (req, res) => {
   try {
     const adminId = req.user._id;
     const {
-      name, email, designation, department, joiningDate, employmentType,
+      name, email, designation, department,
+      joiningDate, joining_date,
+      employmentType, employment_type,
       location, emp_id, compensation, status
     } = req.body;
+
+    const jDate = joiningDate || joining_date || null;
+    const eType = employmentType || employment_type || "Full Time";
 
     const updated = await OfferLetterEmployee.findOneAndUpdate(
       { _id: req.params.id, adminId },
       {
         $set: {
           name, email, designation, department, location, emp_id, status,
-          joining_date: joiningDate || null,
-          employment_type: employmentType || "Full Time",
+          joining_date: jDate,
+          employment_type: eType,
           compensation: compensation || {}
         }
       },
@@ -114,7 +124,7 @@ const uploadMemory = multer({ storage: multer.memoryStorage() });
 router.get("/template", protect, onlyAdmin, (req, res) => {
   try {
     const headers = [[
-      "name", "email", "joining_date", "employment_type", "designation", 
+      "name", "email", "joining_date", "employment_type", "designation",
       "department", "ctc", "basic_salary", "pt", "pf"
     ]];
 
@@ -143,7 +153,7 @@ router.post("/upload", protect, onlyAdmin, uploadMemory.single("file"), async (r
     let importedCount = 0;
     for (const row of rows) {
       if (!row.name || !row.email) continue;
-      
+
       const empData = {
         adminId,
         name: row.name,
@@ -273,9 +283,14 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     const ctcLakhs = formatLakhs(ctc);
     const netWords = numberToIndianWords(net);
 
+    // Determine strict pixel boundaries for the Canvas to prevent Annexure A overlap 
+    // or accidental second blank pages. Math matches FRONTEND containerPxPerPage padding.
+    const isIntern = !emp.employment_type || emp.employment_type.toLowerCase() === "internship";
+    const minHeightPx = isIntern ? "745px" : "850px";
+
     // Build the offer letter HTML (Page 1 + Salary Annexure Page 2)
     const page1 = `
-    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14.5px; line-height: 1.6; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: 830px;">
+    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14.5px; line-height: 1.6; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: ${minHeightPx}; box-sizing: border-box;">
         <div class="date-row" style="text-align: right; font-weight: bold; margin-bottom: 30px; margin-top: 10px;">
             <span style="display: inline-block;">Date : ${currentDate}</span>
         </div>
@@ -335,7 +350,11 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
         </div>
     </div>`;
 
-    const content = page1 + page2;
+    let content = page1;
+    // Internships do not require the Salary Annexure breakdown page
+    if (!emp.employment_type || emp.employment_type.toLowerCase() !== "internship") {
+      content += page2;
+    }
 
     // Save generated letter to history
     await GeneratedLetter.create({
@@ -465,7 +484,7 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
       console.error("🔥 BACKGROUND OFFER MAIL ERROR:", err);
     });
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Offer sending initiated! The candidate will receive their document shortly in the background.",
       status: "Offer Sent"
     });
@@ -556,8 +575,8 @@ router.get("/templates/fetch", protect, async (req, res) => {
 
           // Detect resource_type from URL path
           const resourceType = url.includes("/raw/upload") ? "raw"
-                             : url.includes("/video/upload") ? "video"
-                             : "image";
+            : url.includes("/video/upload") ? "video"
+              : "image";
 
           // Generate signed URL — format is part of the signature, not appended after
           fetchUrl = cloudinary.url(publicId, {
