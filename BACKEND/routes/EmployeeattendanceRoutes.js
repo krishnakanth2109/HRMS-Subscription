@@ -8,11 +8,15 @@ import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Holiday from "../models/Holiday.js";
+import Overtime from "../models/Overtime.js";
 import nodemailer from 'nodemailer';
 
 const router = express.Router();
 
-/* ================= EMAIL CONFIGURATION ================= */
+/* ==========================================================
+   1. EMAIL CONFIGURATION & TRANSPORTER
+   ========================================================== */
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || 587),
@@ -29,7 +33,10 @@ transporter.verify((error, success) => {
   else { console.log("✅ Mail Server is ready to send messages"); }
 });
 
-/* ================= EMAIL TEMPLATES ================= */
+
+/* ==========================================================
+   2. EMAIL HTML TEMPLATES
+   ========================================================== */
 
 const createInsufficientHoursEmail = (employeeData) => {
   const { employeeName, date, punchIn, punchOut, workedHours, workedMinutes, workedSeconds, requiredHours, loginStatus, workedStatus } = employeeData;
@@ -216,7 +223,11 @@ const createUninformedAbsenceEmail = (employeeName, absentDate) => {
 </html>`;
 };
 
-/* ================= SEND EMAIL FUNCTIONS ================= */
+
+/* ==========================================================
+   3. EMAIL SENDING FUNCTIONS (ASYNC)
+   ========================================================== */
+
 const sendInsufficientHoursEmail = async (employeeEmail, employeeData) => {
   try {
     await transporter.sendMail({
@@ -253,13 +264,20 @@ const sendUninformedAbsenceEmail = async (employeeEmail, employeeName, absentDat
   } catch (error) { console.error('❌ Error sending absence email:', error); }
 };
 
-// Apply protection to all routes
+
+/* ==========================================================
+   4. MIDDLEWARE
+   ========================================================== */
+
 router.use(protect);
 
-// Admin Only: Get All (Scoped)
+
+/* ==========================================================
+   5. SIMPLE ADMIN — GET ALL (Scoped to admin)
+   ========================================================== */
+
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    // Only Admin's data
     const records = await Attendance.find({ adminId: req.user._id });
     const sortedRecords = records.map(rec => {
       rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -271,71 +289,321 @@ router.get('/all', onlyAdmin, async (req, res) => {
   }
 });
 
-/* ================= ADMIN DATE RANGE — flat records with ALL fields for Admin Dashboard ================= */
-// Returns each attendance day as a flat object so isOnBreak, isFinalPunchOut, breakSessions are always present
+
+/* ==========================================================
+   6. OPTIMIZED ADMIN REPORTS (AGGREGATION PIPELINES — Scoped to adminId)
+   ========================================================== */
+
+/**
+ * Export API: Get detailed flat records for a date range (scoped to admin)
+ */
 router.get('/admin/date-range', onlyAdmin, async (req, res) => {
   try {
     const { start, end } = req.query;
     if (!start || !end) return res.status(400).json({ message: "start and end query params are required" });
 
-    // ✅ Filter at DB level — only fetch employees under this admin who have records in range
-    const records = await Attendance.find({
-      adminId: req.user._id,
-      "attendance.date": { $gte: start, $lte: end }
-    }).lean();
+    const pipeline = [
+      { $match: { adminId: req.user._id } },
+      { $unwind: "$attendance" },
+      { $match: { "attendance.date": { $gte: start, $lte: end } } },
+      {
+        $project: {
+          employeeId: 1,
+          employeeName: 1,
+          date: "$attendance.date",
+          punchIn: "$attendance.punchIn",
+          punchOut: "$attendance.punchOut",
+          punchInLocation: "$attendance.punchInLocation",
+          punchOutLocation: "$attendance.punchOutLocation",
+          sessions: { $ifNull: ["$attendance.sessions", []] },
+          isOnBreak: { $ifNull: ["$attendance.isOnBreak", false] },
+          breakSessions: { $ifNull: ["$attendance.breakSessions", []] },
+          workedHours: { $ifNull: ["$attendance.workedHours", 0] },
+          workedMinutes: { $ifNull: ["$attendance.workedMinutes", 0] },
+          workedSeconds: { $ifNull: ["$attendance.workedSeconds", 0] },
+          totalBreakSeconds: { $ifNull: ["$attendance.totalBreakSeconds", 0] },
+          displayTime: { $ifNull: ["$attendance.displayTime", "0h 0m 0s"] },
+          status: { $ifNull: ["$attendance.status", "NOT_STARTED"] },
+          isFinalPunchOut: { $ifNull: ["$attendance.isFinalPunchOut", false] },
+          adminPunchOut: { $ifNull: ["$attendance.adminPunchOut", false] },
+          adminPunchOutBy: { $ifNull: ["$attendance.adminPunchOutBy", null] },
+          adminPunchOutTimestamp: { $ifNull: ["$attendance.adminPunchOutTimestamp", null] },
+          loginStatus: { $ifNull: ["$attendance.loginStatus", "NOT_APPLICABLE"] },
+          workedStatus: { $ifNull: ["$attendance.workedStatus", "NOT_APPLICABLE"] },
+          attendanceCategory: { $ifNull: ["$attendance.attendanceCategory", "NOT_APPLICABLE"] },
+          lateCorrectionRequest: { $ifNull: ["$attendance.lateCorrectionRequest", null] },
+          statusCorrectionRequest: { $ifNull: ["$attendance.statusCorrectionRequest", null] },
+        }
+      },
+      { $sort: { date: -1, punchIn: -1 } }
+    ];
 
-    const flatRecords = [];
-
-    records.forEach(empRecord => {
-      (empRecord.attendance || []).forEach(day => {
-        if (day.date < start || day.date > end) return;
-        flatRecords.push({
-          employeeId:              empRecord.employeeId,
-          employeeName:            empRecord.employeeName,
-          date:                    day.date,
-          punchIn:                 day.punchIn,
-          punchOut:                day.punchOut,
-          punchInLocation:         day.punchInLocation,
-          punchOutLocation:        day.punchOutLocation,
-          sessions:                day.sessions        || [],
-          // ✅ Break fields
-          isOnBreak:               day.isOnBreak       || false,
-          breakSessions:           day.breakSessions   || [],
-          // ✅ Worked time
-          workedHours:             day.workedHours     || 0,
-          workedMinutes:           day.workedMinutes   || 0,
-          workedSeconds:           day.workedSeconds   || 0,
-          totalBreakSeconds:       day.totalBreakSeconds || 0,
-          displayTime:             day.displayTime     || "0h 0m 0s",
-          // ✅ Status flags — used by count cards
-          status:                  day.status          || "NOT_STARTED",
-          isFinalPunchOut:         day.isFinalPunchOut || false,
-          adminPunchOut:           day.adminPunchOut   || false,
-          adminPunchOutBy:         day.adminPunchOutBy || null,
-          adminPunchOutTimestamp:  day.adminPunchOutTimestamp || null,
-          // ✅ Attendance classification
-          loginStatus:             day.loginStatus        || "NOT_APPLICABLE",
-          workedStatus:            day.workedStatus       || "NOT_APPLICABLE",
-          attendanceCategory:      day.attendanceCategory || "NOT_APPLICABLE",
-          // ✅ Correction requests
-          lateCorrectionRequest:   day.lateCorrectionRequest   || null,
-          statusCorrectionRequest: day.statusCorrectionRequest || null,
-        });
-      });
-    });
-
-    flatRecords.sort((a, b) => {
-      if (b.date !== a.date) return b.date.localeCompare(a.date);
-      return (b.punchIn ? new Date(b.punchIn).getTime() : 0) - (a.punchIn ? new Date(a.punchIn).getTime() : 0);
-    });
-
+    const flatRecords = await Attendance.aggregate(pipeline);
     res.status(200).json(flatRecords);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-/* ================= UTILITIES ================= */
+/**
+ * Daily Counts: Statistics for the Admin Dashboard cards (scoped to admin)
+ */
+router.get('/admin/daily-counts', onlyAdmin, async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ message: "Date is required" });
+
+    const pipeline = [
+      { $match: { adminId: req.user._id } },
+      { $unwind: "$attendance" },
+      { $match: { "attendance.date": date } },
+      {
+        $group: {
+          _id: null,
+          workingCount: { $sum: { $cond: [{ $eq: ["$attendance.status", "WORKING"] }, 1, 0] } },
+          completedCount: {
+            $sum: {
+              $cond: [
+                { $or: [{ $eq: ["$attendance.isFinalPunchOut", true] }, { $eq: ["$attendance.adminPunchOut", true] }] },
+                1, 0
+              ]
+            }
+          },
+          onBreakCount: { $sum: { $cond: [{ $eq: ["$attendance.isOnBreak", true] }, 1, 0] } },
+          presentIds: { $push: "$employeeId" }
+        }
+      }
+    ];
+
+    const results = await Attendance.aggregate(pipeline);
+    if (results.length > 0) {
+      res.json(results[0]);
+    } else {
+      res.json({ workingCount: 0, completedCount: 0, onBreakCount: 0, presentIds: [] });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Paginated Daily Log: Detailed table view with search (scoped to admin)
+ */
+router.get('/admin/daily-log', onlyAdmin, async (req, res) => {
+  try {
+    const { start, end, page = 1, limit = 10, search = '' } = req.query;
+
+    const pipeline = [
+      { $match: { adminId: req.user._id } },
+      { $unwind: "$attendance" },
+      { $match: { "attendance.date": { $gte: start, $lte: end } } }
+    ];
+
+    if (search) {
+      pipeline.push({
+        $match: {
+          $or: [
+            { employeeName: { $regex: search, $options: "i" } },
+            { employeeId: { $regex: search, $options: "i" } }
+          ]
+        }
+      });
+    }
+
+    pipeline.push({
+      $project: {
+        employeeId: 1,
+        employeeName: 1,
+        date: "$attendance.date",
+        punchIn: "$attendance.punchIn",
+        punchOut: "$attendance.punchOut",
+        punchInLocation: "$attendance.punchInLocation",
+        punchOutLocation: "$attendance.punchOutLocation",
+        sessions: { $ifNull: ["$attendance.sessions", []] },
+        isOnBreak: { $ifNull: ["$attendance.isOnBreak", false] },
+        breakCount: { $size: { $ifNull: ["$attendance.breakSessions", []] } },
+        workedHours: { $ifNull: ["$attendance.workedHours", 0] },
+        workedMinutes: { $ifNull: ["$attendance.workedMinutes", 0] },
+        workedSeconds: { $ifNull: ["$attendance.workedSeconds", 0] },
+        totalBreakSeconds: { $ifNull: ["$attendance.totalBreakSeconds", 0] },
+        displayTime: { $ifNull: ["$attendance.displayTime", "0h 0m 0s"] },
+        status: { $ifNull: ["$attendance.status", "NOT_STARTED"] },
+        isFinalPunchOut: { $ifNull: ["$attendance.isFinalPunchOut", false] },
+        adminPunchOut: { $ifNull: ["$attendance.adminPunchOut", false] },
+        adminPunchOutBy: { $ifNull: ["$attendance.adminPunchOutBy", null] },
+        adminPunchOutTimestamp: { $ifNull: ["$attendance.adminPunchOutTimestamp", null] },
+        loginStatus: { $ifNull: ["$attendance.loginStatus", "NOT_APPLICABLE"] },
+        workedStatus: { $ifNull: ["$attendance.workedStatus", "NOT_APPLICABLE"] },
+        lateCorrectionRequest: { $ifNull: ["$attendance.lateCorrectionRequest", null] },
+        statusCorrectionRequest: { $ifNull: ["$attendance.statusCorrectionRequest", null] },
+        _id: { $ifNull: ["$attendance._id", { $concat: ["$employeeId", "-", "$attendance.date"] }] }
+      }
+    });
+
+    pipeline.push({ $sort: { date: -1, punchIn: -1 } });
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    pipeline.push({
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [{ $skip: skip }, { $limit: parseInt(limit) }]
+      }
+    });
+
+    const results = await Attendance.aggregate(pipeline);
+    const total = results[0].metadata[0] ? results[0].metadata[0].total : 0;
+    const paginatedData = results[0].data;
+
+    res.status(200).json({ data: paginatedData, total });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Break History: Fetch break sessions for a specific employee/day (scoped to admin)
+ */
+router.get('/admin/breaks/:employeeId/:date', onlyAdmin, async (req, res) => {
+  try {
+    const { employeeId, date } = req.params;
+    const record = await Attendance.findOne(
+      { employeeId, adminId: req.user._id },
+      { attendance: { $elemMatch: { date: date } } }
+    );
+    if (!record || !record.attendance || record.attendance.length === 0) {
+      return res.status(200).json([]);
+    }
+    res.status(200).json(record.attendance[0].breakSessions || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Employee Batch Detail: Used for Modals/Reports for specific employees (scoped to admin)
+ */
+router.post('/admin/date-range-for-employees', onlyAdmin, async (req, res) => {
+  try {
+    const { start, end, employeeIds } = req.body;
+    if (!start || !end || !employeeIds || !Array.isArray(employeeIds)) {
+      return res.status(400).json({ message: "Invalid parameters" });
+    }
+
+    const records = await Attendance.aggregate([
+      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $unwind: "$attendance" },
+      { $match: { "attendance.date": { $gte: start, $lte: end } } },
+      {
+        $project: {
+          employeeId: 1,
+          employeeName: 1,
+          date: "$attendance.date",
+          punchIn: "$attendance.punchIn",
+          punchOut: "$attendance.punchOut",
+          status: "$attendance.status",
+          isFinalPunchOut: "$attendance.isFinalPunchOut",
+          adminPunchOut: "$attendance.adminPunchOut",
+          loginStatus: "$attendance.loginStatus",
+          workedStatus: "$attendance.workedStatus",
+          displayTime: { $ifNull: ["$attendance.displayTime", "0h 0m 0s"] },
+          workedHours: { $ifNull: ["$attendance.workedHours", 0] },
+          workedMinutes: { $ifNull: ["$attendance.workedMinutes", 0] },
+          workedSeconds: { $ifNull: ["$attendance.workedSeconds", 0] },
+          totalBreakSeconds: { $ifNull: ["$attendance.totalBreakSeconds", 0] },
+          isOnBreak: { $ifNull: ["$attendance.isOnBreak", false] },
+          sessions: { $ifNull: ["$attendance.sessions", []] }
+        }
+      }
+    ]);
+    res.status(200).json(records);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Filtered Status List: Get list of employees based on current status (scoped to admin)
+ */
+router.get('/admin/daily-status-list', onlyAdmin, async (req, res) => {
+  try {
+    const { date, type } = req.query;
+
+    const pipeline = [
+      { $match: { adminId: req.user._id } },
+      { $unwind: "$attendance" },
+      { $match: { "attendance.date": date } }
+    ];
+
+    if (type === 'WORKING') {
+      pipeline.push({ $match: { "attendance.status": "WORKING" } });
+    } else if (type === 'COMPLETED') {
+      pipeline.push({
+        $match: {
+          $or: [{ "attendance.isFinalPunchOut": true }, { "attendance.adminPunchOut": true }]
+        }
+      });
+    } else if (type === 'ON_BREAK') {
+      pipeline.push({ $match: { "attendance.isOnBreak": true } });
+    }
+
+    pipeline.push({
+      $project: {
+        employeeId: 1,
+        employeeName: 1,
+        displayLoginStatus: "$attendance.loginStatus",
+        workedStatus: "$attendance.workedStatus",
+        breakSessions: "$attendance.breakSessions"
+      }
+    });
+
+    const list = await Attendance.aggregate(pipeline);
+    res.status(200).json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * All Status Correction Requests (scoped to admin)
+ */
+router.get('/admin/status-correction-requests', onlyAdmin, async (req, res) => {
+  try {
+    const allRecords = await Attendance.find({ adminId: req.user._id });
+    const requests = [];
+
+    allRecords.forEach(empRecord => {
+      empRecord.attendance.forEach(dayLog => {
+        if (
+          dayLog.statusCorrectionRequest &&
+          dayLog.statusCorrectionRequest.hasRequest &&
+          dayLog.statusCorrectionRequest.status === "PENDING"
+        ) {
+          requests.push({
+            employeeId: empRecord.employeeId,
+            employeeName: empRecord.employeeName,
+            date: dayLog.date,
+            punchIn: dayLog.punchIn,
+            currentStatus: dayLog.status,
+            requestedPunchOut: dayLog.statusCorrectionRequest.requestedPunchOut,
+            reason: dayLog.statusCorrectionRequest.reason,
+            status: dayLog.statusCorrectionRequest.status
+          });
+        }
+      });
+    });
+
+    requests.sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json({ success: true, data: requests });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+/* ==========================================================
+   7. UTILITIES (DATE & TIME)
+   ========================================================== */
+
 const getToday = () => {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 };
@@ -343,7 +611,7 @@ const getToday = () => {
 const getYesterdayDate = () => {
   const date = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
   date.setDate(date.getDate() - 1);
-  return date.toLocaleDateString("en-CA"); // Returns YYYY-MM-DD
+  return date.toLocaleDateString("en-CA");
 };
 
 const timeToMinutes = (timeStr) => {
@@ -363,7 +631,11 @@ const getTimeDifferenceInMinutes = (punchIn, shiftStart) => {
   return t.getHours() * 60 + t.getMinutes() - timeToMinutes(shiftStart);
 };
 
-/* ================= PUNCH IN ================= */
+
+/* ==========================================================
+   8. CORE PUNCH-IN LOGIC
+   ========================================================== */
+
 router.post('/punch-in', async (req, res) => {
   try {
     const { employeeId, employeeName, latitude, longitude } = req.body;
@@ -377,7 +649,7 @@ router.post('/punch-in', async (req, res) => {
     const today = getToday();
     const now = new Date();
 
-    // ✅ Fetch shift early to know dynamic rotational week offs
+    // Fetch shift (include isActive check from old code)
     let shift = await Shift.findOne({ employeeId, isActive: true });
     if (!shift) {
       shift = {
@@ -388,13 +660,13 @@ router.post('/punch-in', async (req, res) => {
         fullDayHours: 8,
         halfDayHours: 4,
         quarterDayHours: 2,
-        weeklyOffDays: [0] // Default fallback (Sunday)
+        weeklyOffDays: [0]
       };
     }
 
     let attendance = await Attendance.findOne({ employeeId });
     if (!attendance) {
-      // Inject Hierarchy
+      // Inject hierarchy fields (adminId, companyId) preserved from old code
       attendance = new Attendance({
         adminId: req.user.adminId,
         companyId: req.user.company,
@@ -404,10 +676,8 @@ router.post('/punch-in', async (req, res) => {
       });
     }
 
-    /* ================= ✅ CHECK YESTERDAY'S ABSENCE WITHOUT LEAVE ================= */
+    // --- Absence Notification Logic (Check Yesterday) ---
     const yesterday = getYesterdayDate();
-
-    // ✅ UNINFORMED ABSENCE email only fires on the very FIRST punch-in of the day
     const todayRecordCheck = attendance.attendance.find(a => a.date === today);
     const isFirstPunchInToday = !todayRecordCheck || (todayRecordCheck.sessions && todayRecordCheck.sessions.length === 0);
 
@@ -415,24 +685,23 @@ router.post('/punch-in', async (req, res) => {
       const yesterdayRecord = attendance.attendance.find(a => a.date === yesterday);
 
       if (!yesterdayRecord) {
-        // ✅ 1. Check if yesterday was a dynamic Rotational Week Off
         const yesterdayDateObj = new Date(yesterday);
-        const dayNum = yesterdayDateObj.getUTCDay(); // 0=Sun, 1=Mon, etc.
+        const dayNum = yesterdayDateObj.getUTCDay();
 
         let isWeekOff = false;
         if (shift.weeklyOffDays && Array.isArray(shift.weeklyOffDays)) {
           isWeekOff = shift.weeklyOffDays.includes(dayNum);
         } else if (shift.weekOffs && Array.isArray(shift.weekOffs)) {
-          const daysOfWeek = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+          const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
           const yesterdayDayName = daysOfWeek[dayNum];
           isWeekOff = shift.weekOffs.some(off =>
             String(off).toLowerCase() === yesterdayDayName.toLowerCase() || off === dayNum
           );
         } else {
-          isWeekOff = (dayNum === 0); // Ultimate fallback (Sunday)
+          isWeekOff = (dayNum === 0);
         }
 
-        // ✅ 2. Check if yesterday was a Holiday
+        // Check if yesterday was a Holiday
         const startOfYest = new Date(`${yesterday}T00:00:00.000Z`);
         const endOfYest   = new Date(`${yesterday}T23:59:59.999Z`);
         const isHoliday = await Holiday.findOne({
@@ -440,21 +709,19 @@ router.post('/punch-in', async (req, res) => {
           endDate:   { $gte: startOfYest }
         });
 
-        // ✅ 3. Check if yesterday had an approved leave
         const approvedLeaveYesterday = await LeaveRequest.findOne({
           employeeId: String(employeeId).trim(),
           status: "Approved",
           "details.date": yesterday
         });
 
-        // ✅ Only send email if it wasn't a week off, wasn't a holiday, no approved leave
         if (!isWeekOff && !isHoliday && !approvedLeaveYesterday && req.user && req.user.email) {
           sendUninformedAbsenceEmail(req.user.email, employeeName, yesterday);
         }
       }
     }
 
-    // ✅ Existing Leave Logic for Today
+    // --- Today's Leave / WeekOff Logic ---
     const approvedLeaveToday = await LeaveRequest.findOne({
       employeeId: String(employeeId).trim(),
       status: "Approved",
@@ -476,12 +743,38 @@ router.post('/punch-in', async (req, res) => {
       }
     }
 
+    // --- Week Off check for today ---
+    const todayDayNum = new Date(today + "T00:00:00").getDay();
+    let isTodayWeekOff = false;
+    if (shift.weeklyOffDays && Array.isArray(shift.weeklyOffDays)) {
+      isTodayWeekOff = shift.weeklyOffDays.includes(todayDayNum);
+    } else if (shift.weekOffs && Array.isArray(shift.weekOffs)) {
+      const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const todayDayName = daysOfWeek[todayDayNum];
+      isTodayWeekOff = shift.weekOffs.some(off =>
+        String(off).toLowerCase() === todayDayName.toLowerCase() || off === todayDayNum
+      );
+    } else {
+      isTodayWeekOff = (todayDayNum === 0);
+    }
+
+    if (isTodayWeekOff) {
+      const approvedOT = await Overtime.findOne({ employeeId: String(employeeId), date: today, status: "APPROVED" });
+      if (!approvedOT) {
+        return res.status(403).json({
+          success: false,
+          isWeekOff: true,
+          message: "Today is your Week Off. Punch-in is not allowed. If you want to work, please apply for Overtime and contact your admin to approve it."
+        });
+      }
+    }
+
+    // --- Recording the Punch-In ---
     let address = "Unknown Location";
     try { address = await reverseGeocode(latitude, longitude); } catch {}
 
     let todayRecord = attendance.attendance.find(a => a.date === today);
 
-    // --- SCENARIO 1: FIRST PUNCH IN ---
     if (!todayRecord) {
       const diffMin = getTimeDifferenceInMinutes(now, shift.shiftStartTime);
       const isLate = diffMin > shift.lateGracePeriod;
@@ -506,13 +799,10 @@ router.post('/punch-in', async (req, res) => {
         loginStatus: isLate ? "LATE" : "ON_TIME",
       };
       attendance.attendance.push(todayRecord);
-    }
-    // --- SCENARIO 2: RESUME WORK (PUNCH IN AGAIN) ---
-    else {
+    } else {
       if (todayRecord.workedStatus === "FULL_DAY") {
         return res.status(400).json({ message: "Your shift is completed. You cannot punch in again today." });
       }
-      // ✅ Block re-punch-in if employee did a final punch out (not just a break)
       if (todayRecord.isFinalPunchOut) {
         return res.status(400).json({ message: "You have punched out for the day. Re-punch-in is not allowed after a final punch out." });
       }
@@ -526,7 +816,7 @@ router.post('/punch-in', async (req, res) => {
         todayRecord.totalBreakSeconds = (todayRecord.totalBreakSeconds || 0) + breakDiff;
       }
 
-      // ✅ NEW: Close the open break session when resuming work
+      // Close break session if open
       if (todayRecord.isOnBreak && todayRecord.breakSessions && todayRecord.breakSessions.length > 0) {
         const openBreak = [...todayRecord.breakSessions].reverse().find(b => !b.to);
         if (openBreak) {
@@ -534,7 +824,6 @@ router.post('/punch-in', async (req, res) => {
           openBreak.durationSeconds = (now - new Date(openBreak.from)) / 1000;
         }
       }
-      // ✅ NEW: Clear on-break flag
       todayRecord.isOnBreak = false;
 
       todayRecord.sessions.push({ punchIn: now, punchOut: null, durationSeconds: 0 });
@@ -555,7 +844,11 @@ router.post('/punch-in', async (req, res) => {
   }
 });
 
-/* ================= PUNCH OUT (FINAL — sends shortage email if applicable) ================= */
+
+/* ==========================================================
+   9. CORE PUNCH-OUT LOGIC
+   ========================================================== */
+
 router.post('/punch-out', async (req, res) => {
   try {
     const { employeeId, latitude, longitude } = req.body;
@@ -577,20 +870,17 @@ router.post('/punch-out', async (req, res) => {
       return res.status(400).json({ message: "You are already Punched Out." });
     }
 
-    // 1. Close current session
+    // Close current session
     currentSession.punchOut = now;
     currentSession.durationSeconds = (new Date(now) - new Date(currentSession.punchIn)) / 1000;
 
-    // 2. Update top-level data
     todayRecord.punchOut = now;
     todayRecord.punchOutLocation = { latitude, longitude, timestamp: now };
     todayRecord.status = "COMPLETED";
-    // ✅ FINAL punch-out: block re-punch-in
     todayRecord.isFinalPunchOut = true;
-    // ✅ NEW: Clear on-break flag on final punch-out
     todayRecord.isOnBreak = false;
 
-    // 3. Calculate total worked time from all sessions
+    // Recalculate total worked time from all sessions
     let totalSeconds = 0;
     todayRecord.sessions.forEach(sess => {
       if (sess.punchIn && sess.punchOut) {
@@ -607,23 +897,23 @@ router.post('/punch-out', async (req, res) => {
     todayRecord.workedSeconds = s;
     todayRecord.displayTime = `${h}h ${m}m ${s}s`;
 
-    // 4. Update worked status
+    // Classification
     let shift = await Shift.findOne({ employeeId });
     if (!shift) shift = { fullDayHours: 8, halfDayHours: 4, quarterDayHours: 2 };
 
     let attendanceCategory = "ABSENT";
     let workedStatus = "ABSENT";
 
-    if (h >= shift.fullDayHours)       { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
-    else if (h >= shift.halfDayHours)  { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
-    else if (h >= shift.quarterDayHours) { workedStatus = "HALF_DAY"; }
+    if (h >= shift.fullDayHours)         { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
+    else if (h >= shift.halfDayHours)    { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
+    else if (h >= (shift.quarterDayHours || 2)) { workedStatus = "HALF_DAY"; }
 
     todayRecord.workedStatus = workedStatus;
     todayRecord.attendanceCategory = attendanceCategory;
 
     await attendance.save();
 
-    // ✅ Send correct email based on workedStatus ONLY on final punch-out when hours are short
+    // Shortage Email Check
     if (h < shift.fullDayHours && req.user && req.user.email) {
       const emailData = {
         employeeName: attendance.employeeName,
@@ -653,7 +943,11 @@ router.post('/punch-out', async (req, res) => {
   }
 });
 
-/* ================= PUNCH BREAK (BREAK — no email, allows re-punch-in) ================= */
+
+/* ==========================================================
+   10. BREAK (LUNCH/REST) LOGIC
+   ========================================================== */
+
 router.post('/punch-break', async (req, res) => {
   try {
     const { employeeId, latitude, longitude } = req.body;
@@ -681,14 +975,13 @@ router.post('/punch-break', async (req, res) => {
       todayRecord.punchOutLocation = { latitude, longitude, timestamp: now };
     }
     todayRecord.status = "COMPLETED";
-    // ✅ BREAK: allow re-punch-in, NO email sent
     todayRecord.isFinalPunchOut = false;
-
-    // ✅ NEW: Mark employee as on break and record break start
     todayRecord.isOnBreak = true;
+
     if (!todayRecord.breakSessions) todayRecord.breakSessions = [];
     todayRecord.breakSessions.push({ from: now, to: null, durationSeconds: 0 });
 
+    // Calculate time so far
     let totalSeconds = 0;
     todayRecord.sessions.forEach(sess => {
       if (sess.punchIn && sess.punchOut) {
@@ -711,16 +1004,14 @@ router.post('/punch-break', async (req, res) => {
     let attendanceCategory = "ABSENT";
     let workedStatus = "ABSENT";
 
-    if (h >= shift.fullDayHours)       { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
-    else if (h >= shift.halfDayHours)  { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
-    else if (h >= shift.quarterDayHours) { workedStatus = "HALF_DAY"; }
+    if (h >= shift.fullDayHours)         { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
+    else if (h >= shift.halfDayHours)    { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
+    else if (h >= (shift.quarterDayHours || 2)) { workedStatus = "HALF_DAY"; }
 
     todayRecord.workedStatus = workedStatus;
     todayRecord.attendanceCategory = attendanceCategory;
 
     await attendance.save();
-
-    // ✅ NO email sent for break — employee is expected to punch back in
     res.json({ success: true, message: `Break started. Worked so far: ${h}h ${m}m`, data: todayRecord });
 
   } catch (err) {
@@ -729,7 +1020,11 @@ router.post('/punch-break', async (req, res) => {
   }
 });
 
-/* ================= ADMIN PUNCH OUT ROUTE (Scoped) ================= */
+
+/* ==========================================================
+   11. ADMIN MANUAL PUNCH-OUT (Scoped to admin)
+   ========================================================== */
+
 router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, punchOutTime, latitude, longitude, date } = req.body;
@@ -740,7 +1035,7 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
 
     const punchOutDateObj = new Date(punchOutTime);
 
-    // Ensure Admin owns record
+    // Scoped: ensure Admin owns this record
     let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
     if (!attendance) return res.status(404).json({ message: "No attendance record found for this employee" });
 
@@ -771,7 +1066,6 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
     dayRecord.adminPunchOut = true;
     dayRecord.adminPunchOutBy = req.user.name;
     dayRecord.adminPunchOutTimestamp = new Date();
-    // ✅ NEW: Mark final so Shift Completed count picks it up; clear break flag
     dayRecord.isFinalPunchOut = true;
     dayRecord.isOnBreak = false;
 
@@ -795,9 +1089,9 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
     if (!shift) shift = { fullDayHours: 8, halfDayHours: 4, quarterDayHours: 2 };
 
     let workedStatus = "ABSENT";
-    if (h >= shift.fullDayHours) workedStatus = "FULL_DAY";
+    if (h >= shift.fullDayHours)      workedStatus = "FULL_DAY";
     else if (h >= shift.halfDayHours) workedStatus = "HALF_DAY";
-    else if (h >= shift.quarterDayHours) workedStatus = "HALF_DAY";
+    else if (h >= (shift.quarterDayHours || 2)) workedStatus = "HALF_DAY";
 
     dayRecord.workedStatus = workedStatus;
     dayRecord.attendanceCategory = workedStatus === "FULL_DAY" ? "FULL_DAY" : (workedStatus === "HALF_DAY" ? "HALF_DAY" : "ABSENT");
@@ -811,7 +1105,14 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
   }
 });
 
-/* ================= CORRECTION REQUESTS ================= */
+
+/* ==========================================================
+   12. CORRECTION REQUESTS (LATE & STATUS)
+   ========================================================== */
+
+/**
+ * Submit Request for Late Login correction (3/month limit)
+ */
 router.post('/request-correction', async (req, res) => {
   try {
     const { employeeId, date, time, reason } = req.body;
@@ -856,112 +1157,9 @@ router.post('/request-correction', async (req, res) => {
   }
 });
 
-/* ================= ADMIN APPROVE CORRECTION (Scoped) ================= */
-router.post('/approve-correction', onlyAdmin, async (req, res) => {
-  try {
-    const { employeeId, date, status, adminComment } = req.body;
-
-    // Ensure Admin owns record
-    let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
-    if (!attendance) return res.status(404).json({ message: "Record not found" });
-
-    let dayRecord = attendance.attendance.find(a => a.date === date);
-    if (!dayRecord || !dayRecord.lateCorrectionRequest?.hasRequest) {
-      return res.status(400).json({ message: "No pending request found." });
-    }
-
-    if (status === "REJECTED") {
-      dayRecord.lateCorrectionRequest.status = "REJECTED";
-      dayRecord.lateCorrectionRequest.adminComment = adminComment;
-    } else if (status === "APPROVED") {
-      const newPunchIn = new Date(dayRecord.lateCorrectionRequest.requestedTime);
-      dayRecord.lateCorrectionRequest.status = "APPROVED";
-      dayRecord.lateCorrectionRequest.adminComment = adminComment;
-
-      if (dayRecord.sessions.length > 0) {
-        dayRecord.sessions[0].punchIn = newPunchIn;
-        if (dayRecord.sessions[0].punchOut) {
-          dayRecord.sessions[0].durationSeconds = (new Date(dayRecord.sessions[0].punchOut) - newPunchIn) / 1000;
-        }
-      }
-      dayRecord.punchIn = newPunchIn;
-
-      let shift = await Shift.findOne({ employeeId });
-      if (!shift) shift = { shiftStartTime: "09:00", lateGracePeriod: 15 };
-      const diffMin = getTimeDifferenceInMinutes(newPunchIn, shift.shiftStartTime);
-      dayRecord.loginStatus = diffMin <= shift.lateGracePeriod ? "ON_TIME" : "LATE";
-
-      let totalSeconds = 0;
-      dayRecord.sessions.forEach(sess => {
-        if (sess.punchIn && sess.punchOut) {
-          totalSeconds += (new Date(sess.punchOut) - new Date(sess.punchIn)) / 1000;
-        }
-      });
-
-      if (dayRecord.status === "COMPLETED") {
-        const h = Math.floor(totalSeconds / 3600);
-        const m = Math.floor((totalSeconds % 3600) / 60);
-        const s = Math.floor(totalSeconds % 60);
-        dayRecord.workedHours = h;
-        dayRecord.workedMinutes = m;
-        dayRecord.workedSeconds = s;
-        dayRecord.displayTime = `${h}h ${m}m ${s}s`;
-      }
-    }
-
-    await attendance.save();
-    res.json({ success: true, message: `Request ${status.toLowerCase()} successfully.` });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/* ================= REQUEST LIMIT ================= */
-router.get("/request-limit/:employeeId", async (req, res) => {
-  try {
-    const { employeeId } = req.params;
-    const attendanceRecord = await Attendance.findOne({ employeeId });
-    if (!attendanceRecord) return res.status(404).json({ message: "Employee not found" });
-
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const monthData = attendanceRecord.monthlyRequestLimits?.get(currentMonth) || { limit: 5, used: 0 };
-
-    res.json({
-      employeeId,
-      employeeName: attendanceRecord.employeeName,
-      monthlyRequestLimits: { [currentMonth]: monthData }
-    });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-router.post("/set-request-limit", onlyAdmin, async (req, res) => {
-  try {
-    const { employeeId, limit } = req.body;
-    if (!employeeId || limit === undefined)
-      return res.status(400).json({ message: "Employee ID and limit are required" });
-
-    const attendanceRecord = await Attendance.findOne({ employeeId, adminId: req.user._id });
-    if (!attendanceRecord) return res.status(404).json({ message: "Employee not found" });
-
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    if (!attendanceRecord.monthlyRequestLimits) attendanceRecord.monthlyRequestLimits = new Map();
-
-    const currentData = attendanceRecord.monthlyRequestLimits.get(currentMonth) || { limit: 5, used: 0 };
-    if (limit < currentData.used)
-      return res.status(400).json({ message: `Cannot set limit lower than used requests.` });
-
-    attendanceRecord.monthlyRequestLimits.set(currentMonth, { limit: parseInt(limit), used: currentData.used });
-    await attendanceRecord.save({ validateBeforeSave: false });
-
-    res.json({ success: true, message: "Request limit updated successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
-/* ================= SUBMIT LATE CORRECTION ================= */
+/**
+ * Submit Late Correction (limit-based flow used by employee portal)
+ */
 router.post("/submit-late-correction", async (req, res) => {
   try {
     const { employeeId, date, requestedTime, reason } = req.body;
@@ -992,7 +1190,9 @@ router.post("/submit-late-correction", async (req, res) => {
   }
 });
 
-/* ================= STATUS CORRECTION ================= */
+/**
+ * Submit Request for Punch-Out Correction (Status Correction)
+ */
 router.post('/request-status-correction', async (req, res) => {
   try {
     const { employeeId, date, requestedPunchOut, reason } = req.body;
@@ -1036,6 +1236,76 @@ router.post('/request-status-correction', async (req, res) => {
   }
 });
 
+
+/* ==========================================================
+   13. ADMIN APPROVALS (Scoped to admin)
+   ========================================================== */
+
+/**
+ * Admin: Approve or Reject Late Correction
+ */
+router.post('/approve-correction', onlyAdmin, async (req, res) => {
+  try {
+    const { employeeId, date, status, adminComment } = req.body;
+
+    let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    if (!attendance) return res.status(404).json({ message: "Record not found" });
+
+    let dayRecord = attendance.attendance.find(a => a.date === date);
+    if (!dayRecord || !dayRecord.lateCorrectionRequest?.hasRequest) {
+      return res.status(400).json({ message: "No pending request found." });
+    }
+
+    if (status === "REJECTED") {
+      dayRecord.lateCorrectionRequest.status = "REJECTED";
+      dayRecord.lateCorrectionRequest.adminComment = adminComment;
+    } else if (status === "APPROVED") {
+      const newPunchIn = new Date(dayRecord.lateCorrectionRequest.requestedTime);
+      dayRecord.lateCorrectionRequest.status = "APPROVED";
+      dayRecord.lateCorrectionRequest.adminComment = adminComment;
+
+      dayRecord.punchIn = newPunchIn;
+      if (dayRecord.sessions.length > 0) {
+        dayRecord.sessions[0].punchIn = newPunchIn;
+        if (dayRecord.sessions[0].punchOut) {
+          dayRecord.sessions[0].durationSeconds = (new Date(dayRecord.sessions[0].punchOut) - newPunchIn) / 1000;
+        }
+      }
+
+      let shift = await Shift.findOne({ employeeId });
+      if (!shift) shift = { shiftStartTime: "09:00", lateGracePeriod: 15 };
+      const diffMin = getTimeDifferenceInMinutes(newPunchIn, shift.shiftStartTime);
+      dayRecord.loginStatus = diffMin <= shift.lateGracePeriod ? "ON_TIME" : "LATE";
+
+      // Recalculate worked time
+      let totalSeconds = 0;
+      dayRecord.sessions.forEach(sess => {
+        if (sess.punchIn && sess.punchOut) {
+          totalSeconds += (new Date(sess.punchOut) - new Date(sess.punchIn)) / 1000;
+        }
+      });
+
+      if (dayRecord.status === "COMPLETED") {
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = Math.floor(totalSeconds % 60);
+        dayRecord.workedHours = h;
+        dayRecord.workedMinutes = m;
+        dayRecord.workedSeconds = s;
+        dayRecord.displayTime = `${h}h ${m}m ${s}s`;
+      }
+    }
+
+    await attendance.save();
+    res.json({ success: true, message: `Request ${status.toLowerCase()} successfully.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Admin: Approve Status Correction (scoped to admin)
+ */
 router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, date, adminComment } = req.body;
@@ -1098,9 +1368,9 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
     let workedStatus = "ABSENT";
     let attendanceCategory = "ABSENT";
 
-    if (h >= shift.fullDayHours)       { workedStatus = "FULL_DAY";  attendanceCategory = "FULL_DAY"; }
-    else if (h >= shift.halfDayHours)  { workedStatus = "HALF_DAY";  attendanceCategory = "HALF_DAY"; }
-    else if (h >= (shift.quarterDayHours || 2)) { workedStatus = "QUARTER_DAY"; attendanceCategory = "ABSENT"; }
+    if (h >= shift.fullDayHours)                  { workedStatus = "FULL_DAY";    attendanceCategory = "FULL_DAY"; }
+    else if (h >= shift.halfDayHours)             { workedStatus = "HALF_DAY";    attendanceCategory = "HALF_DAY"; }
+    else if (h >= (shift.quarterDayHours || 2))   { workedStatus = "QUARTER_DAY"; attendanceCategory = "ABSENT"; }
 
     dayRecord.workedStatus = workedStatus;
     dayRecord.attendanceCategory = attendanceCategory;
@@ -1118,42 +1388,9 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
   }
 });
 
-/* ================= GET ALL STATUS CORRECTION REQUESTS (ADMIN) ================= */
-router.get('/admin/status-correction-requests', onlyAdmin, async (req, res) => {
-  try {
-    // Scoped: only this admin's records
-    const allRecords = await Attendance.find({ adminId: req.user._id });
-    const requests = [];
-
-    allRecords.forEach(empRecord => {
-      empRecord.attendance.forEach(dayLog => {
-        if (
-          dayLog.statusCorrectionRequest &&
-          dayLog.statusCorrectionRequest.hasRequest &&
-          dayLog.statusCorrectionRequest.status === "PENDING"
-        ) {
-          requests.push({
-            employeeId: empRecord.employeeId,
-            employeeName: empRecord.employeeName,
-            date: dayLog.date,
-            punchIn: dayLog.punchIn,
-            currentStatus: dayLog.status,
-            requestedPunchOut: dayLog.statusCorrectionRequest.requestedPunchOut,
-            reason: dayLog.statusCorrectionRequest.reason,
-            status: dayLog.statusCorrectionRequest.status
-          });
-        }
-      });
-    });
-
-    requests.sort((a, b) => new Date(b.date) - new Date(a.date));
-    res.json({ success: true, data: requests });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/* ================= REJECT STATUS CORRECTION ================= */
+/**
+ * Admin: Reject Status Correction (scoped to admin)
+ */
 router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, date, adminComment } = req.body;
@@ -1173,7 +1410,14 @@ router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
   }
 });
 
-/* ================= OTHER ROUTES ================= */
+
+/* ==========================================================
+   14. FETCHING DATA & REQUEST LIMITS
+   ========================================================== */
+
+/**
+ * Get Specific Employee Record (scoped — admin sees own employees, employee sees own)
+ */
 router.get('/:employeeId', async (req, res) => {
   try {
     const requestedId = req.params.employeeId;
@@ -1187,6 +1431,56 @@ router.get('/:employeeId', async (req, res) => {
     res.json({ success: true, data: sorted });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Get Monthly Correction Request Limit
+ */
+router.get("/request-limit/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const attendanceRecord = await Attendance.findOne({ employeeId });
+    if (!attendanceRecord) return res.status(404).json({ message: "Employee not found" });
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const monthData = attendanceRecord.monthlyRequestLimits?.get(currentMonth) || { limit: 5, used: 0 };
+
+    res.json({
+      employeeId,
+      employeeName: attendanceRecord.employeeName,
+      monthlyRequestLimits: { [currentMonth]: monthData }
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Set Request Limit (Admin — scoped to admin)
+ */
+router.post("/set-request-limit", onlyAdmin, async (req, res) => {
+  try {
+    const { employeeId, limit } = req.body;
+    if (!employeeId || limit === undefined)
+      return res.status(400).json({ message: "Employee ID and limit are required" });
+
+    const attendanceRecord = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    if (!attendanceRecord) return res.status(404).json({ message: "Employee not found" });
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (!attendanceRecord.monthlyRequestLimits) attendanceRecord.monthlyRequestLimits = new Map();
+
+    const currentData = attendanceRecord.monthlyRequestLimits.get(currentMonth) || { limit: 5, used: 0 };
+    if (limit < currentData.used)
+      return res.status(400).json({ message: `Cannot set limit lower than used requests.` });
+
+    attendanceRecord.monthlyRequestLimits.set(currentMonth, { limit: parseInt(limit), used: currentData.used });
+    await attendanceRecord.save({ validateBeforeSave: false });
+
+    res.json({ success: true, message: "Request limit updated successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 });
 

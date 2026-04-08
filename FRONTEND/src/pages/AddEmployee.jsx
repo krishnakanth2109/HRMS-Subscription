@@ -413,13 +413,21 @@ const AddEmployee = () => {
             {formData.company && (
               <div className="relative">
                 <FaIdBadge className="absolute left-3 top-4 text-gray-400" />
-                <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Generated Employee ID</label>
+                <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">Employee ID (Auto or Manual)</label>
                 <input
                   type="text"
                   value={formData.employeeId}
-                  readOnly
-                  className="w-full pl-10 pr-4 pt-5 pb-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700 font-semibold"
+                  onChange={(e) => {
+                    // Keep prefix locked; allow editing the full ID freely
+                    const value = e.target.value.toUpperCase();
+                    setFormData(prev => ({ ...prev, employeeId: value }));
+                  }}
+                  placeholder={`e.g., ${formData.companyPrefix}01`}
+                  className="w-full pl-10 pr-4 pt-5 pb-2 border border-blue-400 rounded-lg bg-white text-gray-800 font-semibold focus:ring-2 focus:ring-blue-400 outline-none"
                 />
+                <p className="text-xs text-gray-400 mt-1 pl-1">
+                  Auto-generated — edit freely. Next serial will continue from the highest number in DB.
+                </p>
               </div>
             )}
           </div>

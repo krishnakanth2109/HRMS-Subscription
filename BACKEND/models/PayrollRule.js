@@ -11,6 +11,8 @@ const payrollRuleSchema = new mongoose.Schema(
     hraPercentage: { type: Number, required: true, default: 40 },
     conveyance: { type: Number, required: true, default: 1600 },
     medical: { type: Number, required: true, default: 1250 },
+    travellingAllowance: { type: Number, required: true, default: 800 },
+    otherAllowance: { type: Number, required: true, default: 1000 },
     
     // --- PF SETTINGS ---
     pfCalculationMethod: {

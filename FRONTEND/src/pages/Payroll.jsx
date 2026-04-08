@@ -22,6 +22,8 @@ const DEFAULT_RULES = {
   hraPercentage: 40,
   conveyance: 1600,
   medical: 1250,
+  travellingAllowance: 800,
+  otherAllowance: 1000,
   // PF Defaults
   pfCalculationMethod: 'percentage', // 'percentage' | 'fixed'
   pfPercentage: 12,
@@ -187,6 +189,14 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
                 <label className="text-xs font-semibold text-gray-600">Medical (Fixed ₹)</label>
                 <input type="number" name="medical" value={rules.medical} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Travelling Allowance (Fixed ₹)</label>
+                <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Other Allowance (Fixed ₹)</label>
+                <input type="number" name="otherAllowance" value={rules.otherAllowance} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+              </div>
             </div>
           </div>
 
@@ -345,23 +355,31 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           </div>
 
           <table class="table-box">
-             <tr>
-               <td class="bg-light"><strong>Name</strong></td><td>${employee.employeeName}</td>
-               <td class="bg-light"><strong>Emp ID</strong></td><td>${employee.employeeId}</td>
-             </tr>
-             <tr>
-               <td class="bg-light"><strong>Designation</strong></td><td>${employee.role}</td>
-               <td class="bg-light"><strong>Work Summary</strong></td><td>Full: ${employee.fullDays} | Half: ${employee.halfDays} | WeekOff (rest): ${employee.weekOffDays} | Holidays (rest): ${employee.holidayDays}</td>
-             </tr>
-             <tr>
-               <td class="bg-light"><strong>Total Days in Month</strong></td><td>${employee.totalDaysInMonth}</td>
-               <td class="bg-light"><strong>Worked Days</strong></td><td>${employee.workedDays} + ${employee.weekOffDays} (WeekOff) + ${employee.holidayDays} (Hol) = ${employee.workedDays + employee.weekOffDays + employee.holidayDays}</td>
-             </tr>
-             <tr>
-               <td class="bg-light"><strong>Per Day Salary</strong></td><td>${formatCurrency(employee.perDaySalary)}</td>
-               <td class="bg-light"><strong>Calculated Salary</strong></td><td>${formatCurrency(employee.calculatedSalary)}</td>
-             </tr>
-          </table>
+              <tr>
+               <td class="bg-light"><strong>Name</strong></td>
+               <td>${employee.employeeName}</td>
+               <td class="bg-light"><strong>Emp ID</strong></td>
+               <td>${employee.employeeId}</td>
+              </tr>
+              <tr>
+               <td class="bg-light"><strong>Designation</strong></td>
+               <td>${employee.role}</td>
+               <td class="bg-light"><strong>Work Summary</strong></td>
+               <td>Full: ${employee.fullDays} | Half: ${employee.halfDays} | WeekOff (rest): ${employee.weekOffDays} | Holidays (rest): ${employee.holidayDays}</td>
+              </tr>
+              <tr>
+               <td class="bg-light"><strong>Total Days in Month</strong></td>
+               <td>${employee.totalDaysInMonth}</td>
+               <td class="bg-light"><strong>Worked Days</strong></td>
+               <td>${employee.workedDays} + ${employee.weekOffDays} (WeekOff) + ${employee.holidayDays} (Hol) = ${employee.workedDays + employee.weekOffDays + employee.holidayDays}</td>
+              </tr>
+              <tr>
+               <td class="bg-light"><strong>Per Day Salary</strong></td>
+               <td>${formatCurrency(employee.perDaySalary)}</td>
+               <td class="bg-light"><strong>Calculated Salary</strong></td>
+               <td>${formatCurrency(employee.calculatedSalary)}</td>
+              </tr>
+           </table>
 
           <table class="table-box">
              <tr class="bg-light">
@@ -369,44 +387,56 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                <th width="15%" class="text-right">AMOUNT</th>
                <th width="35%">DEDUCTIONS</th>
                <th width="15%" class="text-right">AMOUNT</th>
-             </tr>
-             <tr>
+              </tr>
+              <tr>
                <td>Basic Salary</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.basic)}</td>
                <td>${pfLabel}</td>
                <td class="text-right">${formatCurrency(employee.breakdown.pf)}</td>
-             </tr>
-             <tr>
+              </tr>
+              <tr>
                <td>HRA</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.hra)}</td>
                <td>${employerPfLabel}</td>
                <td class="text-right">${formatCurrency(employee.breakdown.employerPf)}</td>
-             </tr>
-             <tr>
+              </tr>
+              <tr>
                <td>Conveyance</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.conveyance)}</td>
                <td>Professional Tax</td>
                <td class="text-right">${formatCurrency(employee.breakdown.pt)}</td>
-             </tr>
-             <tr>
+              </tr>
+              <tr>
                <td>Medical</td>
                <td class="text-right">${formatCurrency(employee.monthlyBreakdown.medical)}</td>
                <td>LOP Deduction (${employee.lopDays} days)</td>
                <td class="text-right">${formatCurrency(employee.lopDeduction)}</td>
-             </tr>
-             <tr>
-               <td>Special</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.special)}</td>
+              </tr>
+              <tr>
+               <td>Travelling Allowance</td>
+               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td>
                <td>Late Penalty (${employee.lateDaysCount} late × 3 = ${employee.latePenaltyDays} half days)</td>
                <td class="text-right">${formatCurrency(employee.lateDeduction)}</td>
-             </tr>
+              </tr>
+              <tr>
+               <td>Other Allowance</td>
+               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td>
+               <td></td>
+               <td class="text-right"></td>
+              </tr>
+              <tr>
+               <td>Special</td>
+               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.special)}</td>
+               <td></td>
+               <td class="text-right"></td>
+              </tr>
              <tr class="total-row">
                <td>GROSS EARNINGS</td>
                <td class="text-right">${formatCurrency(employee.breakdown.gross)}</td>
                <td>TOTAL DEDUCTIONS</td>
                <td class="text-right">${formatCurrency(employee.totalDeductions)}</td>
-             </tr>
-          </table>
+              </tr>
+           </table>
 
           <div style="background: #1e3a8a; color: white; padding: 10px; text-align: center; font-weight: bold;">
              NET PAYABLE: ${formatCurrency(employee.netPayableSalary)}
@@ -533,9 +563,17 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                     <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.medical)}</td>
                   </tr>
                   <tr>
+                    <td className="py-2">Travelling Allowance</td>
+                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">Other Allowance</td>
+                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td>
+                  </tr>
+                  {/* <tr>
                     <td className="py-2">Special</td>
                     <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.special)}</td>
-                  </tr>
+                  </tr> */}
                   <tr className="bg-green-50">
                     <td className="py-2 font-bold">Gross Total</td>
                     <td className="text-right font-bold text-green-800">{formatCurrency(employee.breakdown.gross)}</td>
@@ -813,6 +851,8 @@ const PayrollManagement = () => {
       const ruleHra = Number(payrollRules.hraPercentage) || 0;
       const ruleConv = Number(payrollRules.conveyance) || 0;
       const ruleMed = Number(payrollRules.medical) || 0;
+      const ruleTravelling = Number(payrollRules.travellingAllowance) || 0;
+      const ruleOther = Number(payrollRules.otherAllowance) || 0;
 
       // Extract PT Rules
       const rulePtSlab1Amount = Number(payrollRules.ptSlab1Amount) || 0;
@@ -825,7 +865,9 @@ const PayrollManagement = () => {
       const monthlyHRA = monthlyBasic * (ruleHra / 100);
       const monthlyConv = ruleConv;
       const monthlyMed = ruleMed;
-      const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed));
+      const monthlyTravelling = ruleTravelling;
+      const monthlyOther = ruleOther;
+      const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + monthlyOther));
 
       // 2. Per Day Salary = Gross Salary / Total Days in Month
       const perDaySalary = monthlyTotal / totalDaysInMonth;
@@ -908,6 +950,8 @@ const PayrollManagement = () => {
           hra: monthlyHRA,
           conveyance: monthlyConv,
           medical: monthlyMed,
+          travellingAllowance: monthlyTravelling,
+          otherAllowance: monthlyOther,
           special: monthlySpecial,
           total: monthlyTotal
         },
@@ -916,6 +960,8 @@ const PayrollManagement = () => {
           hra: monthlyHRA,
           conveyance: monthlyConv,
           medical: monthlyMed,
+          travellingAllowance: monthlyTravelling,
+          otherAllowance: monthlyOther,
           special: monthlySpecial,
           gross: monthlyTotal,
           pf: pfDeduction,

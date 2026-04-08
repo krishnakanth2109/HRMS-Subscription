@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
@@ -9,23 +10,35 @@ const styles = `
   
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
-  :root {
-    --text-main:     #0f172a;
-    --text-muted:    #475569;
-    --brand-blue:    #2563eb;
-    --brand-cyan:    #00d4ff;
-    --brand-pink:    #ec4899;
-    --brand-dark:    #050505;
-    
-    --font-head:   'Syne', sans-serif;
-    --font-body:   'DM Sans', sans-serif;
-  }
+ :root {
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+
+  --brand-blue: #2563eb;
+  --brand-cyan: #00d4ff;
+  --brand-pink: #ec4899;
+  --brand-dark: #050505;
+
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+
+  /* Typography scale */
+  --h1-size: clamp(44px, 5vw, 64px);
+  --h2-size: clamp(32px, 3vw, 40px);
+  --h3-size: 24px;
+
+  --body-lg: 18px;
+  --body-md: 16px;
+  --body-sm: 14px;
+}
   
   body { 
     background: #ffffff; 
     color: var(--text-main); 
     font-family: var(--font-body); 
     overflow-x: hidden; 
+     -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   }
   
   .root { 
@@ -52,7 +65,9 @@ const styles = `
     letter-spacing: 1px; display: flex; align-items: center; 
   }
   .nav-links { display: flex; gap: 40px; margin: 0 auto; }
-  .nav-links a { color: var(--text-main); font-size: 15px; font-weight: 600; text-decoration: none; transition: opacity .2s; }
+  .nav-links a { color: var(--text-main);   font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.3px; text-decoration: none; transition: opacity .2s; }
   .nav-links a:hover { opacity: 0.7; }
   
   .nav-right { display: flex; align-items: center; gap: 20px; }
@@ -74,7 +89,10 @@ const styles = `
     text-align: center;
   }
   .hero h1 {
-    font-family: var(--font-head); font-size: clamp(40px, 5vw, 60px); font-weight: 800; 
+     font-family: var(--font-head);
+  font-size: var(--h1-size);
+  font-weight: 700;
+  letter-spacing: -1px;
     line-height: 1.1; margin-bottom: 24px; color: var(--text-main);
   }
   .hero h1 .highlight { color: var(--brand-blue); }
@@ -131,9 +149,15 @@ const styles = `
   
   /* Card Typography & Lists */
   .card-content h2 {
-    font-family: var(--font-head); font-size: 32px; font-weight: 800; margin-bottom: 16px; color: inherit;
+    font-family: var(--font-head);
+    font-family: var(--font-head);
+  font-size: var(--h2-size);
+  font-weight: 700;
+  letter-spacing: -0.5px;  margin-bottom: 16px; color: inherit;
   }
-  .card-content p { font-size: 15px; line-height: 1.7; margin-bottom: 30px; color: var(--text-muted); }
+  .card-content p { font-size: var(--body-md);
+  line-height: 1.75;
+  color: var(--text-muted); line-height: 1.7; margin-bottom: 30px; color: var(--text-muted); }
   .content-card-dark p { color: #94a3b8; }
   
   .feature-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; list-style: none; margin-bottom: 30px; }
@@ -241,7 +265,9 @@ const styles = `
     transform: translateY(-4px);
   }
   .pricing-card .plan-name {
-    font-family: var(--font-head); font-size: 22px; font-weight: 800;
+    font-family: var(--font-head);  font-family: var(--font-head);
+  font-size: 24px;
+  font-weight: 700;
     color: var(--text-main); text-transform: capitalize; margin-bottom: 4px;
   }
   .pricing-card .plan-duration {
@@ -374,14 +400,19 @@ const styles = `
      ========================================= */
   .stats-section { background: #faf5ff; padding: 60px 0; border-top: 1px solid #f3e8ff;}
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; text-align: center; }
-  .stat-item .num { font-family: var(--font-head); font-size: 48px; font-weight: 800; color: var(--text-main); }
+  .stat-item .num { font-family: var(--font-head);   font-family: var(--font-head);
+  font-size: 56px;
+  font-weight: 700; color: var(--text-main); }
   .stat-item .lbl { font-size: 13px; font-weight: 600; color: var(--text-muted); letter-spacing: 1px; margin-top: 8px; text-transform: uppercase; }
 
   /* =========================================
      CTA SECTION
      ========================================= */
   .cta-section { background: #1e3a8a; padding: 100px 0; text-align: center; color: #fff; }
-  .cta-section h2 { font-family: var(--font-head); font-size: clamp(32px, 4vw, 44px); font-weight: 800; margin-bottom: 16px; }
+  .cta-section h2 { font-family: var(--font-head); font-size:   font-family: var(--font-head);
+  font-size: var(--h2-size);
+  font-weight: 700;
+  letter-spacing: -0.5px; margin-bottom: 16px; }
   .cta-section h2 .highlight { color: var(--brand-pink); }
   .cta-section p { color: #cbd5e1; font-size: 16px; margin-bottom: 12px; }
   
@@ -396,7 +427,10 @@ const styles = `
   /* =========================================
      FOOTER
      ========================================= */
-  .footer { background: #000000; padding: 0 0 40px; position: relative; margin-top: 80px; }
+  .footer { background: #000000;
+  padding: 120px 0 40px;
+  position: relative;
+  margin-top: 0; }
   .footer-top { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; transform: translateY(-50%); }
   .support-card { background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
   .sc-title { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 12px; }
@@ -562,8 +596,7 @@ export default function HRMSLandingPage() {
             <a href="#">Support</a>
           </div>
           <div className="nav-right">
-             <button className="theme-toggle">🌓</button>
-             <button className="btn-nav-demo" onClick={() => navigate("/login")}>Request a Demo</button>
+             <button className="btn-nav-demo" onClick={() => navigate("/login")}>Get Started</button>
           </div>
         </nav>
 
@@ -580,10 +613,21 @@ export default function HRMSLandingPage() {
                 <div className="quote-top">Welcome to "VW-sync"</div>
                 <div className="quote-sub">One HR platform Designed for every business</div>
               </div>
-              <div className="hero-btns">
-                <button className="btn-primary" onClick={() => navigate("/login")}>Sign Up to Explore FREE trail</button>
-                <button className="btn-outline-pink" onClick={() => document.getElementById('pricing').scrollIntoView({behavior:'smooth'})}>Request Free Demo</button>
-              </div>
+ <div className="hero-btns">
+  <button 
+    className="btn-primary" 
+    onClick={() => document.getElementById('pricing').scrollIntoView({ behavior: 'smooth' })}
+  >
+    Sign Up to Explore FREE Trial
+  </button>
+
+  <button 
+    className="btn-outline-pink" 
+    onClick={() => navigate("/request-demo")}
+  >
+    Request Free Demo
+  </button>
+</div>
             </div>
           </div>
         </section>

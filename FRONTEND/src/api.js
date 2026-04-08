@@ -668,7 +668,7 @@ export const deleteCompany = async (id) => {
 
 export const getNextEmployeeId = async (companyId) => {
   try {
-    const response = await api.get(`/api/companies/next-id/${companyId}`);
+    const response = await api.get(`/api/employees/next-id/${companyId}`);
     return response.data;
   } catch (error) {
     console.error("Get next employee ID error:", error);
