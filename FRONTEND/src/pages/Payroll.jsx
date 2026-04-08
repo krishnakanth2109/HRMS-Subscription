@@ -314,6 +314,34 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
 
 // --- PAYSLIP MODAL COMPONENT ---
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
+  const [companyData, setCompanyData] = useState(null);
+
+  // ✅ Fetch company details dynamically — employee.companyId holds emp.company (ObjectId)
+  useEffect(() => {
+    const fetchCompany = async () => {
+      if (!employee.companyId) return; // fallback to companyName snapshot below
+      try {
+        const res = await api.get(`/api/companies/${employee.companyId}`);
+        setCompanyData(res.data);
+      } catch (err) {
+        console.error("Failed to fetch company data:", err);
+      }
+    };
+    fetchCompany();
+  }, [employee.companyId]);
+
+  // ✅ Derive display values from fetched company (fallback to employee fields)
+  const companyName = companyData?.name || employee.companyName || "N/A";
+  const companyAddress = companyData
+    ? [
+        companyData.officeLocation?.address,
+        companyData.officeLocation?.city,
+        companyData.officeLocation?.state,
+        companyData.officeLocation?.zipCode,
+        companyData.officeLocation?.country
+      ].filter(Boolean).join(', ')
+    : "";
+
   const formatCurrency = (amount) => {
     return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
   };
@@ -378,8 +406,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
         <div class="container">
           <div class="header">
              <div>
-               <div class="title">Vagarious Solutions Pvt.Ltd</div>
-               <div style="font-size:12px;">Hyderabad, Telangana-500081</div>
+               <div class="title">${companyName}</div>
+               <div style="font-size:12px;">${companyAddress}</div>
              </div>
              <div class="text-right">
                <h3>PAYSLIP</h3>
@@ -495,6 +523,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           <div>
             <h2 className="text-2xl font-bold tracking-wide">Payslip Detail</h2>
             <p className="text-blue-100 text-sm">{employee.employeeName} ({employee.employeeId})</p>
+            <p className="text-blue-200 text-xs mt-0.5 font-medium">{companyName}{companyAddress ? ` · ${companyAddress}` : ''}</p>
           </div>
           <button onClick={onClose} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><span className="text-2xl">×</span></button>
         </div>
@@ -973,6 +1002,8 @@ const PayrollManagement = () => {
       return {
         employeeId: emp.employeeId,
         employeeName: emp.name,
+        companyId: emp.company || null,       // ✅ correct field: emp.company (ObjectId ref)
+        companyName: emp.companyName || null,  // ✅ snapshot string for quick fallback
         role: currentExp?.role || "N/A",
         totalDaysInMonth,
         workedDays: totalWorkedDays,

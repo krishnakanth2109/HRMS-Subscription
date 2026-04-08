@@ -170,7 +170,7 @@ const filteredPlans = plans.filter(
             </div>
 
             {/* Navigation */}
-            <nav className={`fixed w-full z-40 py-4 px-4 md:px-8 ${themeClasses.navBg}`}>
+            <nav className={` w-full z-40 py-4 px-4 md:px-8 ${themeClasses.navBg}`}>
                 <div className="container mx-auto flex justify-between items-center">
        
 <img
@@ -208,7 +208,7 @@ const filteredPlans = plans.filter(
             </nav>
 
             {/* Hero Section */}
-            <section className="relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 md:px-8">
+            <section className="relative pt-8 md:pt-8 pb-16 md:pb-20 px-4 md:px-8">
                 <div className="container mx-auto grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
                     <div className="animate-content order-2 lg:order-1">
                         <div className="inline-block px-3 md:px-4 py-1.5 mb-6 rounded-full bg-blue-100 border border-blue-200 text-blue-700 text-xs font-bold tracking-widest uppercase">
