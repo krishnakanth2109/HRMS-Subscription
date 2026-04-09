@@ -39,8 +39,11 @@ const getSecureUrl = (url) => {
   return url;
 };
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> fdcc7e82ccdbefc8750f8f4eb99573c323edc580
 // Helper: Get Department (Prioritize root, then experience)
 const getCurrentDepartment = (employee) => {
   if (employee.currentDepartment) return employee.currentDepartment;

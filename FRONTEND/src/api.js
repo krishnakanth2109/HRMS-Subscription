@@ -895,9 +895,17 @@ export const downloadOfferLetterExcelTemplate = async () => {
 export const generateOfferLetter = async (data) =>
   (await api.post("/api/offer-letters/generate", data)).data;
 
-export const sendOfferLetterEmail = async (data) =>
-  (await api.post("/api/offer-letters/send-email", data)).data;
+export const sendOfferLetterEmail = async (data) => {
+  const response = await api.post("/api/offer-letters/send-email", data);
+  return response.data;
+};
 
+export const downloadOfferLetterDocx = async (data) => {
+  const response = await api.post("/api/offer-letters/download-docx", data, {
+      responseType: "blob"
+  });
+  return response.data;
+};
 export const getOfferLetterTemplates = async () =>
   (await api.get("/api/offer-letters/templates")).data;
 

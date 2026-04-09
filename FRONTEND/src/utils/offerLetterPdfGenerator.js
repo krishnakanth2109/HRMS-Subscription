@@ -146,17 +146,16 @@ export const generateOfferLetterPdf = async (htmlContent, templateUrl = '/Arah_T
                  } else {
                      templateImage = arrayBuf;
                  }
-            } else {
+             } else {
                  console.log("🔄 PDF Generator: Fetching template via backend proxy to bypass CORS...");
                  const proxyUrl = `/api/offer-letters/templates/fetch?url=${encodeURIComponent(templateUrl)}`;
                  const res = await api.get(proxyUrl, { responseType: 'arraybuffer' });
                  const buffer = res.data;
 
-                 if (isImage) {
-                     const hdr = new Uint8Array(buffer.slice(0, 4));
-                     if (hdr[0] === 0x25 && hdr[1] === 0x50 && hdr[2] === 0x44 && hdr[3] === 0x46) {
-                         throw new Error(`File '${templateUrl}' is a PDF renamed as an image. Please re-upload as .pdf`);
-                     }
+                 const hdr = new Uint8Array(buffer.slice(0, 4));
+                 const isPdfMagic = (hdr[0] === 0x25 && hdr[1] === 0x50 && hdr[2] === 0x44 && hdr[3] === 0x46);
+
+                 if (!isPdfMagic) {
                      templateImage = buffer;
                      console.log(`✅ PDF Generator: Template Image fetched via proxy (${buffer.byteLength} bytes)`);
                  } else {

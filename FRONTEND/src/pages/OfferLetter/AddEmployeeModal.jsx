@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
     User, Briefcase, IndianRupee, ArrowRight,
-    Download, ChevronDown
+    Download, ChevronDown, Info
 } from 'lucide-react';
 import * as api from '../../api';
 
@@ -85,6 +85,84 @@ const InputGroup = ({ label, name, type = "text", placeholder, value, onChange, 
 );
 
 const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
+    // ── Payroll Rules State ────────────────────────────────────
+    const [payrollRules, setPayrollRules] = useState(null);
+    const [rulesLoading, setRulesLoading] = useState(true);
+
+    // Fetch payroll rules on mount
+    useEffect(() => {
+        const fetchRules = async () => {
+            try {
+                const response = await api.getPayrollRules();
+                const rules = response?.data || response;
+                setPayrollRules(rules);
+                console.log("📋 Payroll Rules loaded for offer letter:", rules);
+            } catch (err) {
+                console.warn("⚠️ Could not load payroll rules, using defaults:", err.message);
+                // Fallback defaults
+                setPayrollRules({
+                    basicPercentage: 40, hraPercentage: 40,
+                    conveyance: 1600, medical: 1250,
+                    travellingAllowance: 800, otherAllowance: 1000,
+                    pfCalculationMethod: 'percentage', pfPercentage: 12,
+                    employerPfPercentage: 12,
+                    pfFixedAmountEmployee: 0, pfFixedAmountEmployer: 0,
+                    ptSlab1Limit: 15000, ptSlab2Limit: 20000,
+                    ptSlab1Amount: 150, ptSlab2Amount: 200
+                });
+            } finally {
+                setRulesLoading(false);
+            }
+        };
+        fetchRules();
+    }, []);
+
+    // ── Calculate salary breakdown using payroll rules ──────────
+    const calculateFromRules = useCallback((ctcAnnual, rules) => {
+        if (!rules || !ctcAnnual || ctcAnnual <= 0) return {};
+
+        const basicAnnual = Math.round(ctcAnnual * (rules.basicPercentage || 40) / 100);
+        const basicMonthly = Math.round(basicAnnual / 12);
+        const hraMonthly = Math.round(basicMonthly * (rules.hraPercentage || 40) / 100);
+        const conveyance = rules.conveyance || 1600;
+        const medical = rules.medical || 1250;
+        const travellingAllowance = rules.travellingAllowance || 800;
+        const otherAllowance = rules.otherAllowance || 1000;
+
+        const grossMonthly = basicMonthly + hraMonthly + conveyance + medical + travellingAllowance + otherAllowance;
+
+        // PF Calculation
+        let pfMonthly = 0;
+        if (rules.pfCalculationMethod === 'fixed') {
+            pfMonthly = rules.pfFixedAmountEmployee || 0;
+        } else {
+            pfMonthly = Math.round(basicMonthly * (rules.pfPercentage || 12) / 100);
+        }
+
+        // PT Calculation based on slabs
+        let ptMonthly = 0;
+        const ptSlab1Limit = rules.ptSlab1Limit || 15000;
+        const ptSlab2Limit = rules.ptSlab2Limit || 20000;
+        if (grossMonthly > ptSlab2Limit) {
+            ptMonthly = rules.ptSlab2Amount || 200;
+        } else if (grossMonthly > ptSlab1Limit) {
+            ptMonthly = rules.ptSlab1Amount || 150;
+        }
+
+        return {
+            basic_salary: basicMonthly,
+            hra: hraMonthly,
+            conveyance,
+            medical,
+            travellingAllowance,
+            otherAllowance,
+            gross: grossMonthly,
+            pf: pfMonthly,
+            pt: ptMonthly,
+            net: grossMonthly - pfMonthly - ptMonthly
+        };
+    }, []);
+
     const [formData, setFormData] = useState(() => {
         if (initialData) {
             const typeLower = (initialData.employment_type || '').toLowerCase();
@@ -104,7 +182,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 employment_type: isIntern ? 'Internship' : 'Full Time',
                 joining_date: joiningFormatted || initialData.joining_date || '',
                 ctc: initialData.ctc || comp.ctc || '',
-                basic_salary: initialData.basic_salary || comp.basic_salary || (comp.ctc ? (comp.ctc * 0.5) : ''),
+                basic_salary: initialData.basic_salary || comp.basic_salary || '',
                 pt: initialData.pt !== undefined ? initialData.pt : (comp.pt !== undefined ? comp.pt : ''),
                 pf: initialData.pf !== undefined ? initialData.pf : (comp.pf !== undefined ? comp.pf : '')
             };
@@ -124,9 +202,33 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
     });
 
     const [errors, setErrors] = useState({});
+    const [ctcModified, setCtcModified] = useState(false);
+
+    // ── Auto-calculate when CTC changes AND payroll rules are loaded ──
+    useEffect(() => {
+        if (!payrollRules || !formData.ctc || formData.employment_type === 'Internship') return;
+
+        // SKIP calculation for existing employees so we don't accidentally overwrite their FROZEN saved values.
+        // It should only auto-recalculate if the user explicitly modifies the CTC value.
+        if (initialData && !ctcModified) return;
+
+        const ctc = parseFloat(formData.ctc);
+        if (isNaN(ctc) || ctc <= 0) return;
+
+        const calc = calculateFromRules(ctc, payrollRules);
+        if (calc.basic_salary) {
+            setFormData(prev => ({
+                ...prev,
+                basic_salary: calc.basic_salary,
+                pt: calc.pt,
+                pf: calc.pf
+            }));
+        }
+    }, [formData.ctc, payrollRules, formData.employment_type, calculateFromRules, initialData, ctcModified]);
 
     const handleChange = (e) => {
         let { name, value } = e.target;
+        if (name === 'ctc') setCtcModified(true);
         if (name === 'joining_date' && value.length > 10) value = '';
 
         if (['name', 'designation', 'department'].includes(name)) {
@@ -154,20 +256,82 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
         }
 
         const isIntern = formData.employment_type === 'Internship';
+        const ctcVal = isIntern ? 0 : (formData.ctc ? parseFloat(formData.ctc) : 0);
+        const basicVal = isIntern ? 0 : (formData.basic_salary ? parseFloat(formData.basic_salary) : 0);
+        const ptVal = formData.pt !== '' && formData.pt !== undefined && formData.pt !== null ? parseFloat(formData.pt) : 0;
+        const pfVal = formData.pf !== '' && formData.pf !== undefined && formData.pf !== null ? parseFloat(formData.pf) : 0;
+
+        // Calculate and FREEZE the full breakdown using current payroll rules
+        // This ensures that even if rules change later, this employee's offer stays the same
+        const frozenBreakdown = (!isIntern && payrollRules && ctcVal > 0)
+            ? calculateFromRules(ctcVal, payrollRules)
+            : {};
+
         const payload = {
             ...formData,
             compensation: {
                 ...(formData.compensation || {}),
-                basic_salary: isIntern ? 0 : (formData.basic_salary ? parseFloat(formData.basic_salary) : 0),
-                ctc: isIntern ? 0 : (formData.ctc ? parseFloat(formData.ctc) : 0),
-                pt: formData.pt !== '' && formData.pt !== undefined && formData.pt !== null ? parseFloat(formData.pt) : 0,
-                pf: formData.pf !== '' && formData.pf !== undefined && formData.pf !== null ? parseFloat(formData.pf) : 0
+                ctc: ctcVal,
+                basic_salary: basicVal,
+                pt: ptVal,
+                pf: pfVal,
+                // Freeze all breakdown components from current payroll rules
+                hra: frozenBreakdown.hra || 0,
+                conveyance: frozenBreakdown.conveyance || 0,
+                medical_allowance: frozenBreakdown.medical || 0,
+                travelling_allowance: frozenBreakdown.travellingAllowance || 0,
+                other_allowance: frozenBreakdown.otherAllowance || 0,
+                special_allowance: (() => {
+                    if (!frozenBreakdown.basic_salary) return 0;
+                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12 
+                        + (frozenBreakdown.conveyance || 0) * 12 + (frozenBreakdown.medical || 0) * 12
+                        + (frozenBreakdown.travellingAllowance || 0) * 12 + (frozenBreakdown.otherAllowance || 0) * 12;
+                    const remaining = ctcVal - total;
+                    return remaining > 0 ? Math.round(remaining / 12) : 0;
+                })(),
+                gross_salary: frozenBreakdown.gross || 0,
+                net_salary: frozenBreakdown.net || 0,
+                // Store which rules were used (for audit/reference)
+                _rules_snapshot: payrollRules ? {
+                    basicPercentage: payrollRules.basicPercentage,
+                    hraPercentage: payrollRules.hraPercentage,
+                    pfMethod: payrollRules.pfCalculationMethod,
+                    pfPercentage: payrollRules.pfPercentage,
+                    frozenAt: new Date().toISOString()
+                } : null
             }
         };
         onSave(payload);
     };
 
+    // ── Calculated breakdown preview ───────────────────────────
+    const ctcNum = parseFloat(formData.ctc) || 0;
+    
+    let breakdown = null;
+    const hasFrozenBreakdown = initialData && initialData.compensation && initialData.compensation.gross_salary > 0;
 
+    if (formData.employment_type === 'Full Time') {
+        // If we have frozen values and CTC wasn't modified, display the frozen breakdown
+        if (initialData && !ctcModified && hasFrozenBreakdown) {
+            const comp = initialData.compensation;
+            breakdown = {
+                basic_salary: comp.basic_salary,
+                hra: comp.hra || 0,
+                conveyance: comp.conveyance || 0,
+                medical: comp.medical_allowance || 0,
+                travellingAllowance: comp.travelling_allowance || 0,
+                otherAllowance: comp.other_allowance || 0,
+                gross: comp.gross_salary || 0,
+                pf: comp.pf || 0,
+                pt: comp.pt || 0,
+                net: comp.net_salary || 0,
+            };
+        } 
+        // Otherwise, if we have dynamic rules and >0 CTC, display the real-time preview
+        else if (payrollRules && ctcNum > 0) {
+            breakdown = calculateFromRules(ctcNum, payrollRules);
+        }
+    }
 
     return (
         <div style={{
@@ -227,7 +391,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
 
                 <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '2.5rem' }}>
 
-                    {/* Sections with subtle backgrounds */}
+                    {/* Personal Information */}
                     <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
                         <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-primary)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <User size={20} style={{ color: 'var(--accent-color)' }} />
@@ -246,6 +410,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                         </div>
                     </div>
 
+                    {/* Professional Details */}
                     <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)' }}>
                         <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-primary)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <Briefcase size={20} style={{ color: 'var(--accent-color)' }} />
@@ -264,6 +429,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                         </div>
                     </div>
 
+                    {/* Compensation Structure - Full Time Only */}
                     {formData.employment_type === 'Full Time' && (
                         <motion.div
                             initial={{ opacity: 0, height: 0 }}
@@ -274,20 +440,40 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                 <IndianRupee size={20} style={{ color: 'var(--accent-color)' }} />
                                 <span style={{ borderBottom: '2px solid var(--accent-color)', paddingBottom: '4px', fontWeight: 'bold' }}>Compensation Structure</span>
                             </h3>
+
+                            {/* Rules Info Badge */}
+                            {(payrollRules || hasFrozenBreakdown) && !rulesLoading && (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '8px',
+                                    background: (initialData && !ctcModified && hasFrozenBreakdown) ? 'rgba(245, 158, 11, 0.08)' : 'rgba(99, 102, 241, 0.08)',
+                                    border: `1px solid ${(initialData && !ctcModified && hasFrozenBreakdown) ? 'rgba(245, 158, 11, 0.2)' : 'rgba(99, 102, 241, 0.2)'}`,
+                                    borderRadius: '10px', padding: '10px 14px', marginBottom: '1.5rem',
+                                    fontSize: '0.78rem', color: (initialData && !ctcModified && hasFrozenBreakdown) ? '#d97706' : 'var(--accent-color)', fontWeight: 600
+                                }}>
+                                    <Info size={14} />
+                                    <span>
+                                        {(initialData && !ctcModified && hasFrozenBreakdown)
+                                            ? `Showing saved/frozen salary breakdown from offer creation time. Modifying the CTC will recalculate using the newest payroll rules.`
+                                            : `Auto-calculated from current Payroll Rules: Basic ${payrollRules?.basicPercentage}% | HRA ${payrollRules?.hraPercentage}% of Basic | PF ${payrollRules?.pfCalculationMethod === 'fixed' ? `₹${payrollRules?.pfFixedAmountEmployee} fixed` : `${payrollRules?.pfPercentage}% of Basic`}`
+                                        }
+                                    </span>
+                                </div>
+                            )}
+
                             <div className="form-grid-2">
                                 <InputGroup label="Annual CTC (₹)" name="ctc" type="number" value={formData.ctc} onChange={handleChange} required disabled={isViewOnly} />
                                 <InputGroup label="Basic Salary (Monthly) (₹)" name="basic_salary" type="number" value={formData.basic_salary} onChange={handleChange} required disabled={isViewOnly} />
                             </div>
+
                             <div className="form-grid-2" style={{ marginTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 1' }}>
                                     <label style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', color: 'var(--text-muted)' }}>
                                         PT (Monthly) (₹) <span style={{ color: '#ef4444' }}>*</span>
-                                        {formData.ctc && parseFloat(formData.ctc) > 0 && (() => {
-                                            const ctc = parseFloat(formData.ctc) || 0;
-                                            const grossM = ctc / 12;
-                                            const suggested = grossM <= 15000 ? 0 : grossM <= 20000 ? 150 : 200;
-                                            return <span style={{ color: '#f59e0b', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}> — Sug: ₹{suggested}</span>;
-                                        })()}
+                                        {breakdown && (
+                                            <span style={{ color: '#10b981', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}>
+                                                {' '}— Auto: ₹{breakdown.pt}
+                                            </span>
+                                        )}
                                     </label>
                                     <input
                                         type="text"
@@ -313,12 +499,11 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 1' }}>
                                     <label style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', color: 'var(--text-muted)' }}>
                                         PF (Monthly) (₹) <span style={{ color: '#ef4444' }}>*</span>
-                                        {formData.ctc && parseFloat(formData.ctc) > 0 && (() => {
-                                            const ctc = parseFloat(formData.ctc) || 0;
-                                            const basic = ctc * 0.40;
-                                            const suggested = Math.round((basic * 0.12) / 12);
-                                            return <span style={{ color: '#f59e0b', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}> — Sug: ₹{suggested}</span>;
-                                        })()}
+                                        {breakdown && (
+                                            <span style={{ color: '#10b981', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}>
+                                                {' '}— Auto: ₹{breakdown.pf}
+                                            </span>
+                                        )}
                                     </label>
                                     <input
                                         type="text"
@@ -342,8 +527,57 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                     />
                                 </div>
                             </div>
+
+                            {/* Live Salary Breakdown Preview */}
+                            {breakdown && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    style={{
+                                        marginTop: '1.5rem',
+                                        background: 'var(--bg-tertiary)',
+                                        borderRadius: '16px',
+                                        padding: '1.25rem',
+                                        border: '1px solid var(--border-color)'
+                                    }}
+                                >
+                                    <h4 style={{ margin: '0 0 12px 0', fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        💰 Salary Breakdown Preview (Monthly)
+                                    </h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                                        {[
+                                            { label: 'Basic', val: breakdown.basic_salary },
+                                            { label: 'HRA', val: breakdown.hra },
+                                            { label: 'Conveyance', val: breakdown.conveyance },
+                                            { label: 'Medical', val: breakdown.medical },
+                                            { label: 'Travel Allow.', val: breakdown.travellingAllowance },
+                                            { label: 'Other Allow.', val: breakdown.otherAllowance },
+                                            { label: 'Gross', val: breakdown.gross, bold: true },
+                                            { label: 'PF Deduction', val: breakdown.pf, neg: true },
+                                            { label: 'PT Deduction', val: breakdown.pt, neg: true },
+                                            { label: 'Net Pay', val: breakdown.net, bold: true, highlight: true },
+                                        ].map((item, i) => (
+                                            <div key={i} style={{
+                                                padding: '8px 10px', borderRadius: '8px',
+                                                background: item.highlight ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-primary)',
+                                                border: `1px solid ${item.highlight ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-color)'}`,
+                                            }}>
+                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '2px' }}>{item.label}</div>
+                                                <div style={{
+                                                    fontSize: '0.95rem',
+                                                    fontWeight: item.bold ? 800 : 600,
+                                                    color: item.neg ? '#ef4444' : item.highlight ? '#10b981' : 'var(--text-primary)'
+                                                }}>
+                                                    {item.neg ? '-' : ''}₹{(item.val || 0).toLocaleString('en-IN')}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+
                             <p style={{ margin: '10px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                                💡 Leave PT and PF empty or enter 0 if the company doesn't have these deductions.
+                                💡 Values are auto-calculated from Payroll Rules. You can override PT & PF manually if needed.
                             </p>
                         </motion.div>
                     )}
