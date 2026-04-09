@@ -362,6 +362,42 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
         document.body.removeChild(link);
     };
 
+    const handleDownloadDOCX = async () => {
+        if (!generatedContent) return;
+        const btn = document.getElementById('docxBtn');
+        if(btn) {
+            btn.innerText = 'Converting...';
+            btn.disabled = true;
+        }
+
+        try {
+            const blob = await api.downloadOfferLetterDocx({
+                htmlContent: generatedContent,
+                templateUrl: selectedTemplate
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${employee.name.replace(/\s+/g, '_')}_${letterType}.docx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            if(btn) {
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> <span class="hide-mobile"> Words</span> DOCX';
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error("DOCX download error:", error);
+            alert("Error generating DOCX document. Please try again.");
+            if(btn) {
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> <span class="hide-mobile"> Words</span> DOCX';
+                btn.disabled = false;
+            }
+        }
+    };
+
     const handleSendEmail = async () => {
         const btn = document.getElementById('emailBtn');
         btn.innerText = 'Sending...';
@@ -570,6 +606,17 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
                         </div>
 
                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flex: '1 1 auto', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            <button
+                                id="docxBtn"
+                                onClick={handleDownloadDOCX}
+                                style={{
+                                    background: 'var(--bg-secondary)', border: '2px solid #2563eb', color: '#2563eb',
+                                    padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem',
+                                    display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 auto', justifyContent: 'center'
+                                }}
+                            >
+                                <FileText size={18} /> <span className="hide-mobile">Words</span> DOCX
+                            </button>
                             <button
                                 onClick={handleDownloadPDF}
                                 style={{

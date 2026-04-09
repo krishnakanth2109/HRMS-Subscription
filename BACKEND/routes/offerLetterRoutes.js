@@ -6,11 +6,13 @@ import path from "path";
 import fs from "fs";
 import xlsx from "xlsx";
 import nodemailer from "nodemailer";
+import HTMLtoDOCX from "html-to-docx";
 import OfferLetterEmployee from "../models/OfferLetterEmployee.js";
 import GeneratedLetter from "../models/GeneratedLetter.js";
 import OfferLetterTemplate from "../models/OfferLetterTemplate.js";
 import Company from "../models/CompanyModel.js";
 import InvitedEmployee from "../models/Invitedemployee.js";
+import PayrollRule from "../models/PayrollRule.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import { upload, cloudinary } from "../config/cloudinary.js";
@@ -252,27 +254,84 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     const comp = emp.compensation || {};
     const n = (v) => { if (v == null) return 0; try { return Math.round(parseFloat(v)); } catch { return 0; } };
 
-    let basic = n(comp.basic_salary);
-    let hra = n(comp.hra);
-    let conveyance = n(comp.conveyance);
-    let medical = n(comp.medical_allowance);
-    let special = n(comp.special_allowance);
-    let gross = n(comp.gross_salary);
-    let pt = n(comp.pt);
-    let pf = n(comp.pf);
-    let net = n(comp.net_salary);
     let ctc = n(comp.ctc);
+    // basic_salary, pt, pf are stored as MONTHLY values from the form
+    // The offer letter template expects ANNUAL values (divides by 12 for monthly column)
+    let pt = n(comp.pt) * 12;
+    let pf = n(comp.pf) * 12;
+    let basic = n(comp.basic_salary) * 12; // monthly → annual
 
-    // Auto-calculate if not set
-    if (basic === 0 && ctc > 0) basic = Math.round(ctc * 0.5);
-    if (hra === 0 && basic > 0) hra = Math.round(basic * 0.4);
-    if (conveyance === 0 && ctc > 0) conveyance = Math.min(Math.round(ctc * 0.05), 19200);
-    if (medical === 0 && ctc > 0) medical = Math.round(ctc * 0.05);
-    if (special === 0 && ctc > 0) special = ctc - basic - hra - conveyance - medical;
-    if (special < 0) special = 0;
-    if (gross === 0 && ctc > 0) gross = basic + hra + conveyance + medical + special;
-    if (gross === 0) gross = ctc;
-    if (net === 0 && gross > 0) net = gross - pt - pf;
+    // Check if this employee already has a frozen/saved breakdown
+    // (saved at creation time so payroll rule changes don't affect it)
+    const hasFrozenBreakdown = n(comp.hra) > 0 || n(comp.conveyance) > 0 || n(comp.gross_salary) > 0;
+
+    let hra, conveyance, medical, special, gross, net;
+
+    if (hasFrozenBreakdown) {
+      // ── USE FROZEN VALUES (saved at creation time) ──────────────
+      console.log("📋 Using FROZEN salary breakdown (saved at creation time)");
+      hra = n(comp.hra) * 12;
+      conveyance = n(comp.conveyance) * 12;
+      medical = n(comp.medical_allowance) * 12;
+      special = n(comp.special_allowance) * 12;
+      gross = n(comp.gross_salary) * 12;
+      net = n(comp.net_salary) * 12;
+      if (net === 0 && gross > 0) net = gross - pt - pf;
+    } else {
+      // ── FALLBACK: Calculate from current payroll rules ──────────
+      // (for old employees created before this feature)
+      console.log("📋 No frozen breakdown found, calculating from current payroll rules");
+      let rules = await PayrollRule.findOne({ adminId });
+      if (!rules) {
+        rules = {
+          basicPercentage: 40, hraPercentage: 40,
+          conveyance: 1600, medical: 1250,
+          travellingAllowance: 800, otherAllowance: 1000,
+          pfCalculationMethod: 'percentage', pfPercentage: 12,
+          pfFixedAmountEmployee: 0,
+          ptSlab1Limit: 15000, ptSlab2Limit: 20000,
+          ptSlab1Amount: 150, ptSlab2Amount: 200
+        };
+      }
+
+      if (basic === 0 && ctc > 0) {
+        const basicAnnual = Math.round(ctc * (rules.basicPercentage || 40) / 100);
+        basic = Math.round(basicAnnual / 12) * 12;
+      }
+
+      hra = Math.round((basic / 12) * (rules.hraPercentage || 40) / 100) * 12;
+      conveyance = (rules.conveyance || 1600) * 12;
+      medical = (rules.medical || 1250) * 12;
+
+      const travelAnnual = (rules.travellingAllowance || 0) * 12;
+      const otherAnnual = (rules.otherAllowance || 0) * 12;
+      special = ctc - basic - hra - conveyance - medical - travelAnnual - otherAnnual;
+      if (special < 0) special = 0;
+
+      gross = basic + hra + conveyance + medical + special;
+      if (gross === 0) gross = ctc;
+
+      if (pf === 0 && basic > 0) {
+        if (rules.pfCalculationMethod === 'fixed') {
+          pf = (rules.pfFixedAmountEmployee || 0) * 12;
+        } else {
+          pf = Math.round((basic / 12) * (rules.pfPercentage || 12) / 100) * 12;
+        }
+      }
+
+      if (pt === 0 && gross > 0) {
+        const grossMonthly = Math.round(gross / 12);
+        let ptMonthly = 0;
+        if (grossMonthly > (rules.ptSlab2Limit || 20000)) {
+          ptMonthly = rules.ptSlab2Amount || 200;
+        } else if (grossMonthly > (rules.ptSlab1Limit || 15000)) {
+          ptMonthly = rules.ptSlab1Amount || 150;
+        }
+        pt = ptMonthly * 12;
+      }
+
+      net = gross - pt - pf;
+    }
 
     const joiningFormatted = emp.joining_date
       ? new Date(emp.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -290,10 +349,10 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
 
     // Build the offer letter HTML (Page 1 + Salary Annexure Page 2)
     const page1 = `
-    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14.5px; line-height: 1.6; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: ${minHeightPx}; box-sizing: border-box;">
-        <div class="date-row" style="text-align: right; font-weight: bold; margin-bottom: 30px; margin-top: 10px;">
-            <span style="display: inline-block;">Date : ${currentDate}</span>
-        </div>
+    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14.5px; line-height: 1.6; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: ${minHeightPx}; box-sizing: border-box; padding-top: 15px;">
+        <p style="text-align: right; font-weight: bold; margin-bottom: 30px; margin-top: 10px;">
+            Date : ${currentDate}
+        </p>
         <p style="margin-bottom: 30px;"><strong>To,</strong></p>
         <p style="margin-bottom: 30px;">Dear <strong>${emp.name}</strong></p>
         <h3 style="text-align: center; color: #000; margin-bottom: 30px; font-size: 15px; font-weight: bold;">Subject: Offer of Employment</h3>
@@ -304,10 +363,11 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
         <p style="margin-bottom: 30px;">We look forward to your arrival as an employee of our organization and are confident that you will play a key role in our company's expansion. If this employment offer is acceptable to you, please sign a copy of this letter and return it to us by <strong>${joiningFormatted}</strong>.</p>
         <div style="margin-top: 40px;">
             <p style="margin-bottom: 20px;"><strong>Yours truly,</strong></p>
-            <p style="margin-bottom: 20px;"><strong>For ${company}</strong></p>
-            <div style="height: 60px; margin-bottom: 10px;"></div>
-            <p style="margin: 0; font-weight: bold;">Authorized Signatory</p>
-            <p style="margin: 0; font-weight: bold;">HR Department</p>
+            <p style="margin-bottom: 10px;"><strong>For ${company}</strong></p>
+            <p style="margin: 0;">&nbsp;</p>
+            <p style="margin: 0;">&nbsp;</p>
+            <p style="margin: 0;"><strong>D Navya</strong></p>
+            <p style="margin: 0;"><strong>Managing Director</strong></p>
         </div>
     </div>`;
 
@@ -334,18 +394,28 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
             <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 4px 6px;"><strong>Net Pay</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${Math.round(net / 12)}.00</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${net}.00</strong></td></tr>
         </table>
         <p style="font-weight: bold; margin-bottom: 15px;">Rupees: ${netWords || "Zero"} Rupees Only (Per Annum)</p>
-        <p style="margin-bottom: 15px;">*Incentive/Referral/Bonus or any other variable amount is payable subject to the<br>employee's performance as per Company Policies and at the Sole discretion of the<br>Company's management.</p>
-        <p style="margin-bottom: 25px;">*Employee has to be in active roles at the time of actual payment and not serving any<br>notice period in order to be eligible for the payment.</p>
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px;">
+        <p style="margin-bottom: 15px;">
+            *Incentive/Referral/Bonus or any other variable amount is payable subject to the<br>
+            employee's performance as per Company Policies and at the Sole discretion of the<br>
+            Company's management.
+            <br><br>
+            *Employee has to be in active roles at the time of actual payment and not serving any<br>
+            notice period in order to be eligible for the payment.
+        </p>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px;">
             <div style="text-align: left;">
-                <p style="margin-bottom: 25px;">For ${company}</p>
-                <div style="height: 60px; margin-bottom: 15px;"></div>
-                <p style="margin: 0; font-weight: bold;">Authorized Signatory</p>
-                <p style="margin: 0; font-weight: bold;">HR Department</p>
+                <p style="margin-bottom: 10px;"><strong>For ${company}</strong></p>
+                <p style="margin: 0;">&nbsp;</p>
+                <p style="margin: 0;">&nbsp;</p>
+                <p style="margin: 0;"><strong>D Navya</strong></p>
+                <p style="margin: 0;"><strong>Managing Director</strong></p>
             </div>
             <div style="text-align: center; margin-bottom: 0;">
-                <p style="font-weight: bold; margin-bottom: 50px;">Agreed and accepted</p>
-                <p style="margin: 0; font-weight: bold;">${emp.name}</p>
+                <p style="margin: 0;">&nbsp;</p>
+                <p style="margin: 0;">&nbsp;</p>
+                <p style="margin: 0;">&nbsp;</p>
+                <p style="margin-bottom: 5px;"><strong>Agreed and accepted</strong></p>
+                <p style="margin: 0;"><strong>${emp.name}</strong></p>
             </div>
         </div>
     </div>`;
@@ -368,6 +438,314 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     res.status(200).json({ content });
   } catch (error) {
     console.error("Generate letter error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================
+// 4b. Download DOCX
+// ============================================================
+router.post('/download-docx', protect, onlyAdmin, async (req, res) => {
+  try {
+    const { htmlContent } = req.body;
+
+    const AdmZip = (await import('adm-zip')).default;
+
+    // ══════════════════════════════════════════════════
+    // STEP 1: Split HTML into logical pages
+    // ══════════════════════════════════════════════════
+    let htmlPages = [];
+    const annexureIdx = htmlContent.indexOf('Annexure');
+    if (annexureIdx > 0) {
+      const divBefore = htmlContent.lastIndexOf('<div', annexureIdx);
+      if (divBefore > 0) {
+        htmlPages.push(htmlContent.substring(0, divBefore));
+        htmlPages.push(htmlContent.substring(divBefore));
+      } else {
+        htmlPages.push(htmlContent);
+      }
+    } else {
+      htmlPages.push(htmlContent);
+    }
+    console.log(`📄 DOCX: Split content into ${htmlPages.length} logical page(s)`);
+
+    // ══════════════════════════════════════════════════
+    // STEP 2: Sanitize HTML for Word compatibility
+    // ══════════════════════════════════════════════════
+    function sanitizeHtml(html) {
+      let safe = html
+        .replace(/&ldquo;/g, '\u201C').replace(/&rdquo;/g, '\u201D')
+        .replace(/&lsquo;/g, '\u2018').replace(/&rsquo;/g, '\u2019')
+        .replace(/&mdash;/g, '\u2014').replace(/&ndash;/g, '\u2013')
+        .replace(/&amp;/g, '&')
+        .replace(/<ul[^>]*>/g, '').replace(/<\/ul>/g, '')
+        .replace(/<li>/g, '<p style="margin-left:20px;margin-bottom:5px;">\u2022 ')
+        .replace(/<\/li>/g, '</p>')
+        // Insert specific Word-only vertical space before Yours truly
+        .replace(/<strong>Yours truly,<\/strong>/gi, '<br><br><strong>Yours truly,</strong>')
+        // Convert <h3> to <p> so Word doesn't add heading indent
+        .replace(/<h3([^>]*)>/gi, '<p$1>').replace(/<\/h3>/gi, '</p>');
+
+      // FIRST: Remove empty spacer divs (they disrupt nesting detection)
+      safe = safe.replace(/<div[^>]*style="[^"]*height:\s*\d+px[^"]*"[^>]*>(\s*)<\/div>/gi, '');
+
+      // SECOND: Replace the flex signature block with space-padded lines (no table)
+      // Approach: find the flex outer div, extract left/center inner div p-tag content,
+      // then zip them together with non-breaking spaces as the separator.
+      const flexIdx = safe.indexOf('display: flex');
+      if (flexIdx > -1) {
+        const flexDivStart = safe.lastIndexOf('<div', flexIdx);
+        if (flexDivStart > -1) {
+          // Walk forward counting <div> depth to find the matching </div>
+          let depth = 0;
+          let pos = flexDivStart;
+          let flexDivEnd = -1;
+          while (pos < safe.length) {
+            const nextOpen = safe.indexOf('<div', pos + 1);
+            const nextClose = safe.indexOf('</div>', pos + 1);
+            if (nextClose === -1) break;
+            if (nextOpen !== -1 && nextOpen < nextClose) {
+              depth++;
+              pos = nextOpen;
+            } else {
+              if (depth === 0) {
+                flexDivEnd = nextClose + '</div>'.length;
+                break;
+              }
+              depth--;
+              pos = nextClose;
+            }
+          }
+
+          if (flexDivEnd > -1) {
+            const flexBlock = safe.substring(flexDivStart, flexDivEnd);
+
+            // Extract left and center/right inner div HTML
+            const leftDivMatch = flexBlock.match(/<div[^>]*text-align:\s*left[^>]*>([\s\S]*?)<\/div>/i);
+            const rightDivMatch = flexBlock.match(/<div[^>]*text-align:\s*center[^>]*>([\s\S]*?)<\/div>/i)
+              || flexBlock.match(/<div[^>]*text-align:\s*right[^>]*>([\s\S]*?)<\/div>/i);
+
+            if (leftDivMatch && rightDivMatch) {
+              // Extract text content of each <p> tag in each column
+              const extractPs = (divHtml) =>
+                [...divHtml.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)].map(m => m[1].trim()).filter(Boolean);
+
+              const leftLines = extractPs(leftDivMatch[1]);
+              const rightLines = extractPs(rightDivMatch[1]);
+
+              const maxLines = Math.max(leftLines.length, rightLines.length);
+
+              // Replacing table with spaces for alignment as requested
+              let signatureHtml = `<div style="margin-top:8px;">`;
+              for (let i = 0; i < maxLines; i++) {
+                const getRawStr = (htmlStr) => htmlStr ? htmlStr.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').trim() : '';
+                const leftStr = leftLines[i] || '';
+                const rightStr = rightLines[i] || '';
+                
+                let spacer = '';
+                if (rightStr) {
+                  const leftLength = getRawStr(leftStr).length;
+                  const padLen = Math.max(5, 75 - leftLength); 
+                  // Use non-breaking spaces for word alignment
+                  spacer = '&nbsp;'.repeat(padLen);
+                }
+                
+                signatureHtml += `<p style="margin:0;padding:0;">${leftStr}${spacer}${rightStr}</p>`;
+              }
+              signatureHtml += `</div>`;
+
+              safe = safe.substring(0, flexDivStart) + signatureHtml + safe.substring(flexDivEnd);
+            }
+          }
+        }
+      }
+
+      // THIRD: Strip unsupported CSS + compact spacing
+      safe = safe
+        .replace(/&nbsp;/g, '\u00A0')
+        .replace(/min-height:[^;]+;?/gi, '')
+        .replace(/display:\s*flex[^;]*;?/gi, '')
+        .replace(/flex-direction:[^;]*;?/gi, '')
+        .replace(/justify-content:[^;]*;?/gi, '')
+        .replace(/align-items:[^;]*;?/gi, '')
+        .replace(/box-sizing:[^;]*;?/gi, '')
+        .replace(/-webkit-[^;]*;?/gi, '')
+        .replace(/max-width:[^;]+;?/gi, '')
+        // Strip line-height from inner elements — lets outer wrapper 1.4 apply (saves ~12% space)
+        .replace(/line-height:[^;]+;?/gi, '')
+        // Strip font-size from inner divs (outer wrapper sets 11pt globally)
+        .replace(/font-size:\s*\d+(?:\.\d+)?px;?/gi, '')
+        .replace(/width:\s*(\d+)%;/gi, (m, p) => `width:${Math.round(parseInt(p) * 6)}px;`)
+        .replace(/width="(\d+)%"/gi, (m, p) => `width="${Math.round(parseInt(p) * 6)}"`);
+
+      // Compact table cell padding: 4px → 2px to shrink each row height
+      safe = safe.replace(/padding:\s*4px\s*(\d+px)/gi, 'padding:2px $1');
+
+      // FOURTH: Compress large paragraph margins so Annexure + signature fits on one page.
+      // We crush all explicit CSS margins to 2px globally because Word inherently adds its own paragraph pStyle spacing (~10pt).
+      // If we don't crush them, the margins compound with Word's default spacing and cause Page 2 overflow.
+      safe = safe
+        .replace(/margin-bottom:\s*(\d+)px/gi, 'margin-bottom:2px')
+        .replace(/margin-top:\s*(\d+)px/gi, 'margin-top:2px')
+        .replace(/padding-top:\s*\d+px;?/gi, '')
+        .replace(/padding-bottom:\s*\d+px;?/gi, '');
+
+      // 10pt tightly guarantees fit on Page 2 without spilling onto Page 3. Line-height 1.2
+      return `<div style="font-family:Arial,sans-serif; font-size:10pt; color:#000; line-height:1.2;">${safe}</div>`;
+    }
+
+    // ══════════════════════════════════════════════════
+    // STEP 3: Convert each logical page → DOCX XML, then sub-split for overflow
+    // ══════════════════════════════════════════════════
+    let allSections = []; // Each entry = XML paragraphs for one Word page
+    let firstTextZip = null;
+
+    for (let pi = 0; pi < htmlPages.length; pi++) {
+      const safePageHtml = sanitizeHtml(htmlPages[pi]);
+      const pageDocxBuffer = await HTMLtoDOCX(safePageHtml, null, {
+        margins: { top: 2400, right: 1000, bottom: 1440, left: 1000 }
+      });
+      const pageZip = new AdmZip(pageDocxBuffer);
+      if (pi === 0) firstTextZip = pageZip;
+
+      const pageDocXml = pageZip.readAsText('word/document.xml');
+      const bodyMatch = pageDocXml.match(/<w:body>([\s\S]*)<\/w:body>/);
+      if (!bodyMatch) continue;
+
+      let paragraphs = bodyMatch[1].replace(/<w:sectPr[\s\S]*?<\/w:sectPr>/, '').trim();
+
+      // Check if this logical page overflows into multiple Word pages
+      // Extract all top-level elements (paragraphs + tables)
+      const elements = paragraphs.match(/(<w:p\b[\s\S]*?<\/w:p>|<w:tbl\b[\s\S]*?<\/w:tbl>)/g) || [];
+      const pageText = paragraphs.replace(/<[^>]*>/g, '');
+      const wordCount = pageText.split(/\s+/).filter(Boolean).length;
+      console.log(`  Page ${pi + 1}: ${wordCount} words, ${elements.length} elements`);
+
+      // ~500 words per Word page with our margins.
+      // Salary tables inflate word count (numbers count as words) without using
+      // proportional vertical space, so we use a generous threshold.
+      const subPages = Math.max(1, Math.ceil(wordCount / 700));
+
+      if (subPages <= 1) {
+        allSections.push(paragraphs);
+      } else {
+        // Sub-split elements across multiple Word pages
+        const elementsPerSubPage = Math.ceil(elements.length / subPages);
+        for (let s = 0; s < subPages; s++) {
+          const chunk = elements.slice(s * elementsPerSubPage, (s + 1) * elementsPerSubPage).join('\n');
+          if (chunk.trim()) allSections.push(chunk);
+        }
+      }
+    }
+
+    console.log(`📄 DOCX: Total Word sections (with overflow): ${allSections.length}`);
+
+    // ══════════════════════════════════════════════════
+    // STEP 4: Open the template
+    // ══════════════════════════════════════════════════
+    const templateUrl = 'https://res.cloudinary.com/dm0qq5no9/raw/upload/v1775132006/Vagerious_new.docx';
+    const response = await axios.get(templateUrl, { responseType: 'arraybuffer' });
+    const templateZip = new AdmZip(Buffer.from(response.data));
+    let templateDocXml = templateZip.readAsText('word/document.xml');
+
+    // Disable Word image compression
+    let settingsXml = templateZip.readAsText('word/settings.xml');
+    if (settingsXml && !settingsXml.includes('doNotCompressPictures')) {
+      settingsXml = settingsXml.replace(
+        '</w:settings>',
+        `  <w:doNotCompressPictures/>\n  <w:compat>\n    <w:doNotExpandShiftReturn/>\n  </w:compat>\n</w:settings>`
+      );
+      templateZip.updateFile('word/settings.xml', Buffer.from(settingsXml, 'utf8'));
+    }
+
+    // ══════════════════════════════════════════════════
+    // STEP 5: Extract the logo paragraph from the template
+    // ══════════════════════════════════════════════════
+    const logoParaMatch =
+      templateDocXml.match(/<w:p\b[^>]*>(?:(?!<w:p\b).)*?<w:drawing>[\s\S]*?<\/w:drawing>[\s\S]*?<\/w:p>/) ||
+      templateDocXml.match(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/);
+
+    const logoPara = logoParaMatch ? logoParaMatch[0] : "";
+    if (logoPara) templateDocXml = templateDocXml.replace(logoPara, '');
+
+    // ══════════════════════════════════════════════════
+    // STEP 6: Build multi-section body — logo on EVERY page
+    // ══════════════════════════════════════════════════
+    let multiSectionBody = '';
+    const totalSections = allSections.length;
+    const pgMar = `w:top="2400" w:right="1000" w:bottom="1440" w:left="1000" w:header="720" w:footer="720" w:gutter="0"`;
+    const pgSz = `w:w="11900" w:h="16840" w:orient="portrait"`;
+
+    for (let i = 0; i < totalSections; i++) {
+      const isLast = i === totalSections - 1;
+
+      if (logoPara) multiSectionBody += logoPara + '\n';
+      multiSectionBody += allSections[i] + '\n';
+
+      if (isLast) {
+        multiSectionBody += `<w:sectPr>
+  <w:pgSz ${pgSz}/>
+  <w:pgMar ${pgMar}/>
+</w:sectPr>`;
+      } else {
+        multiSectionBody += `<w:p>
+  <w:pPr>
+    <w:sectPr>
+      <w:type w:val="nextPage"/>
+      <w:pgSz ${pgSz}/>
+      <w:pgMar ${pgMar}/>
+    </w:sectPr>
+  </w:pPr>
+</w:p>`;
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    // STEP 7: Inject multi-section body into template
+    // ══════════════════════════════════════════════════
+    const hasSectPr = /<w:sectPr[\s\S]*?<\/w:sectPr>/.test(templateDocXml);
+    if (hasSectPr) {
+      templateDocXml = templateDocXml.replace(/<w:sectPr[\s\S]*?<\/w:sectPr>/, multiSectionBody);
+    } else {
+      templateDocXml = templateDocXml.replace('</w:body>', multiSectionBody + '</w:body>');
+    }
+
+    templateZip.updateFile('word/document.xml', Buffer.from(templateDocXml, 'utf8'));
+
+    // ══════════════════════════════════════════════════
+    // STEP 8: Copy styles from generated DOCX into template
+    // ══════════════════════════════════════════════════
+    const stylesToCopy = ['word/styles.xml', 'word/webSettings.xml'];
+    for (const f of stylesToCopy) {
+      const entry = firstTextZip.getEntry(f);
+      if (entry) templateZip.updateFile(f, entry.getData());
+    }
+
+    const numEntry = firstTextZip.getEntry('word/numbering.xml');
+    if (numEntry) {
+      templateZip.addFile('word/numbering.xml', numEntry.getData());
+      let ctXml = templateZip.readAsText('[Content_Types].xml');
+      if (!ctXml.includes('numbering.xml')) {
+        ctXml = ctXml.replace('</Types>', '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/></Types>');
+        templateZip.updateFile('[Content_Types].xml', Buffer.from(ctXml, 'utf8'));
+      }
+      let dRels = templateZip.readAsText('word/_rels/document.xml.rels');
+      if (!dRels.includes('numbering.xml')) {
+        dRels = dRels.replace('</Relationships>', '<Relationship Id="rIdNum1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>');
+        templateZip.updateFile('word/_rels/document.xml.rels', Buffer.from(dRels, 'utf8'));
+      }
+    }
+
+    // ══════════════════════════════════════════════════
+    // STEP 9: Send final DOCX
+    // ══════════════════════════════════════════════════
+    const finalBuffer = templateZip.toBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', 'attachment; filename="Offer_Letter.docx"');
+    res.send(finalBuffer);
+
+  } catch (error) {
+    console.error('DOCX Generation Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -495,37 +873,43 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
 });
 
 // ============================================================
-// 6. Template Management (Local & DB)
+// 6. Template Management (Cloudinary Persistent Storage)
 // ============================================================
-const localTemplateStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(process.cwd(), "public", "templates");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
-    cb(null, Date.now() + "-" + safeName);
-  }
-});
-const uploadLocal = multer({ storage: localTemplateStorage });
 
-router.post("/templates/upload", protect, onlyAdmin, uploadLocal.single("file"), async (req, res) => {
+// Use memory storage so we can manually upload to Cloudinary with correct resource_type.
+// PDFs must be uploaded as "raw" (not "image") to be accessible via Cloudinary URLs.
+const templateMemoryUpload = multer({ storage: multer.memoryStorage() });
+
+router.post("/templates/upload", protect, onlyAdmin, templateMemoryUpload.single("file"), async (req, res) => {
   try {
     const adminId = req.user._id;
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    // File uploaded locally
-    // Determine the base URL statically or dynamically 
-    const backendUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
-    const fileUrl = `${backendUrl}/public/templates/${req.file.filename}`;
+    const isPdf = req.file.originalname.toLowerCase().endsWith('.pdf');
+
+    // Convert buffer to base64 data URI for Cloudinary upload
+    const b64 = req.file.buffer.toString('base64');
+    const dataUri = `data:${req.file.mimetype};base64,${b64}`;
+
+    // Upload to Cloudinary with correct resource_type:
+    // - PDFs need "raw" so they are served from /raw/upload/ (publicly accessible)
+    // - Images (jpg/png) use "image" which is the default
+    const uploadResult = await cloudinary.uploader.upload(dataUri, {
+      folder: "offer_letter_templates",
+      resource_type: isPdf ? "raw" : "image",
+      type: "upload",
+    });
+
+    const cloudinaryUrl = uploadResult.secure_url;
     const { name, companyName } = req.body;
+
+    console.log("☁️  Template uploaded to Cloudinary:", cloudinaryUrl);
 
     const newTemplate = new OfferLetterTemplate({
       adminId,
       name: name || req.file.originalname.split(".")[0],
       companyName: companyName || "",
-      templateUrl: fileUrl,
+      templateUrl: cloudinaryUrl,
       originalFilename: req.file.originalname,
     });
 
@@ -560,38 +944,10 @@ router.get("/templates/fetch", protect, async (req, res) => {
 
     let fetchUrl = url;
 
-    // For Cloudinary URLs, generate a properly signed delivery URL
+    // Cloudinary files are uploaded as public (type: "upload"), 
+    // so they can be fetched directly without signing.
     if (url.includes("cloudinary.com")) {
-      try {
-        // Extract public_id from Cloudinary URL using regex
-        // Pattern: .../upload/v{version}/{public_id}.{ext}
-        // Or:      .../upload/{public_id}.{ext}
-        const uploadMatch = url.match(/\/upload\/(?:v\d+\/)?(.+)$/);
-        if (uploadMatch) {
-          const fullPath = uploadMatch[1];                    // e.g. "employee_docs/template.jpg"
-          const lastDot = fullPath.lastIndexOf('.');
-          const publicId = lastDot !== -1 ? fullPath.substring(0, lastDot) : fullPath;
-          const ext = lastDot !== -1 ? fullPath.substring(lastDot + 1) : undefined;
-
-          // Detect resource_type from URL path
-          const resourceType = url.includes("/raw/upload") ? "raw"
-            : url.includes("/video/upload") ? "video"
-              : "image";
-
-          // Generate signed URL — format is part of the signature, not appended after
-          fetchUrl = cloudinary.url(publicId, {
-            secure: true,
-            sign_url: true,
-            resource_type: resourceType,
-            format: ext  // included in signature calculation
-          });
-
-          console.log("🔗 Proxy fetching via Signed URL:", fetchUrl.substring(0, 120) + "...");
-        }
-      } catch (err) {
-        console.warn("⚠️ URL signing failed, using original URL:", err.message);
-        fetchUrl = url;
-      }
+      console.log("🔗 Proxy fetching Cloudinary URL directly:", url.substring(0, 120));
     } else {
       console.log("🔗 Proxy fetching non-Cloudinary URL directly:", url.substring(0, 100));
     }
@@ -639,7 +995,26 @@ router.delete("/templates/:id", protect, onlyAdmin, async (req, res) => {
     const adminId = req.user._id;
     const deleted = await OfferLetterTemplate.findOneAndDelete({ _id: req.params.id, adminId });
     if (!deleted) return res.status(404).json({ message: "Template not found" });
-    res.status(200).json({ message: "Template deleted from database" });
+
+    // Also remove the file from Cloudinary to free up space
+    if (deleted.templateUrl && deleted.templateUrl.includes("cloudinary.com")) {
+      try {
+        const uploadMatch = deleted.templateUrl.match(/\/upload\/(?:v\d+\/)?(.+)$/);
+        if (uploadMatch) {
+          const fullPath = uploadMatch[1];
+          const lastDot = fullPath.lastIndexOf('.');
+          const publicId = lastDot !== -1 ? fullPath.substring(0, lastDot) : fullPath;
+          const resourceType = deleted.templateUrl.includes("/raw/upload") ? "raw"
+            : deleted.templateUrl.includes("/video/upload") ? "video" : "image";
+          await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+          console.log("🗑️  Cloudinary file deleted:", publicId);
+        }
+      } catch (cloudErr) {
+        console.warn("⚠️ Could not delete from Cloudinary:", cloudErr.message);
+      }
+    }
+
+    res.status(200).json({ message: "Template deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

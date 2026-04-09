@@ -38,8 +38,6 @@ const getSecureUrl = (url) => {
   return url;
 };
 
-const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-
 // Helper: Get Department (Prioritize root, then experience)
 const getCurrentDepartment = (employee) => {
   if (employee.currentDepartment) return employee.currentDepartment;
