@@ -378,7 +378,7 @@ const Login = () => {
                 onClick={() => setShowSignup(true)} 
                 className="text-xs font-bold text-gray-400 hover:text-purple-600 uppercase tracking-widest transition-colors"
               >
-                Subscribe Our HRMS
+                Subscribe Our V-Sync
               </button>
         <p className="text-[8px] sm:text-[10px] text-gray-400 pt-4 sm:pt-6 border-t border-gray-100 w-full">
   Need help? 
@@ -420,7 +420,9 @@ const Login = () => {
             </h4>
             <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
               {fetchedPlans.length > 0 ? (
-                fetchedPlans.map((plan) => (
+    fetchedPlans
+  .filter((plan) => plan.planName.toLowerCase() !== "owner")
+  .map((plan) => (
                   <button
                     key={plan._id}
                     type="button"

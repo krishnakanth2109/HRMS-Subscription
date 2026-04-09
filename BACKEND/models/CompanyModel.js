@@ -33,6 +33,10 @@ const CompanySchema = new mongoose.Schema({
         latitude: { type: Number, default: null },
         longitude: { type: Number, default: null },
         address: { type: String, default: "" },
+        city: { type: String, default: "" },
+        state: { type: String, default: "" },
+        zipCode: { type: String, default: "" },
+        country: { type: String, default: "" },
         allowedRadius: { type: Number, default: 200 } // Geofencing radius in meters
     },
 
@@ -40,6 +44,7 @@ const CompanySchema = new mongoose.Schema({
     email: { type: String, default: "" },
     phone: { type: String, default: "" },
     website: { type: String, default: "" },
+    registrationNumber: { type: String, default: "" }, // Added registration number field
 
 }, { timestamps: true });
 
