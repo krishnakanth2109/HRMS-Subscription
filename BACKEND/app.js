@@ -46,6 +46,7 @@ import stripeWebhookHandler from "./controllers/stripeWebhookController.js";
 import masterRoutes from "./routes/masterRoutes.js";
 import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
+import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -165,7 +166,10 @@ app.use("/public", express.static(path.join(process.cwd(), "public")));
 /* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
+  // Allow iframing exclusively for document proxy to render PDFs inline
+  if (!req.originalUrl.includes("/proxy-doc")) {
+    res.setHeader("X-Frame-Options", "DENY");
+  }
   res.setHeader("X-XSS-Protection", "1; mode=block");
   next();
 });
@@ -215,6 +219,7 @@ app.use("/api/issues", issueRoutes);
 app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
 app.use('/api/payroll', payrollcandidatesRoutes);
+app.use('/api/doc-verification', documentVerificationRoutes);
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);
