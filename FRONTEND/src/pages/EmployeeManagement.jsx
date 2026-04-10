@@ -12,6 +12,7 @@ import {
   FaFileExcel,
   FaTimes,
   FaFileAlt,
+  FaShieldAlt,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -38,11 +39,7 @@ const getSecureUrl = (url) => {
   return url;
 };
 
-<<<<<<< HEAD
-=======
 
-
->>>>>>> fdcc7e82ccdbefc8750f8f4eb99573c323edc580
 // Helper: Get Department (Prioritize root, then experience)
 const getCurrentDepartment = (employee) => {
   if (employee.currentDepartment) return employee.currentDepartment;
@@ -1449,7 +1446,7 @@ const EmployeeManagement = () => {
             </div>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-3 flex-wrap">
             <button
               onClick={() => navigate("/admin/offer-letter")}
               className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"
@@ -1464,6 +1461,27 @@ const EmployeeManagement = () => {
               <FaUser />
               Onboarding Invitation
             </button>
+            <div className="relative group">
+              <button
+                className="bg-violet-600 text-white px-6 py-3 rounded-xl hover:bg-violet-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"
+              >
+                <FaShieldAlt /> Document Verification ▾
+              </button>
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 hidden group-hover:block">
+                <button
+                  onClick={() => navigate("/admin/doc-verify-invite")}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-2 rounded-t-xl transition-colors"
+                >
+                  ✉️ Send Invitations
+                </button>
+                <button
+                  onClick={() => navigate("/admin/doc-verify-portal")}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-2 rounded-b-xl transition-colors"
+                >
+                  🔍 View & Verify Docs
+                </button>
+              </div>
+            </div>
             <button
               onClick={() => navigate("/employees/add")}
               className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"
