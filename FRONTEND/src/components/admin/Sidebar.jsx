@@ -23,6 +23,7 @@ import {
   FaUserCheck,
   FaLock,
   FaReceipt,
+  FaFileSignature,
 } from "react-icons/fa";
 
 import { io } from "socket.io-client";
@@ -58,7 +59,7 @@ const ALL_NAV_LINKS = [
   // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
   // To add more owner-only features in future, just add them here with ownerOnly: true
   { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: <FaReceipt />, isPayrollCandidates: true, ownerOnly: true },
-  
+  { to: "/admin/resignation", route: "/admin/resignation", label: "Resignations", icon: <FaFileSignature /> },
 ];
 
 const calculateUnreadNotices = (notices, readState) => {
