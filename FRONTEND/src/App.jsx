@@ -99,6 +99,7 @@ import PayrollPage from "./pages/PayrollManagement";
 import DocVerifyInvite from "./pages/DocVerifyInvite";
 import DocVerifyAdmin from "./pages/DocVerifyAdmin";
 import DocumentVerificationForm from "./pages/DocumentVerificationForm";
+import HRChecklist from "./pages/HRChecklist";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -289,6 +290,8 @@ function App() {
           <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
           <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
           <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
+          <Route path="/admin/hr-checklist" element={<HRChecklist />} />
+
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}
