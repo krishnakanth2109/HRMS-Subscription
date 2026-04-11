@@ -54,6 +54,7 @@ const ALL_NAV_LINKS = [
   { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Adjustment", icon: <FaUserCheck />, isLateRequests: true },
   { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
   { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
+  { to: "/admin/induction", route: "/admin/live-tracking", label: "Induction", icon: <FaConnectdevelop /> },
 
   // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
   // To add more owner-only features in future, just add them here with ownerOnly: true
