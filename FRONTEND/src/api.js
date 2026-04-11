@@ -906,6 +906,12 @@ export const downloadOfferLetterDocx = async (data) => {
   });
   return response.data;
 };
+export const sendInductionEmail = async (formData) => {
+  const response = await api.post("/api/mail/send-induction-email", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
 export const getOfferLetterTemplates = async () =>
   (await api.get("/api/offer-letters/templates")).data;
 

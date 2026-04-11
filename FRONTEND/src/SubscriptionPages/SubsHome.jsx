@@ -96,6 +96,7 @@ const filteredPlans = plans.filter(
         "/admin/late-requests": "Attendance Adjustment",
         "/admin/admin-overtime": "Overtime Requests",
         "/admin/live-tracking": "Employee Idle Tracking",
+        "/admin/induction": "Induction",
     };
 
     // --- REGISTER HANDLER (same logic as Login.jsx) ---

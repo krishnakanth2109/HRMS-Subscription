@@ -1,10 +1,17 @@
 // --- FILE: routes/mailRoutes.js ---
 
 import express from "express";
+import multer from "multer";
 import transporter from "../config/nodemailer.js";
 import { protect } from "../controllers/authController.js"; // Assuming you want this protected
+import { onlyAdmin } from "../middleware/roleMiddleware.js";
+import { sendInductionEmail } from "../controllers/mailController.js";
 
 const router = express.Router();
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
 
 // @desc    Send Onboarding Email (Single or Bulk)
 // @route   POST /api/mail/send-onboarding
@@ -83,5 +90,13 @@ router.post("/send-onboarding", protect, async (req, res) => {
     });
   }
 });
+
+router.post(
+  "/send-induction-email",
+  protect,
+  onlyAdmin,
+  memoryUpload.single("attachment"),
+  sendInductionEmail
+);
 
 export default router;
