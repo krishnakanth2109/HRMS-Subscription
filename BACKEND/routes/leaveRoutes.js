@@ -8,6 +8,11 @@ import {
   getLeaveDetails,
   updateLeaveStatus,
   cancelLeave,
+  // ✅ NEW — Leave Policy
+  getLeavePolicyForAdmin,
+  upsertLeavePolicy,
+  resetUsedPaidDays,
+  getLeavePolicyBalanceForEmployee,
 } from "../controllers/leaveController.js";
 
 import { protect } from "../controllers/authController.js";
@@ -20,7 +25,6 @@ router.use(protect);
 
 /* ============================================================================
    📌 ADMIN → GET ALL LEAVES
-   (Managers CANNOT access this, only admin)
 ============================================================================ */
 router.get("/", adminListAllLeaves);
 
@@ -35,12 +39,38 @@ router.post("/apply", createLeave);
 router.get("/my-leaves", listLeavesForEmployee);
 
 /* ============================================================================
+   ✅ NEW — EMPLOYEE → GET LEAVE BALANCE (paid days remaining per type)
+   GET /api/leaves/balance
+============================================================================ */
+router.get("/balance", getLeavePolicyBalanceForEmployee);
+
+/* ============================================================================
+   ✅ NEW — ADMIN → GET LEAVE POLICY
+   GET /api/leaves/policy
+============================================================================ */
+router.get("/policy", onlyAdmin, getLeavePolicyForAdmin);
+
+/* ============================================================================
+   ✅ NEW — ADMIN → CREATE / UPDATE LEAVE POLICY
+   PUT /api/leaves/policy
+   Body: { policies: [{ leaveType, paidDaysLimit }], resetMonth: "01" }
+============================================================================ */
+router.put("/policy", onlyAdmin, upsertLeavePolicy);
+
+/* ============================================================================
+   ✅ NEW — ADMIN → MANUALLY RESET usedPaidDays COUNTER
+   POST /api/leaves/policy/reset
+   Body (optional): { leaveType: "CASUAL" }  — omit to reset all
+============================================================================ */
+router.post("/policy/reset", onlyAdmin, resetUsedPaidDays);
+
+/* ============================================================================
    📄 GET LEAVE DETAILS (Admin + Employee who owns leave)
 ============================================================================ */
 router.get("/:id/details", getLeaveDetails);
 
 /* ============================================================================
-   🟩 ADMIN → APPROVE or REJECT LEAVE (Manager cannot)
+   🟩 ADMIN → APPROVE or REJECT LEAVE
 ============================================================================ */
 router.patch("/:id/approve", onlyAdmin, (req, res) => {
   req.body.status = "Approved";
@@ -58,8 +88,7 @@ router.patch("/:id/reject", onlyAdmin, (req, res) => {
 router.delete("/cancel/:id", cancelLeave);
 
 /* ============================================================================
-   🔁 Legacy Route → Get leaves of specific employee
-   (Admin only)
+   🔁 Legacy Route → Get leaves of specific employee (Admin only)
 ============================================================================ */
 router.get("/:employeeId", listLeavesForEmployee);
 
