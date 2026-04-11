@@ -16,6 +16,7 @@
     "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "docx": "^9.6.1",
     "dotenv": "^16.6.1",
@@ -27,8 +28,10 @@
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "nodemailer": "^8.0.1",
+    "sib-api-v3-sdk": "^8.5.0",
     "socket.io": "^4.8.1",
     "stripe": "^20.2.0",
+    "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
   }
 }

@@ -96,7 +96,13 @@ import OfferLetterPage from "./pages/OfferLetterPage";
 import AdminDemoRequests from "./pages/master/Admindemorequests";
 import RequestDemo from "./pages/Requestdemo";
 import PayrollPage from "./pages/PayrollManagement";
+<<<<<<< HEAD
 import Induction from "./pages/Induction";
+=======
+import DocVerifyInvite from "./pages/DocVerifyInvite";
+import DocVerifyAdmin from "./pages/DocVerifyAdmin";
+import DocumentVerificationForm from "./pages/DocumentVerificationForm";
+>>>>>>> d81fe4b4ce564b3d78169b8bdb4290777cb4b7fc
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -164,6 +170,10 @@ function App() {
             <RequestDemo />
           </PublicRoute>
         } 
+<<<<<<< HEAD
+=======
+      
+>>>>>>> d81fe4b4ce564b3d78169b8bdb4290777cb4b7fc
       />
       <Route 
         path="/login" 
@@ -172,11 +182,12 @@ function App() {
             <Login />
           </PublicRoute>
         } 
-      /> 
+      />
       
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />
+      <Route path="/document-verification" element={<DocumentVerificationForm />} />
 
       {/* ------------------ MASTER ROUTES ------------------ */}
       {/* 
@@ -284,6 +295,8 @@ function App() {
         <Route path="/admin/induction" element={<Induction />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
           <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
+          <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
+          <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}

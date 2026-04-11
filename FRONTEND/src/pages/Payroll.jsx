@@ -291,12 +291,12 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
             )}
 
             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-              <div>
-                <label className="text-xs font-semibold text-gray-600">PT Slab 1 (>15k) Amount (₹)</label>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">PT Slab 1 (&gt;15k) Amount (₹)</label>
                 <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
               </div>
-              <div>
-                <label className="text-xs font-semibold text-gray-600">PT Slab 2 (>20k) Amount (₹)</label>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
                 <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
               </div>
             </div>

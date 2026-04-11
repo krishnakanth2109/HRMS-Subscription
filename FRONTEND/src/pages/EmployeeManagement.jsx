@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+
 import {
   FaUser,
   FaEdit,
@@ -12,6 +13,7 @@ import {
   FaFileExcel,
   FaTimes,
   FaFileAlt,
+  FaShieldAlt,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -38,6 +40,10 @@ const getSecureUrl = (url) => {
   return url;
 };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> d81fe4b4ce564b3d78169b8bdb4290777cb4b7fc
 // Helper: Get Department (Prioritize root, then experience)
 const getCurrentDepartment = (employee) => {
   if (employee.currentDepartment) return employee.currentDepartment;
@@ -1071,13 +1077,12 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-bold ${
-                              row.workedStatus === "Full Day"
+                            className={`px-2 py-1 rounded text-xs font-bold ${row.workedStatus === "Full Day"
                                 ? "bg-green-100 text-green-700"
                                 : row.workedStatus.includes("Absent")
                                   ? "bg-red-100 text-red-700"
                                   : "bg-yellow-100 text-yellow-700"
-                            }`}
+                              }`}
                           >
                             {row.workedStatus}
                           </span>
@@ -1211,13 +1216,12 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-bold ${
-                              l.status === "Approved"
+                            className={`px-2 py-1 rounded text-xs font-bold ${l.status === "Approved"
                                 ? "bg-green-100 text-green-700"
                                 : l.status === "Rejected"
                                   ? "bg-red-100 text-red-700"
                                   : "bg-yellow-100 text-yellow-700"
-                            }`}
+                              }`}
                           >
                             {l.status}
                           </span>
@@ -1256,6 +1260,7 @@ const EmployeeManagement = () => {
 
   const [employeeImages, setEmployeeImages] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
 
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
@@ -1285,7 +1290,7 @@ const EmployeeManagement = () => {
               newImages[emp.employeeId] = getSecureUrl(
                 res.data.profilePhoto.url,
               );
-          } catch (err) {}
+          } catch (err) { }
         }
       }
       if (Object.keys(newImages).length > 0)
@@ -1444,7 +1449,62 @@ const EmployeeManagement = () => {
             </div>
           </div>
 
-          <div className="flex gap-4">
+<div className="relative inline-block">
+  <button
+    onClick={() => setIsOpen(!isOpen)}
+    className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"
+  >
+    HR Activities
+    <svg className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  </button>
+
+  {isOpen && (
+    <>
+      {/* Backdrop for closing when clicking outside */}
+      <div 
+        className="fixed inset-0 z-40" 
+        onClick={() => setIsOpen(false)}
+      />
+      
+      {/* Dropdown Menu */}
+      <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50">
+        <div className="py-2">
+          <button
+            onClick={() => { navigate("/admin/background-verification"); setIsOpen(false); }}
+            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-600 border-b border-gray-100"
+          >
+            <FaFileAlt className="text-blue-500 text-sm" />
+            <span className="font-medium">Background Verification</span>
+          </button>
+          <button
+            onClick={() => { navigate("/admin/offer-letter"); setIsOpen(false); }}
+            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-600 border-b border-gray-100"
+          >
+            <FaFileAlt className="text-green-500 text-sm" />
+            <span className="font-medium">Offer Letter</span>
+          </button>
+          <button
+            onClick={() => { navigate("/admin/onboarding-email"); setIsOpen(false); }}
+            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-600 border-b border-gray-100"
+          >
+            <FaUser className="text-purple-500 text-sm" />
+            <span className="font-medium">Onboarding Invitation</span>
+          </button>
+          <button
+            onClick={() => { navigate("/employees/add"); setIsOpen(false); }}
+            className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-600"
+          >
+            <FaUser className="text-orange-500 text-sm" />
+            <span className="font-medium">Add Employee</span>
+          </button>
+        </div>
+      </div>
+    </>
+  )}
+</div>
+          <div className="flex gap-3 flex-wrap">
             <button
               onClick={() => navigate("/admin/offer-letter")}
               className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"
@@ -1459,6 +1519,27 @@ const EmployeeManagement = () => {
               <FaUser />
               Onboarding Invitation
             </button>
+            <div className="relative group">
+              <button
+                className="bg-violet-600 text-white px-6 py-3 rounded-xl hover:bg-violet-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"
+              >
+                <FaShieldAlt /> Document Verification ▾
+              </button>
+              <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 hidden group-hover:block">
+                <button
+                  onClick={() => navigate("/admin/doc-verify-invite")}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-2 rounded-t-xl transition-colors"
+                >
+                  ✉️ Send Invitations
+                </button>
+                <button
+                  onClick={() => navigate("/admin/doc-verify-portal")}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-2 rounded-b-xl transition-colors"
+                >
+                  🔍 View & Verify Docs
+                </button>
+              </div>
+            </div>
             <button
               onClick={() => navigate("/employees/add")}
               className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 shadow-md font-bold flex items-center gap-2 transition-transform transform hover:scale-105"

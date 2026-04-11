@@ -990,5 +990,10 @@ export const managePayrollCandidate = async (formData, id = null) => {
 export const deletePayrollCandidate = async (id) => 
   (await api.delete(`/api/payroll/${id}`)).data;
 
+export const getAllVerifiedDocCandidates = async () => {
+  const res = await api.get("/api/doc-verification/all");
+  const records = res.data.data || [];
+  return records.filter(r => r.status === 'verified');
+};
 
 export default api;
