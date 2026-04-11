@@ -39,6 +39,7 @@ import mailRoutes from "./routes/mailRoutes.js";
 import issueRoutes from "./routes/issueRoutes.js";
 import offerLetterRoutes from "./routes/offerLetterRoutes.js";
 import offerResponseRoutes from "./routes/offerResponseRoutes.js";
+import resignationRoutes from "./routes/resignationRoutes.js";
 
 /* ==================== 🔹 STRIPE IMPORTS ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
@@ -218,6 +219,7 @@ app.use("/api/mail", mailRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
+app.use("/api/resignations", resignationRoutes);
 app.use('/api/payroll', payrollcandidatesRoutes);
 app.use('/api/doc-verification', documentVerificationRoutes);
 

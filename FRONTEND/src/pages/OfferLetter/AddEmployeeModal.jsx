@@ -184,7 +184,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
             if (initialData.joining_date) {
                 try {
                     joiningFormatted = new Date(initialData.joining_date).toISOString().split('T')[0];
-                } catch(e){}
+                } catch (e) { }
             }
 
             return {
@@ -318,7 +318,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 other_allowance: frozenBreakdown.otherAllowance || 0,
                 special_allowance: (() => {
                     if (!frozenBreakdown.basic_salary) return 0;
-                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12 
+                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12
                         + (frozenBreakdown.conveyance || 0) * 12 + (frozenBreakdown.medical || 0) * 12
                         + (frozenBreakdown.travellingAllowance || 0) * 12 + (frozenBreakdown.otherAllowance || 0) * 12;
                     const remaining = ctcVal - total;
@@ -341,7 +341,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
 
     // ── Calculated breakdown preview ───────────────────────────
     const ctcNum = parseFloat(formData.ctc) || 0;
-    
+
     let breakdown = null;
     const hasFrozenBreakdown = initialData && initialData.compensation && initialData.compensation.gross_salary > 0;
 
@@ -361,7 +361,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 pt: comp.pt || 0,
                 net: comp.net_salary || 0,
             };
-        } 
+        }
         // Otherwise, if we have dynamic rules and >0 CTC, display the real-time preview
         else if (payrollRules && ctcNum > 0) {
             breakdown = calculateFromRules(ctcNum, payrollRules);

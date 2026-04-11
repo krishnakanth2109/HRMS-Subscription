@@ -96,13 +96,12 @@ import OfferLetterPage from "./pages/OfferLetterPage";
 import AdminDemoRequests from "./pages/master/Admindemorequests";
 import RequestDemo from "./pages/Requestdemo";
 import PayrollPage from "./pages/PayrollManagement";
-
 import Induction from "./pages/Induction";
-
 import DocVerifyInvite from "./pages/DocVerifyInvite";
 import DocVerifyAdmin from "./pages/DocVerifyAdmin";
 import DocumentVerificationForm from "./pages/DocumentVerificationForm";
-
+import AdminResignation from "./pages/AdminResignation";
+import EmployeeResignation from "./EmployeePages/EmployeeResignation";
 import HRChecklist from "./pages/HRChecklist";
 
 // ----------------------------------------------------------------------
@@ -171,7 +170,6 @@ function App() {
             <RequestDemo />
           </PublicRoute>
         } 
-
       />
       <Route 
         path="/login" 
@@ -293,10 +291,10 @@ function App() {
         <Route path="/admin/induction" element={<Induction />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
           <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
-          <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
+        <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
           <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
+          <Route path="/admin/resignation" element={<AdminResignation />} />
           <Route path="/admin/hr-checklist" element={<HRChecklist />} />
-
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}
@@ -344,6 +342,7 @@ function App() {
         <Route path="/employee/notices" element={<CurrentEmployeeNoticeBoard />} />
         <Route path="/employee/leave-summary" element={<EmployeeLeaveSummary />} />
         <Route path="/employee/change-password" element={<ChangePasswordPage />} />
+        <Route path="/employee/resignation" element={<EmployeeResignation />} />
       </Route>
     </Routes>
   );
