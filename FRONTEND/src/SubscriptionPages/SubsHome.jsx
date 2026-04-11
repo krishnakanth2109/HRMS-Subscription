@@ -96,6 +96,7 @@ const filteredPlans = plans.filter(
         "/admin/late-requests": "Attendance Adjustment",
         "/admin/admin-overtime": "Overtime Requests",
         "/admin/live-tracking": "Employee Idle Tracking",
+        "/admin/induction": "Induction",
     };
 
     // --- REGISTER HANDLER (same logic as Login.jsx) ---
@@ -727,7 +728,9 @@ const filteredPlans = plans.filter(
                                             <span className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">Choose Plan</span>
                                         </div>
                                         <div className="space-y-2 md:space-y-3 max-h-60 md:max-h-none overflow-y-auto">
-                                            {plans.map((plan) => (
+                                            {plans
+  .filter((plan) => plan.planName.toLowerCase() !== "owner")
+  .map((plan) => (
                                                 <button
                                                     key={plan._id}
                                                     type="button"

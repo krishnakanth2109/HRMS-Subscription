@@ -89,6 +89,16 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
     const [payrollRules, setPayrollRules] = useState(null);
     const [rulesLoading, setRulesLoading] = useState(true);
 
+    // ── Verified Candidates State ──────────────────────────────
+    const [verifiedCandidates, setVerifiedCandidates] = useState([]);
+    const [selectedCandidateId, setSelectedCandidateId] = useState('');
+
+    useEffect(() => {
+        api.getAllVerifiedDocCandidates()
+            .then(data => setVerifiedCandidates(data || []))
+            .catch(err => console.error("Could not load verified candidates", err));
+    }, []);
+
     // Fetch payroll rules on mount
     useEffect(() => {
         const fetchRules = async () => {
@@ -174,7 +184,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
             if (initialData.joining_date) {
                 try {
                     joiningFormatted = new Date(initialData.joining_date).toISOString().split('T')[0];
-                } catch(e){}
+                } catch (e) { }
             }
 
             return {
@@ -247,6 +257,31 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
         setFormData({ ...formData, [name]: value });
     };
 
+    const handleCandidateAutofill = (e) => {
+        const id = e.target.value;
+        setSelectedCandidateId(id);
+        if (!id) return;
+
+        const candidate = verifiedCandidates.find(c => c._id === id);
+        if (candidate) {
+            let mappedType = candidate.employmentType || formData.employment_type;
+            const typeLower = mappedType.toLowerCase();
+            if (typeLower.includes('intern')) mappedType = 'Internship';
+            else mappedType = 'Full Time';
+
+            setFormData(prev => ({
+                ...prev,
+                name: candidate.fullName || candidate.name || prev.name,
+                email: candidate.email || prev.email,
+                designation: candidate.role || prev.designation,
+                department: candidate.department || prev.department,
+                employment_type: mappedType
+            }));
+            // Trigger recalculations if needed by pretending ctc was modified
+            setCtcModified(true);
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
@@ -283,7 +318,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 other_allowance: frozenBreakdown.otherAllowance || 0,
                 special_allowance: (() => {
                     if (!frozenBreakdown.basic_salary) return 0;
-                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12 
+                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12
                         + (frozenBreakdown.conveyance || 0) * 12 + (frozenBreakdown.medical || 0) * 12
                         + (frozenBreakdown.travellingAllowance || 0) * 12 + (frozenBreakdown.otherAllowance || 0) * 12;
                     const remaining = ctcVal - total;
@@ -306,7 +341,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
 
     // ── Calculated breakdown preview ───────────────────────────
     const ctcNum = parseFloat(formData.ctc) || 0;
-    
+
     let breakdown = null;
     const hasFrozenBreakdown = initialData && initialData.compensation && initialData.compensation.gross_salary > 0;
 
@@ -326,7 +361,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 pt: comp.pt || 0,
                 net: comp.net_salary || 0,
             };
-        } 
+        }
         // Otherwise, if we have dynamic rules and >0 CTC, display the real-time preview
         else if (payrollRules && ctcNum > 0) {
             breakdown = calculateFromRules(ctcNum, payrollRules);
@@ -390,6 +425,38 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 )}
 
                 <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '2.5rem' }}>
+
+                    {/* Auto-fill from Document Verification */}
+                    {!isViewOnly && !initialData && verifiedCandidates.length > 0 && (
+                        <div style={{ background: 'var(--accent-soft)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--accent-color)', boxShadow: '0 4px 12px rgba(99,102,241,0.1)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                                <div style={{ background: 'var(--accent-color)', color: 'white', padding: '6px', borderRadius: '8px' }}>
+                                    <User size={18} />
+                                </div>
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--accent-color)', fontWeight: 800 }}>Smart Autofill</h4>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>Quickly import verified candidate details seamlessly from the Document Verification Portal.</p>
+                                </div>
+                            </div>
+                            <select
+                                value={selectedCandidateId}
+                                onChange={handleCandidateAutofill}
+                                style={{
+                                    width: '100%', padding: '12px 16px', background: 'white',
+                                    border: '1px solid var(--border-color)', borderRadius: '12px',
+                                    color: 'var(--text-primary)', fontSize: '0.95rem', fontWeight: 600,
+                                    outline: 'none', cursor: 'pointer'
+                                }}
+                            >
+                                <option value="">-- Select a Verified Candidate --</option>
+                                {verifiedCandidates.map(c => (
+                                    <option key={c._id} value={c._id}>
+                                        {c.fullName || c.name} ({c.email}) - {c.role}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     {/* Personal Information */}
                     <div style={{ background: 'var(--bg-primary)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-color)' }}>

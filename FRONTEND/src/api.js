@@ -906,6 +906,12 @@ export const downloadOfferLetterDocx = async (data) => {
   });
   return response.data;
 };
+export const sendInductionEmail = async (formData) => {
+  const response = await api.post("/api/mail/send-induction-email", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
 export const getOfferLetterTemplates = async () =>
   (await api.get("/api/offer-letters/templates")).data;
 
@@ -985,69 +991,10 @@ export const managePayrollCandidate = async (formData, id = null) => {
 export const deletePayrollCandidate = async (id) => 
   (await api.delete(`/api/payroll/${id}`)).data;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ✅ ADD THESE LINES inside the  /* LEAVES */  section of api.js
-//    (paste right after  cancelLeaveRequestById )
-// ─────────────────────────────────────────────────────────────────────────────
+export const getAllVerifiedDocCandidates = async () => {
+  const res = await api.get("/api/doc-verification/all");
+  const records = res.data.data || [];
+  return records.filter(r => r.status === 'verified');
+};
 
-/* =============================================================================
-   LEAVE POLICY  (Admin: configure paid-day limits per leave type)
-============================================================================= */
-
-/**
- * Admin → fetch the current leave policy
- * GET /api/leaves/policy
- * Returns: { policies: [{ leaveType, paidDaysLimit, usedPaidDays }], resetMonth }
- */
-export const getLeavePolicy = async () =>
-  (await api.get("/api/leaves/policy")).data;
-
-/**
- * Admin → create or update leave policy
- * PUT /api/leaves/policy
- *
- * @param {Object} data
- * @param {Array}  data.policies    - [{ leaveType: "CASUAL"|"SICK"|"EMERGENCY", paidDaysLimit: Number }]
- * @param {String} [data.resetMonth] - "01"–"12", month when counters auto-reset each year (default "01")
- *
- * Example:
- *   await updateLeavePolicy({
- *     policies: [
- *       { leaveType: "CASUAL",    paidDaysLimit: 12 },
- *       { leaveType: "SICK",      paidDaysLimit: 6  },
- *       { leaveType: "EMERGENCY", paidDaysLimit: 3  },
- *     ],
- *     resetMonth: "01",
- *   });
- */
-export const updateLeavePolicy = async (data) =>
-  (await api.put("/api/leaves/policy", data)).data;
-
-/**
- * Admin → manually reset usedPaidDays counter
- * POST /api/leaves/policy/reset
- *
- * @param {String} [leaveType] - "CASUAL" | "SICK" | "EMERGENCY"
- *                               Omit to reset ALL leave types at once.
- */
-export const resetLeavePaidDays = async (leaveType = null) =>
-  (await api.post("/api/leaves/policy/reset", leaveType ? { leaveType } : {})).data;
-
-/* =============================================================================
-   LEAVE BALANCE  (Employee: how many paid days remain per leave type)
-============================================================================= */
-
-/**
- * Employee → fetch their paid-leave balance
- * GET /api/leaves/balance
- *
- * Returns array:
- * [
- *   { leaveType: "CASUAL",    paidDaysLimit: 12, usedPaidDays: 3, remainingPaidDays: 9 },
- *   { leaveType: "SICK",      paidDaysLimit: 6,  usedPaidDays: 0, remainingPaidDays: 6 },
- *   { leaveType: "EMERGENCY", paidDaysLimit: 3,  usedPaidDays: 1, remainingPaidDays: 2 },
- * ]
- */
-export const getLeaveBalance = async () =>
-  (await api.get("/api/leaves/balance")).data;
 export default api;
