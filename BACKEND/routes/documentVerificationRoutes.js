@@ -2,9 +2,6 @@ import express from 'express';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { v4 as uuidv4 } from 'uuid';
-import SibApiV3Sdk from 'sib-api-v3-sdk';
-import https from 'https';
-import axios from 'axios';
 import DocumentVerification from '../models/DocumentVerification.js';
 import Company from '../models/CompanyModel.js';
 
@@ -20,13 +17,6 @@ cloudinary.config({
 // --- MULTER CONFIG ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
-
-// --- BREVO CONFIG ---
-const defaultClient = SibApiV3Sdk.ApiClient.instance;
-const apiKey = defaultClient.authentications['api-key'];
-apiKey.apiKey = process.env.BREVO_API_KEY;
-const brevoEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
-
 
 // All document fields with their keys and labels
 const DOCUMENT_FIELDS = [
@@ -58,7 +48,7 @@ const DOCUMENT_FIELDS = [
 // ---------------------------------------------------
 router.post('/invite', async (req, res) => {
   try {
-    const { email, name, fullName, role, department, employmentType, companyId, invitedBy, emailSubject, emailMessage, formBaseUrl } = req.body;
+    const { email, name, fullName, role, department, employmentType, companyId, invitedBy, formBaseUrl } = req.body;
 
     if (!email || !companyId) {
       return res.status(400).json({ success: false, error: 'Email and Company ID are required' });
@@ -95,47 +85,18 @@ router.post('/invite', async (req, res) => {
       });
     }
 
-    // Build form link
+    // Build form link to return to frontend
     const formLink = `${formBaseUrl || 'https://hrms-420.netlify.app'}/document-verification?token=${token}`;
 
-    // Send via Brevo
-    const htmlBody = (emailMessage || '')
-      .replace(/\n/g, '<br>')
-      .replace('[FORM_LINK]', `<a href="${formLink}" style="background:#4f46e5;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;margin:16px 0;">Upload Your Documents</a>`)
-      .replace('[NAME]', name || 'Candidate')
-      .replace('[COMPANY]', company.name)
-      .replace('[ROLE]', role || '')
-      .replace('[DEPT]', department || '')
-      .replace('[EMPLOYMENT_TYPE]', employmentType || '');
-
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.to = [{ email: email.toLowerCase(), name: name || email }];
-    sendSmtpEmail.sender = { name: 'HR Team', email: process.env.BREVO_SENDER_EMAIL };
-    sendSmtpEmail.subject = (emailSubject || 'Document Verification – Action Required').replace('[Company Name]', company.name);
-    sendSmtpEmail.htmlContent = `
-      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;border-radius:12px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#4f46e5,#6366f1);padding:32px;text-align:center;">
-          <h1 style="color:#fff;margin:0;font-size:24px;">📄 Document Verification</h1>
-          <p style="color:#c7d2fe;margin:8px 0 0;">${company.name}</p>
-        </div>
-        <div style="padding:32px;background:#fff;">
-          <p>${htmlBody}</p>
-          <div style="background:#f1f5f9;border-radius:8px;padding:16px;margin-top:24px;">
-            <p style="margin:0;font-size:13px;color:#64748b;">If the button doesn't work, copy this link:</p>
-            <p style="margin:8px 0 0;word-break:break-all;color:#4f46e5;font-size:13px;">${formLink}</p>
-          </div>
-        </div>
-        <div style="padding:16px;text-align:center;background:#f8fafc;">
-          <p style="font-size:12px;color:#94a3b8;margin:0;">This is an automated message from ${company.name} HR Portal</p>
-        </div>
-      </div>`;
-
-    await brevoEmailApi.sendTransacEmail(sendSmtpEmail);
-
-    res.status(200).json({ success: true, message: 'Invitation sent successfully', data: existing });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Saved to Database successfully', 
+      data: existing, 
+      formLink // Passing this back so frontend can trigger the mail route
+    });
   } catch (error) {
     console.error('DocVerify invite error:', error);
-    res.status(500).json({ success: false, error: error.message || 'Failed to send invitation' });
+    res.status(500).json({ success: false, error: error.message || 'Failed to save invitation' });
   }
 });
 
@@ -144,7 +105,7 @@ router.post('/invite', async (req, res) => {
 // ---------------------------------------------------
 router.post('/bulk-invite', async (req, res) => {
   try {
-    const { employees, companyId, invitedBy, emailSubject, emailMessage, formBaseUrl } = req.body;
+    const { employees, companyId, invitedBy, formBaseUrl } = req.body;
 
     if (!employees || !Array.isArray(employees) || !companyId) {
       return res.status(400).json({ success: false, error: 'employees[] and companyId required' });
@@ -153,7 +114,7 @@ router.post('/bulk-invite', async (req, res) => {
     const company = await Company.findById(companyId);
     if (!company) return res.status(404).json({ success: false, error: 'Company not found' });
 
-    const results = { success: [], failed: [] };
+    const results = { success: [], failed: [], employeesWithLinks: [] };
     const docSlots = DOCUMENT_FIELDS.map(f => ({ fieldKey: f.fieldKey, label: f.label, fileUrl: null, adminVerified: false }));
 
     for (const emp of employees) {
@@ -175,24 +136,13 @@ router.post('/bulk-invite', async (req, res) => {
           });
         }
 
+        // Build form link for this specific employee
         const formLink = `${formBaseUrl || 'https://hrms-420.netlify.app'}/document-verification?token=${token}`;
-        const htmlBody = (emailMessage || '')
-          .replace(/\n/g, '<br>')
-          .replace('[FORM_LINK]', `<a href="${formLink}" style="background:#4f46e5;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:bold;">Upload Documents</a>`)
-          .replace('[NAME]', emp.name || 'Candidate')
-          .replace('[COMPANY]', company.name)
-          .replace('[ROLE]', emp.role || '')
-          .replace('[DEPT]', emp.department || '')
-          .replace('[EMPLOYMENT_TYPE]', emp.employmentType || '');
-
-        const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-        sendSmtpEmail.to = [{ email: emailLower, name: emp.name || emailLower }];
-        sendSmtpEmail.sender = { name: 'HR Team', email: process.env.BREVO_SENDER_EMAIL };
-        sendSmtpEmail.subject = (emailSubject || 'Document Verification – Action Required').replace('[Company Name]', company.name);
-        sendSmtpEmail.htmlContent = `<div style="font-family:Arial,sans-serif;padding:20px;"><h2>Document Verification – ${company.name}</h2><p>${htmlBody}</p><p style="font-size:12px;color:#64748b;">${formLink}</p></div>`;
-
-        await brevoEmailApi.sendTransacEmail(sendSmtpEmail);
+        
+        // Add to array so frontend can loop through and send emails
+        results.employeesWithLinks.push({ ...emp, formLink });
         results.success.push(emailLower);
+
       } catch (err) {
         results.failed.push({ email: emp.email, reason: err.message });
       }

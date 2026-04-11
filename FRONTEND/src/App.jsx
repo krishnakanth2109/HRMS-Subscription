@@ -102,6 +102,7 @@ import DocVerifyAdmin from "./pages/DocVerifyAdmin";
 import DocumentVerificationForm from "./pages/DocumentVerificationForm";
 import AdminResignation from "./pages/AdminResignation";
 import EmployeeResignation from "./EmployeePages/EmployeeResignation";
+import HRChecklist from "./pages/HRChecklist";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -293,6 +294,7 @@ function App() {
         <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
           <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
           <Route path="/admin/resignation" element={<AdminResignation />} />
+          <Route path="/admin/hr-checklist" element={<HRChecklist />} />
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}
