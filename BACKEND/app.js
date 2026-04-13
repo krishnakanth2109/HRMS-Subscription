@@ -13,6 +13,8 @@ const allowedOrigins = [
   "https://hrms-subscription-kill.onrender.com",
   "http://vwsync.com",
   "https://hrms-vaz.netlify.app",
+  "http://localhost:5173", // Good to have for local testing
+  "http://localhost:3000"
 ];
 
 /* ==================== ROUTE IMPORTS ==================== */
@@ -59,84 +61,29 @@ import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
 const app = express();
 const server = http.createServer(app);
 
-/* ==================== SOCKET.IO ==================== */
-const userSocketMap = new Map();
+// Trust proxy required for Render deployments to get correct IPs
+app.set('trust proxy', 1);
 
-const io = new Server(server, {
-  cors: {
-    origin: (origin, callback) => {
+/* ==================== ✅ CORS MIDDLEWARE (Must be early) ==================== */
+app.use(
+  cors({
+    origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("CORS not allowed"));
+        console.log(`CORS Blocked: ${origin}`); // Log blocked origins to help debug
+        callback(new Error("Not allowed by CORS"));
       }
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  },
-  transports: ["polling", "websocket"],
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  upgradeTimeout: 30000,
-  allowUpgrades: true,
-  maxHttpBufferSize: 1e6,
-});
+  })
+);
+app.options("*", cors()); // Handle preflight requests
 
-app.set("io", io);
-app.set("userSocketMap", userSocketMap);
-
-io.on("connection", (socket) => {
-  console.log("🔥 Socket connected:", socket.id, "| transport:", socket.conn.transport.name);
-
-  socket.conn.on("upgrade", (transport) => {
-    console.log(`⬆️  Transport upgraded to: ${transport.name} for socket: ${socket.id}`);
-  });
-
-  socket.on("register", (userId) => {
-    if (userId) {
-      userSocketMap.set(userId.toString(), socket.id);
-      console.log(`📋 Registered: ${userId}`);
-    }
-  });
-
-  socket.on("authenticate", (userId) => {
-    if (!userId) return;
-    const id = userId.toString();
-    socket.join(`user_${id}`);
-    socket.data.userId = id;
-    socket.emit("authenticated", { userId: id });
-    console.log(`✅ Chat room joined: user_${id}`);
-  });
-
-  socket.on("typing_start", ({ receiverId, senderId, senderName }) => {
-    if (receiverId && senderId) {
-      io.to(`user_${receiverId}`).emit("user_typing", {
-        userId: senderId,
-        userName: senderName,
-      });
-    }
-  });
-
-  socket.on("typing_stop", ({ receiverId, senderId }) => {
-    if (receiverId && senderId) {
-      io.to(`user_${receiverId}`).emit("user_stopped_typing", {
-        userId: senderId,
-      });
-    }
-  });
-
-  socket.on("disconnect", (reason) => {
-    for (const [userId, socketId] of userSocketMap.entries()) {
-      if (socketId === socket.id) {
-        userSocketMap.delete(userId);
-        break;
-      }
-    }
-    console.log(`❌ Disconnected: ${socket.data.userId || socket.id} | reason: ${reason}`);
-  });
-});
-
-/* ==================== 🔥 STRIPE WEBHOOK ==================== */
+/* ==================== 🔥 STRIPE WEBHOOK (Must be BEFORE express.json) ==================== */
+// Stripe requires the raw body to verify signatures. Do not parse it to JSON here.
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
@@ -147,26 +94,41 @@ app.post(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-/* ==================== ✅ CORS ==================== */
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("CORS not allowed"));
-      }
-    },
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+/* ==================== SOCKET.IO ==================== */
+const userSocketMap = new Map();
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
     credentials: true,
-  })
-);
+  },
+  transports: ["polling", "websocket"],
+  pingTimeout: 60000,
+});
 
-app.options("*", cors());
+app.set("io", io);
+app.set("userSocketMap", userSocketMap);
 
-/* ==================== STATIC FILES ==================== */
-app.use("/public", express.static(path.join(process.cwd(), "public")));
+io.on("connection", (socket) => {
+  socket.on("register", (userId) => {
+    if (userId) userSocketMap.set(userId.toString(), socket.id);
+  });
+  
+  socket.on("authenticate", (userId) => {
+    if (!userId) return;
+    socket.join(`user_${userId.toString()}`);
+  });
+
+  socket.on("disconnect", () => {
+    for (const [userId, socketId] of userSocketMap.entries()) {
+      if (socketId === socket.id) {
+        userSocketMap.delete(userId);
+        break;
+      }
+    }
+  });
+});
 
 /* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
@@ -183,16 +145,15 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Database Connected"))
   .catch((err) => {
-    console.error("❌ DB error:", err);
-    process.exit(1);
+    console.error("❌ DB Connection Error. Please check your MONGO_URI in Render:", err.message);
+    // Removed process.exit(1) so the server stays awake to show logs instead of constantly crashing and giving 502s
   });
 
-/* ==================== HEALTH ==================== */
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
-});
-
 /* ==================== ROUTES ==================== */
+app.get("/health", (req, res) => res.status(200).json({ status: "OK" }));
+
+app.use("/public", express.static(path.join(process.cwd(), "public")));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -207,15 +168,16 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/idletime", idleTimeRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/api/admin", adminRoutes); // Note: You have two /api/admin routes, ensure they don't conflict
+app.use("/api/admin", adminAuthRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
 app.use("/api/punchoutreq", punchOutRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/payroll", payrollRoutes);
-app.use("/api/admin", adminAuthRoutes);
+app.use("/api/payroll", payrollRoutes); // Note: You have two /api/payroll routes
+app.use("/api/payroll", payrollcandidatesRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/invited-employees", invitedEmployeeRoutes);
 app.use("/api/mail", mailRoutes);
@@ -223,41 +185,34 @@ app.use("/api/issues", issueRoutes);
 app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
 app.use("/api/resignations", resignationRoutes);
-app.use("/api/payroll", payrollcandidatesRoutes);
 app.use("/api/doc-verification", documentVerificationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
-
-/* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/master", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
 
-/* ==================== FRONTEND ==================== */
+/* ==================== FRONTEND FALLBACK ==================== */
 app.use(express.static(path.join(process.cwd(), "../FRONTEND/dist")));
 
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
   res.sendFile(path.join(process.cwd(), "../FRONTEND/dist/index.html"), (err) => {
-    if (err) res.status(500).send("Frontend build not found. Run npm run build in FRONTEND.");
+    if (err) res.status(500).send("Frontend build not found.");
   });
 });
 
-/* ==================== 404 ==================== */
+/* ==================== 404 & ERROR HANDLER ==================== */
 app.use("/api", (req, res) => {
-  res.status(404).json({ message: "API route not found" });
+  res.status(404).json({ message: `API route ${req.method} ${req.url} not found` });
 });
 
-/* ==================== ERROR HANDLER ==================== */
 app.use((err, req, res, next) => {
-  console.error("🚨 Error:", err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || "Unexpected error",
-  });
+  console.error("🚨 Server Error:", err.message);
+  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
 });
 
 /* ==================== START SERVER ==================== */
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
