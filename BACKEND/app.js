@@ -48,6 +48,7 @@ import masterRoutes from "./routes/masterRoutes.js";
 import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
+import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -222,6 +223,7 @@ app.use("/api/offer-letters", offerResponseRoutes);
 app.use("/api/resignations", resignationRoutes);
 app.use('/api/payroll', payrollcandidatesRoutes);
 app.use('/api/doc-verification', documentVerificationRoutes);
+app.use("/api/welcome-kit", welcomeKitRoutes);
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);

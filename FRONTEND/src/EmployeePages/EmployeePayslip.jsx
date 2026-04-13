@@ -80,15 +80,19 @@ const EmployeePayslip = () => {
     name,
     personalDetails = {},
     bankDetails = {},
-    experienceDetails = []
+    experienceDetails = [],
+    companyName = 'VAGARIOUS SOLUTIONS PVT. LTD.'
   } = employeeDetails || {};
 
   const currentJob = experienceDetails.length > 0 
     ? experienceDetails[experienceDetails.length - 1] 
     : {};
 
-  // Calculate leaves
-  const leavesTaken = payslipData ? (payslipData.attendanceSummary.totalDaysInMonth - payslipData.attendanceSummary.workedDays) : 0;
+  const attendanceSummary = payslipData?.attendanceSummary || {};
+  const salaryDetails = payslipData?.salaryDetails || {};
+  const breakdown = payslipData?.breakdown || {};
+
+  const leavesTaken = (attendanceSummary.totalDaysInMonth || 0) - (attendanceSummary.workedDays || 0);
 
   return (
     <div className="min-h-screen p-4 font-sans print:bg-white print:p-0 print:m-0">
@@ -181,7 +185,7 @@ const EmployeePayslip = () => {
                     {/* Header */}
                     <div className="text-center pt-6 pb-2 print:pt-2">
                         <h1 className="text-3xl font-bold text-gray-900 uppercase font-serif tracking-wide print:text-4xl">
-                            VAGARIOUS SOLUTIONS PVT. LTD.
+                            {companyName}
                         </h1>
                         <h2 className="text-base font-bold text-gray-700 mt-2 uppercase print:text-lg">
                             PAYSLIP FOR THE MONTH {getMonthYear(selectedMonth)}
@@ -218,7 +222,7 @@ const EmployeePayslip = () => {
                                     <span className="w-32">Bank Name</span><span className="mr-2">:</span><span>{bankDetails.bankName || 'NA'}</span>
                                 </div>
                                 <div className="flex">
-                                    <span className="w-32">No. Of Working Days</span><span className="mr-2">:</span><span>{payslipData.attendanceSummary.totalDaysInMonth}</span>
+                                    <span className="w-32">No. Of Working Days</span><span className="mr-2">:</span><span>{attendanceSummary.totalDaysInMonth}</span>
                                 </div>
                                 <div className="flex">
                                     <span className="w-32">UAN NO</span><span className="mr-2">:</span><span>{personalDetails.uan || 'NA'}</span>
@@ -249,7 +253,7 @@ const EmployeePayslip = () => {
                                     <span className="w-32">Leaves Taken</span><span className="mr-2">:</span><span>{String(leavesTaken).padStart(2, '0')}</span>
                                 </div>
                                 <div className="flex">
-                                    <span className="w-32">LOP</span><span className="mr-2">:</span><span>{String(payslipData.attendanceSummary.lopDays || 0).padStart(2, '0')}</span>
+                                    <span className="w-32">LOP</span><span className="mr-2">:</span><span>{String(attendanceSummary.lopDays || 0).padStart(2, '0')}</span>
                                 </div>
                             </div>
                         </div>
@@ -265,21 +269,21 @@ const EmployeePayslip = () => {
                         <div className="flex">
                             {/* EARNINGS COLUMN */}
                             <div className="w-1/2 border-r border-black">
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Basic Salary</span><span>{formatCurrency(payslipData.breakdown.basic)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">House Rent Allow</span><span>{formatCurrency(payslipData.breakdown.hra)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Travelling Allowance</span><span>{formatCurrency(payslipData.breakdown.conveyance)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Medical Allowances</span><span>{formatCurrency(payslipData.breakdown.medical)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Special Allowances</span><span>{formatCurrency(payslipData.breakdown.special)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Basic Salary</span><span>{formatCurrency(breakdown.basic)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">House Rent Allow</span><span>{formatCurrency(breakdown.hra)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Travelling Allowance</span><span>{formatCurrency(breakdown.conveyance)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Medical Allowances</span><span>{formatCurrency(breakdown.medical)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Special Allowances</span><span>{formatCurrency(breakdown.special)}</span></div>
                                 {/* Empty Spacer */}
                                 <div className="h-24"></div> 
                             </div>
 
                             {/* DEDUCTIONS COLUMN */}
                             <div className="w-1/2">
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">PF</span><span>{formatCurrency(payslipData.breakdown.pf)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Professional Tax</span><span>{formatCurrency(payslipData.breakdown.pt)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">LOP</span><span>{formatCurrency(payslipData.salaryDetails.lopDeduction)}</span></div>
-                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Other Deductions</span><span>{formatCurrency(payslipData.salaryDetails.lateDeduction)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">PF</span><span>{formatCurrency(breakdown.pf)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Professional Tax</span><span>{formatCurrency(breakdown.pt)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">LOP</span><span>{formatCurrency(salaryDetails.lopDeduction)}</span></div>
+                                <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Other Deductions</span><span>{formatCurrency(salaryDetails.lateDeduction)}</span></div>
                             </div>
                         </div>
 
@@ -287,11 +291,11 @@ const EmployeePayslip = () => {
                         <div className="flex border-t border-black font-bold text-sm">
                             <div className="w-1/2 border-r border-black flex justify-between px-2 py-2">
                                 <span>Gross Amount</span>
-                                <span>{formatCurrency(payslipData.breakdown.gross)}</span>
+                                <span>{formatCurrency(breakdown.gross)}</span>
                             </div>
                             <div className="w-1/2 flex justify-between px-2 py-2">
                                 <span>Total Deduction</span>
-                                <span>{formatCurrency(payslipData.salaryDetails.totalDeductions)}</span>
+                                <span>{formatCurrency(salaryDetails.totalDeductions)}</span>
                             </div>
                         </div>
                     </div>
@@ -299,7 +303,7 @@ const EmployeePayslip = () => {
                     {/* Net Salary Section */}
                     <div className="mx-4 mt-4">
                         <p className="font-bold text-lg">
-                            Net Salary : {formatCurrency(payslipData.salaryDetails.netPayableSalary)}
+                            Net Salary : {formatCurrency(salaryDetails.netPayableSalary)}
                         </p>
                     </div>
                 </div>

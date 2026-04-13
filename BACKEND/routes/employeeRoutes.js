@@ -444,6 +444,57 @@ router.put("/:id", protect, async (req, res) => {
   }
 });
 
+/* ==============================================================
+ 🔑 CHANGE EMPLOYEE PASSWORD — ADMIN ONLY
+    PATCH /api/employees/:id/change-password
+
+    WHY a dedicated route instead of reusing PUT /:id?
+    The PUT route uses findOneAndUpdate() which BYPASSES Mongoose's
+    pre('save') hook — that is where bcrypt hashing happens.
+    Sending a plain password through PUT would store it in plain text.
+    This route fetches the document and calls .save() so the hash
+    fires correctly every time.
+
+    Security:
+    - protect    → valid JWT required
+    - onlyAdmin  → employees cannot call this on themselves or others
+    - adminId scoping → admin can only change passwords for their own employees
+============================================================== */
+router.patch("/:id/change-password", protect, onlyAdmin, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    // ── 1. Validate input ─────────────────────────────────────────
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.status(400).json({ message: "newPassword is required." });
+    }
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long.",
+      });
+    }
+
+    // ── 2. Find the employee (must belong to this admin) ──────────
+    const employee = await Employee.findOne({
+      employeeId: req.params.id,
+      adminId: req.user._id,
+    }).select("+password");
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found." });
+    }
+
+    // ── 3. Set new password — triggers bcrypt pre-save hook ───────
+    employee.password = newPassword.trim();
+    await employee.save();
+
+    res.status(200).json({ message: "Password changed successfully." });
+  } catch (err) {
+    console.error("❌ Change employee password error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE employee → ADMIN ONLY
 router.delete("/:id", protect, onlyAdmin, async (req, res) => {
   try {

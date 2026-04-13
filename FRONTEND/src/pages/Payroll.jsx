@@ -15,6 +15,7 @@ import {
   getPayrollRules,
   savePayrollRules,
   getOfferLetterTemplates
+  getLeavePolicy, // added
 } from '../api';
 
 // --- DEFAULT RULES ---
@@ -66,6 +67,26 @@ const calculateLeaveDays = (from, to) => {
   const diffTime = Math.abs(toDate - fromDate);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   return diffDays;
+};
+
+const getLeavePolicySummary = (policy) => {
+  const policiesArray = Array.isArray(policy?.policies) ? policy.policies : [];
+  const totalPaidLimit = policiesArray.reduce(
+    (sum, item) => sum + (Number(item.paidDaysLimit) || 0),
+    0
+  );
+  const totalUsedPaid = policiesArray.reduce(
+    (sum, item) => sum + (Number(item.usedPaidDays) || 0),
+    0
+  );
+
+  return {
+    totalPaidLimit,
+    totalUsedPaid,
+    remainingPaidBalance: Math.max(0, totalPaidLimit - totalUsedPaid),
+    sandwichLeaveEnabled: Boolean(policy?.sandwichLeaveEnabled),
+    unplannedAbsenceToLOP: policy?.unplannedAbsenceToLOP !== false,
+  };
 };
 
 const isDateInRange = (dateStr, startStr, endStr) => {
@@ -762,6 +783,11 @@ const PayrollManagement = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showConfig, setShowConfig] = useState(false);
   const [payrollRules, setPayrollRules] = useState(DEFAULT_RULES);
+  const [leavePolicy, setLeavePolicy] = useState({
+    policies: [],
+    sandwichLeaveEnabled: false,
+    unplannedAbsenceToLOP: false,
+  });
   const [saving, setSaving] = useState(false); // Loading state for saving
 
   // ✅ MONTH SELECTION LOGIC
@@ -807,12 +833,13 @@ const PayrollManagement = () => {
           }
         } catch (e) { console.error("Rules fetch error", e); }
 
-        const [leavesRes, empRes, attRes, holidayRes, shiftRes] = await Promise.all([
+        const [leavesRes, empRes, attRes, holidayRes, shiftRes, policyRes] = await Promise.all([
           getLeaveRequests(),
           getEmployees(),
           getAttendanceByDateRange(summaryStartDate, summaryEndDate),
           getHolidays(),
-          getAllShifts()
+          getAllShifts(),
+          getLeavePolicy(), // fetch admin leave policy
         ]);
 
         // ✅ FILTER: Only include active AND Full Time employees in payroll
@@ -825,6 +852,11 @@ const PayrollManagement = () => {
         });
 
         setLeaveRequests(leavesRes || []);
+        setLeavePolicy(policyRes || {
+          policies: [],
+          sandwichLeaveEnabled: false,
+          unplannedAbsenceToLOP: false,
+        });
         setAllEmployees(activeEmps);
         setAttendanceData(attRes || []);
         setHolidays((holidayRes || []).map(h => ({
@@ -856,6 +888,9 @@ const PayrollManagement = () => {
   // ✅ CORE PAYROLL CALCULATION (UPDATED WITH NEW PF LOGIC)
   const processedPayroll = useMemo(() => {
     if (!allEmployees.length) return [];
+
+    const policySummary = getLeavePolicySummary(leavePolicy);
+    const applyUnplannedAbsenceToLOP = policySummary.unplannedAbsenceToLOP;
 
     const shiftMap = {};
     shifts.forEach(s => {
@@ -904,15 +939,86 @@ const PayrollManagement = () => {
         (isDateInRange(l.from, summaryStartDate, summaryEndDate) || isDateInRange(l.to, summaryStartDate, summaryEndDate))
       );
 
-      const totalLeaveDays = approvedLeaves.reduce((total, l) => total + calculateLeaveDays(l.from, l.to), 0);
-
-      const attendancePunches = new Set(attendanceData.filter(r => r.employeeId === empId && r.punchIn).map(r => formatDate(r.date)));
+      let totalLeaveDays = 0;
+      let paidLeaveDays = 0;
+      let unpaidLeaveDays = 0;
       const appliedLeaveDates = new Set();
-      approvedLeaves.forEach(l => {
-        let c = new Date(l.from);
-        const e = new Date(l.to);
-        while (c <= e) { appliedLeaveDates.add(formatDate(c)); c = addDays(c, 1); }
+
+      approvedLeaves.forEach(leave => {
+        const details = Array.isArray(leave.details)
+          ? leave.details.filter(
+              (detail) =>
+                detail.date >= summaryStartDate && detail.date <= summaryEndDate
+            )
+          : [];
+
+        if (details.length > 0) {
+          details.forEach(detail => {
+            const dayValue = detail.leaveDayType === "Half Day" ? 0.5 : 1;
+            totalLeaveDays += dayValue;
+            if (detail.leavecategory === "Paid") {
+              paidLeaveDays += dayValue;
+            } else {
+              unpaidLeaveDays += dayValue;
+            }
+            appliedLeaveDates.add(detail.date);
+          });
+        } else {
+          const start = new Date(
+            Math.max(new Date(leave.from), new Date(summaryStartDate))
+          );
+          const end = new Date(
+            Math.min(new Date(leave.to), new Date(summaryEndDate))
+          );
+
+          if (start <= end) {
+            let currentDate = new Date(start);
+            while (currentDate <= end) {
+              const formatted = formatDate(currentDate);
+              appliedLeaveDates.add(formatted);
+              currentDate = addDays(currentDate, 1);
+            }
+
+            const overlapDays = calculateLeaveDays(
+              formatDate(start),
+              formatDate(end)
+            );
+            totalLeaveDays += overlapDays;
+
+            if (leave.leavecategory === "Paid") {
+              paidLeaveDays += overlapDays;
+            } else {
+              unpaidLeaveDays += overlapDays;
+            }
+          }
+        }
       });
+
+      // Apply policy-based paid / unpaid allocation
+      if (policySummary.totalPaidLimit > 0) {
+        const availablePaid = Math.max(
+          0,
+          policySummary.remainingPaidBalance - paidLeaveDays
+        );
+
+        if (availablePaid > 0 && unpaidLeaveDays > 0) {
+          const convertToPaid = Math.min(unpaidLeaveDays, availablePaid);
+          paidLeaveDays += convertToPaid;
+          unpaidLeaveDays -= convertToPaid;
+        }
+
+        if (paidLeaveDays > policySummary.remainingPaidBalance) {
+          const overflow = paidLeaveDays - policySummary.remainingPaidBalance;
+          paidLeaveDays -= overflow;
+          unpaidLeaveDays += overflow;
+        }
+      }
+
+      const attendancePunches = new Set(
+        attendanceData
+          .filter((r) => r.employeeId === empId && r.punchIn)
+          .map((r) => formatDate(r.date))
+      );
 
       let absentCount = 0;
       let loopStart = new Date(summaryStartDate);
@@ -920,51 +1026,25 @@ const PayrollManagement = () => {
       for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
         const dateStr = formatDate(d);
         const dayOfWeek = d.getDay();
-        const isHol = holidays.some(h => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end));
+        const isHol = holidays.some(
+          (h) => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end)
+        );
 
         if (isHol || shift.weeklyOffDays.includes(dayOfWeek)) continue;
-        if (attendancePunches.has(dateStr) || appliedLeaveDates.has(dateStr)) continue;
+        if (attendancePunches.has(dateStr) || appliedLeaveDates.has(dateStr))
+          continue;
         absentCount++;
       }
 
-      const monthlyCredit = 1;
-      const totalConsumed = totalLeaveDays + absentCount;
-      const extraLeaves = Math.max(0, totalConsumed - monthlyCredit);
-      const paidLeaveCredit = Math.min(totalConsumed, monthlyCredit);
-
-      // ✅ COUNT WEEK-OFF & HOLIDAY DAYS — NO DOUBLE COUNT
-      // Rule: if employee actually punched on a weekoff/holiday that day
-      //       → it already lives in att.workedDays, so do NOT count it again here.
-      //       Only count weekoff/holiday when the employee did NOT punch that day.
-      const todayNow = new Date();
-      todayNow.setHours(23, 59, 59, 999);
-
-      let weekOffCount = 0;
-      let holidayCount = 0;
-      for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
-        if (d > todayNow) break; // only count completed days up to today
-
-        const dateStr = formatDate(d);
-        const dayOfWeek = d.getDay();
-        const isHol = holidays.some(h => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end));
-        const isWeekOff = shift.weeklyOffDays.includes(dayOfWeek);
-
-        // skip normal working days — nothing to do here
-        if (!isHol && !isWeekOff) continue;
-
-        // Employee punched on this weekoff/holiday?
-        // → already counted as a worked day in attSummary, skip it here
-        if (attendancePunches.has(dateStr)) continue;
-
-        // Employee did NOT punch → count as paid weekoff or holiday
-        if (isHol) {
-          holidayCount++;
-        } else {
-          weekOffCount++;
-        }
-      }
-
-      leaveSummary[empId] = { totalLeaveDays, absentDays: absentCount, totalConsumed, extraLeaves, paidLeaveCredit, weekOffDays: weekOffCount, holidayDays: holidayCount };
+      leaveSummary[empId] = {
+        totalLeaveDays,
+        paidLeaveDays,
+        unpaidLeaveDays,
+        absentDays: absentCount,
+        weekOffDays: 0,
+        holidayDays: 0,
+        totalConsumed: totalLeaveDays + absentCount,
+      };
     });
 
     return allEmployees.map(emp => {
@@ -977,7 +1057,12 @@ const PayrollManagement = () => {
       const totalDaysInMonth = getTotalDaysInMonth(endDate.getFullYear(), endDate.getMonth() + 1);
 
       const att = attSummary[emp.employeeId] || { fullDays: 0, halfDays: 0, workedDays: 0, lateCount: 0, absentDays: 0 };
-      const leaves = leaveSummary[emp.employeeId] || { totalLeaveDays: 0, absentDays: 0, paidLeaveCredit: 0, extraLeaves: 0 };
+      const leaves = leaveSummary[emp.employeeId] || {
+        totalLeaveDays: 0,
+        absentDays: 0,
+        paidLeaveDays: 0,
+        unpaidLeaveDays: 0,
+      };
 
       // 1. Monthly Salary Breakdown (Standard structure)
       const ruleBasic = Number(payrollRules.basicPercentage) || 0;
@@ -1006,21 +1091,20 @@ const PayrollManagement = () => {
       const perDaySalary = monthlyTotal / totalDaysInMonth;
 
       // 3. Worked Days (attendance punches + paid leave credit)
-      const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
+      const totalWorkedDays = att.workedDays + leaves.paidLeaveDays;
 
-      // ✅ Week-off days & Holiday days (already counted up to today only)
       const weekOffDays = leaves.weekOffDays || 0;
       const holidayDays = leaves.holidayDays || 0;
 
       // 4. Calculated Salary = (Worked Days + Week Offs + Holidays) × Per Day Salary
       const calculatedSalary = (totalWorkedDays + weekOffDays + holidayDays) * perDaySalary;
 
-      // 5. LOP Deduction
-      const lopDeduction = leaves.extraLeaves * perDaySalary;
-
-      // 6. Late Penalty
+      const lateDaysCount = att.lateCount;
       const latePenaltyDays = Math.floor(att.lateCount / 3) * 0.5;
       const lateDeduction = latePenaltyDays * perDaySalary;
+
+      const lopDays = leaves.unpaidLeaveDays + (applyUnplannedAbsenceToLOP ? leaves.absentDays : 0);
+      const lopDeduction = lopDays * perDaySalary;
 
       // 7. Gross Earned
       const grossEarned = calculatedSalary;
@@ -1074,8 +1158,8 @@ const PayrollManagement = () => {
         halfDays: att.halfDays,
         absentDays: leaves.absentDays,
         totalLeavesConsumed: leaves.totalLeaveDays,
-        lopDays: leaves.extraLeaves,
-        lateDaysCount: att.lateCount,
+        lopDays,
+        lateDaysCount,
         latePenaltyDays,
         perDaySalary,
         calculatedSalary,
@@ -1109,7 +1193,17 @@ const PayrollManagement = () => {
         netPayableSalary
       };
     });
-  }, [allEmployees, shifts, attendanceData, leaveRequests, holidays, summaryStartDate, summaryEndDate, payrollRules]);
+  }, [
+    allEmployees,
+    shifts,
+    attendanceData,
+    leaveRequests,
+    holidays,
+    summaryStartDate,
+    summaryEndDate,
+    payrollRules,
+    leavePolicy, // added as dependency in case future policy-driven behavior is expanded
+  ]);
 
   const filteredPayroll = useMemo(() => {
     if (!searchQuery.trim()) return processedPayroll;

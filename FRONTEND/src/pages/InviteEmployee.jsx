@@ -52,23 +52,20 @@ HR Team
   useEffect(() => {
     const init = async () => {
       const loadedCompanies = await fetchCompanies();
-      fetchHistory(null, loadedCompanies);
       fetchAcceptedCandidates();
     };
     init();
   }, []);
 
-  useEffect(() => {
-    if (selectedCompany) {
-      fetchCompanyDocuments();
-      fetchHistory(selectedCompany, companies); // ✅ Filter history to selected company
-    } else {
-      setDocuments([]);
-      if (companies.length > 0) {
-        fetchHistory(null, companies); // ✅ Company deselected → show only companies available in selection
-      }
-    }
-  }, [selectedCompany]);
+useEffect(() => {
+  if (selectedCompany) {
+    fetchCompanyDocuments();
+    fetchHistory(selectedCompany, companies);
+  } else {
+    setDocuments([]);
+    setSentHistory([]); // ❌ clear logs if no company selected
+  }
+}, [selectedCompany]);
 
   const fetchCompanies = async () => {
     try {
@@ -799,7 +796,7 @@ HR Team
               {sentHistory.length === 0 && (
                 <div className="text-center py-20">
                   <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><History size={32} /></div>
-                  <p className="text-slate-400 text-sm font-medium">No invitations found in database.</p>
+                  <p className="text-slate-400 text-sm font-medium">Select your company to View Respective onboarding logs</p>
                 </div>
               )}
               {sentHistory.map((item) => (

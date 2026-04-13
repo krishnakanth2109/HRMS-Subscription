@@ -10,21 +10,19 @@ const STATUS_COLORS = {
   Completed: "bg-green-100 text-green-800 border-green-300",
 };
 
-// ─── IST Countdown Timer Component ────────────────────────────────────────────
+// ─── IST Countdown Timer ──────────────────────────────────────────────────────
 const CountdownTimer = ({ endDate }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     const calc = () => {
-      const now = new Date();
-      const end = new Date(endDate);
-      const diff = end - now;
+      const diff = new Date(endDate) - new Date();
       if (diff <= 0) { setExpired(true); setTimeLeft("Expired"); return; }
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
       setTimeLeft(`${d}d ${h}h ${m}m ${s}s`);
     };
     calc();
@@ -55,29 +53,36 @@ const LetterModal = ({ title, html, onClose }) => (
   </div>
 );
 
-// ─── Decision Modal ─────────────────────────────────────────────────────────────
+// ─── Decision Modal (with acceptance file upload) ─────────────────────────────
 const DecisionModal = ({ resignation, onClose, onSubmit }) => {
   const [action, setAction] = useState("Approved");
   const [remark, setRemark] = useState("");
   const [noticeType, setNoticeType] = useState("Immediate");
   const [noticeDays, setNoticeDays] = useState(30);
+  const [acceptanceFile, setAcceptanceFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     setLoading(true);
-    await onSubmit({ action, adminRemark: remark, noticePeriodType: noticeType, noticePeriodDays: noticeDays });
+    await onSubmit({
+      action,
+      adminRemark: remark,
+      noticePeriodType: noticeType,
+      noticePeriodDays: noticeDays,
+      acceptanceFile,
+    });
     setLoading(false);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h3 className="text-lg font-bold text-slate-800">Review Resignation — {resignation.employeeName}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
         </div>
         <div className="p-6 space-y-4">
-          {/* Action */}
+          {/* Decision */}
           <div>
             <label className="block text-sm font-semibold text-slate-600 mb-1">Decision</label>
             <div className="flex gap-3">
@@ -85,33 +90,56 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
                 <button key={a} onClick={() => setAction(a)}
                   className={`flex-1 py-2 rounded-lg border font-semibold transition ${action === a
                     ? (a === "Approved" ? "bg-green-600 text-white border-green-600" : "bg-red-600 text-white border-red-600")
-                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}
-                >{a}</button>
+                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
+                  {a}
+                </button>
               ))}
             </div>
           </div>
 
-          {/* Notice period (only on approve) */}
+          {/* Notice period */}
           {action === "Approved" && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-1">Notice Period</label>
-              <div className="flex gap-3 mb-2">
-                {["Immediate", "Custom"].map(t => (
-                  <button key={t} onClick={() => setNoticeType(t)}
-                    className={`flex-1 py-2 rounded-lg border font-semibold transition text-sm ${noticeType === t ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300"}`}
-                  >{t === "Immediate" ? "⚡ Immediate Release" : "📅 Custom Days"}</button>
-                ))}
-              </div>
-              {noticeType === "Custom" && (
-                <div className="flex items-center gap-2">
-                  <input type="number" min={1} max={365} value={noticeDays}
-                    onChange={e => setNoticeDays(e.target.value)}
-                    className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-center font-bold text-slate-800"
-                  />
-                  <span className="text-slate-500 text-sm">days notice period</span>
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">Notice Period</label>
+                <div className="flex gap-3 mb-2">
+                  {["Immediate", "Custom"].map(t => (
+                    <button key={t} onClick={() => setNoticeType(t)}
+                      className={`flex-1 py-2 rounded-lg border font-semibold transition text-sm ${noticeType === t ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300"}`}>
+                      {t === "Immediate" ? "⚡ Immediate Release" : "📅 Custom Days"}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+                {noticeType === "Custom" && (
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={1} max={365} value={noticeDays}
+                      onChange={e => setNoticeDays(e.target.value)}
+                      className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-center font-bold text-slate-800" />
+                    <span className="text-slate-500 text-sm">days notice period</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload acceptance letter */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-1">
+                  Upload Acceptance Letter <span className="text-slate-400 font-normal">(optional — PDF / image)</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl px-4 py-3 hover:bg-blue-100 transition">
+                  <span className="text-2xl">📎</span>
+                  <div className="flex-1">
+                    {acceptanceFile ? (
+                      <p className="text-sm font-semibold text-blue-700">{acceptanceFile.name}</p>
+                    ) : (
+                      <p className="text-sm text-blue-500">Click to attach acceptance letter file</p>
+                    )}
+                  </div>
+                  <input type="file" className="hidden" accept="image/*,.pdf"
+                    onChange={e => setAcceptanceFile(e.target.files[0] || null)} />
+                </label>
+                <p className="text-xs text-slate-400 mt-1">An AI-generated letter will also be sent to the employee via email automatically.</p>
+              </div>
+            </>
           )}
 
           {/* Remark */}
@@ -119,24 +147,44 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
             <label className="block text-sm font-semibold text-slate-600 mb-1">Remark (optional)</label>
             <textarea rows={3} value={remark} onChange={e => setRemark(e.target.value)}
               placeholder="Write a note to the employee..."
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-            />
+              className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
         </div>
         <div className="px-6 py-4 border-t flex justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2 rounded-lg border text-slate-600 hover:bg-slate-50">Cancel</button>
           <button onClick={handleSubmit} disabled={loading}
-            className={`px-6 py-2 rounded-lg font-semibold text-white transition ${action === "Approved" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}
-          >{loading ? "Submitting…" : `${action === "Approved" ? "✅ Approve" : "❌ Reject"}`}</button>
+            className={`px-6 py-2 rounded-lg font-semibold text-white transition ${action === "Approved" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} disabled:opacity-60`}>
+            {loading ? "Submitting…" : (action === "Approved" ? "✅ Approve" : "❌ Reject")}
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Exit Formalities Panel ────────────────────────────────────────────────────
+// ─── File download helper ──────────────────────────────────────────────────────
+const downloadFile = async (url, name) => {
+  try {
+    window.open(url, "_blank");
+    const secureUrl = url.replace("http://", "https://");
+    const resp = await fetch(secureUrl.replace("/upload/", "/upload/fl_attachment/"));
+    const blob = await resp.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = blobUrl; a.download = name || "document";
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch { window.open(url, "_blank"); }
+};
+
+// ─── Exit Formalities Panel (Admin) ───────────────────────────────────────────
 const ExitFormalities = ({ resignation, onUpdate }) => {
   const [uploading, setUploading] = useState({});
+  const [newDocName, setNewDocName] = useState("");
+  const [addingDoc, setAddingDoc] = useState(false);
+  const [finalDocName, setFinalDocName] = useState("");
+  const [uploadingFinal, setUploadingFinal] = useState(false);
 
   const handleAdminUpload = async (idx, file) => {
     if (!file) return;
@@ -156,99 +204,206 @@ const ExitFormalities = ({ resignation, onUpdate }) => {
     try {
       const { data } = await api.post(`/api/resignations/admin/verify-doc/${resignation._id}/${idx}`);
       onUpdate(data.resignation);
-    } catch (e) { alert("Verify failed"); }
+    } catch { alert("Verify failed"); }
+  };
+
+  const handleAddDoc = async () => {
+    if (!newDocName.trim()) return alert("Please enter a document name.");
+    setAddingDoc(true);
+    try {
+      const { data } = await api.post(`/api/resignations/admin/add-exit-doc/${resignation._id}`, { docName: newDocName.trim() });
+      onUpdate(data.resignation);
+      setNewDocName("");
+    } catch (e) { alert("Failed: " + (e.response?.data?.message || e.message)); }
+    setAddingDoc(false);
+  };
+
+  const handleUploadFinalDoc = async (file) => {
+    if (!file) return;
+    if (!finalDocName.trim()) return alert("Please enter a document name first.");
+    setUploadingFinal(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("docName", finalDocName.trim());
+    try {
+      const { data } = await api.post(`/api/resignations/admin/upload-final-doc/${resignation._id}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      onUpdate(data.resignation);
+      setFinalDocName("");
+    } catch (e) { alert("Upload failed: " + (e.response?.data?.error || e.message)); }
+    setUploadingFinal(false);
+  };
+
+  const handleDeleteFinalDoc = async (idx) => {
+    if (!window.confirm("Remove this document?")) return;
+    try {
+      const { data } = await api.delete(`/api/resignations/admin/delete-final-doc/${resignation._id}/${idx}`);
+      onUpdate(data.resignation);
+    } catch { alert("Delete failed"); }
   };
 
   const handleComplete = async () => {
-    if (!window.confirm("Mark this resignation as fully completed?")) return;
+    if (!window.confirm("Mark this resignation as Completed and notify the employee?")) return;
     try {
       const { data } = await api.post(`/api/resignations/admin/complete/${resignation._id}`);
       onUpdate(data.resignation);
-    } catch (e) { alert("Failed"); }
+    } catch { alert("Failed"); }
   };
 
-  const handleAddMore = async () => {
-    try {
-      const { data } = await api.post(`/api/resignations/${resignation._id}/add-document`);
-      onUpdate(data.resignation);
-    } catch (e) {
-      alert("Failed to add document: " + (e.response?.data?.message || e.message));
-    }
-  };
-
-  const handleFileDownload = async (url, defaultName) => {
-    try {
-      window.open(url, "_blank"); // View in another tab
-
-      const secureUrl = url.replace('http://', 'https://');
-      const resp = await fetch(secureUrl.replace('/upload/', '/upload/fl_attachment/'));
-      const blob = await resp.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = defaultName || "document";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (e) {
-      window.open(url, "_blank");
-    }
-  };
+  const allVerified = resignation.exitDocuments.length > 0 &&
+    resignation.exitDocuments.every(d => d.verifiedByAdmin);
 
   return (
-    <div className="mt-4 space-y-3">
-      <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide">Exit Documents</h4>
-      {resignation.exitDocuments.map((doc, idx) => (
-        <div key={idx} className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-          <div className="flex items-center gap-3">
-            <span className={`w-2.5 h-2.5 rounded-full ${doc.verifiedByAdmin ? "bg-green-500" : "bg-slate-300"}`} />
-            <span className="font-medium text-slate-700 text-sm">{doc.docName}</span>
-            {doc.verifiedByAdmin && <span className="text-xs text-green-600 font-semibold">✓ Verified</span>}
+    <div className="mt-4 space-y-5">
+
+      {/* ── Employee Exit Documents (for admin to verify) ── */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide">📂 Employee Exit Documents</h4>
+          {resignation.exitDocuments.length === 0 && (
+            <span className="text-xs text-slate-400 italic">No documents yet — add slots below</span>
+          )}
+        </div>
+
+        {resignation.exitDocuments.map((doc, idx) => (
+          <div key={idx} className={`flex flex-wrap items-center justify-between rounded-xl px-4 py-3 border mb-2 ${doc.verifiedByAdmin ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200"}`}>
+            <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${doc.verifiedByAdmin ? "bg-green-500" : doc.uploadedByEmployee ? "bg-yellow-400" : "bg-slate-300"}`} />
+              <div className="min-w-0">
+                <p className="font-semibold text-slate-700 text-sm truncate">{doc.docName}</p>
+                <p className="text-xs text-slate-400">
+                  {doc.verifiedByAdmin ? "✅ Verified" : doc.uploadedByEmployee ? "⏳ Uploaded by employee — needs verification" : "Waiting for employee upload"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Admin upload */}
+              <label className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold text-white ${uploading[idx] ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-700"}`}>
+                {uploading[idx] ? "Uploading…" : "📎 Upload"}
+                <input type="file" className="hidden" accept="image/*,.pdf"
+                  onChange={e => handleAdminUpload(idx, e.target.files[0])} disabled={uploading[idx]} />
+              </label>
+              {/* Download employee's uploaded file */}
+              {doc.uploadedByEmployee && (
+                <button onClick={() => downloadFile(doc.uploadedByEmployee, `${doc.docName}_employee`)}
+                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
+                  ⬇ Employee Doc
+                </button>
+              )}
+              {/* Download admin uploaded file */}
+              {doc.uploadedByAdmin && (
+                <button onClick={() => downloadFile(doc.uploadedByAdmin, `${doc.docName}_admin`)}
+                  className="px-3 py-1.5 bg-slate-600 text-white rounded-lg text-xs font-semibold hover:bg-slate-700">
+                  ⬇ Admin Doc
+                </button>
+              )}
+              {/* Verify */}
+              {!doc.verifiedByAdmin && doc.uploadedByEmployee && (
+                <button onClick={() => handleVerify(idx)}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
+                  ✔ Verify
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Admin upload */}
-            <label className="cursor-pointer px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700">
-              {uploading[idx] ? "Uploading…" : "📎 Upload"}
-              <input type="file" className="hidden" accept="image/*"
-                onChange={e => handleAdminUpload(idx, e.target.files[0])} disabled={uploading[idx]} />
-            </label>
-            {/* Admin download employee's file */}
-            {doc.uploadedByEmployee && (
-              <button onClick={() => handleFileDownload(doc.uploadedByEmployee, `${doc.docName} - Employee`)}
-                className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
-                ⬇ Employee Doc
-              </button>
+        ))}
+
+        {/* Add new exit doc slot */}
+        {resignation.status === "Exit Formalities" && (
+          <div className="flex gap-2 mt-2">
+            <input value={newDocName} onChange={e => setNewDocName(e.target.value)}
+              placeholder="Document name (e.g. ID Card Return)"
+              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <button onClick={handleAddDoc} disabled={addingDoc}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
+              {addingDoc ? "Adding…" : "+ Add Slot"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Welcome Kit Return (view only for admin) ── */}
+      {resignation.welcomeKitItems && resignation.welcomeKitItems.length > 0 && (
+        <div>
+          <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide mb-2">🎁 Welcome Kit Returns</h4>
+          <div className={`rounded-xl border p-3 ${resignation.welcomeKitSubmittedByEmployee ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}`}>
+            {!resignation.welcomeKitSubmittedByEmployee && (
+              <p className="text-xs text-yellow-700 font-semibold mb-2">⏳ Waiting for employee to confirm item returns…</p>
             )}
-            {/* Admin download own uploaded file */}
-            {doc.uploadedByAdmin && (
-              <button onClick={() => handleFileDownload(doc.uploadedByAdmin, `${doc.docName} - Admin`)}
-                className="px-3 py-1.5 bg-slate-600 text-white rounded-lg text-xs font-semibold hover:bg-slate-700">
-                ⬇ Admin Doc
-              </button>
-            )}
-            {/* Verify button */}
-            {!doc.verifiedByAdmin && doc.uploadedByEmployee && (
-              <button onClick={() => handleVerify(idx)}
-                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
-                ✔ Verify
-              </button>
-            )}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {resignation.welcomeKitItems.map((item, i) => (
+                <div key={i} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold border ${item.returned ? "bg-green-100 border-green-300 text-green-700" : "bg-red-50 border-red-200 text-red-600"}`}>
+                  <span>{item.returned ? "✅" : "❌"}</span>
+                  <span>{item.itemName}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      ))}
+      )}
 
+      {/* ── Final Documents (admin uploads for employee to download) ── */}
+      <div>
+        <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide mb-2">📄 Final Documents for Employee</h4>
+        <p className="text-xs text-slate-500 mb-3">Upload Relieving Letter, Experience Letter, NOC, or any other documents. These will be visible to the employee.</p>
+
+        {resignation.adminFinalDocs && resignation.adminFinalDocs.length > 0 ? (
+          <div className="space-y-2 mb-3">
+            {resignation.adminFinalDocs.map((doc, i) => (
+              <div key={i} className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+                <div>
+                  <p className="font-semibold text-indigo-800 text-sm">📄 {doc.docName}</p>
+                  {doc.uploadedAt && (
+                    <p className="text-xs text-indigo-400">
+                      Uploaded: {new Date(doc.uploadedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => downloadFile(doc.uploadedByAdmin, doc.docName)}
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
+                    ⬇ View
+                  </button>
+                  <button onClick={() => handleDeleteFinalDoc(i)}
+                    className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-200">
+                    🗑 Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-400 italic mb-3">
+            No final documents uploaded yet.
+          </div>
+        )}
+
+        {/* Upload new final doc */}
+        <div className="flex gap-2">
+          <input value={finalDocName} onChange={e => setFinalDocName(e.target.value)}
+            placeholder="Document name (e.g. Relieving Letter)"
+            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          <label className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold text-white flex items-center gap-1 ${uploadingFinal ? "bg-slate-400" : "bg-indigo-600 hover:bg-indigo-700"}`}>
+            {uploadingFinal ? "Uploading…" : "📎 Upload"}
+            <input type="file" className="hidden" accept="image/*,.pdf"
+              onChange={e => handleUploadFinalDoc(e.target.files[0])} disabled={uploadingFinal} />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Complete Button ── */}
       {resignation.status === "Exit Formalities" && (
-        <button onClick={handleAddMore} className="w-full mt-2 py-2 border-2 border-dashed border-blue-300 bg-blue-50 text-blue-700 rounded-xl font-bold hover:bg-blue-100 transition">
-          + Add New Document
+        <button onClick={handleComplete}
+          className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition text-sm">
+          🎯 Mark as Completed & Notify Employee
         </button>
       )}
 
-      {resignation.status === "Exit Formalities" && (
-        <button onClick={handleComplete}
-          className="mt-4 w-full py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition">
-          🎯 Mark as Completed
-        </button>
+      {resignation.status === "Completed" && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700 text-sm font-semibold text-center">
+          🎉 Exit process completed. Employee has been notified.
+        </div>
       )}
     </div>
   );
@@ -277,16 +432,24 @@ const AdminResignation = () => {
 
   useEffect(() => {
     fetchAll();
-    // Poll countdown check every 60s
     intervalRef.current = setInterval(() => {
       api.post("/api/resignations/system/check-countdowns").then(fetchAll).catch(() => {});
     }, 60000);
     return () => clearInterval(intervalRef.current);
   }, [fetchAll]);
 
-  const handleDecision = async (payload) => {
+  const handleDecision = async ({ action, adminRemark, noticePeriodType, noticePeriodDays, acceptanceFile }) => {
     try {
-      await api.post(`/api/resignations/admin/decision/${decisionModal._id}`, payload);
+      const fd = new FormData();
+      fd.append("action", action);
+      fd.append("adminRemark", adminRemark || "");
+      fd.append("noticePeriodType", noticePeriodType || "Immediate");
+      fd.append("noticePeriodDays", noticePeriodDays || 0);
+      if (acceptanceFile) fd.append("acceptanceFile", acceptanceFile);
+
+      await api.post(`/api/resignations/admin/decision/${decisionModal._id}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
       setDecisionModal(null);
       fetchAll();
     } catch (e) { alert("Error: " + (e.response?.data?.message || e.message)); }
@@ -338,12 +501,10 @@ const AdminResignation = () => {
       <div className="flex flex-wrap gap-3 mb-5">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search by name or ID..."
           className="flex-1 min-w-[200px] border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
-          
         <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}
           className="border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
           {companies.map(c => <option key={c} value={c}>{c === "All" ? "All Companies" : c}</option>)}
         </select>
-
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
           className="border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
           <option value="All">All Status</option>
@@ -365,15 +526,13 @@ const AdminResignation = () => {
               {/* Row header */}
               <div className="flex flex-wrap items-center justify-between px-5 py-4 gap-3 cursor-pointer"
                 onClick={() => setExpanded(expanded === r._id ? null : r._id)}>
-                <div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                      {r.employeeName?.[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-800">{r.employeeName} <span className="text-slate-400 font-normal text-sm">({r.employeeId})</span></p>
-                      <p className="text-xs text-slate-500">{r.designation} · {r.department} {r.companyName && r.companyName !== "Unknown" ? `· ${r.companyName}` : ""}</p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                    {r.employeeName?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-800">{r.employeeName} <span className="text-slate-400 font-normal text-sm">({r.employeeId})</span></p>
+                    <p className="text-xs text-slate-500">{r.designation} · {r.department} {r.companyName && r.companyName !== "Unknown" ? `· ${r.companyName}` : ""}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
@@ -390,9 +549,9 @@ const AdminResignation = () => {
                 </div>
               </div>
 
-              {/* Expanded details */}
+              {/* Expanded */}
               {expanded === r._id && (
-                <div className="border-t border-slate-100 px-5 py-4 space-y-3">
+                <div className="border-t border-slate-100 px-5 py-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="bg-slate-50 rounded-xl p-4 text-sm">
                       <p className="font-semibold text-slate-600 mb-1">Reason for Leaving</p>
@@ -412,30 +571,33 @@ const AdminResignation = () => {
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    {/* View resignation letter */}
+                  {/* Action buttons */}
+                  <div className="flex flex-wrap gap-2">
                     {r.resignationLetterHtml && (
                       <button onClick={() => setViewLetter(r)}
                         className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-semibold hover:bg-slate-600">
                         📄 View Resignation Letter
                       </button>
                     )}
-                    {/* View acceptance letter */}
                     {r.acceptanceLetterHtml && (
                       <button onClick={() => setViewAccLetter(r)}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">
                         📃 View Acceptance Letter
                       </button>
                     )}
-                    {/* Decision button */}
+                    {r.acceptanceLetterFileUrl && (
+                      <button onClick={() => downloadFile(r.acceptanceLetterFileUrl, `Acceptance_Letter_${r.employeeName}`)}
+                        className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700">
+                        ⬇ Acceptance Letter File
+                      </button>
+                    )}
                     {r.status === "Pending" && (
                       <button onClick={() => setDecisionModal(r)}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
                         ⚖️ Review & Decide
                       </button>
                     )}
-                    {/* Move to exit formalities */}
+                    {/* Move to exit formalities after notice period ends */}
                     {r.status === "Approved" && r.noticePeriodEndDate && new Date() >= new Date(r.noticePeriodEndDate) && (
                       <button onClick={async () => {
                         await api.post(`/api/resignations/admin/exit-formalities/${r._id}`);
