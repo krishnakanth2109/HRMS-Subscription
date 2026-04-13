@@ -55,12 +55,12 @@ const ALL_NAV_LINKS = [
   { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Adjustment", icon: <FaUserCheck />, isLateRequests: true },
   { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
   { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
-  { to: "/admin/induction", route: "/admin/live-tracking", label: "Induction", icon: <FaConnectdevelop /> },
+  // { to: "/admin/induction", route: "/admin/induction", label: "Induction", icon: <FaConnectdevelop /> },
 
   // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
   // To add more owner-only features in future, just add them here with ownerOnly: true
   { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: <FaReceipt />, isPayrollCandidates: true, ownerOnly: true },
-  { to: "/admin/resignation", route: "/admin/resignation", label: "Resignations", icon: <FaFileSignature /> },
+
 ];
 
 const calculateUnreadNotices = (notices, readState) => {

@@ -1,11 +1,11 @@
 // --- START OF FILE Paste February 23, 2026 - 4:15PM ---
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Swal from 'sweetalert2';
 // ✅ FIX: Imported your custom 'api' instance instead of raw axios
-import api from '../api'; 
+import api from '../api';
 import {
   getLeaveRequests,
   getEmployees,
@@ -13,7 +13,8 @@ import {
   getHolidays,
   getAllShifts,
   getPayrollRules,
-  savePayrollRules
+  savePayrollRules,
+  getOfferLetterTemplates
 } from '../api';
 
 // --- DEFAULT RULES ---
@@ -145,14 +146,14 @@ const getDateRangeFromMonth = (yearMonth) => {
       endDate: formatDate(today)
     };
   }
-  
+
   const [year, month] = yearMonth.split('-').map(Number);
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0); // Last day of month
-  
+
   const today = new Date();
   const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-  
+
   // If selected month is current month, end date is today
   if (yearMonth === currentYearMonth) {
     return {
@@ -160,7 +161,7 @@ const getDateRangeFromMonth = (yearMonth) => {
       endDate: formatDate(today)
     };
   }
-  
+
   // For past months, end date is last day of that month
   return {
     startDate: formatDate(startDate),
@@ -291,12 +292,12 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
             )}
 
             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">PT Slab 1 (&gt;15k) Amount (₹)</label>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">PT Slab 1 (&gt;15k) Amount (₹)</label>
                 <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
               </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
                 <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
               </div>
             </div>
@@ -312,9 +313,354 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
   );
 };
 
+// --- TEMPLATE PICKER MODAL ---
+const TemplatePickerModal = ({ onSelect, onClose }) => {
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getOfferLetterTemplates()
+      .then(data => setTemplates(data || []))
+      .catch(err => console.error('Failed to load templates:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999, backdropFilter: 'blur(6px)'
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: '20px', padding: '32px',
+        width: '92%', maxWidth: '700px', maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.35)'
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: '#1e293b' }}>🖨️ Choose a Letterhead</h2>
+            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.85rem' }}>Select a template background for the payslip PDF</p>
+          </div>
+          <button onClick={onClose} style={{
+            background: '#ef4444', border: 'none', color: '#fff',
+            width: 36, height: 36, borderRadius: '50%', fontSize: '1.2rem',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>✕</button>
+        </div>
+
+        {/* Template Grid */}
+        <div style={{ overflowY: 'auto', flex: 1, marginTop: '18px' }}>
+          {loading && (
+            <p style={{ textAlign: 'center', color: '#94a3b8', padding: '40px 0' }}>Loading templates...</p>
+          )}
+          {!loading && templates.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '50px 20px' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '12px' }}>📄</div>
+              <p style={{ color: '#64748b', fontSize: '1rem', fontWeight: 600 }}>No templates found</p>
+              <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Upload letterhead templates in the Offer Letter section first.</p>
+            </div>
+          )}
+          {!loading && templates.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '16px' }}>
+              {templates.map(t => (
+                <div
+                  key={t._id}
+                  onClick={() => onSelect(t)}
+                  style={{
+                    border: '2px solid #e2e8f0', borderRadius: '14px', padding: '12px',
+                    cursor: 'pointer', textAlign: 'center', transition: 'all 0.18s',
+                    background: '#f8fafc',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#6366f1'; e.currentTarget.style.background = '#eef2ff'; e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(99,102,241,0.15)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  {/* Thumbnail */}
+                  <div style={{
+                    height: 110, background: '#e2e8f0', borderRadius: '8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: '10px', overflow: 'hidden', position: 'relative'
+                  }}>
+                    {/\.(jpg|jpeg|png)$/i.test(t.templateUrl || '') ? (
+                      <img
+                        src={`/api/offer-letters/templates/fetch?url=${encodeURIComponent(t.templateUrl)}`}
+                        alt={t.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                      />
+                    ) : null}
+                    <div style={{
+                      display: /\.(jpg|jpeg|png)$/i.test(t.templateUrl || '') ? 'none' : 'flex',
+                      flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                      width: '100%', height: '100%'
+                    }}>
+                      <span style={{ fontSize: '2.5rem' }}>📄</span>
+                      <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px', fontWeight: 600 }}>PDF Template</span>
+                    </div>
+                  </div>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {t.name}
+                  </p>
+                  {t.companyName && (
+                    <p style={{ margin: '2px 0 0', fontSize: '0.72rem', color: '#64748b' }}>{t.companyName}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8' }}>Click a template to generate the payslip</p>
+          <button onClick={onClose} style={{
+            padding: '10px 24px', borderRadius: '10px', border: '1px solid #cbd5e1',
+            background: '#f1f5f9', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem'
+          }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ✅ NEW: RELEASE PAYSLIP SELECTION MODAL
+const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, periodEnd, onConfirmRelease }) => {
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Reset every time modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIds(new Set());
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const formatCurrency = (val) =>
+    `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const filteredData = payrollData.filter(emp =>
+    emp.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const allFilteredSelected =
+    filteredData.length > 0 && filteredData.every(emp => selectedIds.has(emp.employeeId));
+  const someFilteredSelected =
+    filteredData.some(emp => selectedIds.has(emp.employeeId)) && !allFilteredSelected;
+
+  const handleSelectAll = () => {
+    const updated = new Set(selectedIds);
+    if (allFilteredSelected) {
+      filteredData.forEach(emp => updated.delete(emp.employeeId));
+    } else {
+      filteredData.forEach(emp => updated.add(emp.employeeId));
+    }
+    setSelectedIds(updated);
+  };
+
+  const handleToggle = (empId) => {
+    const updated = new Set(selectedIds);
+    updated.has(empId) ? updated.delete(empId) : updated.add(empId);
+    setSelectedIds(updated);
+  };
+
+  const selectedCount = selectedIds.size;
+
+  const totalNetSelected = payrollData
+    .filter(emp => selectedIds.has(emp.employeeId))
+    .reduce((sum, emp) => sum + emp.netPayableSalary, 0);
+
+  const handleRelease = () => {
+    if (selectedCount === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Employees Selected',
+        text: 'Please select at least one employee to release the payslip.',
+        confirmButtonColor: '#3b82f6',
+      });
+      return;
+    }
+    onConfirmRelease(payrollData.filter(emp => selectedIds.has(emp.employeeId)));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-6 py-5 flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
+            <p className="text-indigo-200 text-sm mt-0.5">
+              {periodStart} &nbsp;→&nbsp; {periodEnd}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="bg-white/10 hover:bg-white/25 rounded-full p-2 transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Search + Select All bar */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          {/* Search */}
+          <div className="relative flex-1 max-w-sm">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition"
+            />
+          </div>
+
+          {/* Select All */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+            <div
+              onClick={handleSelectAll}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer
+                ${allFilteredSelected
+                  ? 'bg-indigo-600 border-indigo-600'
+                  : someFilteredSelected
+                  ? 'bg-indigo-100 border-indigo-400'
+                  : 'bg-white border-gray-300 group-hover:border-indigo-400'
+                }`}
+            >
+              {allFilteredSelected && (
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {someFilteredSelected && !allFilteredSelected && (
+                <div className="w-2.5 h-0.5 bg-indigo-600 rounded" />
+              )}
+            </div>
+            <span className="text-sm font-semibold text-gray-700">
+              {allFilteredSelected ? 'Deselect All' : 'Select All'}
+            </span>
+            <span className="text-xs text-gray-400">({filteredData.length} shown)</span>
+          </label>
+        </div>
+
+        {/* Employee List */}
+        <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
+          {filteredData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+              <svg className="w-10 h-10 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-sm font-medium">No employees found</p>
+            </div>
+          ) : filteredData.map((emp) => {
+            const isSelected = selectedIds.has(emp.employeeId);
+            return (
+              <div
+                key={emp.employeeId}
+                onClick={() => handleToggle(emp.employeeId)}
+                className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150
+                  ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
+              >
+                {/* Checkbox */}
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all
+                  ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
+                  {isSelected && (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+
+                {/* Avatar */}
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all
+                  ${isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'}`}>
+                  {emp.employeeName.charAt(0).toUpperCase()}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{emp.employeeName}</p>
+                  <p className="text-xs text-gray-500">{emp.employeeId} &middot; {emp.role}</p>
+                </div>
+
+                {/* Work badges */}
+                <div className="hidden sm:flex gap-1.5 shrink-0">
+                  <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">F:{emp.fullDays}</span>
+                  <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">H:{emp.halfDays}</span>
+                  {emp.lopDays > 0 && (
+                    <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">LOP:{emp.lopDays}</span>
+                  )}
+                </div>
+
+                {/* Net Pay */}
+                <div className="text-right shrink-0">
+                  <p className={`text-sm font-extrabold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
+                    {formatCurrency(emp.netPayableSalary)}
+                  </p>
+                  <p className="text-[10px] text-gray-400">net pay</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all
+              ${selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+              {selectedCount === 0
+                ? 'No employees selected'
+                : `${selectedCount} employee${selectedCount > 1 ? 's' : ''} selected`}
+            </div>
+            {selectedCount > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-gray-500 font-medium">Total Net Payable</p>
+                <p className="text-lg font-extrabold text-indigo-700">{formatCurrency(totalNetSelected)}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRelease}
+              disabled={selectedCount === 0}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow
+                ${selectedCount > 0
+                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              Release {selectedCount > 0 ? `${selectedCount} Payslip${selectedCount > 1 ? 's' : ''}` : 'Payslips'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- PAYSLIP MODAL COMPONENT ---
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   const [companyData, setCompanyData] = useState(null);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // ✅ Fetch company details dynamically — employee.companyId holds emp.company (ObjectId)
   useEffect(() => {
@@ -334,19 +680,19 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   const companyName = companyData?.name || employee.companyName || "N/A";
   const companyAddress = companyData
     ? [
-        companyData.officeLocation?.address,
-        companyData.officeLocation?.city,
-        companyData.officeLocation?.state,
-        companyData.officeLocation?.zipCode,
-        companyData.officeLocation?.country
-      ].filter(Boolean).join(', ')
+      companyData.officeLocation?.address,
+      companyData.officeLocation?.city,
+      companyData.officeLocation?.state,
+      companyData.officeLocation?.zipCode,
+      companyData.officeLocation?.country
+    ].filter(Boolean).join(', ')
     : "";
 
   const formatCurrency = (amount) => {
     return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
   };
 
-  const SIGNATURE_URL = "https://signature.freefire-name.com/img.php?f=6&t=Sanjay";
+  const SIGNATURE_URL = "https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png";
 
   const handleExportSingle = () => {
     const exportData = [{
@@ -371,149 +717,79 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
     exportToExcel(exportData, `Payslip_${employee.employeeName}_${periodStart}`);
   };
 
-  const downloadPayslip = () => {
-    const printWindow = window.open('', '_blank');
-
-    // Determine Label for PF based on method
-    const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed'
-      ? `Employee PF (Fixed)`
-      : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
-
-    const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed'
-      ? `Employer PF (Fixed)`
-      : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
-
-    const payslipHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Payslip - ${employee.employeeName}</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Arial', sans-serif; padding: 20px; }
-          .container { max-width: 800px; margin: 0 auto; border: 1px solid #ccc; padding: 20px; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-          .title { font-size: 20px; font-weight: bold; text-transform: uppercase; color: #1e3a8a; }
-          .table-box { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          .table-box td, .table-box th { border: 1px solid #ddd; padding: 8px; font-size: 13px; }
-          .bg-light { background: #f9fafb; }
-          .text-right { text-align: right; }
-          .font-bold { font-weight: bold; }
-          .total-row { background: #eff6ff; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-             <div>
-               <div class="title">${companyName}</div>
-               <div style="font-size:12px;">${companyAddress}</div>
-             </div>
-             <div class="text-right">
-               <h3>PAYSLIP</h3>
-               <small>${new Date(periodStart).toLocaleDateString()} - ${new Date(periodEnd).toLocaleDateString()}</small>
-             </div>
+  // Builds the raw payslip HTML (used both for print and PDF)
+  const buildPayslipHTML = useCallback((pfLabel, employerPfLabel) => {
+    return `
+      <div style="font-family:'Arial',sans-serif;color:#000;font-size:13px;line-height:1.5;">
+        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:16px;">
+          <div>
+            <div style="font-size:18px;font-weight:bold;text-transform:uppercase;color:#1e3a8a;">${companyName}</div>
+            <div style="font-size:11px;color:#555;">${companyAddress}</div>
           </div>
-
-          <table class="table-box">
-              <tr>
-               <td class="bg-light"><strong>Name</strong></td>
-               <td>${employee.employeeName}</td>
-               <td class="bg-light"><strong>Emp ID</strong></td>
-               <td>${employee.employeeId}</td>
-              </tr>
-              <tr>
-               <td class="bg-light"><strong>Designation</strong></td>
-               <td>${employee.role}</td>
-               <td class="bg-light"><strong>Work Summary</strong></td>
-               <td>Full: ${employee.fullDays} | Half: ${employee.halfDays} | WeekOff (rest): ${employee.weekOffDays} | Holidays (rest): ${employee.holidayDays}</td>
-              </tr>
-              <tr>
-               <td class="bg-light"><strong>Total Days in Month</strong></td>
-               <td>${employee.totalDaysInMonth}</td>
-               <td class="bg-light"><strong>Worked Days</strong></td>
-               <td>${employee.workedDays} + ${employee.weekOffDays} (WeekOff) + ${employee.holidayDays} (Hol) = ${employee.workedDays + employee.weekOffDays + employee.holidayDays}</td>
-              </tr>
-              <tr>
-               <td class="bg-light"><strong>Per Day Salary</strong></td>
-               <td>${formatCurrency(employee.perDaySalary)}</td>
-               <td class="bg-light"><strong>Calculated Salary</strong></td>
-               <td>${formatCurrency(employee.calculatedSalary)}</td>
-              </tr>
-           </table>
-
-          <table class="table-box">
-             <tr class="bg-light">
-               <th width="50%">EARNINGS</th>
-               <th width="15%" class="text-right">AMOUNT</th>
-               <th width="35%">DEDUCTIONS</th>
-               <th width="15%" class="text-right">AMOUNT</th>
-              </tr>
-              <tr>
-               <td>Basic Salary</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.basic)}</td>
-               <td>${pfLabel}</td>
-               <td class="text-right">${formatCurrency(employee.breakdown.pf)}</td>
-              </tr>
-              <tr>
-               <td>HRA</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.hra)}</td>
-               <td>${employerPfLabel}</td>
-               <td class="text-right">${formatCurrency(employee.breakdown.employerPf)}</td>
-              </tr>
-              <tr>
-               <td>Conveyance</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.conveyance)}</td>
-               <td>Professional Tax</td>
-               <td class="text-right">${formatCurrency(employee.breakdown.pt)}</td>
-              </tr>
-              <tr>
-               <td>Medical</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.medical)}</td>
-               <td>LOP Deduction (${employee.lopDays} days)</td>
-               <td class="text-right">${formatCurrency(employee.lopDeduction)}</td>
-              </tr>
-              <tr>
-               <td>Travelling Allowance</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td>
-               <td>Late Penalty (${employee.lateDaysCount} late × 3 = ${employee.latePenaltyDays} half days)</td>
-               <td class="text-right">${formatCurrency(employee.lateDeduction)}</td>
-              </tr>
-              <tr>
-               <td>Other Allowance</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td>
-               <td></td>
-               <td class="text-right"></td>
-              </tr>
-              <tr>
-               <td>Special</td>
-               <td class="text-right">${formatCurrency(employee.monthlyBreakdown.special)}</td>
-               <td></td>
-               <td class="text-right"></td>
-              </tr>
-             <tr class="total-row">
-               <td>GROSS EARNINGS</td>
-               <td class="text-right">${formatCurrency(employee.breakdown.gross)}</td>
-               <td>TOTAL DEDUCTIONS</td>
-               <td class="text-right">${formatCurrency(employee.totalDeductions)}</td>
-              </tr>
-            </table>
-
-          <div style="background: #1e3a8a; color: white; padding: 10px; text-align: center; font-weight: bold;">
-             NET PAYABLE: ${formatCurrency(employee.netPayableSalary)}
-          </div>
-          
-          <div style="margin-top: 40px; text-align: right; padding-right: 20px;">
-             <img src="${SIGNATURE_URL}" height="50" style="display:block; margin-left:auto; margin-bottom:5px;" />
-             Authorized Signatory
+          <div style="text-align:right;">
+            <div style="font-size:16px;font-weight:bold;">PAYSLIP</div>
+            <div style="font-size:11px;">${new Date(periodStart).toLocaleDateString()} – ${new Date(periodEnd).toLocaleDateString()}</div>
           </div>
         </div>
-      </body>
-      </html>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Name</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.employeeName}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Emp ID</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.employeeId}</td></tr>
+          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Designation</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.role}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Work Summary</td><td style="padding:5px 7px;border:1px solid #ddd;">Full:${employee.fullDays} | Half:${employee.halfDays} | WeekOff:${employee.weekOffDays} | Hol:${employee.holidayDays}</td></tr>
+          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Total Days in Month</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.totalDaysInMonth}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Worked Days</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.workedDays}</td></tr>
+          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Per Day Salary</td><td style="padding:5px 7px;border:1px solid #ddd;">${formatCurrency(employee.perDaySalary)}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Calculated Salary</td><td style="padding:5px 7px;border:1px solid #ddd;">${formatCurrency(employee.calculatedSalary)}</td></tr>
+        </table>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
+          <tr style="background:#f1f5f9;font-weight:bold;"><th style="padding:6px 7px;border:1px solid #ddd;text-align:left;width:38%;">EARNINGS</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:right;width:12%;">AMOUNT</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:left;width:38%;">DEDUCTIONS</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:right;width:12%;">AMOUNT</th></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Basic Salary</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.basic)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${pfLabel}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.pf)}</td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">HRA</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.hra)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${employerPfLabel}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.employerPf)}</td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Conveyance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.conveyance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">Professional Tax</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.pt)}</td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Medical</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.medical)}</td><td style="padding:5px 7px;border:1px solid #ddd;">LOP Deduction (${employee.lopDays} days)</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lopDeduction)}</td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Travelling Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">Late Penalty (${employee.latePenaltyDays} half days)</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lateDeduction)}</td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Other Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Special</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.special)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
+          <tr style="background:#eff6ff;font-weight:bold;"><td style="padding:6px 7px;border:1px solid #ddd;">GROSS EARNINGS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.gross)}</td><td style="padding:6px 7px;border:1px solid #ddd;">TOTAL DEDUCTIONS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.totalDeductions)}</td></tr>
+        </table>
+    <div style="padding:10px 14px;text-align:center;font-weight:bold;font-size:15px;border-radius:4px;color:#000;">NET SALARY PAYABLE: ${formatCurrency(employee.netPayableSalary)}
+</div>
+
+<div style="margin-top:36px;text-align:right;padding-right:20px;">
+          <img src="${SIGNATURE_URL}" height="45" style="display:block;margin-left:auto;margin-bottom:4px;" />
+          <span style="font-size:12px;color:#333;">Authorized Signatory</span>
+        </div>
+      </div>
     `;
-    printWindow.document.write(payslipHTML);
+  }, [employee, companyName, companyAddress, periodStart, periodEnd]);
+
+  // Plain print (no template — opens browser print dialog as before)
+  const downloadPayslip = () => {
+    const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employee PF (Fixed)' : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
+    const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employer PF (Fixed)' : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Payslip - ${employee.employeeName}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Arial',sans-serif;padding:24px;}</style></head><body>${buildPayslipHTML(pfLabel, employerPfLabel)}</body></html>`);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 500);
+  };
+
+  // Template-based PDF generation
+  const handleTemplateSelected = async (template) => {
+    setShowTemplatePicker(false);
+    setGeneratingPdf(true);
+    try {
+      const { generateOfferLetterPdf } = await import('../utils/offerLetterPdfGenerator');
+      const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employee PF (Fixed)' : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
+      const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employer PF (Fixed)' : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
+      const htmlContent = buildPayslipHTML(pfLabel, employerPfLabel);
+      const dataUri = await generateOfferLetterPdf(htmlContent, template.templateUrl);
+
+      // Open PDF in new tab for printing/saving
+      const win = window.open('', '_blank');
+      win.document.write(`<!DOCTYPE html><html><head><title>Payslip – ${employee.employeeName}</title><style>*{margin:0;padding:0;}body{background:#525659;display:flex;justify-content:center;}iframe{width:100vw;height:100vh;border:none;}</style></head><body><iframe src="${dataUri}" /></body></html>`);
+      win.document.close();
+    } catch (err) {
+      console.error('Template payslip generation failed:', err);
+      Swal.fire('Error', 'Could not generate the payslip with the selected template.', 'error');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   return (
@@ -686,10 +962,28 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           </div>
 
           <div className="flex gap-4 pt-4">
-            <button onClick={downloadPayslip} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition">🖨️ Print Payslip</button>
+            {/* Plain Print */}
+            <button
+              onClick={downloadPayslip}
+              className="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition text-sm"
+            >🖨️ Print (Plain)</button>
+            {/* Template-layered PDF */}
+            <button
+              onClick={() => setShowTemplatePicker(true)}
+              disabled={generatingPdf}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition text-sm disabled:opacity-60"
+            >{generatingPdf ? '⏳ Generating...' : '🖨️ Print with Letterhead'}</button>
             <button onClick={handleExportSingle} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition">📊 Export Excel</button>
             <button onClick={onClose} className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700">Close</button>
           </div>
+
+          {/* Template picker popup */}
+          {showTemplatePicker && (
+            <TemplatePickerModal
+              onSelect={handleTemplateSelected}
+              onClose={() => setShowTemplatePicker(false)}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -700,6 +994,8 @@ const PayrollManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showConfig, setShowConfig] = useState(false);
+  // ✅ NEW: Release modal state
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [payrollRules, setPayrollRules] = useState(DEFAULT_RULES);
   const [saving, setSaving] = useState(false); // Loading state for saving
 
@@ -707,7 +1003,7 @@ const PayrollManagement = () => {
   const today = new Date();
   const currentYearMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   const [selectedMonth, setSelectedMonth] = useState(currentYearMonth);
-  
+
   // Generate date range based on selected month
   const dateRange = useMemo(() => getDateRangeFromMonth(selectedMonth), [selectedMonth]);
   const summaryStartDate = dateRange.startDate;
@@ -872,30 +1168,22 @@ const PayrollManagement = () => {
       const paidLeaveCredit = Math.min(totalConsumed, monthlyCredit);
 
       // ✅ COUNT WEEK-OFF & HOLIDAY DAYS — NO DOUBLE COUNT
-      // Rule: if employee actually punched on a weekoff/holiday that day
-      //       → it already lives in att.workedDays, so do NOT count it again here.
-      //       Only count weekoff/holiday when the employee did NOT punch that day.
       const todayNow = new Date();
       todayNow.setHours(23, 59, 59, 999);
 
       let weekOffCount = 0;
       let holidayCount = 0;
       for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
-        if (d > todayNow) break; // only count completed days up to today
+        if (d > todayNow) break;
 
         const dateStr = formatDate(d);
         const dayOfWeek = d.getDay();
         const isHol = holidays.some(h => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end));
         const isWeekOff = shift.weeklyOffDays.includes(dayOfWeek);
 
-        // skip normal working days — nothing to do here
         if (!isHol && !isWeekOff) continue;
-
-        // Employee punched on this weekoff/holiday?
-        // → already counted as a worked day in attSummary, skip it here
         if (attendancePunches.has(dateStr)) continue;
 
-        // Employee did NOT punch → count as paid weekoff or holiday
         if (isHol) {
           holidayCount++;
         } else {
@@ -911,14 +1199,12 @@ const PayrollManagement = () => {
       const baseSalary = currentExp?.salary ? Number(currentExp.salary) : 0;
       const shift = shiftMap[emp.employeeId] || { weeklyOffDays: [0] };
 
-      // Get the month and year from summaryEndDate to calculate total days
       const endDate = new Date(summaryEndDate);
       const totalDaysInMonth = getTotalDaysInMonth(endDate.getFullYear(), endDate.getMonth() + 1);
 
       const att = attSummary[emp.employeeId] || { fullDays: 0, halfDays: 0, workedDays: 0, lateCount: 0, absentDays: 0 };
       const leaves = leaveSummary[emp.employeeId] || { totalLeaveDays: 0, absentDays: 0, paidLeaveCredit: 0, extraLeaves: 0 };
 
-      // 1. Monthly Salary Breakdown (Standard structure)
       const ruleBasic = Number(payrollRules.basicPercentage) || 0;
       const ruleHra = Number(payrollRules.hraPercentage) || 0;
       const ruleConv = Number(payrollRules.conveyance) || 0;
@@ -926,7 +1212,6 @@ const PayrollManagement = () => {
       const ruleTravelling = Number(payrollRules.travellingAllowance) || 0;
       const ruleOther = Number(payrollRules.otherAllowance) || 0;
 
-      // Extract PT Rules
       const rulePtSlab1Amount = Number(payrollRules.ptSlab1Amount) || 0;
       const rulePtSlab2Amount = Number(payrollRules.ptSlab2Amount) || 0;
       const thresholdSlab1 = 15000;
@@ -941,51 +1226,27 @@ const PayrollManagement = () => {
       const monthlyOther = ruleOther;
       const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + monthlyOther));
 
-      // 2. Per Day Salary = Gross Salary / Total Days in Month
       const perDaySalary = monthlyTotal / totalDaysInMonth;
-
-      // 3. Worked Days (attendance punches + paid leave credit)
       const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
-
-      // ✅ Week-off days & Holiday days (already counted up to today only)
       const weekOffDays = leaves.weekOffDays || 0;
       const holidayDays = leaves.holidayDays || 0;
-
-      // 4. Calculated Salary = (Worked Days + Week Offs + Holidays) × Per Day Salary
       const calculatedSalary = (totalWorkedDays + weekOffDays + holidayDays) * perDaySalary;
-
-      // 5. LOP Deduction
       const lopDeduction = leaves.extraLeaves * perDaySalary;
-
-      // 6. Late Penalty
       const latePenaltyDays = Math.floor(att.lateCount / 3) * 0.5;
       const lateDeduction = latePenaltyDays * perDaySalary;
 
-      // 7. Gross Earned
-      const grossEarned = calculatedSalary;
-
-      // 8. PF Calculation Logic (Modified)
       let pfDeduction = 0;
       let employerPfAmount = 0;
-
-      // Check if PF method is 'fixed' or 'percentage'
       if (payrollRules.pfCalculationMethod === 'fixed') {
-        // FIXED MODE: 
-        // Deduct fixed amount from the total
         pfDeduction = Number(payrollRules.pfFixedAmountEmployee) || 0;
         employerPfAmount = Number(payrollRules.pfFixedAmountEmployer) || 0;
       } else {
-        // PERCENTAGE MODE:
-        // Deduct from Fixed Basic Salary (monthlyBasic) as shown in Earnings column.
         const rulePf = Number(payrollRules.pfPercentage) || 0;
         const ruleEmployerPf = Number(payrollRules.employerPfPercentage) || 0;
-
-        // Use monthlyBasic (Fixed) instead of proratedBasic
         pfDeduction = monthlyBasic * (rulePf / 100);
         employerPfAmount = monthlyBasic * (ruleEmployerPf / 100);
       }
 
-      // 9. PT Calculation
       let ptDeduction = 0;
       if (monthlyTotal >= thresholdSlab2) {
         ptDeduction = rulePtSlab2Amount;
@@ -993,17 +1254,14 @@ const PayrollManagement = () => {
         ptDeduction = rulePtSlab1Amount;
       }
 
-      // 10. Total Deductions
       const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction;
-
-      // 11. Net Payable Salary (Home Take)
       const netPayableSalary = Math.max(0, calculatedSalary - totalDeductions);
 
       return {
         employeeId: emp.employeeId,
         employeeName: emp.name,
-        companyId: emp.company || null,       // ✅ correct field: emp.company (ObjectId ref)
-        companyName: emp.companyName || null,  // ✅ snapshot string for quick fallback
+        companyId: emp.company || null,
+        companyName: emp.companyName || null,
         role: currentExp?.role || "N/A",
         totalDaysInMonth,
         workedDays: totalWorkedDays,
@@ -1094,41 +1352,89 @@ const PayrollManagement = () => {
     exportToExcel(dataToExport, `Payroll_Report_${summaryStartDate}_to_${summaryEndDate}`);
   };
 
-  // ✅ SAVE TO DB HANDLER
-  const handleSaveDatabase = async () => {
+  // ✅ UPDATED: Open release modal instead of direct save
+  const handleOpenReleaseModal = () => {
     if (filteredPayroll.length === 0) {
-      Swal.fire("No Data", "There is no payroll data to save.", "warning");
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Data',
+        text: 'There is no payroll data to release.',
+        confirmButtonColor: '#3b82f6',
+      });
       return;
     }
+    setShowReleaseModal(true);
+  };
 
-    const confirm = await Swal.fire({
-      title: 'Are you sure want Release Payslips for Employees?',
-      text: `You are about to save/update payroll records for ${filteredPayroll.length} employees for the period ${summaryStartDate} to ${summaryEndDate}.`,
+  // ✅ NEW: Confirm release for selected employees only
+  const handleConfirmRelease = async (selectedRecords) => {
+    setShowReleaseModal(false);
+
+    // SweetAlert2 confirmation
+    const confirmResult = await Swal.fire({
+      title: 'Release Payslips?',
+      html: `
+        <div style="text-align:left;font-size:14px;color:#374151;">
+          <p style="margin-bottom:10px;">You are about to release payslips for:</p>
+          <div style="background:#EEF2FF;border-radius:8px;padding:12px;margin-bottom:10px;">
+            <strong style="font-size:22px;color:#4338CA;">${selectedRecords.length}</strong>
+            <span style="color:#4338CA;font-weight:600;"> Employee${selectedRecords.length > 1 ? 's' : ''}</span>
+          </div>
+          <p style="color:#6B7280;font-size:12px;">Period: <strong>${summaryStartDate}</strong> → <strong>${summaryEndDate}</strong></p>
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, Save it!'
+      confirmButtonColor: '#4338CA',
+      cancelButtonColor: '#9CA3AF',
+      confirmButtonText: '✅ Yes, Release!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
     });
 
-    if (confirm.isConfirmed) {
-      setSaving(true);
-      try {
-        const payload = {
-          period: { start: summaryStartDate, end: summaryEndDate },
-          records: filteredPayroll
-        };
+    if (!confirmResult.isConfirmed) return;
 
-        // ✅ FIX: Call the backend API using the configured 'api' instance
-        await api.post('/api/payroll/save-batch', payload);
+    // Show loading Swal
+    Swal.fire({
+      title: 'Releasing Payslips...',
+      html: `<p style="color:#6B7280;font-size:14px;">Saving records for <strong>${selectedRecords.length} employee${selectedRecords.length > 1 ? 's' : ''}</strong>. Please wait.</p>`,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => { Swal.showLoading(); },
+    });
 
-        Swal.fire('Saved!', 'Payroll records have been successfully saved to the database.', 'success');
-      } catch (error) {
-        console.error("Save Error:", error);
-        Swal.fire('Error', 'Failed to save payroll records. Please try again.', 'error');
-      } finally {
-        setSaving(false);
-      }
+    setSaving(true);
+    try {
+      const payload = {
+        period: { start: summaryStartDate, end: summaryEndDate },
+        records: selectedRecords,
+      };
+
+      await api.post('/api/payroll/save-batch', payload);
+
+      Swal.fire({
+        icon: 'success',
+        title: '🎉 Payslips Released!',
+        html: `
+          <div style="text-align:center;">
+            <p style="color:#374151;font-size:14px;margin-bottom:8px;">Successfully released payslips for</p>
+            <strong style="font-size:20px;color:#059669;">${selectedRecords.length} employee${selectedRecords.length > 1 ? 's' : ''}</strong>
+            <p style="color:#9CA3AF;font-size:12px;margin-top:8px;">Period: ${summaryStartDate} → ${summaryEndDate}</p>
+          </div>
+        `,
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'Great!',
+      });
+    } catch (error) {
+      console.error("Save Error:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Release Failed',
+        text: 'Failed to save payroll records. Please try again.',
+        confirmButtonColor: '#DC2626',
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1139,151 +1445,150 @@ const PayrollManagement = () => {
       <div className="max-w-[1800px] mx-auto">
 
         {/* ✅ HEADER UI */}
-{/* ✅ MODERN DYNAMIC HEADER UI - REFINED */}
-<div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden transition-all duration-300">
-  
-  {/* Top Header Section with Gradient Accent */}
-  <div className="relative px-6 pt-6 pb-4 bg-gradient-to-r from-gray-50 via-white to-gray-50/30 border-b border-gray-200/60">
-    {/* Decorative accent line */}
-    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600"></div>
-    
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2.5 rounded-xl shadow-md">
-          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+        {/* ✅ MODERN DYNAMIC HEADER UI - REFINED */}
+        <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-200/80 overflow-hidden transition-all duration-300">
+
+          {/* Top Header Section with Gradient Accent */}
+          <div className="relative px-6 pt-6 pb-4 bg-gradient-to-r from-gray-50 via-white to-gray-50/30 border-b border-gray-200/60">
+            {/* Decorative accent line */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600"></div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2.5 rounded-xl shadow-md">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                    Payroll Management
+                  </h1>
+                  <p className="text-sm text-gray-500 mt-0.5">Manage employee salaries & payroll rules</p>
+                </div>
+              </div>
+
+              {/* Month and Date Range - Desktop */}
+              <div className="hidden sm:flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100">
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="text-sm font-medium text-gray-700">
+                    {summaryStartDate} - {summaryEndDate}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Bar - All controls in one cohesive row */}
+          <div className="px-6 py-4 bg-white flex flex-wrap items-center justify-between gap-4">
+
+            {/* Left: Search & Filters */}
+            <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[200px]">
+              {/* Search Box */}
+              <div className="relative group flex-1 min-w-[180px] sm:max-w-[260px]">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search by ID or name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 hover:bg-white hover:border-gray-300"
+                />
+              </div>
+
+              {/* Month Selector */}
+              <div className="relative">
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 cursor-pointer group-focus-within:ring-2 group-focus-within:ring-blue-500">
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <select
+                    value={selectedMonth}
+                    onChange={e => setSelectedMonth(e.target.value)}
+                    className="bg-transparent border-none p-0 text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer appearance-none pr-6"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25rem' }}
+                  >
+                    {availableMonths.map(month => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Mobile Date Range */}
+              <div className="sm:hidden flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100">
+                <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-xs font-medium text-gray-600">
+                  {summaryStartDate} - {summaryEndDate}
+                </span>
+              </div>
+            </div>
+
+            {/* Right: Action Buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Manage Rules Button */}
+              <button
+                onClick={() => setShowConfig(true)}
+                className="group relative px-4 py-2 bg-white border border-gray-200 hover:border-blue-400 rounded-xl text-sm font-medium text-gray-700 hover:text-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>Manage Payroll Calculations</span>
+              </button>
+
+              {/* ✅ UPDATED: Release Payslip Button → opens employee selection modal */}
+              <button
+                onClick={handleOpenReleaseModal}
+                disabled={saving}
+                className={`group relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm ${saving
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
+                  : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 hover:shadow-lg active:scale-95 text-white'
+                  }`}
+              >
+                {saving ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Releasing...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    <span>Release Payslip</span>
+                  </>
+                )}
+              </button>
+
+              {/* Export Button */}
+              <button
+                onClick={handleExportAll}
+                className="group relative px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl text-sm font-medium text-white transition-all duration-200 hover:shadow-lg active:scale-95 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-            Payroll Management
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage employee salaries & payroll rules</p>
-        </div>
-      </div>
-      
-      {/* Month and Date Range - Desktop */}
-      <div className="hidden sm:flex items-center gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100">
-          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <span className="text-sm font-medium text-gray-700">
-            {summaryStartDate} - {summaryEndDate}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {/* Action Bar - All controls in one cohesive row */}
-  <div className="px-6 py-4 bg-white flex flex-wrap items-center justify-between gap-4">
-    
-    {/* Left: Search & Filters */}
-    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[200px]">
-      {/* Search Box */}
-      <div className="relative group flex-1 min-w-[180px] sm:max-w-[260px]">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        <input
-          type="text"
-          placeholder="Search by ID or name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="block w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 hover:bg-white hover:border-gray-300"
-        />
-      </div>
-
-      {/* Month Selector */}
-      <div className="relative">
-        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 cursor-pointer group-focus-within:ring-2 group-focus-within:ring-blue-500">
-          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-          <select
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            className="bg-transparent border-none p-0 text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer appearance-none pr-6"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25rem' }}
-          >
-            {availableMonths.map(month => (
-              <option key={month.value} value={month.value}>
-                {month.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Mobile Date Range */}
-      <div className="sm:hidden flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-xl border border-blue-100">
-        <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <span className="text-xs font-medium text-gray-600">
-          {summaryStartDate} - {summaryEndDate}
-        </span>
-      </div>
-    </div>
-
-    {/* Right: Action Buttons */}
-    <div className="flex items-center gap-2 flex-wrap">
-      {/* Manage Rules Button */}
-      <button
-        onClick={() => setShowConfig(true)}
-        className="group relative px-4 py-2 bg-white border border-gray-200 hover:border-blue-400 rounded-xl text-sm font-medium text-gray-700 hover:text-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <span>Manage Payroll Calculations</span>
-      </button>
-
-      {/* Release Payslip Button */}
-      <button
-        onClick={handleSaveDatabase}
-        disabled={saving}
-        className={`group relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm ${
-          saving 
-            ? 'bg-gray-400 cursor-not-allowed' 
-            : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 hover:shadow-lg active:scale-95 text-white'
-        }`}
-      >
-        {saving ? (
-          <>
-            <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Saving...</span>
-          </>
-        ) : (
-          <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-            </svg>
-            <span>Release Payslip</span>
-          </>
-        )}
-      </button>
-
-      {/* Export Button */}
-      <button
-        onClick={handleExportAll}
-        className="group relative px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl text-sm font-medium text-white transition-all duration-200 hover:shadow-lg active:scale-95 flex items-center gap-2"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        <span>Export</span>
-      </button>
-    </div>
-  </div>
-</div>
 
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -1383,6 +1688,16 @@ const PayrollManagement = () => {
         onClose={() => setShowConfig(false)}
         currentRules={payrollRules}
         onSave={handleSaveRules}
+      />
+
+      {/* ✅ NEW: Employee-wise Release Payslip Modal */}
+      <ReleasePayslipModal
+        isOpen={showReleaseModal}
+        onClose={() => setShowReleaseModal(false)}
+        payrollData={processedPayroll}
+        periodStart={summaryStartDate}
+        periodEnd={summaryEndDate}
+        onConfirmRelease={handleConfirmRelease}
       />
 
       {selectedEmployee && (

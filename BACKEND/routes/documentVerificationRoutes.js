@@ -267,6 +267,42 @@ router.get('/all', async (req, res) => {
 });
 
 // ---------------------------------------------------
+// GET VERIFIED DOCUMENTS FOR AN EMPLOYEE BY EMAIL
+// ---------------------------------------------------
+router.get('/employee', async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email query param is required' });
+    }
+
+    const record = await DocumentVerification.findOne({ email: email.toLowerCase().trim() })
+      .populate('company', 'name');
+
+    if (!record) {
+      return res.status(404).json({ success: false, error: 'No document verification record found for this email' });
+    }
+
+    const verifiedDocs = record.documents.filter(doc => doc.fileUrl && doc.adminVerified);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        email: record.email,
+        company: record.company,
+        verifiedDocs,
+        recordId: record._id,
+        status: record.status,
+        invitedAt: record.invitedAt,
+      }
+    });
+  } catch (error) {
+    console.error('Failed to fetch verified documents by email:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------
 // ADMIN TOGGLE VERIFY A SINGLE DOCUMENT
 // ---------------------------------------------------
 router.patch('/verify-doc/:id', async (req, res) => {
