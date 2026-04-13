@@ -135,11 +135,13 @@ const EmployeeLeavemanagement = () => {
   // ✅ ADDED: State for dynamic leave policies fetched from backend
   const [leavePolicies, setLeavePolicies] = useState([]);
 
-  // ✅ NEW: Admin-controlled feature flags
+  // ✅ Admin-controlled feature flags
   // sandwichLeaveEnabled  → if false, no sandwich calc runs anywhere
   // unplannedAbsenceToLOP → if false, unplanned absences are NOT added to LOP
+  // carryForwardEnabled   → if true, unused days from prev cycle carry forward
   const [sandwichLeaveEnabled,  setSandwichLeaveEnabled]  = useState(false);
   const [unplannedAbsenceToLOP, setUnplannedAbsenceToLOP] = useState(false);
+  const [carryForwardEnabled,   setCarryForwardEnabled]   = useState(false); // ✅ NEW
   
   // ✅ ADDED: State for LOP warning
   const [showLOPWarning, setShowLOPWarning] = useState(false);
@@ -348,17 +350,23 @@ const EmployeeLeavemanagement = () => {
   }, [leaveList, selectedMonth, selectedStatus]);
 
   // ✅ UPDATED STATS CALCULATION: Fully dynamic from admin leave policy
+  // When carryForwardEnabled is ON, effectiveLimit = paidDaysLimit + carriedForwardDays
   useEffect(() => {
     // ── 1. Dynamic leave credit from admin policy ──────────────────────────
-    // Sum up ALL remainingPaidDays across all leave types configured by admin.
-    // e.g. if admin sets Casual=12, Sick=6 → totalCredit = 18 for the year.
-    // For a monthly display we show the full remaining balance (not divide by 12)
-    // because the admin controls limits per year and employees draw from that pool.
-    const totalCredit = leavePolicies.reduce((sum, p) => sum + (p.paidDaysLimit || 0), 0);
+    // If carryForwardEnabled and effectiveLimit is returned from the API, use it.
+    // Otherwise fall back to paidDaysLimit.
+    const totalCredit = leavePolicies.reduce((sum, p) => {
+      const limit = carryForwardEnabled && p.effectiveLimit != null
+        ? p.effectiveLimit
+        : (p.paidDaysLimit || 0);
+      return sum + limit;
+    }, 0);
     // How many paid days this employee has already used (across all types)
     const totalUsedPaid = leavePolicies.reduce((sum, p) => sum + (p.usedPaidDays || 0), 0);
     // Remaining paid balance — this is the "Leave Balance" shown on the card
     const remainingPaidBalance = Math.max(0, totalCredit - totalUsedPaid);
+    // Total carry-forward days across all types (for display in balance card)
+    const totalCarriedForward = leavePolicies.reduce((sum, p) => sum + (p.carriedForwardDays || 0), 0);
 
     // ── 2. Approved days consumed in the selected month ────────────────────
     const approvedLeavesInMonth = filteredLeaveList.filter(leave => leave.status === 'Approved');
@@ -390,11 +398,12 @@ const EmployeeLeavemanagement = () => {
       sandwichLeavesCount: sandwichLeaves.length,
       sandwichDaysCount: sandwichGapDays,
       unplannedAbsenceDays: unplannedAbsenceDays,
-      // Store totals for the LOP card subtitle
+      // Store totals for the LOP card subtitle and carry-forward display
       totalCredit,
       totalUsedPaid,
+      totalCarriedForward,                      // ✅ NEW — for carry-forward badge
     });
-  }, [filteredLeaveList, sandwichLeaves, unplannedAbsences, selectedMonth, leavePolicies]);
+  }, [filteredLeaveList, sandwichLeaves, unplannedAbsences, selectedMonth, leavePolicies, carryForwardEnabled]);
   
   const fetchHolidays = useCallback(async () => {
     try {
@@ -444,7 +453,7 @@ const EmployeeLeavemanagement = () => {
       
       if (res.ok) {
         const data = await res.json();
-        // ✅ NEW: API now returns { balance, sandwichLeaveEnabled, unplannedAbsenceToLOP }
+        // API now returns { balance, sandwichLeaveEnabled, unplannedAbsenceToLOP, carryForwardEnabled }
         // Handle both the new shape and the old bare-array shape for backwards compatibility
         if (Array.isArray(data)) {
           // Legacy bare-array response
@@ -453,6 +462,7 @@ const EmployeeLeavemanagement = () => {
           setLeavePolicies(Array.isArray(data.balance) ? data.balance : []);
           if (typeof data.sandwichLeaveEnabled  === "boolean") setSandwichLeaveEnabled(data.sandwichLeaveEnabled);
           if (typeof data.unplannedAbsenceToLOP === "boolean") setUnplannedAbsenceToLOP(data.unplannedAbsenceToLOP);
+          if (typeof data.carryForwardEnabled   === "boolean") setCarryForwardEnabled(data.carryForwardEnabled); // ✅ NEW
         }
       }
       dataLoadedRef.current.policy = true;
@@ -827,9 +837,13 @@ const EmployeeLeavemanagement = () => {
     
     // ✅ FIX: Compute remaining paid balance directly from leavePolicies
     // so LOP warning is accurate regardless of whether stats have updated yet.
-    // totalCredit = sum of all paidDaysLimit across all leave types
-    // totalUsed   = sum of all usedPaidDays already consumed by this employee
-    const totalCredit = leavePolicies.reduce((sum, p) => sum + (p.paidDaysLimit || 0), 0);
+    // When carryForwardEnabled, use effectiveLimit (= paidDaysLimit + carriedForwardDays)
+    const totalCredit = leavePolicies.reduce((sum, p) => {
+      const limit = carryForwardEnabled && p.effectiveLimit != null
+        ? p.effectiveLimit
+        : (p.paidDaysLimit || 0);
+      return sum + limit;
+    }, 0);
     const totalUsed   = leavePolicies.reduce((sum, p) => sum + (p.usedPaidDays  || 0), 0);
     const remainingBalance = Math.max(0, totalCredit - totalUsed);
 
@@ -1332,6 +1346,12 @@ const EmployeeLeavemanagement = () => {
                     ? `${stats.pendingLeaves} of ${stats.totalCredit} paid day${stats.totalCredit !== 1 ? "s" : ""} remaining`
                     : "No policy configured"}
                 </p>
+                {/* ✅ NEW: Show carry-forward badge when feature is ON and days exist */}
+                {carryForwardEnabled && stats.totalCarriedForward > 0 && (
+                  <p className="text-xs text-emerald-600 font-semibold mt-1">
+                    ↩ {stats.totalCarriedForward} day{stats.totalCarriedForward !== 1 ? "s" : ""} carried forward
+                  </p>
+                )}
               </div>
               <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
                 <span className="text-3xl">📥</span>
@@ -1906,7 +1926,7 @@ const EmployeeLeavemanagement = () => {
                   </div>
                 )}
 
-                {/* ✅ UPDATED: Dynamic Leave Types */}
+                {/* ✅ UPDATED: Dynamic Leave Types with carry-forward info */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Leave Type</label>
                   <select 
@@ -1917,11 +1937,17 @@ const EmployeeLeavemanagement = () => {
                   >
                     <option value="">Select Leave Type</option>
                     {leavePolicies.length > 0 ? (
-                      leavePolicies.map((policy, idx) => (
-                        <option key={idx} value={policy.leaveType}>
-                          {policy.leaveType} (Paid remaining: {policy.remainingPaidDays})
-                        </option>
-                      ))
+                      leavePolicies.map((policy, idx) => {
+                        // ✅ NEW: Show carry-forward info in dropdown when enabled
+                        const cf = carryForwardEnabled && policy.carriedForwardDays > 0
+                          ? ` +${policy.carriedForwardDays} carried`
+                          : "";
+                        return (
+                          <option key={idx} value={policy.leaveType}>
+                            {policy.leaveType} (Paid remaining: {policy.remainingPaidDays}{cf})
+                          </option>
+                        );
+                      })
                     ) : (
                       <>
                         <option value="Casual Leave">Casual Leave</option>

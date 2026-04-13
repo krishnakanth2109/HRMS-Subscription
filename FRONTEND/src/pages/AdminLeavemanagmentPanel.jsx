@@ -62,6 +62,7 @@ function colorFor(leaveType) {
    - Delete a leave type row
    - Reset the used-days counter per type or for all
    - Set the annual auto-reset month
+   - Toggle Sandwich Leave, Unplanned Absence → LOP, and Carry Forward
 ============================================================================ */
 const MONTHS = [
   { v: "01", l: "January" }, { v: "02", l: "February" }, { v: "03", l: "March" },
@@ -79,9 +80,10 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
   const [resetting, setResetting]   = useState(null); // leaveType string | "ALL" | null
   const [error, setError]           = useState("");
 
-  // ✅ NEW: Feature flag states
+  // Feature flag states
   const [sandwichLeaveEnabled,  setSandwichLeaveEnabled]  = useState(false);
   const [unplannedAbsenceToLOP, setUnplannedAbsenceToLOP] = useState(false);
+  const [carryForwardEnabled,   setCarryForwardEnabled]   = useState(false); // ✅ NEW
 
   // ── Load existing policy ──────────────────────────────────────────────────
   useEffect(() => {
@@ -99,9 +101,10 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
           setRows([{ leaveType: "", paidDaysLimit: 0, usedPaidDays: 0 }]);
         }
         if (data?.resetMonth) setResetMonth(data.resetMonth);
-        // ✅ NEW: Load feature flags
+        // Load feature flags
         if (typeof data?.sandwichLeaveEnabled  === "boolean") setSandwichLeaveEnabled(data.sandwichLeaveEnabled);
         if (typeof data?.unplannedAbsenceToLOP === "boolean") setUnplannedAbsenceToLOP(data.unplannedAbsenceToLOP);
+        if (typeof data?.carryForwardEnabled   === "boolean") setCarryForwardEnabled(data.carryForwardEnabled); // ✅ NEW
       } catch {
         setRows([{ leaveType: "", paidDaysLimit: 0, usedPaidDays: 0 }]);
       } finally {
@@ -150,8 +153,9 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
       await updateLeavePolicy({
         policies:   rows.map((r) => ({ leaveType: r.leaveType.trim(), paidDaysLimit: r.paidDaysLimit })),
         resetMonth,
-        sandwichLeaveEnabled,   // ✅ NEW
-        unplannedAbsenceToLOP,  // ✅ NEW
+        sandwichLeaveEnabled,
+        unplannedAbsenceToLOP,
+        carryForwardEnabled,   // ✅ NEW
       });
       onSaved?.();
       Swal.fire({ icon: "success", title: "Policy Saved!", timer: 1800, showConfirmButton: false });
@@ -347,7 +351,7 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
               </select>
             </div>
 
-            {/* ✅ NEW: Advanced Feature Flags */}
+            {/* Advanced Feature Flags */}
             <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-4">
               <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Advanced Settings</p>
 
@@ -388,6 +392,27 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
                 >
                   <span
                     className={"inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform " + (unplannedAbsenceToLOP ? "translate-x-6" : "translate-x-1")}
+                  />
+                </button>
+              </div>
+
+              {/* ✅ NEW — Leave Carry Forward Toggle */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-700">Leave Carry Forward</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    When <strong>ON</strong>, any unused paid leave days from the previous annual cycle
+                    are automatically carried forward and added to each employee's balance for the new
+                    cycle. When <strong>OFF</strong>, unused days are forfeited at year reset.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCarryForwardEnabled((v) => !v)}
+                  className={"relative shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none " + (carryForwardEnabled ? "bg-emerald-600" : "bg-slate-300")}
+                >
+                  <span
+                    className={"inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform " + (carryForwardEnabled ? "translate-x-6" : "translate-x-1")}
                   />
                 </button>
               </div>

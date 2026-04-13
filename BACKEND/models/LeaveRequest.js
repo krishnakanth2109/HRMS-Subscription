@@ -24,9 +24,13 @@ const perDaySchema = new mongoose.Schema(
 ============================================================================ */
 const leaveTypePolicySchema = new mongoose.Schema(
   {
-    leaveType:     { type: String, required: true },   // free string — dynamic
-    paidDaysLimit: { type: Number, default: 0, min: 0 },
-    usedPaidDays:  { type: Number, default: 0, min: 0 },
+    leaveType:          { type: String, required: true },   // free string — dynamic
+    paidDaysLimit:      { type: Number, default: 0, min: 0 },
+    usedPaidDays:       { type: Number, default: 0, min: 0 },
+    // ✅ NEW: Carry-forward balance tracking per leave type
+    // carriedForwardDays — days carried forward FROM the previous cycle
+    // These are added on top of paidDaysLimit for the current cycle
+    carriedForwardDays: { type: Number, default: 0, min: 0 },
   },
   { _id: false }
 );
@@ -74,13 +78,13 @@ const leaveRequestSchema = new mongoose.Schema(
    Admin can define any leave types they want with their own names.
    Example policies array:
    [
-     { leaveType: "Casual Leave",    paidDaysLimit: 12, usedPaidDays: 3 },
-     { leaveType: "Sick Leave",      paidDaysLimit: 6,  usedPaidDays: 0 },
-     { leaveType: "Emergency Leave", paidDaysLimit: 3,  usedPaidDays: 1 },
-     { leaveType: "Maternity Leave", paidDaysLimit: 90, usedPaidDays: 0 },
+     { leaveType: "Casual Leave",    paidDaysLimit: 12, usedPaidDays: 3, carriedForwardDays: 2 },
+     { leaveType: "Sick Leave",      paidDaysLimit: 6,  usedPaidDays: 0, carriedForwardDays: 0 },
+     { leaveType: "Emergency Leave", paidDaysLimit: 3,  usedPaidDays: 1, carriedForwardDays: 0 },
+     { leaveType: "Maternity Leave", paidDaysLimit: 90, usedPaidDays: 0, carriedForwardDays: 0 },
    ]
 
-   ── NEW FEATURE FLAGS ──────────────────────────────────────────────────────
+   ── FEATURE FLAGS ──────────────────────────────────────────────────────────
    sandwichLeaveEnabled:
      true  → Sandwich leave calculation is active. When an employee's leaves
              sandwich a weekend/holiday, the gap days are counted as leave days.
@@ -90,6 +94,12 @@ const leaveRequestSchema = new mongoose.Schema(
      true  → Unplanned absences (days with no attendance record and no approved
              leave) are automatically treated as Loss of Pay (LOP) entries.
      false → Unplanned absences are NOT added to LOP. They are informational only.
+
+   ✅ NEW — carryForwardEnabled:
+     true  → At the start of each new annual cycle, any unused paid days from
+             the previous cycle are automatically carried forward and added to
+             each employee's balance for that leave type in the new cycle.
+     false → Unused days are forfeited at cycle reset. No carry-forward happens.
 ============================================================================ */
 const leavePolicySchema = new mongoose.Schema(
   {
@@ -102,7 +112,7 @@ const leavePolicySchema = new mongoose.Schema(
     resetMonth:    { type: String, default: "01" }, // "01"–"12"
     lastResetYear: { type: Number, default: null  },
 
-    // ── ✅ NEW: Feature flags managed by admin ──────────────────────────────
+    // ── Feature flags managed by admin ─────────────────────────────────────
     // Sandwich leave: if ON, gap days (weekends/holidays between leaves) are
     // counted as leave days. If OFF, no sandwich calculation is applied at all.
     sandwichLeaveEnabled: { type: Boolean, default: false },
@@ -111,6 +121,11 @@ const leavePolicySchema = new mongoose.Schema(
     // record and no approved leave is automatically counted as Loss of Pay.
     // If OFF, unplanned absences are shown informationally but not added to LOP.
     unplannedAbsenceToLOP: { type: Boolean, default: false },
+
+    // ✅ NEW — Carry Forward: if ON, unused paid days roll over to next annual
+    // cycle per employee. Each leave type tracks carriedForwardDays separately.
+    // If OFF, unused days are lost at year reset — no carry-forward happens.
+    carryForwardEnabled: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
