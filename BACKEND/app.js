@@ -8,6 +8,12 @@ import http from "http";
 import path from "path";
 import { Server } from "socket.io";
 
+/* ==================== ✅ ALLOWED ORIGINS ==================== */
+const allowedOrigins = [
+  "https://hrms-subscription-kill.onrender.com",
+  "http://vwsync.com",
+  "https://hrms-vaz.netlify.app",
+];
 
 /* ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
@@ -54,27 +60,26 @@ const app = express();
 const server = http.createServer(app);
 
 /* ==================== SOCKET.IO ==================== */
-// ✅ FIX FOR RENDER.COM:
-// Render's infrastructure proxies HTTP but can be inconsistent with raw WebSocket
-// on first connect. Starting with polling lets the handshake always succeed,
-// then Socket.IO automatically upgrades to WebSocket after the connection is stable.
 const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
   },
-  // ✅ KEY FIX: polling FIRST so Render's proxy always lets the handshake through
   transports: ["polling", "websocket"],
-  // ✅ Longer timeouts to survive Render's cold starts and proxy delays
-  pingTimeout:           60000,
-  pingInterval:          25000,
-  upgradeTimeout:        30000,
-  allowUpgrades:         true,
-  // ✅ Allow large payloads
-  maxHttpBufferSize:     1e6,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 30000,
+  allowUpgrades: true,
+  maxHttpBufferSize: 1e6,
 });
 
 app.set("io", io);
@@ -83,12 +88,10 @@ app.set("userSocketMap", userSocketMap);
 io.on("connection", (socket) => {
   console.log("🔥 Socket connected:", socket.id, "| transport:", socket.conn.transport.name);
 
-  // Log transport upgrades (polling → websocket)
   socket.conn.on("upgrade", (transport) => {
     console.log(`⬆️  Transport upgraded to: ${transport.name} for socket: ${socket.id}`);
   });
 
-  // ── Existing registration (keep for other features) ──────────────────────
   socket.on("register", (userId) => {
     if (userId) {
       userSocketMap.set(userId.toString(), socket.id);
@@ -96,8 +99,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ── Chat room join — frontend emits 'authenticate' after every (re)connect ─
-  // Joins a private room user_<id> so io.to(`user_${id}`) delivers messages
   socket.on("authenticate", (userId) => {
     if (!userId) return;
     const id = userId.toString();
@@ -107,11 +108,10 @@ io.on("connection", (socket) => {
     console.log(`✅ Chat room joined: user_${id}`);
   });
 
-  // ── Typing indicators ────────────────────────────────────────────────────
   socket.on("typing_start", ({ receiverId, senderId, senderName }) => {
     if (receiverId && senderId) {
       io.to(`user_${receiverId}`).emit("user_typing", {
-        userId:   senderId,
+        userId: senderId,
         userName: senderName,
       });
     }
@@ -125,7 +125,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ── Disconnect ───────────────────────────────────────────────────────────
   socket.on("disconnect", (reason) => {
     for (const [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
@@ -137,9 +136,7 @@ io.on("connection", (socket) => {
   });
 });
 
-/* =====================================================
-   🔥 STRIPE WEBHOOK (MUST BE FIRST, RAW BODY)
-===================================================== */
+/* ==================== 🔥 STRIPE WEBHOOK ==================== */
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
@@ -150,13 +147,19 @@ app.post(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-
-/* ==================== CORS ==================== */
+/* ==================== ✅ CORS ==================== */
 app.use(
   cors({
-    origin: "*",
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS not allowed"));
+      }
+    },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
@@ -168,7 +171,6 @@ app.use("/public", express.static(path.join(process.cwd(), "public")));
 /* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  // Allow iframing exclusively for document proxy to render PDFs inline
   if (!req.originalUrl.includes("/proxy-doc")) {
     res.setHeader("X-Frame-Options", "DENY");
   }
@@ -221,8 +223,8 @@ app.use("/api/issues", issueRoutes);
 app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
 app.use("/api/resignations", resignationRoutes);
-app.use('/api/payroll', payrollcandidatesRoutes);
-app.use('/api/doc-verification', documentVerificationRoutes);
+app.use("/api/payroll", payrollcandidatesRoutes);
+app.use("/api/doc-verification", documentVerificationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
@@ -230,11 +232,9 @@ app.use("/api/stripe", stripeRoutes);
 app.use("/api/master", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
 
-
-// In dev we don't serve frontend from here usually, but fix the paths
+/* ==================== FRONTEND ==================== */
 app.use(express.static(path.join(process.cwd(), "../FRONTEND/dist")));
 
-// React routing fix (ONLY for non-API routes)
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
   res.sendFile(path.join(process.cwd(), "../FRONTEND/dist/index.html"), (err) => {
@@ -246,6 +246,7 @@ app.get("*", (req, res, next) => {
 app.use("/api", (req, res) => {
   res.status(404).json({ message: "API route not found" });
 });
+
 /* ==================== ERROR HANDLER ==================== */
 app.use((err, req, res, next) => {
   console.error("🚨 Error:", err.stack);
