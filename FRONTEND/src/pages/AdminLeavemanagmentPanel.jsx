@@ -5,9 +5,9 @@ import api, {
   approveLeaveRequestById,
   rejectLeaveRequestById,
   getAttendanceByDateRange,
-  getLeavePolicy,
-  updateLeavePolicy,
-  resetLeavePaidDays,
+  // getLeavePolicy,
+  // updateLeavePolicy,
+  // resetLeavePaidDays,
 } from "../api";
 import {
   FaFilter, FaCheck, FaTimes, FaUsers, FaClock,

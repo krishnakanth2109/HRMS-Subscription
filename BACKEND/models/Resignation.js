@@ -1,16 +1,30 @@
 import mongoose from "mongoose";
 
 const exitDocumentSchema = new mongoose.Schema({
-  docName: { type: String, required: true },         // e.g. "Experience Letter"
+  docName: { type: String, required: true },
   uploadedByEmployee: { type: String, default: "" }, // Cloudinary URL from employee
   uploadedByAdmin: { type: String, default: "" },    // Cloudinary URL from admin
   verifiedByAdmin: { type: Boolean, default: false },
   verifiedAt: { type: Date, default: null },
 }, { _id: false });
 
+// Admin-side final documents (Relieving Letter, Experience Letter, etc.)
+const adminFinalDocSchema = new mongoose.Schema({
+  docName: { type: String, required: true },         // Admin gives it a name
+  uploadedByAdmin: { type: String, default: "" },    // Cloudinary URL
+  uploadedAt: { type: Date, default: null },
+}, { _id: false });
+
+// Welcome kit item return tracking
+const welcomeKitReturnSchema = new mongoose.Schema({
+  itemName: { type: String, required: true },        // e.g. "Laptop", "Mouse"
+  returned: { type: Boolean, default: false },
+  confirmedAt: { type: Date, default: null },
+}, { _id: false });
+
 const resignationSchema = new mongoose.Schema({
   adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
-  employeeId: { type: String, required: true },      // e.g. "ARAH001"
+  employeeId: { type: String, required: true },
   employeeName: { type: String, required: true },
   employeeEmail: { type: String, required: true },
   companyName: { type: String, default: "Unknown" },
@@ -18,7 +32,7 @@ const resignationSchema = new mongoose.Schema({
   designation: { type: String, default: "" },
 
   // Step 1: Employee submits
-  resignationLetterHtml: { type: String, default: "" },  // AI-generated HTML content
+  resignationLetterHtml: { type: String, default: "" },
   reason: { type: String, default: "" },
   submittedAt: { type: Date, default: null },
 
@@ -30,28 +44,36 @@ const resignationSchema = new mongoose.Schema({
   },
   adminRemark: { type: String, default: "" },
 
-  // Step 3: Notice Period
+  // Step 3: Acceptance letter — admin uploads a file (PDF/image) OR uses AI HTML
+  acceptanceLetterHtml: { type: String, default: "" },
+  acceptanceLetterFileUrl: { type: String, default: "" }, // Admin-uploaded file URL
+  acceptanceLetterSentAt: { type: Date, default: null },
+
+  // Step 4: Notice Period
   noticePeriodType: { type: String, enum: ["Immediate", "Custom"], default: null },
   noticePeriodDays: { type: Number, default: 0 },
-  noticePeriodEndDate: { type: Date, default: null }, // calculated in IST
+  noticePeriodEndDate: { type: Date, default: null },
   approvedAt: { type: Date, default: null },
   rejectedAt: { type: Date, default: null },
 
-  // Step 4: Acceptance letter sent to employee (AI-generated)
-  acceptanceLetterHtml: { type: String, default: "" },
-  acceptanceLetterSentAt: { type: Date, default: null },
+  // Step 5: Exit Formalities — employee submits documents for admin verification
+  // Documents are dynamic (no hardcoded names) — admin names them
+  exitDocuments: { type: [exitDocumentSchema], default: [] },
 
-  // Step 5: Exit Formalities documents
-  exitDocuments: {
-    type: [exitDocumentSchema], default: [
-      { docName: "Experience Letter", uploadedByEmployee: "", uploadedByAdmin: "", verifiedByAdmin: false },
-      { docName: "Relieving Letter", uploadedByEmployee: "", uploadedByAdmin: "", verifiedByAdmin: false },
-      { docName: "NOC Certificate", uploadedByEmployee: "", uploadedByAdmin: "", verifiedByAdmin: false },
-      { docName: "Asset Return Confirmation", uploadedByEmployee: "", uploadedByAdmin: "", verifiedByAdmin: false },
-    ]
-  },
+  // Step 6: Welcome Kit return tracking (populated from WelcomeKit items)
+  welcomeKitItems: { type: [welcomeKitReturnSchema], default: [] },
+  welcomeKitSubmittedByEmployee: { type: Boolean, default: false },
+  welcomeKitSubmittedAt: { type: Date, default: null },
 
-  // Step 6: Countdown expired alert sent
+  // Step 7: Admin uploads final docs (Relieving Letter, Experience Letter, etc.)
+  adminFinalDocs: { type: [adminFinalDocSchema], default: [] },
+  allDocsVerified: { type: Boolean, default: false }, // Set true when admin verifies all exit docs
+
+  // Step 8: Final Exit
+  finalExitTriggered: { type: Boolean, default: false },
+  finalExitAt: { type: Date, default: null },
+
+  // Countdown alert
   countdownAlertSent: { type: Boolean, default: false },
 
 }, { timestamps: true });

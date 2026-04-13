@@ -3,20 +3,19 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Resignation from "../models/Resignation.js";
+import WelcomeKit from "../models/WelcomeKit.js";
 import transporter from "../config/nodemailer.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
-// Cloudinary config (already configured globally via app.js / config/cloudinary.js)
 const storage = multer.memoryStorage();
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
 
-// Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY_4);
 
-// Helper: upload buffer to cloudinary
+// ─── Helper: upload buffer to cloudinary ──────────────────────────────────────
 const uploadToCloudinary = (buffer, filename) =>
   new Promise((resolve, reject) => {
     cloudinary.uploader.upload_stream(
@@ -25,7 +24,7 @@ const uploadToCloudinary = (buffer, filename) =>
     ).end(buffer);
   });
 
-// Helper: send email
+// ─── Helper: send email ────────────────────────────────────────────────────────
 const sendMail = async (to, subject, html) => {
   try {
     await transporter.sendMail({
@@ -48,7 +47,6 @@ router.post("/submit", protect, async (req, res) => {
     const { employeeId, employeeName, employeeEmail, department, designation, reason, companyName } = req.body;
     const adminId = req.user.adminId || req.user._id;
 
-    // Check duplicate
     const existing = await Resignation.findOne({
       employeeId,
       status: { $in: ["Pending", "Approved", "Exit Formalities"] }
@@ -111,7 +109,7 @@ router.get("/my/:employeeId", protect, async (req, res) => {
 });
 
 // ============================================================
-// ADMIN: Get all resignations for this admin
+// ADMIN: Get all resignations
 // GET /api/resignations/admin/all
 // ============================================================
 router.get("/admin/all", protect, onlyAdmin, async (req, res) => {
@@ -125,10 +123,10 @@ router.get("/admin/all", protect, onlyAdmin, async (req, res) => {
 });
 
 // ============================================================
-// ADMIN: Approve or Reject Resignation
+// ADMIN: Approve or Reject + upload acceptance letter file
 // POST /api/resignations/admin/decision/:id
 // ============================================================
-router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
+router.post("/admin/decision/:id", protect, onlyAdmin, upload.single("acceptanceFile"), async (req, res) => {
   try {
     const { action, adminRemark, noticePeriodType, noticePeriodDays } = req.body;
     const resignation = await Resignation.findById(req.params.id);
@@ -140,7 +138,6 @@ router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
       resignation.rejectedAt = new Date();
       await resignation.save();
 
-      // Notify employee
       sendMail(resignation.employeeEmail, "Your Resignation Has Been Rejected",
         `<p>Dear ${resignation.employeeName},</p><p>Your resignation has been reviewed and unfortunately it has been rejected.</p><p><strong>Remark:</strong> ${adminRemark || "N/A"}</p><p>Please reach out to HR for more information.</p>`
       );
@@ -149,10 +146,9 @@ router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
     }
 
     if (action === "Approved") {
-      // Calculate notice period end date in IST
       const days = noticePeriodType === "Immediate" ? 0 : parseInt(noticePeriodDays) || 0;
       const endDate = new Date();
-      endDate.setDate(endDate.getDate() + days);
+      if (days > 0) endDate.setDate(endDate.getDate() + days);
 
       resignation.status = "Approved";
       resignation.adminRemark = adminRemark || "";
@@ -160,8 +156,15 @@ router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
       resignation.noticePeriodDays = days;
       resignation.noticePeriodEndDate = endDate;
       resignation.approvedAt = new Date();
+      resignation.acceptanceLetterSentAt = new Date();
 
-      // Generate acceptance letter via Gemini AI
+      // If admin uploaded acceptance file
+      if (req.file) {
+        const fileUrl = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+        resignation.acceptanceLetterFileUrl = fileUrl;
+      }
+
+      // Generate AI acceptance letter
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `Write a professional resignation acceptance letter in HTML format (use <p>, <h3>, <strong>, <br> only, no markdown) for:
       - Employee Name: ${resignation.employeeName}
@@ -175,13 +178,17 @@ router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
         const result = await model.generateContent(prompt);
         resignation.acceptanceLetterHtml = result.response.text().replace(/```html|```/g, "").trim();
       } catch (aiErr) {
-        resignation.acceptanceLetterHtml = `<p>Dear ${resignation.employeeName},</p><p>We acknowledge and accept your resignation effective from today. Your notice period is ${days === 0 ? "immediate" : `${days} days ending on ${endDate.toLocaleDateString("en-IN")}`}.</p><p>We wish you all the best in your future endeavors.</p><p>Best Regards,<br/><strong>HR Department</strong></p>`;
+        resignation.acceptanceLetterHtml = `<p>Dear ${resignation.employeeName},</p><p>We acknowledge and accept your resignation. Your notice period is ${days === 0 ? "immediate" : `${days} days ending on ${endDate.toLocaleDateString("en-IN")}`}.</p><p>We wish you all the best.</p><p>Best Regards,<br/><strong>HR Department</strong></p>`;
       }
-      resignation.acceptanceLetterSentAt = new Date();
+
+      // If immediate, auto-move to Exit Formalities and load welcome kit items
+      if (noticePeriodType === "Immediate") {
+        resignation.status = "Exit Formalities";
+        await _loadWelcomeKitItems(resignation);
+      }
 
       await resignation.save();
 
-      // Send acceptance email to employee with letter attached inline
       sendMail(
         resignation.employeeEmail,
         "Resignation Accepted — Acceptance Letter",
@@ -193,7 +200,7 @@ router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
         </div>`
       );
 
-      return res.status(200).json({ message: "Resignation approved. Acceptance letter sent.", resignation });
+      return res.status(200).json({ message: "Resignation approved.", resignation });
     }
 
     res.status(400).json({ message: "Invalid action." });
@@ -203,16 +210,64 @@ router.post("/admin/decision/:id", protect, onlyAdmin, async (req, res) => {
   }
 });
 
+// ─── Helper: load welcome kit items into resignation ──────────────────────────
+async function _loadWelcomeKitItems(resignation) {
+  try {
+    // Find by employeeId string — WelcomeKit stores ObjectId, so we need to find the employee first
+    // Try to find welcome kit by any available reference
+    const kit = await WelcomeKit.findOne({}).populate("employeeId", "employeeId").then(async () => {
+      // Find the kit where employeeId's employeeId field matches resignation.employeeId
+      const allKits = await WelcomeKit.find().populate("employeeId", "employeeId name");
+      return allKits.find(k => k.employeeId?.employeeId === resignation.employeeId || k.employeeCode === resignation.employeeId);
+    });
+
+    if (!kit) return;
+
+    const itemMap = {
+      laptop: "Laptop",
+      mouse: "Mouse",
+      keyboard: "Keyboard",
+      pen: "Pen",
+      book: "Book / Notepad",
+      cupMug: "Cup / Mug",
+      yearlyCalendar: "Yearly Calendar",
+      documentFolder: "Document Folder",
+      keychain: "Keychain",
+      waterBottle: "Water Bottle",
+    };
+
+    const items = [];
+    const received = kit.itemsReceived || {};
+    for (const [key, label] of Object.entries(itemMap)) {
+      if (received[key] === true) {
+        items.push({ itemName: label, returned: false });
+      }
+    }
+    if (received.other === true && received.otherDescription) {
+      items.push({ itemName: received.otherDescription, returned: false });
+    }
+
+    if (items.length > 0) {
+      resignation.welcomeKitItems = items;
+    }
+  } catch (e) {
+    console.error("Load welcome kit items error:", e.message);
+  }
+}
+
 // ============================================================
-// ADMIN / EMPLOYEE: Move to Exit Formalities
+// ADMIN: Move to Exit Formalities (manual — after notice period)
 // POST /api/resignations/admin/exit-formalities/:id
 // ============================================================
 router.post("/admin/exit-formalities/:id", protect, onlyAdmin, async (req, res) => {
   try {
     const resignation = await Resignation.findById(req.params.id);
     if (!resignation) return res.status(404).json({ message: "Not found" });
+
     resignation.status = "Exit Formalities";
+    await _loadWelcomeKitItems(resignation);
     await resignation.save();
+
     res.status(200).json({ message: "Moved to Exit Formalities.", resignation });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -220,7 +275,53 @@ router.post("/admin/exit-formalities/:id", protect, onlyAdmin, async (req, res) 
 });
 
 // ============================================================
-// ADMIN: Upload exit document (admin side)
+// ADMIN: Add exit document placeholder (with custom name)
+// POST /api/resignations/admin/add-exit-doc/:id
+// ============================================================
+router.post("/admin/add-exit-doc/:id", protect, onlyAdmin, async (req, res) => {
+  try {
+    const { docName } = req.body;
+    const resignation = await Resignation.findById(req.params.id);
+    if (!resignation) return res.status(404).json({ message: "Not found" });
+
+    resignation.exitDocuments.push({
+      docName: docName || `Document ${resignation.exitDocuments.length + 1}`,
+      uploadedByEmployee: "",
+      uploadedByAdmin: "",
+      verifiedByAdmin: false,
+    });
+    await resignation.save();
+    res.status(200).json({ message: "Document slot added.", resignation });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// SHARED: Add document placeholder (legacy route — keep for compatibility)
+// POST /api/resignations/:id/add-document
+// ============================================================
+router.post("/:id/add-document", protect, async (req, res) => {
+  try {
+    const { docName } = req.body;
+    const resignation = await Resignation.findById(req.params.id);
+    if (!resignation) return res.status(404).json({ message: "Not found" });
+
+    resignation.exitDocuments.push({
+      docName: docName || `Document ${resignation.exitDocuments.length + 1}`,
+      uploadedByEmployee: "",
+      uploadedByAdmin: "",
+      verifiedByAdmin: false,
+    });
+    await resignation.save();
+    res.status(200).json({ message: "Added new document placeholder.", resignation });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ADMIN: Upload exit document (admin side — for employee to download)
 // POST /api/resignations/admin/upload-doc/:id/:docIndex
 // ============================================================
 router.post("/admin/upload-doc/:id/:docIndex", protect, onlyAdmin, upload.single("file"), async (req, res) => {
@@ -235,13 +336,12 @@ router.post("/admin/upload-doc/:id/:docIndex", protect, onlyAdmin, upload.single
     await resignation.save();
     res.status(200).json({ message: "Admin document uploaded.", url, resignation });
   } catch (err) {
-    console.error("Admin upload doc error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// EMPLOYEE: Upload exit document (employee side)
+// EMPLOYEE: Upload exit document
 // POST /api/resignations/employee/upload-doc/:id/:docIndex
 // ============================================================
 router.post("/employee/upload-doc/:id/:docIndex", protect, upload.single("file"), async (req, res) => {
@@ -256,7 +356,6 @@ router.post("/employee/upload-doc/:id/:docIndex", protect, upload.single("file")
     await resignation.save();
     res.status(200).json({ message: "Employee document uploaded.", url, resignation });
   } catch (err) {
-    console.error("Employee upload doc error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -274,6 +373,14 @@ router.post("/admin/verify-doc/:id/:docIndex", protect, onlyAdmin, async (req, r
 
     resignation.exitDocuments[idx].verifiedByAdmin = true;
     resignation.exitDocuments[idx].verifiedAt = new Date();
+
+    // Check if all docs are verified
+    const allVerified = resignation.exitDocuments.length > 0 &&
+      resignation.exitDocuments.every(d => d.verifiedByAdmin);
+    if (allVerified) {
+      resignation.allDocsVerified = true;
+    }
+
     await resignation.save();
     res.status(200).json({ message: "Document verified.", resignation });
   } catch (err) {
@@ -282,29 +389,77 @@ router.post("/admin/verify-doc/:id/:docIndex", protect, onlyAdmin, async (req, r
 });
 
 // ============================================================
-// ADMIN / EMPLOYEE: Add a new document placeholder
-// POST /api/resignations/:id/add-document
+// EMPLOYEE: Submit welcome kit return status
+// POST /api/resignations/employee/welcome-kit-return/:id
 // ============================================================
-router.post("/:id/add-document", protect, async (req, res) => {
+router.post("/employee/welcome-kit-return/:id", protect, async (req, res) => {
   try {
+    const { returnedItems } = req.body;
+    // returnedItems: [{ itemName: "Laptop", returned: true }, ...]
     const resignation = await Resignation.findById(req.params.id);
     if (!resignation) return res.status(404).json({ message: "Not found" });
-    const nextDocNum = resignation.exitDocuments.length + 1;
-    resignation.exitDocuments.push({
-      docName: `Document ${nextDocNum}`,
-      uploadedByEmployee: "",
-      uploadedByAdmin: "",
-      verifiedByAdmin: false,
-    });
+
+    if (Array.isArray(returnedItems)) {
+      resignation.welcomeKitItems = returnedItems.map(item => ({
+        itemName: item.itemName,
+        returned: item.returned === true,
+        confirmedAt: item.returned ? new Date() : null,
+      }));
+    }
+    resignation.welcomeKitSubmittedByEmployee = true;
+    resignation.welcomeKitSubmittedAt = new Date();
     await resignation.save();
-    res.status(200).json({ message: "Added new document placeholder.", resignation });
+
+    res.status(200).json({ message: "Welcome kit return status saved.", resignation });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // ============================================================
-// ADMIN: Mark Resignation as Completed
+// ADMIN: Upload final documents (Relieving Letter, Experience Letter, etc.)
+// POST /api/resignations/admin/upload-final-doc/:id
+// ============================================================
+router.post("/admin/upload-final-doc/:id", protect, onlyAdmin, upload.single("file"), async (req, res) => {
+  try {
+    const { docName } = req.body;
+    const resignation = await Resignation.findById(req.params.id);
+    if (!resignation) return res.status(404).json({ message: "Not found" });
+    if (!req.file) return res.status(400).json({ message: "No file provided" });
+    if (!docName || !docName.trim()) return res.status(400).json({ message: "Document name is required" });
+
+    const url = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+    resignation.adminFinalDocs.push({
+      docName: docName.trim(),
+      uploadedByAdmin: url,
+      uploadedAt: new Date(),
+    });
+    await resignation.save();
+    res.status(200).json({ message: "Final document uploaded.", resignation });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ADMIN: Delete final document
+// DELETE /api/resignations/admin/delete-final-doc/:id/:docIndex
+// ============================================================
+router.delete("/admin/delete-final-doc/:id/:docIndex", protect, onlyAdmin, async (req, res) => {
+  try {
+    const resignation = await Resignation.findById(req.params.id);
+    if (!resignation) return res.status(404).json({ message: "Not found" });
+    const idx = parseInt(req.params.docIndex);
+    resignation.adminFinalDocs.splice(idx, 1);
+    await resignation.save();
+    res.status(200).json({ message: "Document removed.", resignation });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// ADMIN: Mark Resignation as Completed (triggers final exit for employee)
 // POST /api/resignations/admin/complete/:id
 // ============================================================
 router.post("/admin/complete/:id", protect, onlyAdmin, async (req, res) => {
@@ -318,8 +473,11 @@ router.post("/admin/complete/:id", protect, onlyAdmin, async (req, res) => {
 
     sendMail(
       resignation.employeeEmail,
-      "Exit Formalities Completed — Thank You",
-      `<p>Dear ${resignation.employeeName},</p><p>Your exit formalities have been successfully completed. We wish you the very best in your future endeavors. It has been our pleasure to have you as part of our team.</p><p>Warm regards,<br/><strong>HR Department</strong></p>`
+      "Exit Formalities Completed — Final Exit Ready",
+      `<p>Dear ${resignation.employeeName},</p>
+       <p>All your exit formalities have been successfully completed. Your final documents are ready to download. Please log in to complete your final exit.</p>
+       <p>We wish you the very best in your future endeavors. It has been a pleasure having you on the team.</p>
+       <p>Warm regards,<br/><strong>HR Department</strong></p>`
     );
 
     res.status(200).json({ message: "Resignation marked as Completed.", resignation });
@@ -329,7 +487,25 @@ router.post("/admin/complete/:id", protect, onlyAdmin, async (req, res) => {
 });
 
 // ============================================================
-// SYSTEM: Check notice period countdowns (called by cron/interval)
+// EMPLOYEE: Trigger Final Exit
+// POST /api/resignations/employee/final-exit/:id
+// ============================================================
+router.post("/employee/final-exit/:id", protect, async (req, res) => {
+  try {
+    const resignation = await Resignation.findByIdAndUpdate(
+      req.params.id,
+      { finalExitTriggered: true, finalExitAt: new Date() },
+      { new: true }
+    );
+    if (!resignation) return res.status(404).json({ message: "Not found" });
+    res.status(200).json({ message: "Final exit recorded.", resignation });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// SYSTEM: Check notice period countdowns
 // POST /api/resignations/system/check-countdowns
 // ============================================================
 router.post("/system/check-countdowns", async (req, res) => {
@@ -342,7 +518,6 @@ router.post("/system/check-countdowns", async (req, res) => {
     });
 
     for (const r of expiredResignations) {
-      // Send alert email to admin (we don't have admin email in this model, but we can add)
       sendMail(
         r.employeeEmail,
         "Notice Period Has Ended — Exit Formalities Next",
@@ -350,6 +525,7 @@ router.post("/system/check-countdowns", async (req, res) => {
       );
       r.countdownAlertSent = true;
       r.status = "Exit Formalities";
+      await _loadWelcomeKitItems(r);
       await r.save();
     }
 

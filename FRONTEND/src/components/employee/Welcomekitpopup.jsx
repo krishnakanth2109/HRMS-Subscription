@@ -1,5 +1,6 @@
 // components/WelcomeKitPopup.jsx
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   FaTimes,
   FaLaptop,
@@ -176,7 +177,9 @@ const WelcomeKitPopup = ({ employee, onClose, onSubmitSuccess }) => {
   const displayRole = extractedRole;
   const displayDepartment = extractedDepartment;
 
-  return (
+  const portalRoot = typeof document !== "undefined" ? document.body : null;
+
+  const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6">
       <div
         className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col"
@@ -202,36 +205,42 @@ const WelcomeKitPopup = ({ employee, onClose, onSubmitSuccess }) => {
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black leading-tight">
-              {getGreeting()},<br />
-              <span className="text-yellow-300">{employee?.name || "Employee"}!</span>
+              Hi {employee?.name || "Employee"},<br />
+              <span className="text-yellow-300">welcome to {employee?.companyName || employee?.company || "your company"}!</span>
             </h1>
             <p className="text-blue-100 text-sm mt-1.5">
               We're thrilled to have you with us. Let's get you set up!
             </p>
+            <br />
+            <br />
           </div>
         </div>
 
-        <div className="mx-5 -mt-8 relative z-10 bg-white rounded-2xl shadow-lg border border-gray-100 px-5 py-4 flex flex-wrap gap-4 items-center">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-xl font-black shadow">
-            {(employee?.name || "E")[0].toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-black text-gray-800 text-base truncate">{employee?.name}</p>
-            <p className="text-xs text-gray-500 truncate">
-              {displayRole || "—"} &bull; {displayDepartment || "—"}
-            </p>
-            {employee?.employeeId && (
-              <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 border border-blue-100">
-                ID: {employee.employeeId}
-              </span>
-            )}
-          </div>
-          {employee?.email && (
-            <p className="text-xs text-gray-400 font-medium truncate max-w-[200px]">
-              {employee.email}
-            </p>
-          )}
-        </div>
+<div className="mx-5 -mt-8 relative z-10 bg-white rounded-2xl shadow-lg border border-gray-100 px-5 py-4">
+  
+  <div className="flex flex-col gap-1">
+    
+    {/* Name */}
+    <p className="font-black text-gray-800 text-base truncate">
+      {employee?.name}
+    </p>
+
+    {/* Email */}
+    {employee?.email && (
+      <p className="text-xs text-gray-400 font-medium truncate">
+        {employee.email}
+      </p>
+    )}
+
+    {/* ID */}
+    {employee?.employeeId && (
+      <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 rounded-full px-2 py-0.5 border border-blue-100 w-fit">
+        ID: {employee.employeeId}
+      </span>
+    )}
+
+  </div>
+</div>
 
         <div className="overflow-y-auto flex-1 px-5 py-5">
           <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-5">
@@ -346,6 +355,8 @@ const WelcomeKitPopup = ({ employee, onClose, onSubmitSuccess }) => {
       </div>
     </div>
   );
+
+  return portalRoot ? createPortal(modalContent, portalRoot) : null;
 };
 
 export default WelcomeKitPopup;
