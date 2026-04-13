@@ -12,6 +12,7 @@ import { Server } from "socket.io";
 const allowedOrigins = [
   "https://hrms-subscription-kill.onrender.com",
   "http://vwsync.com",
+  "https://vwsync.com"
   "https://hrms-vaz.netlify.app",
   "http://localhost:5173", 
   "http://localhost:3000"
