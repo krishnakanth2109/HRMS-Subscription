@@ -83,7 +83,68 @@ async function getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStartDateS
 }
 
 /* ===============================================================
+   ✅ NEW: HELPER: Get carried-forward days for a specific employee
+   for a specific leave type in the current cycle.
+   
+   Carry-forward is stored per-policy at the admin level, but each
+   employee gets their own personal carry-forward calculated as:
+     unusedDaysFromPrevCycle = paidDaysLimit - usedPaidDaysInPrevCycle
+   
+   We store the carry-forward snapshot per employee in LeavePolicy
+   using a sub-document (carriedForwardDays).
+   
+   For a truly per-employee carry-forward, we compute it dynamically
+   from the previous cycle's usage when the cycle resets.
+=============================================================== */
+async function getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc) {
+  if (!policyDoc?.carryForwardEnabled) return 0;
+
+  const policy = policyDoc.policies.find(
+    (p) => p.leaveType.trim().toLowerCase() === leaveType.trim().toLowerCase()
+  );
+  if (!policy) return 0;
+
+  // carriedForwardDays on the policy is the global carry-forward set during last reset.
+  // We use the per-employee prev-cycle calculation:
+  //   Previous cycle start = one year before current cycle start
+  const rMonth = parseInt(policyDoc.resetMonth || "1", 10);
+  const now = new Date();
+  let currentCycleYear = now.getFullYear();
+  if (now.getMonth() + 1 < rMonth) currentCycleYear--;
+
+  const prevCycleStart = `${currentCycleYear - 1}-${String(rMonth).padStart(2, "0")}-01`;
+  const prevCycleEnd   = `${currentCycleYear}-${String(rMonth).padStart(2, "0")}-01`;
+
+  // Count how many paid days this employee used in the PREVIOUS cycle
+  const leaves = await LeaveRequest.find({
+    employeeId,
+    status: { $in: ["Approved"] },
+  }).lean();
+
+  let usedInPrevCycle = 0;
+  const targetType = leaveType.trim().toLowerCase();
+
+  for (const leave of leaves) {
+    if (leave.leaveType && leave.leaveType.trim().toLowerCase() === targetType) {
+      for (const detail of leave.details || []) {
+        if (
+          detail.leavecategory === "Paid" &&
+          detail.date >= prevCycleStart &&
+          detail.date < prevCycleEnd
+        ) {
+          usedInPrevCycle += detail.leaveDayType === "Half Day" ? 0.5 : 1;
+        }
+      }
+    }
+  }
+
+  const unusedFromPrevCycle = Math.max(0, policy.paidDaysLimit - usedInPrevCycle);
+  return unusedFromPrevCycle;
+}
+
+/* ===============================================================
    HELPER: Resolve paid/unpaid split for a new leave request
+   ✅ UPDATED: Now considers carry-forward balance when enabled
 =============================================================== */
 async function resolveLeaveCategoryForRequest(adminId, employeeId, leaveType, leaveDayType, dates) {
   const totalDays = countLeaveDays(dates, leaveDayType);
@@ -101,7 +162,14 @@ async function resolveLeaveCategoryForRequest(adminId, employeeId, leaveType, le
   const cycleStart = getCycleStartDateStr(policyDoc.resetMonth);
   const personalUsedPaidDays = await getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStart);
 
-  const remaining = Math.max(0, policy.paidDaysLimit - personalUsedPaidDays);
+  // ✅ NEW: Add carry-forward days to effective limit when feature is ON
+  let effectiveLimit = policy.paidDaysLimit;
+  if (policyDoc.carryForwardEnabled) {
+    const carriedDays = await getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc);
+    effectiveLimit = policy.paidDaysLimit + carriedDays;
+  }
+
+  const remaining = Math.max(0, effectiveLimit - personalUsedPaidDays);
   if (remaining >= totalDays)  return { leavecategory: "Paid",   paidDays: totalDays,  unpaidDays: 0 };
   if (remaining > 0)           return { leavecategory: "Paid",   paidDays: remaining,  unpaidDays: totalDays - remaining };
   return                              { leavecategory: "UnPaid", paidDays: 0,           unpaidDays: totalDays };
@@ -418,8 +486,9 @@ export const getLeavePolicyForAdmin = async (req, res) => {
       policyDoc || {
         policies: [],
         resetMonth: "01",
-        sandwichLeaveEnabled: false,
+        sandwichLeaveEnabled:  false,
         unplannedAbsenceToLOP: false,
+        carryForwardEnabled:   false, // ✅ NEW
       }
     );
   } catch (err) {
@@ -433,8 +502,9 @@ export const getLeavePolicyForAdmin = async (req, res) => {
    Body: {
      policies: [{ leaveType, paidDaysLimit }],
      resetMonth: "01",
-     sandwichLeaveEnabled: true|false,   // ✅ NEW
-     unplannedAbsenceToLOP: true|false,  // ✅ NEW
+     sandwichLeaveEnabled:  true|false,
+     unplannedAbsenceToLOP: true|false,
+     carryForwardEnabled:   true|false,   // ✅ NEW
    }
 =================================================================================== */
 export const upsertLeavePolicy = async (req, res) => {
@@ -442,8 +512,9 @@ export const upsertLeavePolicy = async (req, res) => {
     const {
       policies,
       resetMonth,
-      sandwichLeaveEnabled,  // ✅ NEW
-      unplannedAbsenceToLOP, // ✅ NEW
+      sandwichLeaveEnabled,
+      unplannedAbsenceToLOP,
+      carryForwardEnabled,   // ✅ NEW
     } = req.body;
 
     if (!Array.isArray(policies) || policies.length === 0)
@@ -472,6 +543,7 @@ export const upsertLeavePolicy = async (req, res) => {
         resetMonth:            resetMonth || "01",
         sandwichLeaveEnabled:  typeof sandwichLeaveEnabled  === "boolean" ? sandwichLeaveEnabled  : false,
         unplannedAbsenceToLOP: typeof unplannedAbsenceToLOP === "boolean" ? unplannedAbsenceToLOP : false,
+        carryForwardEnabled:   typeof carryForwardEnabled   === "boolean" ? carryForwardEnabled   : false, // ✅ NEW
         policies: deduped.map((p) => ({ leaveType: p.leaveType.trim(), paidDaysLimit: p.paidDaysLimit })),
       });
     } else {
@@ -481,9 +553,10 @@ export const upsertLeavePolicy = async (req, res) => {
       }));
       existing.resetMonth = resetMonth || existing.resetMonth;
 
-      // ✅ Only update flags if they are explicitly provided in the request body
+      // Only update flags if they are explicitly provided in the request body
       if (typeof sandwichLeaveEnabled  === "boolean") existing.sandwichLeaveEnabled  = sandwichLeaveEnabled;
       if (typeof unplannedAbsenceToLOP === "boolean") existing.unplannedAbsenceToLOP = unplannedAbsenceToLOP;
+      if (typeof carryForwardEnabled   === "boolean") existing.carryForwardEnabled   = carryForwardEnabled; // ✅ NEW
 
       await existing.save();
     }
@@ -503,10 +576,9 @@ export const resetUsedPaidDays = async (req, res) => {
 };
 
 /* ===================================================================================
-   ✅ FIX: EMPLOYEE: GET LEAVE BALANCE
-   Dynamically calculates exactly how many paid days *this specific employee* 
-   has consumed, without ever bleeding into the admin's global policy settings.
-   Also returns the admin's feature flags so the employee frontend can adapt.
+   ✅ UPDATED: EMPLOYEE: GET LEAVE BALANCE
+   Now includes carry-forward days per leave type when carryForwardEnabled is ON.
+   Each employee sees their own effective balance = paidDaysLimit + carriedForward - used.
 =================================================================================== */
 export const getLeavePolicyBalanceForEmployee = async (req, res) => {
   try {
@@ -516,6 +588,7 @@ export const getLeavePolicyBalanceForEmployee = async (req, res) => {
         balance: [],
         sandwichLeaveEnabled:  false,
         unplannedAbsenceToLOP: false,
+        carryForwardEnabled:   false, // ✅ NEW
       });
     }
 
@@ -528,22 +601,40 @@ export const getLeavePolicyBalanceForEmployee = async (req, res) => {
         p.leaveType, 
         cycleStart
       );
-      
+
+      // ✅ NEW: Calculate carry-forward for this employee + leave type
+      let carriedForwardDays = 0;
+      if (policyDoc.carryForwardEnabled) {
+        // We need a non-lean policyDoc for getCarriedForwardDays — pass the lean version
+        // with the carryForwardEnabled flag set
+        carriedForwardDays = await getCarriedForwardDays(
+          req.user.adminId,
+          req.user.employeeId,
+          p.leaveType,
+          policyDoc
+        );
+      }
+
+      const effectiveLimit = p.paidDaysLimit + carriedForwardDays;
+
       return {
-        leaveType:         p.leaveType,
-        paidDaysLimit:     p.paidDaysLimit,
-        usedPaidDays:      personalUsedPaidDays,
-        remainingPaidDays: Math.max(0, p.paidDaysLimit - personalUsedPaidDays),
+        leaveType:          p.leaveType,
+        paidDaysLimit:      p.paidDaysLimit,
+        carriedForwardDays, // ✅ NEW — shown in employee balance UI
+        effectiveLimit,     // ✅ NEW — paidDaysLimit + carriedForwardDays
+        usedPaidDays:       personalUsedPaidDays,
+        remainingPaidDays:  Math.max(0, effectiveLimit - personalUsedPaidDays),
       };
     });
 
     const balance = await Promise.all(balancePromises);
 
-    // ✅ Return both the balance AND the admin's feature flags
+    // ✅ Return balance AND all admin feature flags
     res.json({
       balance,
       sandwichLeaveEnabled:  policyDoc.sandwichLeaveEnabled  ?? false,
       unplannedAbsenceToLOP: policyDoc.unplannedAbsenceToLOP ?? false,
+      carryForwardEnabled:   policyDoc.carryForwardEnabled   ?? false, // ✅ NEW
     });
   } catch (err) {
     console.error("getLeavePolicyBalanceForEmployee error:", err);
