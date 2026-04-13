@@ -528,8 +528,27 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                             )}
 
                             <div className="form-grid-2">
-                                <InputGroup label="Annual CTC (₹)" name="ctc" type="number" value={formData.ctc} onChange={handleChange} required disabled={isViewOnly} />
-                                <InputGroup label="Basic Salary (Monthly) (₹)" name="basic_salary" type="number" value={formData.basic_salary} onChange={handleChange} required disabled={isViewOnly} />
+             <InputGroup
+  label="Annual CTC (₹)"
+  name="ctc"
+  type="number"
+  min="0"
+  value={formData.ctc}
+  onChange={handleChange}
+  required
+  disabled={isViewOnly}
+/>
+
+<InputGroup
+  label="Basic Salary (Monthly) (₹)"
+  name="basic_salary"
+  type="number"
+  min="0"
+  value={formData.basic_salary}
+  onChange={handleChange}
+  required
+  disabled={isViewOnly}
+/>
                             </div>
 
                             <div className="form-grid-2" style={{ marginTop: '1.5rem' }}>

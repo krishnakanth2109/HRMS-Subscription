@@ -153,13 +153,16 @@ const DocVerifyInvite = () => {
     if (!selectedCompany) return alert('Please select a company first');
     setSending(true);
     try {
+      // Backend saves to DB, fires email in background (fire-and-forget — same as offerLetterRoutes)
+      // No separate mail call needed — responds instantly
       await api.post('/api/doc-verification/invite', {
         ...singleData,
         companyId: selectedCompany,
-        emailSubject: parseSubject(),
-        emailMessage,
         formBaseUrl: FORM_BASE,
+        emailSubject: parseSubject(),
+        emailMessage, // raw template — backend replaces [NAME],[ROLE],[FORM_LINK] etc.
       });
+
       setSingleData({ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' });
       fetchHistory(selectedCompany);
       alert('Document verification invitation sent successfully!');
@@ -177,13 +180,16 @@ const DocVerifyInvite = () => {
     if (!validRows.length) return alert('Add at least one valid email');
     setSending(true);
     try {
+      // Backend saves all invites to DB and fires all emails in background (fire-and-forget)
+      // No separate mail loop needed — responds instantly
       await api.post('/api/doc-verification/bulk-invite', {
         employees: validRows,
         companyId: selectedCompany,
-        emailSubject: parseSubject(),
-        emailMessage,
         formBaseUrl: FORM_BASE,
+        emailSubject: parseSubject(),
+        emailMessage, // raw template — backend replaces placeholders per-employee with their unique formLink
       });
+
       setBulkRows([{ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' }]);
       fetchHistory(selectedCompany);
       alert(`${validRows.length} invitation(s) sent successfully!`);
@@ -339,7 +345,7 @@ const DocVerifyInvite = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Name (Short) *</label>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">First Name *</label>
                     <input required placeholder="John"
                       className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
                       value={singleData.name}

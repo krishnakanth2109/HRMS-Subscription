@@ -4,8 +4,43 @@ import { v2 as cloudinary } from 'cloudinary';
 import { v4 as uuidv4 } from 'uuid';
 import DocumentVerification from '../models/DocumentVerification.js';
 import Company from '../models/CompanyModel.js';
+import customTransporter from '../config/nodemailer.js';
 
 const router = express.Router();
+
+// ---------------------------------------------------
+// FIRE-AND-FORGET MAIL HELPER
+// Mirrors offerLetterRoutes.js pattern — DO NOT AWAIT
+// Backend responds instantly; mail delivers in background
+// ---------------------------------------------------
+const fireDocVerifyMail = ({ to, name, role, department, employmentType, companyName, formLink, emailSubject, emailMessage }) => {
+  try {
+    const parsedMessage = (emailMessage || '')
+      .replace(/\[NAME\]/gi,            name           || 'Candidate')
+      .replace(/\[ROLE\]/gi,            role           || 'Team Member')
+      .replace(/\[DEPT\]/gi,            department     || 'General')
+      .replace(/\[EMPLOYMENT_TYPE\]/gi, employmentType || 'Full Time')
+      .replace(/\[COMPANY\]/gi,         companyName    || 'Our Company')
+      .replace(/\[FORM_LINK\]/gi,       '<a href="' + formLink + '" style="color:#6d28d9;font-weight:bold;">' + formLink + '</a>');
+
+    const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px;margin:auto;">' + parsedMessage.replace(/\n/g, '<br>') + '</div>';
+
+    const mailOptions = {
+      from: `"${companyName} HR" <${process.env.SMTP_USER}>`,
+      to,
+      subject: emailSubject || 'Document Verification Required',
+      html: htmlBody,
+    };
+
+    // Fire-and-forget — same pattern as offerLetterRoutes.js — DO NOT AWAIT
+    customTransporter.sendMail(mailOptions).catch(err => {
+      console.error('🔥 BACKGROUND DOC VERIFY MAIL ERROR:', err.message);
+    });
+
+  } catch (err) {
+    console.error('fireDocVerifyMail setup error:', err.message);
+  }
+};
 
 // --- CLOUDINARY CONFIG ---
 cloudinary.config({
@@ -48,7 +83,7 @@ const DOCUMENT_FIELDS = [
 // ---------------------------------------------------
 router.post('/invite', async (req, res) => {
   try {
-    const { email, name, fullName, role, department, employmentType, companyId, invitedBy, formBaseUrl } = req.body;
+    const { email, name, fullName, role, department, employmentType, companyId, invitedBy, formBaseUrl, emailSubject, emailMessage } = req.body;
 
     if (!email || !companyId) {
       return res.status(400).json({ success: false, error: 'Email and Company ID are required' });
@@ -85,14 +120,24 @@ router.post('/invite', async (req, res) => {
       });
     }
 
-    // Build form link to return to frontend
+    // Build form link
     const formLink = `${formBaseUrl || 'https://hrms-420.netlify.app'}/document-verification?token=${token}`;
+
+    // Fire-and-forget email — same pattern as offerLetterRoutes.js
+    // Responds instantly to frontend; mail sends in the background
+    fireDocVerifyMail({
+      to: email,
+      name: name || fullName,
+      role, department, employmentType,
+      companyName: company.name,
+      formLink, emailSubject, emailMessage,
+    });
 
     res.status(200).json({ 
       success: true, 
-      message: 'Saved to Database successfully', 
+      message: 'Invitation sent! Email is being delivered in the background.', 
       data: existing, 
-      formLink // Passing this back so frontend can trigger the mail route
+      formLink
     });
   } catch (error) {
     console.error('DocVerify invite error:', error);
@@ -105,7 +150,7 @@ router.post('/invite', async (req, res) => {
 // ---------------------------------------------------
 router.post('/bulk-invite', async (req, res) => {
   try {
-    const { employees, companyId, invitedBy, formBaseUrl } = req.body;
+    const { employees, companyId, invitedBy, formBaseUrl, emailSubject, emailMessage } = req.body;
 
     if (!employees || !Array.isArray(employees) || !companyId) {
       return res.status(400).json({ success: false, error: 'employees[] and companyId required' });
@@ -136,10 +181,18 @@ router.post('/bulk-invite', async (req, res) => {
           });
         }
 
-        // Build form link for this specific employee
+        // Build unique form link for this employee
         const formLink = `${formBaseUrl || 'https://hrms-420.netlify.app'}/document-verification?token=${token}`;
-        
-        // Add to array so frontend can loop through and send emails
+
+        // Fire-and-forget email — same pattern as offerLetterRoutes.js — DO NOT AWAIT
+        fireDocVerifyMail({
+          to: emailLower,
+          name: emp.name || emp.fullName,
+          role: emp.role, department: emp.department, employmentType: emp.employmentType,
+          companyName: company.name,
+          formLink, emailSubject, emailMessage,
+        });
+
         results.employeesWithLinks.push({ ...emp, formLink });
         results.success.push(emailLower);
 

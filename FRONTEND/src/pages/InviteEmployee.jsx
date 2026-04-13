@@ -21,7 +21,7 @@ const SendOnboardingForm = () => {
 
   // Configuration States
   const [emailSubject, setEmailSubject] = useState('Welcome to [Company Name] – Complete Your Onboarding Process');
-  const [formLink, setFormLink] = useState(`https://hrms-420.netlify.app/employee-onboarding`);
+  const [formLink, setFormLink] = useState(`https://vwsync.com/employee-onboarding`);
   const [emailMessage, setEmailMessage] = useState(`Dear [NAME],
 
 We are pleased to welcome you to [COMPANY].

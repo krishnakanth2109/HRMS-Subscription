@@ -160,6 +160,66 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
   );
 };
 
+const PunchOutRequestsModal = ({ isOpen, onClose, requests, loading, onAction, onDelete, actionLoading }) => {
+  if (!isOpen) return null;
+  const pending = (requests || []).filter(req => req.status === 'Pending');
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-[90] flex justify-center items-center p-4 animate-in fade-in duration-200" onClick={onClose}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-800">Punch Out Requests</h3>
+            <p className="text-sm text-gray-500 mt-1">Review pending punch out requests and approve, reject, or delete them.</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={20} /></button>
+        </div>
+        <div className="p-5 overflow-y-auto max-h-[65vh] bg-gray-50">
+          {loading ? (
+            <div className="text-center py-20 text-gray-500 font-medium">Loading requests...</div>
+          ) : pending.length === 0 ? (
+            <div className="text-center py-20 text-gray-500 font-medium">No pending punch out requests.</div>
+          ) : (
+            <div className="space-y-4">
+              {pending.map((req) => (
+                <div key={req._id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <div className="text-sm text-gray-500">Employee</div>
+                      <div className="font-semibold text-gray-900">{req.employeeName || req.employeeId}</div>
+                    </div>
+                    <div className="text-sm text-gray-500">Requested Date</div>
+                    <div className="font-semibold text-gray-900">{formatDateDMY(req.originalDate)}</div>
+                    <div className="text-sm text-gray-500">Requested Punch Out</div>
+                    <div className="font-semibold text-gray-900">{req.requestedPunchOut ? new Date(req.requestedPunchOut).toLocaleString() : 'N/A'}</div>
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <div className="text-xs uppercase tracking-wider text-gray-400">Reason</div>
+                      <div className="mt-2 text-sm text-gray-700">{req.reason || 'No reason provided.'}</div>
+                    </div>
+                    <div className="rounded-2xl bg-gray-50 p-4">
+                      <div className="text-xs uppercase tracking-wider text-gray-400">Requested On</div>
+                      <div className="mt-2 text-sm text-gray-700">{req.requestDate ? new Date(req.requestDate).toLocaleString() : 'N/A'}</div>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button type="button" onClick={() => onAction(req._id, 'Approved')} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition-colors disabled:opacity-50">Approve</button>
+                    <button type="button" onClick={() => onAction(req._id, 'Rejected')} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition-colors disabled:opacity-50">Reject</button>
+                    <button type="button" onClick={() => onDelete(req._id)} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50">Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+          <button onClick={onClose} className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-semibold hover:bg-gray-900 transition-colors">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holidays, dateRange, employeeImages }) => {
   const contentRef = useRef(null);
   const [viewMode, setViewMode] = useState("daily");
@@ -497,6 +557,10 @@ const AdminAttendance = () => {
   const [employeeImages, setEmployeeImages] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
   const [employeeWorkModes, setEmployeeWorkModes] = useState({});
+  const [punchOutRequests, setPunchOutRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+  const [isPunchOutRequestsOpen, setIsPunchOutRequestsOpen] = useState(false);
+  const [requestActionLoading, setRequestActionLoading] = useState(false);
 
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [selectedCompareIds, setSelectedCompareIds] = useState([]);
@@ -539,6 +603,52 @@ const AdminAttendance = () => {
     } catch (error) { console.error("Error fetching employee work modes:", error); }
   }, []);
 
+  const fetchPunchOutRequests = useCallback(async () => {
+    setRequestsLoading(true);
+    try {
+      const response = await api.get("/api/punchoutreq/all");
+      const requests = Array.isArray(response.data) ? response.data : [];
+      setPunchOutRequests(requests);
+    } catch (error) {
+      console.error("Error fetching punch out requests:", error);
+      setPunchOutRequests([]);
+    } finally {
+      setRequestsLoading(false);
+    }
+  }, []);
+
+  const handlePunchOutRequestAction = async (requestId, status) => {
+    setRequestActionLoading(true);
+    try {
+      const response = await api.post("/api/punchoutreq/action", { requestId, status });
+      if (response.data?.success) {
+        await fetchPunchOutRequests();
+        await fetchDailyData();
+        if (startDate === endDate) await fetchDailyCounts(startDate);
+      }
+    } catch (error) {
+      const errMsg = error.response?.data?.message || error.message;
+      alert(`Unable to ${status.toLowerCase()} the request: ${errMsg}`);
+    } finally {
+      setRequestActionLoading(false);
+    }
+  };
+
+  const handleDeletePunchOutRequest = async (requestId) => {
+    setRequestActionLoading(true);
+    try {
+      const response = await api.delete(`/api/punchoutreq/delete/${requestId}`);
+      if (response.data?.success) {
+        await fetchPunchOutRequests();
+      }
+    } catch (error) {
+      const errMsg = error.response?.data?.message || error.message;
+      alert(`Unable to delete the request: ${errMsg}`);
+    } finally {
+      setRequestActionLoading(false);
+    }
+  };
+
   // Daily counts uses scoped API (backend already filters by adminId via middleware)
   const fetchDailyCounts = useCallback(async (date) => {
     try {
@@ -564,7 +674,7 @@ const AdminAttendance = () => {
     finally { setLoading(false); }
   }, [startDate, endDate, dailyCurrentPage, dailyItemsPerPage, dailySearchTerm]);
 
-  useEffect(() => { fetchShifts(); fetchHolidays(); fetchEmployeeWorkModes(); fetchAllEmployees(); fetchOvertimeData(); }, []);
+  useEffect(() => { fetchShifts(); fetchHolidays(); fetchEmployeeWorkModes(); fetchAllEmployees(); fetchOvertimeData(); fetchPunchOutRequests(); }, [fetchPunchOutRequests, fetchEmployeeWorkModes, fetchHolidays, fetchShifts, fetchAllEmployees, fetchOvertimeData]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => { fetchDailyData(); }, 500);
@@ -821,6 +931,7 @@ const AdminAttendance = () => {
 
   const toggleSelection = (id) => { setSelectedCompareIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]); };
   const selectedStatsForComparison = useMemo(() => { return employeeSummaryStats.filter(s => selectedCompareIds.includes(s.employeeId)); }, [employeeSummaryStats, selectedCompareIds]);
+  const pendingPunchOutRequests = useMemo(() => punchOutRequests.filter(r => r.status === 'Pending'), [punchOutRequests]);
 
   const StatCard = ({ icon, title, value, colorClass, onClick }) => (
     <div className={`relative flex-1 p-6 bg-white rounded-2xl border border-gray-200 shadow-sm flex items-center gap-5 overflow-hidden group ${onClick ? 'cursor-pointer hover:shadow-md hover:border-gray-300 transition-all duration-200' : ''}`} onClick={onClick}>
@@ -842,6 +953,7 @@ const AdminAttendance = () => {
         {/* ========================================== */}
         <div className="flex flex-col space-y-6">
           <div className="p-6 border border-gray-200 shadow-sm bg-white rounded-2xl flex flex-col gap-5">
+           
             <div className="flex items-center gap-3 text-xl font-bold text-gray-800"><div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FaCalendarAlt /></div> Daily Attendance Log</div>
             <div className="flex flex-wrap items-center gap-4">
               <div className="relative group flex-grow-0">
@@ -856,7 +968,14 @@ const AdminAttendance = () => {
                 <span className="px-4 py-2.5 bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wider border-r border-gray-200 h-full flex items-center">To</span>
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-3 pr-3 py-2.5 outline-none bg-transparent text-gray-700 font-medium text-sm" />
               </div>
-              <div className="flex items-center gap-3 ml-auto">
+              <div className="ml-auto flex flex-col items-end gap-3">
+                <button onClick={() => setIsPunchOutRequestsOpen(true)} className="relative flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95">
+                  <FaSignOutAlt size={16} />
+                  Punch Out Requests
+                  {pendingPunchOutRequests.length > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black px-2 py-1 animate-pulse">{pendingPunchOutRequests.length}</span>
+                  )}
+                </button>
                 <button onClick={exportDailyLogToExcel} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all active:scale-95"><FaFileExcel size={16} /><span>Export CSV</span></button>
               </div>
             </div>
@@ -867,6 +986,7 @@ const AdminAttendance = () => {
             <StatCard icon={<FaCheckCircle className="text-green-500 text-2xl" />} title="Shift Completed" value={dailyCounts.completed} colorClass="bg-green-500" onClick={() => handleOpenStatusModal('COMPLETED')} />
             <StatCard icon={<FaCoffee className="text-amber-500 text-2xl" />} title="On Break" value={dailyCounts.onBreak} colorClass="bg-amber-500" onClick={() => handleOpenStatusModal('ON_BREAK')} />
             {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-2xl" />} title="Login Required" value={dailyCounts.absent} colorClass="bg-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />)}
+
           </div>
 
           <div className="overflow-x-auto rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
@@ -1108,6 +1228,7 @@ const AdminAttendance = () => {
       <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} holidays={holidays} dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} employeeImages={employeeImages} />
       <StatusListModal isOpen={statusListModal.isOpen} onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} title={statusListModal.title} employees={statusListModal.employees} loading={statusListModal.loading} employeeImages={employeeImages} allEmployees={allEmployees} />
       <AdminPunchOutModal isOpen={punchOutModal.isOpen} onClose={() => setPunchOutModal({ isOpen: false, employee: null })} employee={punchOutModal.employee} onPunchOut={handleAdminPunchOut} />
+      <PunchOutRequestsModal isOpen={isPunchOutRequestsOpen} onClose={() => setIsPunchOutRequestsOpen(false)} requests={punchOutRequests} loading={requestsLoading} onAction={handlePunchOutRequestAction} onDelete={handleDeletePunchOutRequest} actionLoading={requestActionLoading} />
       <AttendanceComparisonModal isOpen={isComparisonModalOpen} onClose={() => setIsComparisonModalOpen(false)} selectedStats={selectedStatsForComparison} employeeImages={employeeImages} startDate={summaryStartDate} endDate={summaryEndDate} />
 
       {previewImage && (
