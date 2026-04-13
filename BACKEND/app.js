@@ -13,7 +13,7 @@ const allowedOrigins = [
   "https://hrms-subscription-kill.onrender.com",
   "http://vwsync.com",
   "https://hrms-vaz.netlify.app",
-  "http://localhost:5173", // Good to have for local testing
+  "http://localhost:5173", 
   "http://localhost:3000"
 ];
 
@@ -64,14 +64,14 @@ const server = http.createServer(app);
 // Trust proxy required for Render deployments to get correct IPs
 app.set('trust proxy', 1);
 
-/* ==================== ✅ CORS MIDDLEWARE (Must be early) ==================== */
+/* ==================== ✅ CORS MIDDLEWARE ==================== */
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        console.log(`CORS Blocked: ${origin}`); // Log blocked origins to help debug
+        console.warn(`⚠️ CORS Blocked request from: ${origin}`); 
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -80,10 +80,10 @@ app.use(
     credentials: true,
   })
 );
-app.options("*", cors()); // Handle preflight requests
+app.options("*", cors()); 
 
-/* ==================== 🔥 STRIPE WEBHOOK (Must be BEFORE express.json) ==================== */
-// Stripe requires the raw body to verify signatures. Do not parse it to JSON here.
+/* ==================== 🔥 STRIPE WEBHOOK ==================== */
+// MUST be before express.json()
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
@@ -140,17 +140,29 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ==================== DATABASE ==================== */
+/* ==================== 🛠️ DATABASE CONNECTION 🛠️ ==================== */
+mongoose.set('strictQuery', false); // Best practice to prevent warnings
+
+// Enhanced connection settings to prevent infinite 10000ms timeouts
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Database Connected"))
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000, // Fail fast after 5 seconds if DB is unreachable (Network IP blocked)
+    socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  })
+  .then(() => console.log("✅ Database Connected Successfully"))
   .catch((err) => {
-    console.error("❌ DB Connection Error. Please check your MONGO_URI in Render:", err.message);
-    // Removed process.exit(1) so the server stays awake to show logs instead of constantly crashing and giving 502s
+    console.error("❌ MONGODB CONNECTION FATAL ERROR ❌");
+    console.error("Could not connect to Database. Did you whitelist 0.0.0.0/0 in MongoDB Atlas?");
+    console.error(err.message);
   });
 
+// Listen for disconnects so the server doesn't silently break later
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB Disconnected');
+});
+
 /* ==================== ROUTES ==================== */
-app.get("/health", (req, res) => res.status(200).json({ status: "OK" }));
+app.get("/health", (req, res) => res.status(200).json({ status: "OK", dbState: mongoose.connection.readyState }));
 
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 
@@ -168,7 +180,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/idletime", idleTimeRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
-app.use("/api/admin", adminRoutes); // Note: You have two /api/admin routes, ensure they don't conflict
+app.use("/api/admin", adminRoutes); 
 app.use("/api/admin", adminAuthRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
 app.use("/api/punchoutreq", punchOutRoutes);
@@ -176,7 +188,7 @@ app.use("/api/groups", groupRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/payroll", payrollRoutes); // Note: You have two /api/payroll routes
+app.use("/api/payroll", payrollRoutes); 
 app.use("/api/payroll", payrollcandidatesRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/invited-employees", invitedEmployeeRoutes);
