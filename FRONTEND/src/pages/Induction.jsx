@@ -570,7 +570,7 @@ ${companyName}`;
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
          <div className="bg-blue-50 px-5 py-4 md:px-6 md:py-5">
   <h1 className="text-xl font-semibold text-blue-800 md:text-2xl">
-    Induction Email Center
+    Induction Program
   </h1>
   <p className="mt-1 max-w-2xl text-sm leading-5 text-blue-500 md:text-sm">
     Select employees, choose an induction activity, fill the schedule,

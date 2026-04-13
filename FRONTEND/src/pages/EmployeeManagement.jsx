@@ -14,7 +14,7 @@ import {
   FaTimes,
   FaFileAlt,
   FaShieldAlt,
-  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus,
+  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop,FaFileSignature,FaGift,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -196,6 +196,7 @@ const SmartSubmenu = ({ onClose, onNavigate }) => {
       >
         <FaSearch className="text-violet-500" /> HR Checklist
       </button>
+
 
 
     </div>
@@ -918,13 +919,6 @@ const EmployeeManagement = () => {
                     <FaFileAlt className="text-blue-500" /> Offer Letter
                   </button>
 
-                  {/* Onboarding Invitation */}
-                  <button
-                    onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
-                  >
-                    <FaUser className="text-blue-500" /> Onboarding Invitation
-                  </button>
 
                   {/* Document Verification with smart positioned nested submenu */}
                   <div className="relative">
@@ -951,6 +945,14 @@ const EmployeeManagement = () => {
                       />
                     )}
                   </div>
+                  
+                  {/* Onboarding Invitation */}
+                  <button
+                    onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
+                  >
+                    <FaUser className="text-blue-500" /> Onboarding Invitation
+                  </button>
 
                   {/* Add Employee */}
                   <button
@@ -959,6 +961,27 @@ const EmployeeManagement = () => {
                   >
                     <FaUserPlus className="text-blue-500" /> Add Employee
                   </button>
+                  <button
+                    onClick={() => { navigate("/admin/induction"); setHrActivitiesOpen(false); }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                  >
+                    <FaConnectdevelop className="text-blue-500" /> Induction
+                  </button>
+                  <button
+                    onClick={() => { navigate("/admin/resignation"); setHrActivitiesOpen(false); }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                  >
+                    <FaFileSignature className="text-blue-500" /> Resignations
+                </button>
+            
+
+                           <button
+                    onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                  >
+                    <FaGift className="text-blue-500" /> Welcome Kits
+                </button>
+
                 </div>
               )}
             </div>

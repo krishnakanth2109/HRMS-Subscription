@@ -15,7 +15,6 @@ import {
   getPayrollRules,
   savePayrollRules,
   getOfferLetterTemplates
-  getLeavePolicy, // added
 } from '../api';
 
 // --- DEFAULT RULES ---
@@ -67,26 +66,6 @@ const calculateLeaveDays = (from, to) => {
   const diffTime = Math.abs(toDate - fromDate);
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   return diffDays;
-};
-
-const getLeavePolicySummary = (policy) => {
-  const policiesArray = Array.isArray(policy?.policies) ? policy.policies : [];
-  const totalPaidLimit = policiesArray.reduce(
-    (sum, item) => sum + (Number(item.paidDaysLimit) || 0),
-    0
-  );
-  const totalUsedPaid = policiesArray.reduce(
-    (sum, item) => sum + (Number(item.usedPaidDays) || 0),
-    0
-  );
-
-  return {
-    totalPaidLimit,
-    totalUsedPaid,
-    remainingPaidBalance: Math.max(0, totalPaidLimit - totalUsedPaid),
-    sandwichLeaveEnabled: Boolean(policy?.sandwichLeaveEnabled),
-    unplannedAbsenceToLOP: policy?.unplannedAbsenceToLOP !== false,
-  };
 };
 
 const isDateInRange = (dateStr, startStr, endStr) => {
@@ -444,6 +423,239 @@ const TemplatePickerModal = ({ onSelect, onClose }) => {
   );
 };
 
+// ✅ NEW: RELEASE PAYSLIP SELECTION MODAL
+const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, periodEnd, onConfirmRelease }) => {
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Reset every time modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIds(new Set());
+      setSearchQuery('');
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const formatCurrency = (val) =>
+    `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const filteredData = payrollData.filter(emp =>
+    emp.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    emp.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const allFilteredSelected =
+    filteredData.length > 0 && filteredData.every(emp => selectedIds.has(emp.employeeId));
+  const someFilteredSelected =
+    filteredData.some(emp => selectedIds.has(emp.employeeId)) && !allFilteredSelected;
+
+  const handleSelectAll = () => {
+    const updated = new Set(selectedIds);
+    if (allFilteredSelected) {
+      filteredData.forEach(emp => updated.delete(emp.employeeId));
+    } else {
+      filteredData.forEach(emp => updated.add(emp.employeeId));
+    }
+    setSelectedIds(updated);
+  };
+
+  const handleToggle = (empId) => {
+    const updated = new Set(selectedIds);
+    updated.has(empId) ? updated.delete(empId) : updated.add(empId);
+    setSelectedIds(updated);
+  };
+
+  const selectedCount = selectedIds.size;
+
+  const totalNetSelected = payrollData
+    .filter(emp => selectedIds.has(emp.employeeId))
+    .reduce((sum, emp) => sum + emp.netPayableSalary, 0);
+
+  const handleRelease = () => {
+    if (selectedCount === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Employees Selected',
+        text: 'Please select at least one employee to release the payslip.',
+        confirmButtonColor: '#3b82f6',
+      });
+      return;
+    }
+    onConfirmRelease(payrollData.filter(emp => selectedIds.has(emp.employeeId)));
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-6 py-5 flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
+            <p className="text-indigo-200 text-sm mt-0.5">
+              {periodStart} &nbsp;→&nbsp; {periodEnd}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="bg-white/10 hover:bg-white/25 rounded-full p-2 transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Search + Select All bar */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          {/* Search */}
+          <div className="relative flex-1 max-w-sm">
+            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition"
+            />
+          </div>
+
+          {/* Select All */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+            <div
+              onClick={handleSelectAll}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer
+                ${allFilteredSelected
+                  ? 'bg-indigo-600 border-indigo-600'
+                  : someFilteredSelected
+                  ? 'bg-indigo-100 border-indigo-400'
+                  : 'bg-white border-gray-300 group-hover:border-indigo-400'
+                }`}
+            >
+              {allFilteredSelected && (
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+              {someFilteredSelected && !allFilteredSelected && (
+                <div className="w-2.5 h-0.5 bg-indigo-600 rounded" />
+              )}
+            </div>
+            <span className="text-sm font-semibold text-gray-700">
+              {allFilteredSelected ? 'Deselect All' : 'Select All'}
+            </span>
+            <span className="text-xs text-gray-400">({filteredData.length} shown)</span>
+          </label>
+        </div>
+
+        {/* Employee List */}
+        <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
+          {filteredData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+              <svg className="w-10 h-10 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-sm font-medium">No employees found</p>
+            </div>
+          ) : filteredData.map((emp) => {
+            const isSelected = selectedIds.has(emp.employeeId);
+            return (
+              <div
+                key={emp.employeeId}
+                onClick={() => handleToggle(emp.employeeId)}
+                className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150
+                  ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
+              >
+                {/* Checkbox */}
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all
+                  ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
+                  {isSelected && (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+
+                {/* Avatar */}
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all
+                  ${isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'}`}>
+                  {emp.employeeName.charAt(0).toUpperCase()}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{emp.employeeName}</p>
+                  <p className="text-xs text-gray-500">{emp.employeeId} &middot; {emp.role}</p>
+                </div>
+
+                {/* Work badges */}
+                <div className="hidden sm:flex gap-1.5 shrink-0">
+                  <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">F:{emp.fullDays}</span>
+                  <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">H:{emp.halfDays}</span>
+                  {emp.lopDays > 0 && (
+                    <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">LOP:{emp.lopDays}</span>
+                  )}
+                </div>
+
+                {/* Net Pay */}
+                <div className="text-right shrink-0">
+                  <p className={`text-sm font-extrabold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
+                    {formatCurrency(emp.netPayableSalary)}
+                  </p>
+                  <p className="text-[10px] text-gray-400">net pay</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all
+              ${selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+              {selectedCount === 0
+                ? 'No employees selected'
+                : `${selectedCount} employee${selectedCount > 1 ? 's' : ''} selected`}
+            </div>
+            {selectedCount > 0 && (
+              <div className="text-right">
+                <p className="text-xs text-gray-500 font-medium">Total Net Payable</p>
+                <p className="text-lg font-extrabold text-indigo-700">{formatCurrency(totalNetSelected)}</p>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRelease}
+              disabled={selectedCount === 0}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow
+                ${selectedCount > 0
+                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+              Release {selectedCount > 0 ? `${selectedCount} Payslip${selectedCount > 1 ? 's' : ''}` : 'Payslips'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- PAYSLIP MODAL COMPONENT ---
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   const [companyData, setCompanyData] = useState(null);
@@ -480,7 +692,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
     return `₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
   };
 
-  const SIGNATURE_URL = "https://signature.freefire-name.com/img.php?f=6&t=Sanjay";
+  const SIGNATURE_URL = "https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png";
 
   const handleExportSingle = () => {
     const exportData = [{
@@ -782,12 +994,9 @@ const PayrollManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showConfig, setShowConfig] = useState(false);
+  // ✅ NEW: Release modal state
+  const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [payrollRules, setPayrollRules] = useState(DEFAULT_RULES);
-  const [leavePolicy, setLeavePolicy] = useState({
-    policies: [],
-    sandwichLeaveEnabled: false,
-    unplannedAbsenceToLOP: false,
-  });
   const [saving, setSaving] = useState(false); // Loading state for saving
 
   // ✅ MONTH SELECTION LOGIC
@@ -833,13 +1042,12 @@ const PayrollManagement = () => {
           }
         } catch (e) { console.error("Rules fetch error", e); }
 
-        const [leavesRes, empRes, attRes, holidayRes, shiftRes, policyRes] = await Promise.all([
+        const [leavesRes, empRes, attRes, holidayRes, shiftRes] = await Promise.all([
           getLeaveRequests(),
           getEmployees(),
           getAttendanceByDateRange(summaryStartDate, summaryEndDate),
           getHolidays(),
-          getAllShifts(),
-          getLeavePolicy(), // fetch admin leave policy
+          getAllShifts()
         ]);
 
         // ✅ FILTER: Only include active AND Full Time employees in payroll
@@ -852,11 +1060,6 @@ const PayrollManagement = () => {
         });
 
         setLeaveRequests(leavesRes || []);
-        setLeavePolicy(policyRes || {
-          policies: [],
-          sandwichLeaveEnabled: false,
-          unplannedAbsenceToLOP: false,
-        });
         setAllEmployees(activeEmps);
         setAttendanceData(attRes || []);
         setHolidays((holidayRes || []).map(h => ({
@@ -888,9 +1091,6 @@ const PayrollManagement = () => {
   // ✅ CORE PAYROLL CALCULATION (UPDATED WITH NEW PF LOGIC)
   const processedPayroll = useMemo(() => {
     if (!allEmployees.length) return [];
-
-    const policySummary = getLeavePolicySummary(leavePolicy);
-    const applyUnplannedAbsenceToLOP = policySummary.unplannedAbsenceToLOP;
 
     const shiftMap = {};
     shifts.forEach(s => {
@@ -939,86 +1139,15 @@ const PayrollManagement = () => {
         (isDateInRange(l.from, summaryStartDate, summaryEndDate) || isDateInRange(l.to, summaryStartDate, summaryEndDate))
       );
 
-      let totalLeaveDays = 0;
-      let paidLeaveDays = 0;
-      let unpaidLeaveDays = 0;
+      const totalLeaveDays = approvedLeaves.reduce((total, l) => total + calculateLeaveDays(l.from, l.to), 0);
+
+      const attendancePunches = new Set(attendanceData.filter(r => r.employeeId === empId && r.punchIn).map(r => formatDate(r.date)));
       const appliedLeaveDates = new Set();
-
-      approvedLeaves.forEach(leave => {
-        const details = Array.isArray(leave.details)
-          ? leave.details.filter(
-              (detail) =>
-                detail.date >= summaryStartDate && detail.date <= summaryEndDate
-            )
-          : [];
-
-        if (details.length > 0) {
-          details.forEach(detail => {
-            const dayValue = detail.leaveDayType === "Half Day" ? 0.5 : 1;
-            totalLeaveDays += dayValue;
-            if (detail.leavecategory === "Paid") {
-              paidLeaveDays += dayValue;
-            } else {
-              unpaidLeaveDays += dayValue;
-            }
-            appliedLeaveDates.add(detail.date);
-          });
-        } else {
-          const start = new Date(
-            Math.max(new Date(leave.from), new Date(summaryStartDate))
-          );
-          const end = new Date(
-            Math.min(new Date(leave.to), new Date(summaryEndDate))
-          );
-
-          if (start <= end) {
-            let currentDate = new Date(start);
-            while (currentDate <= end) {
-              const formatted = formatDate(currentDate);
-              appliedLeaveDates.add(formatted);
-              currentDate = addDays(currentDate, 1);
-            }
-
-            const overlapDays = calculateLeaveDays(
-              formatDate(start),
-              formatDate(end)
-            );
-            totalLeaveDays += overlapDays;
-
-            if (leave.leavecategory === "Paid") {
-              paidLeaveDays += overlapDays;
-            } else {
-              unpaidLeaveDays += overlapDays;
-            }
-          }
-        }
+      approvedLeaves.forEach(l => {
+        let c = new Date(l.from);
+        const e = new Date(l.to);
+        while (c <= e) { appliedLeaveDates.add(formatDate(c)); c = addDays(c, 1); }
       });
-
-      // Apply policy-based paid / unpaid allocation
-      if (policySummary.totalPaidLimit > 0) {
-        const availablePaid = Math.max(
-          0,
-          policySummary.remainingPaidBalance - paidLeaveDays
-        );
-
-        if (availablePaid > 0 && unpaidLeaveDays > 0) {
-          const convertToPaid = Math.min(unpaidLeaveDays, availablePaid);
-          paidLeaveDays += convertToPaid;
-          unpaidLeaveDays -= convertToPaid;
-        }
-
-        if (paidLeaveDays > policySummary.remainingPaidBalance) {
-          const overflow = paidLeaveDays - policySummary.remainingPaidBalance;
-          paidLeaveDays -= overflow;
-          unpaidLeaveDays += overflow;
-        }
-      }
-
-      const attendancePunches = new Set(
-        attendanceData
-          .filter((r) => r.employeeId === empId && r.punchIn)
-          .map((r) => formatDate(r.date))
-      );
 
       let absentCount = 0;
       let loopStart = new Date(summaryStartDate);
@@ -1026,25 +1155,43 @@ const PayrollManagement = () => {
       for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
         const dateStr = formatDate(d);
         const dayOfWeek = d.getDay();
-        const isHol = holidays.some(
-          (h) => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end)
-        );
+        const isHol = holidays.some(h => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end));
 
         if (isHol || shift.weeklyOffDays.includes(dayOfWeek)) continue;
-        if (attendancePunches.has(dateStr) || appliedLeaveDates.has(dateStr))
-          continue;
+        if (attendancePunches.has(dateStr) || appliedLeaveDates.has(dateStr)) continue;
         absentCount++;
       }
 
-      leaveSummary[empId] = {
-        totalLeaveDays,
-        paidLeaveDays,
-        unpaidLeaveDays,
-        absentDays: absentCount,
-        weekOffDays: 0,
-        holidayDays: 0,
-        totalConsumed: totalLeaveDays + absentCount,
-      };
+      const monthlyCredit = 1;
+      const totalConsumed = totalLeaveDays + absentCount;
+      const extraLeaves = Math.max(0, totalConsumed - monthlyCredit);
+      const paidLeaveCredit = Math.min(totalConsumed, monthlyCredit);
+
+      // ✅ COUNT WEEK-OFF & HOLIDAY DAYS — NO DOUBLE COUNT
+      const todayNow = new Date();
+      todayNow.setHours(23, 59, 59, 999);
+
+      let weekOffCount = 0;
+      let holidayCount = 0;
+      for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
+        if (d > todayNow) break;
+
+        const dateStr = formatDate(d);
+        const dayOfWeek = d.getDay();
+        const isHol = holidays.some(h => dateStr >= formatDate(h.start) && dateStr <= formatDate(h.end));
+        const isWeekOff = shift.weeklyOffDays.includes(dayOfWeek);
+
+        if (!isHol && !isWeekOff) continue;
+        if (attendancePunches.has(dateStr)) continue;
+
+        if (isHol) {
+          holidayCount++;
+        } else {
+          weekOffCount++;
+        }
+      }
+
+      leaveSummary[empId] = { totalLeaveDays, absentDays: absentCount, totalConsumed, extraLeaves, paidLeaveCredit, weekOffDays: weekOffCount, holidayDays: holidayCount };
     });
 
     return allEmployees.map(emp => {
@@ -1052,19 +1199,12 @@ const PayrollManagement = () => {
       const baseSalary = currentExp?.salary ? Number(currentExp.salary) : 0;
       const shift = shiftMap[emp.employeeId] || { weeklyOffDays: [0] };
 
-      // Get the month and year from summaryEndDate to calculate total days
       const endDate = new Date(summaryEndDate);
       const totalDaysInMonth = getTotalDaysInMonth(endDate.getFullYear(), endDate.getMonth() + 1);
 
       const att = attSummary[emp.employeeId] || { fullDays: 0, halfDays: 0, workedDays: 0, lateCount: 0, absentDays: 0 };
-      const leaves = leaveSummary[emp.employeeId] || {
-        totalLeaveDays: 0,
-        absentDays: 0,
-        paidLeaveDays: 0,
-        unpaidLeaveDays: 0,
-      };
+      const leaves = leaveSummary[emp.employeeId] || { totalLeaveDays: 0, absentDays: 0, paidLeaveCredit: 0, extraLeaves: 0 };
 
-      // 1. Monthly Salary Breakdown (Standard structure)
       const ruleBasic = Number(payrollRules.basicPercentage) || 0;
       const ruleHra = Number(payrollRules.hraPercentage) || 0;
       const ruleConv = Number(payrollRules.conveyance) || 0;
@@ -1072,7 +1212,6 @@ const PayrollManagement = () => {
       const ruleTravelling = Number(payrollRules.travellingAllowance) || 0;
       const ruleOther = Number(payrollRules.otherAllowance) || 0;
 
-      // Extract PT Rules
       const rulePtSlab1Amount = Number(payrollRules.ptSlab1Amount) || 0;
       const rulePtSlab2Amount = Number(payrollRules.ptSlab2Amount) || 0;
       const thresholdSlab1 = 15000;
@@ -1087,50 +1226,27 @@ const PayrollManagement = () => {
       const monthlyOther = ruleOther;
       const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + monthlyOther));
 
-      // 2. Per Day Salary = Gross Salary / Total Days in Month
       const perDaySalary = monthlyTotal / totalDaysInMonth;
-
-      // 3. Worked Days (attendance punches + paid leave credit)
-      const totalWorkedDays = att.workedDays + leaves.paidLeaveDays;
-
+      const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
       const weekOffDays = leaves.weekOffDays || 0;
       const holidayDays = leaves.holidayDays || 0;
-
-      // 4. Calculated Salary = (Worked Days + Week Offs + Holidays) × Per Day Salary
       const calculatedSalary = (totalWorkedDays + weekOffDays + holidayDays) * perDaySalary;
-
-      const lateDaysCount = att.lateCount;
+      const lopDeduction = leaves.extraLeaves * perDaySalary;
       const latePenaltyDays = Math.floor(att.lateCount / 3) * 0.5;
       const lateDeduction = latePenaltyDays * perDaySalary;
 
-      const lopDays = leaves.unpaidLeaveDays + (applyUnplannedAbsenceToLOP ? leaves.absentDays : 0);
-      const lopDeduction = lopDays * perDaySalary;
-
-      // 7. Gross Earned
-      const grossEarned = calculatedSalary;
-
-      // 8. PF Calculation Logic (Modified)
       let pfDeduction = 0;
       let employerPfAmount = 0;
-
-      // Check if PF method is 'fixed' or 'percentage'
       if (payrollRules.pfCalculationMethod === 'fixed') {
-        // FIXED MODE: 
-        // Deduct fixed amount from the total
         pfDeduction = Number(payrollRules.pfFixedAmountEmployee) || 0;
         employerPfAmount = Number(payrollRules.pfFixedAmountEmployer) || 0;
       } else {
-        // PERCENTAGE MODE:
-        // Deduct from Fixed Basic Salary (monthlyBasic) as shown in Earnings column.
         const rulePf = Number(payrollRules.pfPercentage) || 0;
         const ruleEmployerPf = Number(payrollRules.employerPfPercentage) || 0;
-
-        // Use monthlyBasic (Fixed) instead of proratedBasic
         pfDeduction = monthlyBasic * (rulePf / 100);
         employerPfAmount = monthlyBasic * (ruleEmployerPf / 100);
       }
 
-      // 9. PT Calculation
       let ptDeduction = 0;
       if (monthlyTotal >= thresholdSlab2) {
         ptDeduction = rulePtSlab2Amount;
@@ -1138,17 +1254,14 @@ const PayrollManagement = () => {
         ptDeduction = rulePtSlab1Amount;
       }
 
-      // 10. Total Deductions
       const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction;
-
-      // 11. Net Payable Salary (Home Take)
       const netPayableSalary = Math.max(0, calculatedSalary - totalDeductions);
 
       return {
         employeeId: emp.employeeId,
         employeeName: emp.name,
-        companyId: emp.company || null,       // ✅ correct field: emp.company (ObjectId ref)
-        companyName: emp.companyName || null,  // ✅ snapshot string for quick fallback
+        companyId: emp.company || null,
+        companyName: emp.companyName || null,
         role: currentExp?.role || "N/A",
         totalDaysInMonth,
         workedDays: totalWorkedDays,
@@ -1158,8 +1271,8 @@ const PayrollManagement = () => {
         halfDays: att.halfDays,
         absentDays: leaves.absentDays,
         totalLeavesConsumed: leaves.totalLeaveDays,
-        lopDays,
-        lateDaysCount,
+        lopDays: leaves.extraLeaves,
+        lateDaysCount: att.lateCount,
         latePenaltyDays,
         perDaySalary,
         calculatedSalary,
@@ -1193,17 +1306,7 @@ const PayrollManagement = () => {
         netPayableSalary
       };
     });
-  }, [
-    allEmployees,
-    shifts,
-    attendanceData,
-    leaveRequests,
-    holidays,
-    summaryStartDate,
-    summaryEndDate,
-    payrollRules,
-    leavePolicy, // added as dependency in case future policy-driven behavior is expanded
-  ]);
+  }, [allEmployees, shifts, attendanceData, leaveRequests, holidays, summaryStartDate, summaryEndDate, payrollRules]);
 
   const filteredPayroll = useMemo(() => {
     if (!searchQuery.trim()) return processedPayroll;
@@ -1249,41 +1352,89 @@ const PayrollManagement = () => {
     exportToExcel(dataToExport, `Payroll_Report_${summaryStartDate}_to_${summaryEndDate}`);
   };
 
-  // ✅ SAVE TO DB HANDLER
-  const handleSaveDatabase = async () => {
+  // ✅ UPDATED: Open release modal instead of direct save
+  const handleOpenReleaseModal = () => {
     if (filteredPayroll.length === 0) {
-      Swal.fire("No Data", "There is no payroll data to save.", "warning");
+      Swal.fire({
+        icon: 'warning',
+        title: 'No Data',
+        text: 'There is no payroll data to release.',
+        confirmButtonColor: '#3b82f6',
+      });
       return;
     }
+    setShowReleaseModal(true);
+  };
 
-    const confirm = await Swal.fire({
-      title: 'Are you sure want Release Payslips for Employees?',
-      text: `You are about to save/update payroll records for ${filteredPayroll.length} employees for the period ${summaryStartDate} to ${summaryEndDate}.`,
+  // ✅ NEW: Confirm release for selected employees only
+  const handleConfirmRelease = async (selectedRecords) => {
+    setShowReleaseModal(false);
+
+    // SweetAlert2 confirmation
+    const confirmResult = await Swal.fire({
+      title: 'Release Payslips?',
+      html: `
+        <div style="text-align:left;font-size:14px;color:#374151;">
+          <p style="margin-bottom:10px;">You are about to release payslips for:</p>
+          <div style="background:#EEF2FF;border-radius:8px;padding:12px;margin-bottom:10px;">
+            <strong style="font-size:22px;color:#4338CA;">${selectedRecords.length}</strong>
+            <span style="color:#4338CA;font-weight:600;"> Employee${selectedRecords.length > 1 ? 's' : ''}</span>
+          </div>
+          <p style="color:#6B7280;font-size:12px;">Period: <strong>${summaryStartDate}</strong> → <strong>${summaryEndDate}</strong></p>
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Yes, Save it!'
+      confirmButtonColor: '#4338CA',
+      cancelButtonColor: '#9CA3AF',
+      confirmButtonText: '✅ Yes, Release!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
     });
 
-    if (confirm.isConfirmed) {
-      setSaving(true);
-      try {
-        const payload = {
-          period: { start: summaryStartDate, end: summaryEndDate },
-          records: filteredPayroll
-        };
+    if (!confirmResult.isConfirmed) return;
 
-        // ✅ FIX: Call the backend API using the configured 'api' instance
-        await api.post('/api/payroll/save-batch', payload);
+    // Show loading Swal
+    Swal.fire({
+      title: 'Releasing Payslips...',
+      html: `<p style="color:#6B7280;font-size:14px;">Saving records for <strong>${selectedRecords.length} employee${selectedRecords.length > 1 ? 's' : ''}</strong>. Please wait.</p>`,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      didOpen: () => { Swal.showLoading(); },
+    });
 
-        Swal.fire('Saved!', 'Payroll records have been successfully saved to the database.', 'success');
-      } catch (error) {
-        console.error("Save Error:", error);
-        Swal.fire('Error', 'Failed to save payroll records. Please try again.', 'error');
-      } finally {
-        setSaving(false);
-      }
+    setSaving(true);
+    try {
+      const payload = {
+        period: { start: summaryStartDate, end: summaryEndDate },
+        records: selectedRecords,
+      };
+
+      await api.post('/api/payroll/save-batch', payload);
+
+      Swal.fire({
+        icon: 'success',
+        title: '🎉 Payslips Released!',
+        html: `
+          <div style="text-align:center;">
+            <p style="color:#374151;font-size:14px;margin-bottom:8px;">Successfully released payslips for</p>
+            <strong style="font-size:20px;color:#059669;">${selectedRecords.length} employee${selectedRecords.length > 1 ? 's' : ''}</strong>
+            <p style="color:#9CA3AF;font-size:12px;margin-top:8px;">Period: ${summaryStartDate} → ${summaryEndDate}</p>
+          </div>
+        `,
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'Great!',
+      });
+    } catch (error) {
+      console.error("Save Error:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Release Failed',
+        text: 'Failed to save payroll records. Please try again.',
+        confirmButtonColor: '#DC2626',
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1398,12 +1549,12 @@ const PayrollManagement = () => {
                 <span>Manage Payroll Calculations</span>
               </button>
 
-              {/* Release Payslip Button */}
+              {/* ✅ UPDATED: Release Payslip Button → opens employee selection modal */}
               <button
-                onClick={handleSaveDatabase}
+                onClick={handleOpenReleaseModal}
                 disabled={saving}
                 className={`group relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm ${saving
-                  ? 'bg-gray-400 cursor-not-allowed'
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
                   : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 hover:shadow-lg active:scale-95 text-white'
                   }`}
               >
@@ -1413,12 +1564,12 @@ const PayrollManagement = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Saving...</span>
+                    <span>Releasing...</span>
                   </>
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                     <span>Release Payslip</span>
                   </>
@@ -1537,6 +1688,16 @@ const PayrollManagement = () => {
         onClose={() => setShowConfig(false)}
         currentRules={payrollRules}
         onSave={handleSaveRules}
+      />
+
+      {/* ✅ NEW: Employee-wise Release Payslip Modal */}
+      <ReleasePayslipModal
+        isOpen={showReleaseModal}
+        onClose={() => setShowReleaseModal(false)}
+        payrollData={processedPayroll}
+        periodStart={summaryStartDate}
+        periodEnd={summaryEndDate}
+        onConfirmRelease={handleConfirmRelease}
       />
 
       {selectedEmployee && (
