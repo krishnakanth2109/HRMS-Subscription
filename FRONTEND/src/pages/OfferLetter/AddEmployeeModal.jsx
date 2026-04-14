@@ -53,7 +53,7 @@ const InputGroup = ({ label, name, type = "text", placeholder, value, onChange, 
                 onChange={(e) => {
                     if (type === 'number') {
                         const val = e.target.value;
-                        if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
                             onChange(e);
                         }
                     } else {
@@ -535,7 +535,6 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
   min="0"
   value={formData.ctc}
   onChange={handleChange}
-  required
   disabled={isViewOnly}
 />
 
@@ -546,7 +545,6 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
   min="0"
   value={formData.basic_salary}
   onChange={handleChange}
-  required
   disabled={isViewOnly}
 />
                             </div>
@@ -554,7 +552,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                             <div className="form-grid-2" style={{ marginTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 1' }}>
                                     <label style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', color: 'var(--text-muted)' }}>
-                                        PT (Monthly) (₹) <span style={{ color: '#ef4444' }}>*</span>
+                                        PT (Monthly) (₹)
                                         {breakdown && (
                                             <span style={{ color: '#10b981', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}>
                                                 {' '}— Auto: ₹{breakdown.pt}
@@ -569,9 +567,8 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                         value={formData.pt}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) handleChange(e);
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange(e);
                                         }}
-                                        required
                                         autoComplete="off"
                                         style={{
                                             width: '100%', padding: '12px 16px', background: 'var(--bg-primary)',
@@ -584,7 +581,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 1' }}>
                                     <label style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', color: 'var(--text-muted)' }}>
-                                        PF (Monthly) (₹) <span style={{ color: '#ef4444' }}>*</span>
+                                        PF (Monthly) (₹)
                                         {breakdown && (
                                             <span style={{ color: '#10b981', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}>
                                                 {' '}— Auto: ₹{breakdown.pf}
@@ -599,9 +596,8 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                         value={formData.pf}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) handleChange(e);
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange(e);
                                         }}
-                                        required
                                         autoComplete="off"
                                         style={{
                                             width: '100%', padding: '12px 16px', background: 'var(--bg-primary)',
