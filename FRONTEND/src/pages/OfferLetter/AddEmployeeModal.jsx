@@ -53,7 +53,7 @@ const InputGroup = ({ label, name, type = "text", placeholder, value, onChange, 
                 onChange={(e) => {
                     if (type === 'number') {
                         const val = e.target.value;
-                        if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) {
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) {
                             onChange(e);
                         }
                     } else {
@@ -184,7 +184,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
             if (initialData.joining_date) {
                 try {
                     joiningFormatted = new Date(initialData.joining_date).toISOString().split('T')[0];
-                } catch(e){}
+                } catch (e) { }
             }
 
             return {
@@ -318,7 +318,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 other_allowance: frozenBreakdown.otherAllowance || 0,
                 special_allowance: (() => {
                     if (!frozenBreakdown.basic_salary) return 0;
-                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12 
+                    const total = (basicVal * 12) + (frozenBreakdown.hra || 0) * 12
                         + (frozenBreakdown.conveyance || 0) * 12 + (frozenBreakdown.medical || 0) * 12
                         + (frozenBreakdown.travellingAllowance || 0) * 12 + (frozenBreakdown.otherAllowance || 0) * 12;
                     const remaining = ctcVal - total;
@@ -341,7 +341,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
 
     // ── Calculated breakdown preview ───────────────────────────
     const ctcNum = parseFloat(formData.ctc) || 0;
-    
+
     let breakdown = null;
     const hasFrozenBreakdown = initialData && initialData.compensation && initialData.compensation.gross_salary > 0;
 
@@ -361,7 +361,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                 pt: comp.pt || 0,
                 net: comp.net_salary || 0,
             };
-        } 
+        }
         // Otherwise, if we have dynamic rules and >0 CTC, display the real-time preview
         else if (payrollRules && ctcNum > 0) {
             breakdown = calculateFromRules(ctcNum, payrollRules);
@@ -528,14 +528,31 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                             )}
 
                             <div className="form-grid-2">
-                                <InputGroup label="Annual CTC (₹)" name="ctc" type="number" value={formData.ctc} onChange={handleChange} required disabled={isViewOnly} />
-                                <InputGroup label="Basic Salary (Monthly) (₹)" name="basic_salary" type="number" value={formData.basic_salary} onChange={handleChange} required disabled={isViewOnly} />
+             <InputGroup
+  label="Annual CTC (₹)"
+  name="ctc"
+  type="number"
+  min="0"
+  value={formData.ctc}
+  onChange={handleChange}
+  disabled={isViewOnly}
+/>
+
+<InputGroup
+  label="Basic Salary (Monthly) (₹)"
+  name="basic_salary"
+  type="number"
+  min="0"
+  value={formData.basic_salary}
+  onChange={handleChange}
+  disabled={isViewOnly}
+/>
                             </div>
 
                             <div className="form-grid-2" style={{ marginTop: '1.5rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 1' }}>
                                     <label style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', color: 'var(--text-muted)' }}>
-                                        PT (Monthly) (₹) <span style={{ color: '#ef4444' }}>*</span>
+                                        PT (Monthly) (₹)
                                         {breakdown && (
                                             <span style={{ color: '#10b981', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}>
                                                 {' '}— Auto: ₹{breakdown.pt}
@@ -550,9 +567,8 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                         value={formData.pt}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) handleChange(e);
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange(e);
                                         }}
-                                        required
                                         autoComplete="off"
                                         style={{
                                             width: '100%', padding: '12px 16px', background: 'var(--bg-primary)',
@@ -565,7 +581,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: 'span 1' }}>
                                     <label style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '700', color: 'var(--text-muted)' }}>
-                                        PF (Monthly) (₹) <span style={{ color: '#ef4444' }}>*</span>
+                                        PF (Monthly) (₹)
                                         {breakdown && (
                                             <span style={{ color: '#10b981', fontWeight: '500', textTransform: 'none', letterSpacing: '0' }}>
                                                 {' '}— Auto: ₹{breakdown.pf}
@@ -580,9 +596,8 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                                         value={formData.pf}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            if (val === '' || val === '-' || /^-?\d*\.?\d*$/.test(val)) handleChange(e);
+                                            if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange(e);
                                         }}
-                                        required
                                         autoComplete="off"
                                         style={{
                                             width: '100%', padding: '12px 16px', background: 'var(--bg-primary)',

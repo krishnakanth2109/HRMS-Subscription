@@ -3,7 +3,7 @@ import {
   Send, Plus, X, Trash2, RefreshCw, Briefcase, Mail, Building2, UserPlus, History, Banknote,
   CheckCircle, Clock, FileText, Upload, Download, File, Paperclip, Eye, ExternalLink
 } from 'lucide-react';
-import { getAllCompanies } from '../api';
+import { getAllCompanies, getEmployees } from '../api';
 import api from '../api';
 
 const SendOnboardingForm = () => {
@@ -21,7 +21,7 @@ const SendOnboardingForm = () => {
 
   // Configuration States
   const [emailSubject, setEmailSubject] = useState('Welcome to [Company Name] – Complete Your Onboarding Process');
-  const [formLink, setFormLink] = useState(`https://hrms-420.netlify.app/employee-onboarding`);
+  const [formLink, setFormLink] = useState(`https://vwsync.com/employee-onboarding`);
   const [emailMessage, setEmailMessage] = useState(`Dear [NAME],
 
 We are pleased to welcome you to [COMPANY].
@@ -48,27 +48,30 @@ HR Team
   const [sentHistory, setSentHistory] = useState([]);
   const [acceptedCandidates, setAcceptedCandidates] = useState([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [existingEmployees, setExistingEmployees] = useState([]);
+  const [loadingExistingEmployees, setLoadingExistingEmployees] = useState(false);
+  const [selectedExistingEmployee, setSelectedExistingEmployee] = useState('');
 
   useEffect(() => {
     const init = async () => {
       const loadedCompanies = await fetchCompanies();
-      fetchHistory(null, loadedCompanies);
       fetchAcceptedCandidates();
     };
     init();
   }, []);
 
-  useEffect(() => {
-    if (selectedCompany) {
-      fetchCompanyDocuments();
-      fetchHistory(selectedCompany, companies); // ✅ Filter history to selected company
-    } else {
-      setDocuments([]);
-      if (companies.length > 0) {
-        fetchHistory(null, companies); // ✅ Company deselected → show only companies available in selection
-      }
-    }
-  }, [selectedCompany]);
+useEffect(() => {
+  if (selectedCompany) {
+    fetchCompanyDocuments();
+    fetchHistory(selectedCompany, companies);
+    fetchExistingEmployees(selectedCompany);
+  } else {
+    setDocuments([]);
+    setSentHistory([]); // ❌ clear logs if no company selected
+    setExistingEmployees([]);
+    setSelectedExistingEmployee('');
+  }
+}, [selectedCompany]);
 
   const fetchCompanies = async () => {
     try {
@@ -152,6 +155,40 @@ HR Team
     if (cand.companyId) {
       setSelectedCompany(cand.companyId);
     }
+  };
+
+  const fetchExistingEmployees = async (companyId) => {
+    try {
+      setLoadingExistingEmployees(true);
+      const response = await getEmployees();
+      const allEmployees = Array.isArray(response) ? response : (response.data || []);
+      const filtered = allEmployees.filter(emp => {
+        const companyValue = emp.company?._id || emp.company || emp.companyId;
+        return companyId ? companyValue?.toString() === companyId?.toString() : true;
+      });
+      setExistingEmployees(filtered);
+      setSelectedExistingEmployee('');
+    } catch (error) {
+      console.error('Error fetching existing employees:', error);
+      setExistingEmployees([]);
+    } finally {
+      setLoadingExistingEmployees(false);
+    }
+  };
+
+  const handleExistingEmployeeSelect = (employeeId) => {
+    setSelectedExistingEmployee(employeeId);
+    const employee = existingEmployees.find(emp => emp._id === employeeId);
+    if (!employee) return;
+
+    setSingleData(prev => ({
+      email: employee.email || '',
+      name: employee.name || '',
+      role: prev.role,
+      department: (employee.department === 'IT' || employee.department === 'NON-IT') ? employee.department : (employee.currentDepartment || 'IT'),
+      employmentType: employee.employmentType || employee.employment_type || '',
+      salary: employee.salary || employee.compensation?.gross_salary || ''
+    }));
   };
 
   const fetchCompanyDocuments = async () => {
@@ -449,6 +486,35 @@ HR Team
               </select>
             )}
           </div>
+
+          {selectedCompany && (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <Building2 size={14} className="text-blue-500" /> Select Existing Employee
+              </label>
+              {loadingExistingEmployees ? (
+                <div className="flex items-center gap-2 p-4 bg-slate-50 rounded-lg">
+                  <RefreshCw className="animate-spin text-blue-500" size={18} />
+                  <span className="text-slate-500 text-sm">Loading employees...</span>
+                </div>
+              ) : (
+                <select
+                  value={selectedExistingEmployee}
+                  onChange={(e) => handleExistingEmployeeSelect(e.target.value)}
+                  className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700 transition-all appearance-none cursor-pointer"
+                >
+                  <option value="">-- Select an existing employee --</option>
+                  {existingEmployees.length > 0 ? existingEmployees.map((emp) => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.name} {emp.employeeId ? `(${emp.employeeId})` : ''}
+                    </option>
+                  )) : (
+                    <option value="" disabled>No existing employees available for this company</option>
+                  )}
+                </select>
+              )}
+            </div>
+          )}
 
           {/* 2.5 DOCUMENT MANAGEMENT SECTION */}
           {selectedCompany && (
@@ -799,7 +865,7 @@ HR Team
               {sentHistory.length === 0 && (
                 <div className="text-center py-20">
                   <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><History size={32} /></div>
-                  <p className="text-slate-400 text-sm font-medium">No invitations found in database.</p>
+                  <p className="text-slate-400 text-sm font-medium">Select your company to View Respective onboarding logs</p>
                 </div>
               )}
               {sentHistory.map((item) => (

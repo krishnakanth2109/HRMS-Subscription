@@ -8,6 +8,15 @@ import http from "http";
 import path from "path";
 import { Server } from "socket.io";
 
+/* ==================== ✅ ALLOWED ORIGINS ==================== */
+const allowedOrigins = [
+  "https://hrms-subscription-kill.onrender.com",
+  "http://vwsync.com",
+  "https://vwsync.com",
+  "https://hrms-vaz.netlify.app",
+  "http://localhost:5173", 
+  "http://localhost:3000"
+];
 
 /* ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
@@ -41,6 +50,7 @@ import offerLetterRoutes from "./routes/offerLetterRoutes.js";
 import offerResponseRoutes from "./routes/offerResponseRoutes.js";
 import inductionRoutes from "./routes/inductionRoutes.js";
 
+import resignationRoutes from "./routes/resignationRoutes.js";
 
 /* ==================== 🔹 STRIPE IMPORTS ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
@@ -50,97 +60,34 @@ import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
 
 const app = express();
 const server = http.createServer(app);
 
-/* ==================== SOCKET.IO ==================== */
-// ✅ FIX FOR RENDER.COM:
-// Render's infrastructure proxies HTTP but can be inconsistent with raw WebSocket
-// on first connect. Starting with polling lets the handshake always succeed,
-// then Socket.IO automatically upgrades to WebSocket after the connection is stable.
-const userSocketMap = new Map();
+// Trust proxy required for Render deployments to get correct IPs
+app.set('trust proxy', 1);
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    credentials: true,
-  },
-  // ✅ KEY FIX: polling FIRST so Render's proxy always lets the handshake through
-  transports: ["polling", "websocket"],
-  // ✅ Longer timeouts to survive Render's cold starts and proxy delays
-  pingTimeout:           60000,
-  pingInterval:          25000,
-  upgradeTimeout:        30000,
-  allowUpgrades:         true,
-  // ✅ Allow large payloads
-  maxHttpBufferSize:     1e6,
-});
-
-app.set("io", io);
-app.set("userSocketMap", userSocketMap);
-
-io.on("connection", (socket) => {
-  console.log("🔥 Socket connected:", socket.id, "| transport:", socket.conn.transport.name);
-
-  // Log transport upgrades (polling → websocket)
-  socket.conn.on("upgrade", (transport) => {
-    console.log(`⬆️  Transport upgraded to: ${transport.name} for socket: ${socket.id}`);
-  });
-
-  // ── Existing registration (keep for other features) ──────────────────────
-  socket.on("register", (userId) => {
-    if (userId) {
-      userSocketMap.set(userId.toString(), socket.id);
-      console.log(`📋 Registered: ${userId}`);
-    }
-  });
-
-  // ── Chat room join — frontend emits 'authenticate' after every (re)connect ─
-  // Joins a private room user_<id> so io.to(`user_${id}`) delivers messages
-  socket.on("authenticate", (userId) => {
-    if (!userId) return;
-    const id = userId.toString();
-    socket.join(`user_${id}`);
-    socket.data.userId = id;
-    socket.emit("authenticated", { userId: id });
-    console.log(`✅ Chat room joined: user_${id}`);
-  });
-
-  // ── Typing indicators ────────────────────────────────────────────────────
-  socket.on("typing_start", ({ receiverId, senderId, senderName }) => {
-    if (receiverId && senderId) {
-      io.to(`user_${receiverId}`).emit("user_typing", {
-        userId:   senderId,
-        userName: senderName,
-      });
-    }
-  });
-
-  socket.on("typing_stop", ({ receiverId, senderId }) => {
-    if (receiverId && senderId) {
-      io.to(`user_${receiverId}`).emit("user_stopped_typing", {
-        userId: senderId,
-      });
-    }
-  });
-
-  // ── Disconnect ───────────────────────────────────────────────────────────
-  socket.on("disconnect", (reason) => {
-    for (const [userId, socketId] of userSocketMap.entries()) {
-      if (socketId === socket.id) {
-        userSocketMap.delete(userId);
-        break;
+/* ==================== ✅ CORS MIDDLEWARE ==================== */
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️ CORS Blocked request from: ${origin}`); 
+        callback(new Error("Not allowed by CORS"));
       }
-    }
-    console.log(`❌ Disconnected: ${socket.data.userId || socket.id} | reason: ${reason}`);
-  });
-});
+    },
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+app.options("*", cors()); 
 
-/* =====================================================
-   🔥 STRIPE WEBHOOK (MUST BE FIRST, RAW BODY)
-===================================================== */
+/* ==================== 🔥 STRIPE WEBHOOK ==================== */
+// MUST be before express.json()
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
@@ -151,25 +98,45 @@ app.post(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+/* ==================== SOCKET.IO ==================== */
+const userSocketMap = new Map();
 
-/* ==================== CORS ==================== */
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ["polling", "websocket"],
+  pingTimeout: 60000,
+});
 
-app.options("*", cors());
+app.set("io", io);
+app.set("userSocketMap", userSocketMap);
 
-/* ==================== STATIC FILES ==================== */
-app.use("/public", express.static(path.join(process.cwd(), "public")));
+io.on("connection", (socket) => {
+  socket.on("register", (userId) => {
+    if (userId) userSocketMap.set(userId.toString(), socket.id);
+  });
+  
+  socket.on("authenticate", (userId) => {
+    if (!userId) return;
+    socket.join(`user_${userId.toString()}`);
+  });
+
+  socket.on("disconnect", () => {
+    for (const [userId, socketId] of userSocketMap.entries()) {
+      if (socketId === socket.id) {
+        userSocketMap.delete(userId);
+        break;
+      }
+    }
+  });
+});
 
 /* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  // Allow iframing exclusively for document proxy to render PDFs inline
   if (!req.originalUrl.includes("/proxy-doc")) {
     res.setHeader("X-Frame-Options", "DENY");
   }
@@ -177,21 +144,32 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ==================== DATABASE ==================== */
+/* ==================== 🛠️ DATABASE CONNECTION 🛠️ ==================== */
+mongoose.set('strictQuery', false); // Best practice to prevent warnings
+
+// Enhanced connection settings to prevent infinite 10000ms timeouts
 mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Database Connected"))
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000, // Fail fast after 5 seconds if DB is unreachable (Network IP blocked)
+    socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  })
+  .then(() => console.log("✅ Database Connected Successfully"))
   .catch((err) => {
-    console.error("❌ DB error:", err);
-    process.exit(1);
+    console.error("❌ MONGODB CONNECTION FATAL ERROR ❌");
+    console.error("Could not connect to Database. Did you whitelist 0.0.0.0/0 in MongoDB Atlas?");
+    console.error(err.message);
   });
 
-/* ==================== HEALTH ==================== */
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
+// Listen for disconnects so the server doesn't silently break later
+mongoose.connection.on('disconnected', () => {
+  console.log('⚠️ MongoDB Disconnected');
 });
 
 /* ==================== ROUTES ==================== */
+app.get("/health", (req, res) => res.status(200).json({ status: "OK", dbState: mongoose.connection.readyState }));
+
+app.use("/public", express.static(path.join(process.cwd(), "public")));
+
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -206,15 +184,16 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/idletime", idleTimeRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/category-assign", categoryAssignmentRoutes);
-app.use("/api/admin", adminRoutes);
+app.use("/api/admin", adminRoutes); 
+app.use("/api/admin", adminAuthRoutes);
 app.use("/api/work-mode", requestWorkModeRoutes);
 app.use("/api/punchoutreq", punchOutRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/rules", rulesRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api/payroll", payrollRoutes);
-app.use("/api/admin", adminAuthRoutes);
+app.use("/api/payroll", payrollRoutes); 
+app.use("/api/payroll", payrollcandidatesRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/invited-employees", invitedEmployeeRoutes);
 app.use("/api/mail", mailRoutes);
@@ -228,37 +207,35 @@ app.use("/api/induction", inductionRoutes);
 
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
+app.use("/api/resignations", resignationRoutes);
+app.use("/api/doc-verification", documentVerificationRoutes);
+app.use("/api/welcome-kit", welcomeKitRoutes);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/master", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
 
-
-// In dev we don't serve frontend from here usually, but fix the paths
+/* ==================== FRONTEND FALLBACK ==================== */
 app.use(express.static(path.join(process.cwd(), "../FRONTEND/dist")));
 
-// React routing fix (ONLY for non-API routes)
 app.get("*", (req, res, next) => {
   if (req.originalUrl.startsWith("/api")) return next();
   res.sendFile(path.join(process.cwd(), "../FRONTEND/dist/index.html"), (err) => {
-    if (err) res.status(500).send("Frontend build not found. Run npm run build in FRONTEND.");
+    if (err) res.status(500).send("Frontend build not found.");
   });
 });
 
-/* ==================== 404 ==================== */
+/* ==================== 404 & ERROR HANDLER ==================== */
 app.use("/api", (req, res) => {
-  res.status(404).json({ message: "API route not found" });
+  res.status(404).json({ message: `API route ${req.method} ${req.url} not found` });
 });
-/* ==================== ERROR HANDLER ==================== */
+
 app.use((err, req, res, next) => {
-  console.error("🚨 Error:", err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || "Unexpected error",
-  });
+  console.error("🚨 Server Error:", err.message);
+  res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
 });
 
 /* ==================== START SERVER ==================== */
 const PORT = process.env.PORT || 5000;
-
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

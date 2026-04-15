@@ -28,6 +28,8 @@ const EmployeeOnboarding = () => {
   const [verifiedCompany, setVerifiedCompany] = useState(null);
   const [emailCheckLoading, setEmailCheckLoading] = useState(false);
   const [assignedDocs, setAssignedDocs] = useState([]);
+  const [verifiedEmployeeDocs, setVerifiedEmployeeDocs] = useState([]);
+  const [verifiedDocsLoading, setVerifiedDocsLoading] = useState(false);
 
   // File State
   const [docFiles, setDocFiles] = useState({
@@ -153,19 +155,8 @@ const handleVerifyEmail = async () => {
           currentSalary: empData.salary || 0
         }));
 
-        // --- NEW LOGIC START ---
-        if (response.data.needsComplianceOnly) {
-          Swal.fire({
-            icon: 'info',
-            title: 'Profile Found',
-            text: 'Your profile is already set up. Please review and accept the company policies to complete your onboarding.',
-            timer: 3000,
-            showConfirmButton: false,
-          });
-          setStage('compliance'); // Skip onboarding form and go to Policies
-          return;
-        }
-        // --- NEW LOGIC END ---
+      // Immediately load any admin-verified documents for this employee
+      fetchVerifiedEmployeeDocuments(empData.email);
 
         Swal.fire({
           icon: 'success',
@@ -203,6 +194,30 @@ const handleVerifyEmail = async () => {
       setEmailCheckLoading(false);
     }
 };
+
+  const fetchVerifiedEmployeeDocuments = async (email) => {
+    if (!email) return;
+    setVerifiedDocsLoading(true);
+    try {
+      const { data } = await api.get('/api/doc-verification/employee', { params: { email: email.toLowerCase().trim() } });
+      if (data.success) {
+        setVerifiedEmployeeDocs(data.data.verifiedDocs || []);
+      } else {
+        setVerifiedEmployeeDocs([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch verified employee documents:', error);
+      setVerifiedEmployeeDocs([]);
+    } finally {
+      setVerifiedDocsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (emailVerified && formData.email) {
+      fetchVerifiedEmployeeDocuments(formData.email);
+    }
+  }, [emailVerified, formData.email]);
 
   const validateForm = () => {
     if (!formData.company) return "Please verify your email/invitation first.";
@@ -411,6 +426,42 @@ const handleVerifyEmail = async () => {
                     ) : (
                       <div className="text-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                         <p className="text-slate-400 font-medium">No additional documents assigned.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 mt-8">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest px-1">Your Verified Employee Documents</h4>
+                      {verifiedDocsLoading && <span className="text-xs text-slate-500">Checking verified documents...</span>}
+                    </div>
+
+                    {verifiedDocsLoading ? (
+                      <div className="text-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500">Loading verified documents...</div>
+                    ) : verifiedEmployeeDocs.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {verifiedEmployeeDocs.map((doc) => (
+                          <div key={doc.fieldKey} className="group flex flex-col sm:flex-row items-center justify-between p-5 bg-white border-2 border-slate-50 hover:border-emerald-100 hover:shadow-md rounded-2xl transition-all">
+                            <div className="flex items-center gap-4 mb-4 sm:mb-0">
+                              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl transition-colors">
+                                <FileText size={24} />
+                              </div>
+                              <div>
+                                <span className="block text-slate-800 font-bold">{doc.label}</span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter italic">Admin verified on {doc.adminVerifiedAt ? new Date(doc.adminVerifiedAt).toLocaleDateString('en-IN') : 'Unknown date'}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-3 w-full sm:w-auto">
+                              <button type="button" onClick={() => window.open(doc.fileUrl, '_blank', 'noopener,noreferrer')} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition">
+                                <FaEye /> View Verified File
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                        <p className="text-slate-400 font-medium">No admin-verified documents found for this email.</p>
                       </div>
                     )}
                   </div>

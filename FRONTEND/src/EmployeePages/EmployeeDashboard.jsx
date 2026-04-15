@@ -504,6 +504,34 @@ const EmployeeDashboard = () => {
   const role = latestExp?.role || displayUser?.currentRole || displayUser?.role || "N/A";
   const department = latestExp?.department || displayUser?.currentDepartment || displayUser?.department || "N/A";
 
+  // ✅ EMAIL CHANGE NOTIFICATION
+  useEffect(() => {
+    if (displayUser?.previousEmail && !loading) {
+      Swal.fire({
+        title: 'Account Update Notice',
+        html: `Your registered email has been updated by an administrator.<br/><br/>
+               <b>Old Email:</b> ${displayUser.previousEmail}<br/>
+               <b>New Email:</b> ${displayUser.email}<br/><br/>
+               Please use the new email for future logins.`,
+        icon: 'info',
+        confirmButtonText: 'I understand',
+        confirmButtonColor: '#3b82f6',
+        allowOutsideClick: false
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          try {
+            await api.patch(`/api/employees/${displayUser.employeeId}/clear-old-email`);
+            if (employeeData) {
+              setEmployeeData({ ...employeeData, previousEmail: null });
+            }
+          } catch (err) {
+            console.error("Failed to clear previous email notification:", err);
+          }
+        }
+      });
+    }
+  }, [displayUser, loading, employeeData]);
+
   useEffect(() => {
     let interval;
     const isWorking = todayLog?.status === "WORKING";

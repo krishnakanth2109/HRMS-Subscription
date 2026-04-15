@@ -42,6 +42,10 @@ const DocVerifyInvite = () => {
     email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: ''
   });
 
+  const [existingEmployees, setExistingEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+
   const [bulkRows, setBulkRows] = useState([{
     email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: ''
   }]);
@@ -51,11 +55,17 @@ const DocVerifyInvite = () => {
 
   useEffect(() => {
     fetchCompanies();
+    fetchExistingEmployees();
   }, []);
 
   useEffect(() => {
-    if (selectedCompany) fetchHistory(selectedCompany);
-    else setHistory([]);
+    if (selectedCompany) {
+      fetchHistory(selectedCompany);
+    } else {
+      setHistory([]);
+    }
+    setSelectedEmployeeId('');
+    setSingleData({ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' });
   }, [selectedCompany]);
 
   const fetchCompanies = async () => {
@@ -83,6 +93,54 @@ const DocVerifyInvite = () => {
     }
   };
 
+  const fetchExistingEmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const res = await api.get('/api/employees');
+      const data = Array.isArray(res.data) ? res.data : [];
+      setExistingEmployees(data);
+    } catch (e) {
+      console.error('Error fetching existing employees:', e);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  const getCurrentRole = (employee) => {
+    return employee?.currentRole || employee?.designation || employee?.role || employee?.experienceDetails?.[employee.experienceDetails.length - 1]?.role || '';
+  };
+
+  const getCurrentDepartment = (employee) => {
+    return employee?.currentDepartment || employee?.department || employee?.experienceDetails?.[employee.experienceDetails.length - 1]?.department || '';
+  };
+
+  const getCurrentEmploymentType = (employee) => {
+    return employee?.employmentType || employee?.employment_type || employee?.employeeType || '';
+  };
+
+  const handleExistingEmployeeChange = async (employeeId) => {
+    setSelectedEmployeeId(employeeId);
+    if (!employeeId) {
+      setSingleData({ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' });
+      return;
+    }
+
+    try {
+      const res = await api.get(`/api/employees/${employeeId}`);
+      const emp = res.data;
+      setSingleData({
+        email: emp.email || '',
+        name: emp.name || '',
+        fullName: emp.name || '',
+        role: getCurrentRole(emp),
+        department: getCurrentDepartment(emp) || 'IT',
+        employmentType: getCurrentEmploymentType(emp) || ''
+      });
+    } catch (e) {
+      console.error('Error fetching employee details:', e);
+    }
+  };
+
   const getCompanyName = () => {
     const c = companies.find(c => c._id === selectedCompany);
     return c ? c.name : '[COMPANY NAME]';
@@ -95,13 +153,16 @@ const DocVerifyInvite = () => {
     if (!selectedCompany) return alert('Please select a company first');
     setSending(true);
     try {
+      // Backend saves to DB, fires email in background (fire-and-forget — same as offerLetterRoutes)
+      // No separate mail call needed — responds instantly
       await api.post('/api/doc-verification/invite', {
         ...singleData,
         companyId: selectedCompany,
-        emailSubject: parseSubject(),
-        emailMessage,
         formBaseUrl: FORM_BASE,
+        emailSubject: parseSubject(),
+        emailMessage, // raw template — backend replaces [NAME],[ROLE],[FORM_LINK] etc.
       });
+
       setSingleData({ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' });
       fetchHistory(selectedCompany);
       alert('Document verification invitation sent successfully!');
@@ -119,13 +180,16 @@ const DocVerifyInvite = () => {
     if (!validRows.length) return alert('Add at least one valid email');
     setSending(true);
     try {
+      // Backend saves all invites to DB and fires all emails in background (fire-and-forget)
+      // No separate mail loop needed — responds instantly
       await api.post('/api/doc-verification/bulk-invite', {
         employees: validRows,
         companyId: selectedCompany,
-        emailSubject: parseSubject(),
-        emailMessage,
         formBaseUrl: FORM_BASE,
+        emailSubject: parseSubject(),
+        emailMessage, // raw template — backend replaces placeholders per-employee with their unique formLink
       });
+
       setBulkRows([{ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' }]);
       fetchHistory(selectedCompany);
       alert(`${validRows.length} invitation(s) sent successfully!`);
@@ -206,7 +270,7 @@ const DocVerifyInvite = () => {
           </div>
 
           {/* COMPANY SELECT */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
               <Building2 size={14} className="text-violet-500" /> Select Company
             </label>
@@ -223,6 +287,34 @@ const DocVerifyInvite = () => {
                 <option value="">-- Select Company --</option>
                 {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
               </select>
+            )}
+
+            {selectedCompany && (
+              <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
+                  <UserPlus size={14} className="text-violet-500" /> Select Existing Employee
+                </label>
+                {loadingEmployees ? (
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
+                    <RefreshCw className="animate-spin" size={16} /> Loading employees...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedEmployeeId}
+                    onChange={e => handleExistingEmployeeChange(e.target.value)}
+                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none font-medium text-slate-700"
+                  >
+                    <option value="">-- Select Existing Employee --</option>
+                    {existingEmployees
+                      .filter(emp => String(emp.company) === String(selectedCompany))
+                      .map(emp => (
+                        <option key={emp.employeeId} value={emp.employeeId}>
+                          {emp.name} • {emp.employeeId} • {emp.email}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
             )}
           </div>
 
@@ -253,7 +345,7 @@ const DocVerifyInvite = () => {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Name (Short) *</label>
+                    <label className="text-xs font-semibold text-slate-500 block mb-1">First Name *</label>
                     <input required placeholder="John"
                       className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
                       value={singleData.name}

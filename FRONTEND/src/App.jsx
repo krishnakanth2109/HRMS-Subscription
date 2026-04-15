@@ -100,6 +100,10 @@ import Induction from "./pages/Induction";
 import DocVerifyInvite from "./pages/DocVerifyInvite";
 import DocVerifyAdmin from "./pages/DocVerifyAdmin";
 import DocumentVerificationForm from "./pages/DocumentVerificationForm";
+import AdminResignation from "./pages/AdminResignation";
+import EmployeeResignation from "./EmployeePages/EmployeeResignation";
+import HRChecklist from "./pages/HRChecklist";
+import AdminWelcomeKits from "./pages/Adminwelcomekits";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -289,8 +293,12 @@ function App() {
         <Route path="/admin/induction" element={<Induction />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
           <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
-          <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
+        <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
           <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
+          <Route path="/admin/resignation" element={<AdminResignation />} />
+          <Route path="/admin/hr-checklist" element={<HRChecklist />} />
+           <Route path="/admin/welcome-kits-management" element={<AdminWelcomeKits />} />
+         
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}
@@ -338,6 +346,7 @@ function App() {
         <Route path="/employee/notices" element={<CurrentEmployeeNoticeBoard />} />
         <Route path="/employee/leave-summary" element={<EmployeeLeaveSummary />} />
         <Route path="/employee/change-password" element={<ChangePasswordPage />} />
+        <Route path="/employee/resignation" element={<EmployeeResignation />} />
       </Route>
     </Routes>
   );

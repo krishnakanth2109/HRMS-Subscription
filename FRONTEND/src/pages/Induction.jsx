@@ -568,18 +568,15 @@ ${companyName}`;
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="bg-gradient-to-r from-slate-950 via-cyan-900 to-sky-700 px-5 py-7 text-white md:px-8 md:py-8">
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-              <FaConnectdevelop className="text-lg" />
-            </div>
-            <h1 className="mt-4 text-2xl font-bold md:text-3xl">
-              Induction Email Center
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-sky-100 md:text-base">
-              Select employees, choose an induction activity, fill the schedule,
-              and send personalized emails automatically from HRMS.
-            </p>
-          </div>
+         <div className="bg-blue-50 px-5 py-4 md:px-6 md:py-5">
+  <h1 className="text-xl font-semibold text-blue-800 md:text-2xl">
+    Induction Program
+  </h1>
+  <p className="mt-1 max-w-2xl text-sm leading-5 text-blue-500 md:text-sm">
+    Select employees, choose an induction activity, fill the schedule,
+    and send personalized emails automatically from HRMS.
+  </p>
+</div>
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
@@ -877,9 +874,9 @@ ${companyName}`;
                 This preview follows the exact template and updates as you fill
                 the form.
               </p>
-              <pre className="mt-4 overflow-x-auto rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-slate-100 md:text-sm">
-                {previewText}
-              </pre>
+          <pre className="mt-4 overflow-x-auto rounded-2xl bg-white p-5 text-sm leading-7 text-black border border-gray-300 shadow-sm">
+  {previewText}
+</pre>
             </section>
 
             {lastResult && (

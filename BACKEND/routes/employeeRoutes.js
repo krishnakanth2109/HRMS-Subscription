@@ -434,12 +434,88 @@ router.put("/:id", protect, async (req, res) => {
     const query = { employeeId: req.params.id };
     if (isAdmin) query.adminId = req.user._id;
 
+    // Optional: detect email changes to track the previous email
+    const existingEmployee = await Employee.findOne(query);
+    if (!existingEmployee) return res.status(404).json({ error: "Employee not found" });
+
+    // If email is provided and it differs from the current one, save the old email
+    if (req.body.email && req.body.email.toLowerCase() !== existingEmployee.email.toLowerCase()) {
+      req.body.previousEmail = existingEmployee.email;
+    }
+
     const updated = await Employee.findOneAndUpdate(query, req.body, { new: true });
-
-    if (!updated) return res.status(404).json({ error: "Employee not found" });
-
     res.json(updated);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Acknowledge and clear previous email showing after employee sees popup
+router.patch("/:id/clear-old-email", protect, async (req, res) => {
+  try {
+    // Only the employee themself should acknowledge this
+    if (req.user.employeeId !== req.params.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const updated = await Employee.findOneAndUpdate(
+      { employeeId: req.params.id },
+      { $set: { previousEmail: null } },
+      { new: true }
+    );
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==============================================================
+ 🔑 CHANGE EMPLOYEE PASSWORD — ADMIN ONLY
+    PATCH /api/employees/:id/change-password
+
+    WHY a dedicated route instead of reusing PUT /:id?
+    The PUT route uses findOneAndUpdate() which BYPASSES Mongoose's
+    pre('save') hook — that is where bcrypt hashing happens.
+    Sending a plain password through PUT would store it in plain text.
+    This route fetches the document and calls .save() so the hash
+    fires correctly every time.
+
+    Security:
+    - protect    → valid JWT required
+    - onlyAdmin  → employees cannot call this on themselves or others
+    - adminId scoping → admin can only change passwords for their own employees
+============================================================== */
+router.patch("/:id/change-password", protect, onlyAdmin, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+
+    // ── 1. Validate input ─────────────────────────────────────────
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.status(400).json({ message: "newPassword is required." });
+    }
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long.",
+      });
+    }
+
+    // ── 2. Find the employee (must belong to this admin) ──────────
+    const employee = await Employee.findOne({
+      employeeId: req.params.id,
+      adminId: req.user._id,
+    }).select("+password");
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found." });
+    }
+
+    // ── 3. Set new password — triggers bcrypt pre-save hook ───────
+    employee.password = newPassword.trim();
+    await employee.save();
+
+    res.status(200).json({ message: "Password changed successfully." });
+  } catch (err) {
+    console.error("❌ Change employee password error:", err);
     res.status(500).json({ error: err.message });
   }
 });

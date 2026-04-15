@@ -64,6 +64,7 @@ const EmployeeSchema = new mongoose.Schema({
   employeeId: { type: String, required: true, unique: true }, // e.g., PRE-001
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
+  previousEmail: { type: String, default: null },
   password: {
     type: String,
     minlength: 6,
