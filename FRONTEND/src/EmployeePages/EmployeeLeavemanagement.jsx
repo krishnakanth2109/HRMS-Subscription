@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Swal from "sweetalert2"; // ✅ ADDED: SweetAlert import
-import {
+import api, {
   getLeaveRequestsForEmployee,
   applyForLeave,
   cancelLeaveRequestById,
@@ -14,7 +14,7 @@ import {
   getShiftByEmployeeId // ✅ ADDED: To get week off days
 } from "../api";
 
-const REASON_LIMIT = 100; // Max characters for reason input
+const REASON_LIMIT = 1000; // Max characters for reason input
 
 // --- LEAVE YEAR CONFIGURATION ---
 const LEAVE_YEAR_START_MONTH = 1; // Jan
@@ -211,6 +211,7 @@ const EmployeeLeavemanagement = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+  const [isOptimizing, setIsOptimizing] = useState(false);
   
   // Sandwich leave warning state
   const [sandwichWarning, setSandwichWarning] = useState(null);
@@ -777,63 +778,54 @@ const EmployeeLeavemanagement = () => {
     return false;
   }, [stats.pendingLeaves, shiftDetails, holidays]);
 
-  // Handle input changes with auto-reset & min date logic
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setForm((prev) => {
-      let updated = {
-        ...prev,
-        [name]: name === "reason" ? value.slice(0, REASON_LIMIT) : value,
-      };
+    let updated = {
+      ...form,
+      [name]: name === "reason" ? value.slice(0, REASON_LIMIT) : value,
+    };
 
-      // Prevent selecting past dates beyond the allowed minSelectionDate
-      if (name === "from" && value < minSelectionDate) {
-        updated.from = minSelectionDate;
-      }
-      if (name === "to" && value < minSelectionDate) {
-        updated.to = minSelectionDate;
-      }
+    // Prevent selecting past dates beyond the allowed minSelectionDate
+    if (name === "from" && value < minSelectionDate) {
+      updated.from = minSelectionDate;
+    }
+    if (name === "to" && value < minSelectionDate) {
+      updated.to = minSelectionDate;
+    }
 
-      // Auto-reset To when From changes
-      if (name === "from") {
-        if (updated.to && updated.to < value) {
-          updated.to = value;
-        }
-      }
+    // Auto-reset To when From changes
+    if (name === "from" && updated.to && updated.to < value) {
+      updated.to = value;
+    }
 
-      // Auto-correct To if user manually picks older than From
-      if (name === "to") {
-        if (updated.from && value < updated.from) {
-          updated.to = updated.from;
-        }
-      }
+    // Auto-correct To if user manually picks older than From
+    if (name === "to" && updated.from && value < updated.from) {
+      updated.to = updated.from;
+    }
 
-      // Reset halfDaySession if date range is > 1 day
-      if (updated.from && updated.to && updated.from !== updated.to) {
-        updated.halfDaySession = ""; 
-      }
+    // Reset halfDaySession if date range is > 1 day
+    if (updated.from && updated.to && updated.from !== updated.to) {
+      updated.halfDaySession = ""; 
+    }
 
+    setForm(updated);
+
+    // Only run expensive date overlapping checks if we changed dates/types, NOT when typing the reason!
+    if (name !== "reason") {
       const fromDate = updated.from;
       const toDate = updated.to;
 
       if (fromDate && toDate) {
-        // Check for sandwich warnings
         checkForSandwichLeave(fromDate, toDate);
         checkColleagueOverlaps(fromDate, toDate);
-        // Check for LOP warning
-        const hasLOPWarning = checkLOPWarning(fromDate, toDate);
-        if (hasLOPWarning) {
-          // Don't show LOP warning yet, wait for submit
-        }
+        checkLOPWarning(fromDate, toDate);
       } else {
         setSandwichWarning(null);
         setOverlappingColleagues([]);
         setShowLOPWarning(false);
       }
-
-      return updated;
-    });
+    }
 
     setSubmitError("");
     setSubmitSuccess("");
@@ -933,6 +925,33 @@ const EmployeeLeavemanagement = () => {
       setSandwichWarning(null);
     }
   }, [filteredLeaveList, holidays, selectedMonth, form.halfDaySession, form.from, form.to, shiftDetails]);
+
+  // ✅ ADDED: Optimize reason using Gemini API
+  const handleOptimizeReason = async () => {
+    if (!form.reason) return;
+    setIsOptimizing(true);
+    try {
+      const response = await api.post("/api/ai/optimize-reason", { reason: form.reason });
+      const data = response.data;
+      
+      if (data.optimizedReason) {
+        setForm(prev => ({
+          ...prev,
+          reason: data.optimizedReason.slice(0, REASON_LIMIT)
+        }));
+      }
+    } catch (err) {
+      console.error("Error optimizing reason:", err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Optimization Failed',
+        text: err.message || 'Could not optimize the reason. Please try again later.',
+        confirmButtonColor: '#d33'
+      });
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
 
   // ✅ UPDATED: Submit leave with LOP check
   const handleSubmit = async (e) => {
@@ -1696,7 +1715,18 @@ const EmployeeLeavemanagement = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-            onClick={() => setModalOpen(false)}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                e.currentTarget.dataset.clickedOnBackdrop = "true";
+              } else {
+                delete e.currentTarget.dataset.clickedOnBackdrop;
+              }
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && e.currentTarget.dataset.clickedOnBackdrop === "true") {
+                setModalOpen(false);
+              }
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1839,15 +1869,37 @@ const EmployeeLeavemanagement = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Reason <span className="text-gray-400 text-xs">({form.reason.length}/{REASON_LIMIT})</span>
                   </label>
-                  <input
-                    type="text"
+                  <textarea
                     name="reason"
                     value={form.reason}
                     onChange={handleChange}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                      }
+                    }}
                     maxLength={REASON_LIMIT}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                    rows={3}
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200 resize-none"
                     placeholder="Brief reason for your leave"
                   />
+                  {form.reason && (
+                    <button
+                      type="button"
+                      onClick={handleOptimizeReason}
+                      disabled={isOptimizing}
+                      className="mt-2 text-sm flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors disabled:opacity-50"
+                    >
+                      {isOptimizing ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-purple-700 border-t-transparent rounded-full animate-spin"></div>
+                          Optimizing...
+                        </>
+                      ) : (
+                        <>✨ AI Generate</>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {submitError && (

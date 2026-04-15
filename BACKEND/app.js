@@ -39,6 +39,8 @@ import mailRoutes from "./routes/mailRoutes.js";
 import issueRoutes from "./routes/issueRoutes.js";
 import offerLetterRoutes from "./routes/offerLetterRoutes.js";
 import offerResponseRoutes from "./routes/offerResponseRoutes.js";
+import inductionRoutes from "./routes/inductionRoutes.js";
+
 
 /* ==================== 🔹 STRIPE IMPORTS ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
@@ -47,6 +49,7 @@ import masterRoutes from "./routes/masterRoutes.js";
 import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -220,6 +223,9 @@ app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
 app.use('/api/payroll', payrollcandidatesRoutes);
 app.use('/api/doc-verification', documentVerificationRoutes);
+app.use('/api/ai', aiRoutes);
+app.use("/api/induction", inductionRoutes);
+
 
 /* ==================== 🔹 STRIPE ROUTES ==================== */
 app.use("/api/stripe", stripeRoutes);

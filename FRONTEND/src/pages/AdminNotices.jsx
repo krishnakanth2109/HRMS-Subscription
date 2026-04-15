@@ -1,7 +1,7 @@
 // --- START OF FILE AdminNotices.jsx ---
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { getAllNoticesForAdmin, addNotice, getEmployees, deleteNoticeById, updateNotice, sendAdminReplyWithImage } from "../api";
+import { getAllNoticesForAdmin, addNotice, getEmployees, deleteNoticeById, updateNotice, sendAdminReplyWithImage, generateAnnouncementAI } from "../api";
 import api from "../api";
 import Swal from 'sweetalert2';
 import {
@@ -43,6 +43,7 @@ const AdminNotices = () => {
   const [notices, setNotices] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
 
   const [employeeWorkingStatus, setEmployeeWorkingStatus] = useState({});
 
@@ -401,6 +402,29 @@ const AdminNotices = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setNoticeData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // ✅ AI Auto-fill for Announcement Description
+  const handleAiDescription = async () => {
+    // Only auto-fill if title exists and description is mostly empty
+    if (!noticeData.title || noticeData.title.length < 5) return;
+    if (noticeData.description && noticeData.description.length > 20 && !window.confirm("Do you want to overwrite your existing description with AI-generated text?")) return;
+
+    setIsAiGenerating(true);
+    try {
+      const { description } = await generateAnnouncementAI(noticeData.title);
+      if (description) {
+        setNoticeData(prev => ({
+          ...prev,
+          description: description
+        }));
+      }
+    } catch (error) {
+      console.error("AI Generation Error:", error);
+      // Silent error or small notification? Non-critical, so we'll just log it.
+    } finally {
+      setIsAiGenerating(false);
+    }
   };
 
   const toggleEmployeeSelection = (employeeId) => {
@@ -1355,21 +1379,54 @@ Meeting Link: ${meetingLink}`;
               ) : (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Title</label></div>
-                  <input type="text" name="title" placeholder="Enter announcement title..." value={noticeData.title} onChange={handleChange} className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required autoFocus />
+                  <input 
+                    type="text" 
+                    name="title" 
+                    placeholder="Enter announcement title..." 
+                    value={noticeData.title} 
+                    onChange={handleChange} 
+                    onBlur={handleAiDescription}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required autoFocus 
+                  />
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</label></div>
-                <textarea
-                  name="description"
-                  placeholder="Write your details here..."
-                  value={noticeData.description}
-                  onChange={handleChange}
-
-                  className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm h-32 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm ${isMeetingMode ? 'bg-gray-100 text-gray-600' : ''}`}
-                  required
-                />
+              <div className="space-y-1.5 relative">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-sm"></div>
+                    <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</label>
+                  </div>
+                  {noticeData.title.length >= 5 && !isMeetingMode && (
+                    <button 
+                      type="button" 
+                      onClick={(e) => { e.preventDefault(); handleAiDescription(); }} 
+                      disabled={isAiGenerating}
+                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-100 transition-all hover:shadow-sm"
+                    >
+                      <FaRobot className={isAiGenerating ? "animate-bounce" : ""} /> 
+                      {isAiGenerating ? 'Generating...' : 'Magic Write'}
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <textarea
+                    name="description"
+                    placeholder="Write your details here..."
+                    value={noticeData.description}
+                    onChange={handleChange}
+                    className={`w-full border border-gray-300 rounded-lg px-4 py-3 text-sm h-48 focus:outline-none focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm ${isMeetingMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                    required
+                  />
+                  {isAiGenerating && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[1px] rounded-lg z-10">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+                        <span className="text-xs font-bold text-emerald-700 animate-pulse">Crafting Announcement...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5"><div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-violet-500 to-violet-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Audience</label></div><div className="grid grid-cols-3 gap-2"><button type="button" onClick={() => setNoticeData(prev => ({ ...prev, sendTo: 'ALL', selectedGroupId: null }))} className={`p-2 rounded-lg border transition-all duration-200 text-center flex flex-col items-center justify-center gap-1 h-20 group ${noticeData.sendTo === 'ALL' ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-gray-300 hover:border-blue-300'}`}><div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${noticeData.sendTo === 'ALL' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{noticeData.sendTo === 'ALL' ? <FaCheck size={10} /> : <FaUsers size={12} />}</div><span className={`text-[10px] font-bold ${noticeData.sendTo === 'ALL' ? 'text-blue-700' : 'text-gray-600'}`}>All Employees</span></button><button type="button" onClick={() => setNoticeData(prev => ({ ...prev, sendTo: 'GROUP', recipients: [] }))} className={`p-2 rounded-lg border transition-all duration-200 text-center flex flex-col items-center justify-center gap-1 h-20 group ${noticeData.sendTo === 'GROUP' ? 'bg-indigo-50 border-indigo-300 shadow-sm' : 'bg-white border-gray-300 hover:border-indigo-300'}`}><div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${noticeData.sendTo === 'GROUP' ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{noticeData.sendTo === 'GROUP' ? <FaCheck size={10} /> : <FaLayerGroup size={12} />}</div><span className={`text-[10px] font-bold ${noticeData.sendTo === 'GROUP' ? 'text-indigo-700' : 'text-gray-600'}`}>Group Sending</span></button><button type="button" onClick={() => setNoticeData(prev => ({ ...prev, sendTo: 'SPECIFIC', selectedGroupId: null }))} className={`p-2 rounded-lg border transition-all duration-200 text-center flex flex-col items-center justify-center gap-1 h-20 group ${noticeData.sendTo === 'SPECIFIC' ? 'bg-purple-50 border-purple-300 shadow-sm' : 'bg-white border-gray-300 hover:border-purple-300'}`}><div className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${noticeData.sendTo === 'SPECIFIC' ? 'bg-purple-500 text-white' : 'bg-gray-200 text-gray-500'}`}>{noticeData.sendTo === 'SPECIFIC' ? <FaCheck size={10} /> : <FaUserTag size={12} />}</div><span className={`text-[10px] font-bold ${noticeData.sendTo === 'SPECIFIC' ? 'text-purple-700' : 'text-gray-600'}`}>Specific</span></button></div></div>

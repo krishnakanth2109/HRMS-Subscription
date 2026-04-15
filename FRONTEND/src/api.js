@@ -173,6 +173,11 @@ export const updateNotice = async (id, data) =>
 export const deleteNoticeById = async (id) =>
   (await api.delete(`/api/notices/${id}`)).data;
 
+export const generateAnnouncementAI = async (title) => {
+  const res = await api.post("/api/ai/generate-announcement", { title });
+  return res.data;
+};
+
 export const sendAdminReplyWithImage = async (noticeId, formData) => {
   try {
     const response = await api.post(`/api/notices/${noticeId}/admin-reply`, formData, {

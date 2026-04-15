@@ -40,10 +40,7 @@ const getSecureUrl = (url) => {
   return url;
 };
 
-<<<<<<< HEAD
-=======
 
->>>>>>> d81fe4b4ce564b3d78169b8bdb4290777cb4b7fc
 // Helper: Get Department (Prioritize root, then experience)
 const getCurrentDepartment = (employee) => {
   if (employee.currentDepartment) return employee.currentDepartment;
@@ -523,6 +520,23 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
+  const handleOptimize = async () => {
+    if (!reason.trim()) return;
+    setIsOptimizing(true);
+    try {
+      const res = await api.post("/api/ai/optimize-reason", { reason });
+      if (res.data && res.data.optimizedReason) {
+        setReason(res.data.optimizedReason);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Optimization failed. Please check Gemini API key.");
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
 
   useEffect(() => {
     if (open) {
@@ -570,11 +584,22 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
             </label>
             <textarea
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={(e) => setReason(e.target.value.slice(0, 1000))}
               className="border border-gray-300 px-3 py-2 rounded w-full mt-1"
               rows={3}
+              maxLength={1000}
               required
             />
+            <div className="flex justify-start mt-2">
+              <button
+                type="button"
+                onClick={handleOptimize}
+                disabled={isOptimizing || !reason.trim()}
+                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-medium"
+              >
+                {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
+              </button>
+            </div>
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2 justify-end mt-4">
@@ -602,6 +627,24 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [isOptimizing, setIsOptimizing] = useState(false);
+
+  const handleOptimize = async () => {
+    if (!reason.trim()) return;
+    setIsOptimizing(true);
+    try {
+      const res = await api.post("/api/ai/optimize-reason", { reason });
+      if (res.data && res.data.optimizedReason) {
+        setReason(res.data.optimizedReason);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Optimization failed. Please check Gemini API key.");
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
   useEffect(() => {
     if (open) {
       setDate(new Date().toISOString().split("T")[0]);
@@ -641,11 +684,22 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
             </label>
             <textarea
               value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              onChange={(e) => setReason(e.target.value.slice(0, 1000))}
               className="border border-gray-300 px-3 py-2 rounded w-full mt-1"
               rows={3}
+              maxLength={1000}
               required
             />
+            <div className="flex justify-start mt-2">
+              <button
+                type="button"
+                onClick={handleOptimize}
+                disabled={isOptimizing || !reason.trim()}
+                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-medium"
+              >
+                {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
+              </button>
+            </div>
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2 justify-end mt-4">
