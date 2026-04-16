@@ -261,58 +261,62 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     let pf = n(comp.pf) * 12;
     let basic = n(comp.basic_salary) * 12; // monthly → annual
 
-    // ── ALWAYS Calculate from the latest CURRENT Payroll Rules ──────────
-    // As per user request: "when we change the rules these offer letter rules [change]"
-    console.log("📋 Calculating offer letter breakdown dynamically from current Payroll Rules");
+    // ALWAYS use latest Payroll Rules — respects zero values from admin settings
+    console.log("📋 Offer letter: fetching live Payroll Rules for admin", adminId);
     let rules = await PayrollRule.findOne({ adminId });
     if (!rules) {
+      // Hard-coded fallbacks only when NO rules document exists at all
       rules = {
-        basicPercentage: 40, 
-        hraPercentage: 40,
-        conveyance: 1600, 
-        medical: 1250,
-        travellingAllowance: 800, 
-        otherAllowance: 1000,
-        pfCalculationMethod: 'percentage', 
-        pfPercentage: 12,
+        basicPercentage: 40, hraPercentage: 40,
+        conveyance: 1600, medical: 1250,
+        travellingAllowance: 800, otherAllowance: 1000,
+        pfCalculationMethod: 'percentage', pfPercentage: 12,
         pfFixedAmountEmployee: 0,
         ptSlab1Limit: 15000, ptSlab2Limit: 20000,
         ptSlab1Amount: 150, ptSlab2Amount: 200
       };
+    } else {
+      console.log("✅ Live Payroll Rules:", JSON.stringify({
+        basicPercentage: rules.basicPercentage, hraPercentage: rules.hraPercentage,
+        conveyance: rules.conveyance, medical: rules.medical,
+        travellingAllowance: rules.travellingAllowance, otherAllowance: rules.otherAllowance,
+        pfPercentage: rules.pfPercentage
+      }));
     }
 
     if (basic === 0 && ctc > 0) {
-      const basicAnnual = Math.round(ctc * (rules.basicPercentage !== undefined ? rules.basicPercentage : 40) / 100);
+      // Use ?? not || so that basicPercentage=0 from rules is respected
+      const basicAnnual = Math.round(ctc * (rules.basicPercentage ?? 40) / 100);
       basic = Math.round(basicAnnual / 12) * 12;
     }
 
-    let hra = Math.round((basic / 12) * (rules.hraPercentage !== undefined ? rules.hraPercentage : 40) / 100) * 12;
-    let conveyance = (rules.conveyance !== undefined ? rules.conveyance : 1600) * 12;
-    let medical = (rules.medical !== undefined ? rules.medical : 1250) * 12;
-    let travel = (rules.travellingAllowance !== undefined ? rules.travellingAllowance : 0) * 12;
-    let other = (rules.otherAllowance !== undefined ? rules.otherAllowance : 0) * 12;
+    // Use ?? (nullish coalescing) so that 0 values from Payroll Rules are respected
+    let hra = Math.round((basic / 12) * (rules.hraPercentage ?? 40) / 100) * 12;
+    let conveyance = (rules.conveyance ?? 1600) * 12;
+    let medical = (rules.medical ?? 1250) * 12;
+    let travel = (rules.travellingAllowance ?? 0) * 12;
+    let other = (rules.otherAllowance ?? 0) * 12;
 
-    let special = ctc - basic - hra - conveyance - medical - travel - other;
-    if (special < 0) special = 0;
+    let special = 0;
 
     let gross = basic + hra + conveyance + medical + travel + other + special;
     if (gross === 0) gross = ctc;
 
     if (pf === 0 && basic > 0) {
       if (rules.pfCalculationMethod === 'fixed') {
-        pf = (rules.pfFixedAmountEmployee || 0) * 12;
+        pf = (rules.pfFixedAmountEmployee ?? 0) * 12;
       } else {
-        pf = Math.round((basic / 12) * (rules.pfPercentage || 12) / 100) * 12;
+        pf = Math.round((basic / 12) * (rules.pfPercentage ?? 12) / 100) * 12;
       }
     }
 
     if (pt === 0 && gross > 0) {
       const grossMonthly = Math.round(gross / 12);
       let ptMonthly = 0;
-      if (grossMonthly > (rules.ptSlab2Limit || 20000)) {
-        ptMonthly = rules.ptSlab2Amount || 200;
-      } else if (grossMonthly > (rules.ptSlab1Limit || 15000)) {
-        ptMonthly = rules.ptSlab1Amount || 150;
+      if (grossMonthly > (rules.ptSlab2Limit ?? 20000)) {
+        ptMonthly = rules.ptSlab2Amount ?? 200;
+      } else if (grossMonthly > (rules.ptSlab1Limit ?? 15000)) {
+        ptMonthly = rules.ptSlab1Amount ?? 150;
       }
       pt = ptMonthly * 12;
     }

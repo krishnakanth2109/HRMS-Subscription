@@ -131,32 +131,34 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
     const calculateFromRules = useCallback((ctcAnnual, rules) => {
         if (!rules || !ctcAnnual || ctcAnnual <= 0) return {};
 
-        const basicAnnual = Math.round(ctcAnnual * (rules.basicPercentage || 40) / 100);
+        // Use ?? (nullish coalescing) so that 0 values saved in Payroll Rules are respected.
+        // Using || would treat 0 as falsy and incorrectly fall back to the default.
+        const basicAnnual = Math.round(ctcAnnual * (rules.basicPercentage ?? 40) / 100);
         const basicMonthly = Math.round(basicAnnual / 12);
-        const hraMonthly = Math.round(basicMonthly * (rules.hraPercentage || 40) / 100);
-        const conveyance = rules.conveyance || 1600;
-        const medical = rules.medical || 1250;
-        const travellingAllowance = rules.travellingAllowance || 800;
-        const otherAllowance = rules.otherAllowance || 1000;
+        const hraMonthly = Math.round(basicMonthly * (rules.hraPercentage ?? 40) / 100);
+        const conveyance = rules.conveyance ?? 1600;
+        const medical = rules.medical ?? 1250;
+        const travellingAllowance = rules.travellingAllowance ?? 800;
+        const otherAllowance = rules.otherAllowance ?? 1000;
 
         const grossMonthly = basicMonthly + hraMonthly + conveyance + medical + travellingAllowance + otherAllowance;
 
-        // PF Calculation
+        // PF Calculation - ?? ensures pfPercentage of 0 is respected
         let pfMonthly = 0;
         if (rules.pfCalculationMethod === 'fixed') {
-            pfMonthly = rules.pfFixedAmountEmployee || 0;
+            pfMonthly = rules.pfFixedAmountEmployee ?? 0;
         } else {
-            pfMonthly = Math.round(basicMonthly * (rules.pfPercentage || 12) / 100);
+            pfMonthly = Math.round(basicMonthly * (rules.pfPercentage ?? 12) / 100);
         }
 
         // PT Calculation based on slabs
         let ptMonthly = 0;
-        const ptSlab1Limit = rules.ptSlab1Limit || 15000;
-        const ptSlab2Limit = rules.ptSlab2Limit || 20000;
+        const ptSlab1Limit = rules.ptSlab1Limit ?? 15000;
+        const ptSlab2Limit = rules.ptSlab2Limit ?? 20000;
         if (grossMonthly > ptSlab2Limit) {
-            ptMonthly = rules.ptSlab2Amount || 200;
+            ptMonthly = rules.ptSlab2Amount ?? 200;
         } else if (grossMonthly > ptSlab1Limit) {
-            ptMonthly = rules.ptSlab1Amount || 150;
+            ptMonthly = rules.ptSlab1Amount ?? 150;
         }
 
         return {
