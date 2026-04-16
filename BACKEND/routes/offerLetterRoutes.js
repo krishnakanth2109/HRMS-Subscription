@@ -261,77 +261,63 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     let pf = n(comp.pf) * 12;
     let basic = n(comp.basic_salary) * 12; // monthly → annual
 
-    // Check if this employee already has a frozen/saved breakdown
-    // (saved at creation time so payroll rule changes don't affect it)
-    const hasFrozenBreakdown = n(comp.hra) > 0 || n(comp.conveyance) > 0 || n(comp.gross_salary) > 0;
-
-    let hra, conveyance, medical, special, gross, net;
-
-    if (hasFrozenBreakdown) {
-      // ── USE FROZEN VALUES (saved at creation time) ──────────────
-      console.log("📋 Using FROZEN salary breakdown (saved at creation time)");
-      hra = n(comp.hra) * 12;
-      conveyance = n(comp.conveyance) * 12;
-      medical = n(comp.medical_allowance) * 12;
-      special = n(comp.special_allowance) * 12;
-      gross = n(comp.gross_salary) * 12;
-      net = n(comp.net_salary) * 12;
-      if (net === 0 && gross > 0) net = gross - pt - pf;
-    } else {
-      // ── FALLBACK: Calculate from current payroll rules ──────────
-      // (for old employees created before this feature)
-      console.log("📋 No frozen breakdown found, calculating from current payroll rules");
-      let rules = await PayrollRule.findOne({ adminId });
-      if (!rules) {
-        rules = {
-          basicPercentage: 40, hraPercentage: 40,
-          conveyance: 1600, medical: 1250,
-          travellingAllowance: 800, otherAllowance: 1000,
-          pfCalculationMethod: 'percentage', pfPercentage: 12,
-          pfFixedAmountEmployee: 0,
-          ptSlab1Limit: 15000, ptSlab2Limit: 20000,
-          ptSlab1Amount: 150, ptSlab2Amount: 200
-        };
-      }
-
-      if (basic === 0 && ctc > 0) {
-        const basicAnnual = Math.round(ctc * (rules.basicPercentage || 40) / 100);
-        basic = Math.round(basicAnnual / 12) * 12;
-      }
-
-      hra = Math.round((basic / 12) * (rules.hraPercentage || 40) / 100) * 12;
-      conveyance = (rules.conveyance || 1600) * 12;
-      medical = (rules.medical || 1250) * 12;
-
-      const travelAnnual = (rules.travellingAllowance || 0) * 12;
-      const otherAnnual = (rules.otherAllowance || 0) * 12;
-      special = ctc - basic - hra - conveyance - medical - travelAnnual - otherAnnual;
-      if (special < 0) special = 0;
-
-      gross = basic + hra + conveyance + medical + special;
-      if (gross === 0) gross = ctc;
-
-      if (pf === 0 && basic > 0) {
-        if (rules.pfCalculationMethod === 'fixed') {
-          pf = (rules.pfFixedAmountEmployee || 0) * 12;
-        } else {
-          pf = Math.round((basic / 12) * (rules.pfPercentage || 12) / 100) * 12;
-        }
-      }
-
-      if (pt === 0 && gross > 0) {
-        const grossMonthly = Math.round(gross / 12);
-        let ptMonthly = 0;
-        if (grossMonthly > (rules.ptSlab2Limit || 20000)) {
-          ptMonthly = rules.ptSlab2Amount || 200;
-        } else if (grossMonthly > (rules.ptSlab1Limit || 15000)) {
-          ptMonthly = rules.ptSlab1Amount || 150;
-        }
-        pt = ptMonthly * 12;
-      }
-
-      net = gross - pt - pf;
+    // ── ALWAYS Calculate from the latest CURRENT Payroll Rules ──────────
+    // As per user request: "when we change the rules these offer letter rules [change]"
+    console.log("📋 Calculating offer letter breakdown dynamically from current Payroll Rules");
+    let rules = await PayrollRule.findOne({ adminId });
+    if (!rules) {
+      rules = {
+        basicPercentage: 40, 
+        hraPercentage: 40,
+        conveyance: 1600, 
+        medical: 1250,
+        travellingAllowance: 800, 
+        otherAllowance: 1000,
+        pfCalculationMethod: 'percentage', 
+        pfPercentage: 12,
+        pfFixedAmountEmployee: 0,
+        ptSlab1Limit: 15000, ptSlab2Limit: 20000,
+        ptSlab1Amount: 150, ptSlab2Amount: 200
+      };
     }
+
+    if (basic === 0 && ctc > 0) {
+      const basicAnnual = Math.round(ctc * (rules.basicPercentage !== undefined ? rules.basicPercentage : 40) / 100);
+      basic = Math.round(basicAnnual / 12) * 12;
+    }
+
+    let hra = Math.round((basic / 12) * (rules.hraPercentage !== undefined ? rules.hraPercentage : 40) / 100) * 12;
+    let conveyance = (rules.conveyance !== undefined ? rules.conveyance : 1600) * 12;
+    let medical = (rules.medical !== undefined ? rules.medical : 1250) * 12;
+    let travel = (rules.travellingAllowance !== undefined ? rules.travellingAllowance : 0) * 12;
+    let other = (rules.otherAllowance !== undefined ? rules.otherAllowance : 0) * 12;
+
+    let special = ctc - basic - hra - conveyance - medical - travel - other;
+    if (special < 0) special = 0;
+
+    let gross = basic + hra + conveyance + medical + travel + other + special;
+    if (gross === 0) gross = ctc;
+
+    if (pf === 0 && basic > 0) {
+      if (rules.pfCalculationMethod === 'fixed') {
+        pf = (rules.pfFixedAmountEmployee || 0) * 12;
+      } else {
+        pf = Math.round((basic / 12) * (rules.pfPercentage || 12) / 100) * 12;
+      }
+    }
+
+    if (pt === 0 && gross > 0) {
+      const grossMonthly = Math.round(gross / 12);
+      let ptMonthly = 0;
+      if (grossMonthly > (rules.ptSlab2Limit || 20000)) {
+        ptMonthly = rules.ptSlab2Amount || 200;
+      } else if (grossMonthly > (rules.ptSlab1Limit || 15000)) {
+        ptMonthly = rules.ptSlab1Amount || 150;
+      }
+      pt = ptMonthly * 12;
+    }
+
+    let net = gross - pt - pf;
 
     const joiningFormatted = emp.joining_date
       ? new Date(emp.joining_date).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -386,6 +372,8 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
             <tr><td style="border: 1px solid #000; padding: 4px 6px;">HRA</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(hra / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${hra}.00</td></tr>
             <tr><td style="border: 1px solid #000; padding: 4px 6px;">Conveyance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(conveyance / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${conveyance}.00</td></tr>
             <tr><td style="border: 1px solid #000; padding: 4px 6px;">Medical Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(medical / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${medical}.00</td></tr>
+            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Travelling Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(travel / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${travel}.00</td></tr>
+            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Other Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(other / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${other}.00</td></tr>
             <tr><td style="border: 1px solid #000; padding: 4px 6px;">Special Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(special / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${special}.00</td></tr>
             <tr><td colspan="3" style="padding: 2px; border: 1px solid #000; border-bottom: none; border-top: none;">&nbsp;</td></tr>
             <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 4px 6px;"><strong>Gross Amount</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${Math.round(gross / 12)}.00</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${gross}.00</strong></td></tr>
