@@ -434,17 +434,35 @@ router.put("/:id", protect, async (req, res) => {
     const query = { employeeId: req.params.id };
     if (isAdmin) query.adminId = req.user._id;
 
-    if (req.body.email) {
-      const existingEmployee = await Employee.findOne(query);
-      if (existingEmployee && existingEmployee.email.toLowerCase() !== req.body.email.toLowerCase()) {
-        req.body.previousEmail = existingEmployee.email.toLowerCase();
-      }
+    // Optional: detect email changes to track the previous email
+    const existingEmployee = await Employee.findOne(query);
+    if (!existingEmployee) return res.status(404).json({ error: "Employee not found" });
+
+    // If email is provided and it differs from the current one, save the old email
+    if (req.body.email && req.body.email.toLowerCase() !== existingEmployee.email.toLowerCase()) {
+      req.body.previousEmail = existingEmployee.email;
     }
 
     const updated = await Employee.findOneAndUpdate(query, req.body, { new: true });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    if (!updated) return res.status(404).json({ error: "Employee not found" });
+// Acknowledge and clear previous email showing after employee sees popup
+router.patch("/:id/clear-old-email", protect, async (req, res) => {
+  try {
+    // Only the employee themself should acknowledge this
+    if (req.user.employeeId !== req.params.id) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
 
+    const updated = await Employee.findOneAndUpdate(
+      { employeeId: req.params.id },
+      { $set: { previousEmail: null } },
+      { new: true }
+    );
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });

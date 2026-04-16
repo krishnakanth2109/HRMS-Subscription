@@ -70,7 +70,7 @@ router.put('/rules', safeAdminCheck, async (req, res) => {
 // SAVE BATCH (Admin Only)
 router.post('/save-batch', safeAdminCheck, async (req, res) => {
   try {
-    const { records, period } = req.body;
+    const { records, period, templateUrl } = req.body;
     if (!records || !Array.isArray(records)) return res.status(400).json({ message: 'No records' });
 
     const monthIdentifier = period.start.substring(0, 7); 
@@ -86,14 +86,16 @@ router.post('/save-batch', safeAdminCheck, async (req, res) => {
         update: {
           $set: {
             adminId: req.user._id,
-            companyId: record.companyId || safeCompanyId, // ✅ FIX: Safe fallback
+            companyId: record.companyId || safeCompanyId,
             employeeName: record.employeeName,
             role: record.role,
             payPeriod: { startDate: period.start, endDate: period.end, monthIdentifier },
             attendanceSummary: record.attendanceSummary,
             salaryDetails: record.salaryDetails,
             breakdown: record.breakdown,
-            monthlyBreakdown: record.monthlyBreakdown
+            monthlyBreakdown: record.monthlyBreakdown,
+            // ✅ Save the admin-selected letterhead template URL
+            templateUrl: templateUrl || null
           }
         },
         upsert: true
@@ -122,7 +124,7 @@ router.get('/record/:employeeId', async (req, res) => {
         return res.status(403).json({message: "Forbidden"});
     }
 
-    const record = await PayrollRecord.findOne({ employeeId, 'payPeriod.monthIdentifier': month });
+    const record = await PayrollRecord.findOne({ employeeId, 'payPeriod.monthIdentifier': month }).lean();
     if (!record) return res.status(404).json({ message: "No record found." });
 
     res.status(200).json(record);

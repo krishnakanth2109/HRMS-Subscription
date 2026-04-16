@@ -423,16 +423,123 @@ const TemplatePickerModal = ({ onSelect, onClose }) => {
   );
 };
 
-// ✅ NEW: RELEASE PAYSLIP SELECTION MODAL
+// ✅ STEP 2: LETTERHEAD PICKER inside Release flow
+const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, periodEnd }) => {
+  const [templates, setTemplates] = useState([]);
+  const [loadingT, setLoadingT] = useState(true);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  useEffect(() => {
+    getOfferLetterTemplates()
+      .then(data => setTemplates(data || []))
+      .catch(() => {})
+      .finally(() => setLoadingT(false));
+  }, []);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999, backdropFilter: 'blur(6px)'
+    }}>
+      <div style={{
+        background: '#fff', borderRadius: '20px', padding: '32px',
+        width: '92%', maxWidth: '680px', maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.35)'
+      }}>
+        {/* Header */}
+        <div style={{ marginBottom: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#1e293b' }}>🖨️ Select Letterhead</h2>
+              <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
+                Choose a background template for the payslip PDF — <strong>{selectedIds} employee{selectedIds > 1 ? 's' : ''}</strong> • {periodStart} → {periodEnd}
+              </p>
+            </div>
+          </div>
+          <div style={{ marginTop: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 14px', fontSize: '0.8rem', color: '#92400e' }}>
+            💡 The selected template will be stored with the payslips and displayed to employees on their Pay-Slip page.
+          </div>
+        </div>
+
+        {/* Grid */}
+        <div style={{ overflowY: 'auto', flex: 1, marginTop: '16px' }}>
+          {loadingT && <p style={{ textAlign: 'center', color: '#94a3b8', padding: '30px 0' }}>Loading templates...</p>}
+          {!loadingT && templates.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📄</div>
+              <p style={{ color: '#64748b', fontWeight: 600 }}>No templates found</p>
+              <p style={{ color: '#94a3b8', fontSize: '0.82rem' }}>Upload letterheads in Offer Letter → Template Manager first.</p>
+            </div>
+          )}
+          {!loadingT && templates.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))', gap: '14px' }}>
+              {templates.map(t => {
+                const isChosen = selectedTemplate?._id === t._id;
+                return (
+                  <div
+                    key={t._id}
+                    onClick={() => setSelectedTemplate(isChosen ? null : t)}
+                    style={{
+                      border: isChosen ? '2.5px solid #6366f1' : '2px solid #e2e8f0',
+                      borderRadius: '14px', padding: '10px',
+                      cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s',
+                      background: isChosen ? '#eef2ff' : '#f8fafc',
+                      boxShadow: isChosen ? '0 6px 20px rgba(99,102,241,0.2)' : 'none',
+                      transform: isChosen ? 'translateY(-2px)' : 'none',
+                      position: 'relative'
+                    }}
+                  >
+                    {isChosen && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, background: '#6366f1', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800 }}>✓</div>
+                    )}
+                    <div style={{ height: 95, background: '#e2e8f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', overflow: 'hidden' }}>
+                      {/\.(jpg|jpeg|png)$/i.test(t.templateUrl || '') ? (
+                        <img src={t.templateUrl} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                      ) : <span style={{ fontSize: '2.2rem' }}>📄</span>}
+                    </div>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: '0.8rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</p>
+                    {t.companyName && <p style={{ margin: '2px 0 0', fontSize: '0.7rem', color: '#64748b' }}>{t.companyName}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+          <button onClick={() => onSkip()} style={{ padding: '10px 20px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f1f5f9', fontWeight: 600, cursor: 'pointer', fontSize: '0.88rem', color: '#475569' }}>Skip (No Template)</button>
+          <button
+            onClick={() => onSelect(selectedTemplate)}
+            disabled={!selectedTemplate}
+            style={{
+              padding: '10px 28px', borderRadius: '10px', border: 'none',
+              background: selectedTemplate ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : '#e2e8f0',
+              color: selectedTemplate ? '#fff' : '#94a3b8',
+              fontWeight: 700, cursor: selectedTemplate ? 'pointer' : 'not-allowed', fontSize: '0.88rem'
+            }}
+          >{selectedTemplate ? `✅ Use "${selectedTemplate.name}"` : 'Select a Template'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ✅ RELEASE PAYSLIP SELECTION MODAL
 const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, periodEnd, onConfirmRelease }) => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [showLetterhead, setShowLetterhead] = useState(false);
 
   // Reset every time modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedIds(new Set());
       setSearchQuery('');
+      setShowLetterhead(false);
     }
   }, [isOpen]);
 
@@ -475,184 +582,134 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
 
   const handleRelease = () => {
     if (selectedCount === 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'No Employees Selected',
-        text: 'Please select at least one employee to release the payslip.',
-        confirmButtonColor: '#3b82f6',
-      });
+      Swal.fire({ icon: 'warning', title: 'No Employees Selected', text: 'Please select at least one employee to release the payslip.', confirmButtonColor: '#3b82f6' });
       return;
     }
-    onConfirmRelease(payrollData.filter(emp => selectedIds.has(emp.employeeId)));
+    // Go to Step 2 — letterhead picker
+    setShowLetterhead(true);
+  };
+
+  const handleLetterheadSelected = (template) => {
+    setShowLetterhead(false);
+    onConfirmRelease(payrollData.filter(emp => selectedIds.has(emp.employeeId)), template?.templateUrl || null);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+    <>
+      {showLetterhead && (
+        <LetterheadPickerModal
+          selectedIds={selectedCount}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+          onSelect={handleLetterheadSelected}
+          onSkip={() => handleLetterheadSelected(null)}
+        />
+      )}
 
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-6 py-5 flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
-            <p className="text-indigo-200 text-sm mt-0.5">
-              {periodStart} &nbsp;→&nbsp; {periodEnd}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="bg-white/10 hover:bg-white/25 rounded-full p-2 transition-all"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
 
-        {/* Search + Select All bar */}
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by name or ID..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition"
-            />
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-6 py-5 flex items-center justify-between shrink-0">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
+              <p className="text-indigo-200 text-sm mt-0.5">
+                Step 1 of 2 — Select Employees &nbsp;→&nbsp; {periodStart} → {periodEnd}
+              </p>
+            </div>
+            <button onClick={onClose} className="bg-white/10 hover:bg-white/25 rounded-full p-2 transition-all">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* Select All */}
-          <label className="flex items-center gap-2.5 cursor-pointer select-none group">
-            <div
-              onClick={handleSelectAll}
-              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer
-                ${allFilteredSelected
-                  ? 'bg-indigo-600 border-indigo-600'
-                  : someFilteredSelected
-                  ? 'bg-indigo-100 border-indigo-400'
-                  : 'bg-white border-gray-300 group-hover:border-indigo-400'
-                }`}
-            >
-              {allFilteredSelected && (
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          {/* Search + Select All bar */}
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input type="text" placeholder="Search by name or ID..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition" />
+            </div>
+            <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+              <div onClick={handleSelectAll} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${ allFilteredSelected ? 'bg-indigo-600 border-indigo-600' : someFilteredSelected ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-300 group-hover:border-indigo-400' }`}>
+                {allFilteredSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                {someFilteredSelected && !allFilteredSelected && <div className="w-2.5 h-0.5 bg-indigo-600 rounded" />}
+              </div>
+              <span className="text-sm font-semibold text-gray-700">{allFilteredSelected ? 'Deselect All' : 'Select All'}</span>
+              <span className="text-xs text-gray-400">({filteredData.length} shown)</span>
+            </label>
+          </div>
+
+          {/* Employee List */}
+          <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
+            {filteredData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 text-gray-400">
+                <svg className="w-10 h-10 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-              )}
-              {someFilteredSelected && !allFilteredSelected && (
-                <div className="w-2.5 h-0.5 bg-indigo-600 rounded" />
-              )}
-            </div>
-            <span className="text-sm font-semibold text-gray-700">
-              {allFilteredSelected ? 'Deselect All' : 'Select All'}
-            </span>
-            <span className="text-xs text-gray-400">({filteredData.length} shown)</span>
-          </label>
-        </div>
-
-        {/* Employee List */}
-        <div className="overflow-y-auto flex-1 divide-y divide-gray-100">
-          {filteredData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-14 text-gray-400">
-              <svg className="w-10 h-10 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <p className="text-sm font-medium">No employees found</p>
-            </div>
-          ) : filteredData.map((emp) => {
-            const isSelected = selectedIds.has(emp.employeeId);
-            return (
-              <div
-                key={emp.employeeId}
-                onClick={() => handleToggle(emp.employeeId)}
-                className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150
-                  ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
-              >
-                {/* Checkbox */}
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all
-                  ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
-                  {isSelected && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Avatar */}
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all
-                  ${isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'}`}>
-                  {emp.employeeName.charAt(0).toUpperCase()}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{emp.employeeName}</p>
-                  <p className="text-xs text-gray-500">{emp.employeeId} &middot; {emp.role}</p>
-                </div>
-
-                {/* Work badges */}
-                <div className="hidden sm:flex gap-1.5 shrink-0">
-                  <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">F:{emp.fullDays}</span>
-                  <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">H:{emp.halfDays}</span>
-                  {emp.lopDays > 0 && (
-                    <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">LOP:{emp.lopDays}</span>
-                  )}
-                </div>
-
-                {/* Net Pay */}
-                <div className="text-right shrink-0">
-                  <p className={`text-sm font-extrabold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
-                    {formatCurrency(emp.netPayableSalary)}
-                  </p>
-                  <p className="text-[10px] text-gray-400">net pay</p>
-                </div>
+                <p className="text-sm font-medium">No employees found</p>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-white">
-          <div className="flex items-center justify-between mb-4">
-            <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all
-              ${selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-              {selectedCount === 0
-                ? 'No employees selected'
-                : `${selectedCount} employee${selectedCount > 1 ? 's' : ''} selected`}
-            </div>
-            {selectedCount > 0 && (
-              <div className="text-right">
-                <p className="text-xs text-gray-500 font-medium">Total Net Payable</p>
-                <p className="text-lg font-extrabold text-indigo-700">{formatCurrency(totalNetSelected)}</p>
-              </div>
-            )}
+            ) : filteredData.map((emp) => {
+              const isSelected = selectedIds.has(emp.employeeId);
+              return (
+                <div key={emp.employeeId} onClick={() => handleToggle(emp.employeeId)}
+                  className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150 ${ isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent' }`}
+                >
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${ isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300' }`}>
+                    {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </div>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all ${ isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600' }`}>
+                    {emp.employeeName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{emp.employeeName}</p>
+                    <p className="text-xs text-gray-500">{emp.employeeId} &middot; {emp.role}</p>
+                  </div>
+                  <div className="hidden sm:flex gap-1.5 shrink-0">
+                    <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">F:{emp.fullDays}</span>
+                    <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">H:{emp.halfDays}</span>
+                    {emp.lopDays > 0 && <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">LOP:{emp.lopDays}</span>}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className={`text-sm font-extrabold ${ isSelected ? 'text-indigo-700' : 'text-gray-700' }`}>{formatCurrency(emp.netPayableSalary)}</p>
+                    <p className="text-[10px] text-gray-400">net pay</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleRelease}
-              disabled={selectedCount === 0}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow
-                ${selectedCount > 0
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]'
-                  : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-              Release {selectedCount > 0 ? `${selectedCount} Payslip${selectedCount > 1 ? 's' : ''}` : 'Payslips'}
-            </button>
+
+          {/* Footer */}
+          <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${ selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200' }`}>
+                {selectedCount === 0 ? 'No employees selected' : `${selectedCount} employee${selectedCount > 1 ? 's' : ''} selected`}
+              </div>
+              {selectedCount > 0 && (
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 font-medium">Total Net Payable</p>
+                  <p className="text-lg font-extrabold text-indigo-700">{formatCurrency(totalNetSelected)}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
+              <button onClick={handleRelease} disabled={selectedCount === 0}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow ${ selectedCount > 0 ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]' : 'bg-gray-200 text-gray-400 cursor-not-allowed' }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                Next: Choose Letterhead →
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
@@ -1366,8 +1423,8 @@ const PayrollManagement = () => {
     setShowReleaseModal(true);
   };
 
-  // ✅ NEW: Confirm release for selected employees only
-  const handleConfirmRelease = async (selectedRecords) => {
+  // ✅ Confirm release: selectedRecords = employees, templateUrl = chosen letterhead (or null)
+  const handleConfirmRelease = async (selectedRecords, templateUrl) => {
     setShowReleaseModal(false);
 
     // SweetAlert2 confirmation
@@ -1380,7 +1437,8 @@ const PayrollManagement = () => {
             <strong style="font-size:22px;color:#4338CA;">${selectedRecords.length}</strong>
             <span style="color:#4338CA;font-weight:600;"> Employee${selectedRecords.length > 1 ? 's' : ''}</span>
           </div>
-          <p style="color:#6B7280;font-size:12px;">Period: <strong>${summaryStartDate}</strong> → <strong>${summaryEndDate}</strong></p>
+          ${templateUrl ? `<p style="color:#059669;font-size:12px;">🖨️ Template: <strong>${templateUrl.split('/').pop()}</strong></p>` : '<p style="color:#9CA3AF;font-size:12px;">No letterhead selected</p>'}
+          <p style="color:#6B7280;font-size:12px;margin-top:6px;">Period: <strong>${summaryStartDate}</strong> → <strong>${summaryEndDate}</strong></p>
         </div>
       `,
       icon: 'question',
@@ -1394,7 +1452,6 @@ const PayrollManagement = () => {
 
     if (!confirmResult.isConfirmed) return;
 
-    // Show loading Swal
     Swal.fire({
       title: 'Releasing Payslips...',
       html: `<p style="color:#6B7280;font-size:14px;">Saving records for <strong>${selectedRecords.length} employee${selectedRecords.length > 1 ? 's' : ''}</strong>. Please wait.</p>`,
@@ -1408,6 +1465,7 @@ const PayrollManagement = () => {
       const payload = {
         period: { start: summaryStartDate, end: summaryEndDate },
         records: selectedRecords,
+        templateUrl: templateUrl || null,   // ✅ Persist chosen letterhead
       };
 
       await api.post('/api/payroll/save-batch', payload);

@@ -59,7 +59,10 @@ const payrollRecordSchema = new mongoose.Schema(
       medical: Number,
       special: Number,
       total: Number
-    }
+    },
+
+    // Letterhead / Background template chosen by admin at release time
+    templateUrl: { type: String, default: null }
   },
   { timestamps: true }
 );

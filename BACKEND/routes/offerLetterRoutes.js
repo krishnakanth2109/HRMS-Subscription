@@ -937,7 +937,7 @@ router.get("/templates", protect, onlyAdmin, async (req, res) => {
   }
 });
 
-router.get("/templates/fetch", protect, async (req, res) => {
+router.get("/templates/fetch", async (req, res) => {
   try {
     const { url } = req.query;
     if (!url) return res.status(400).send("No URL provided");
