@@ -48,6 +48,9 @@ const Login = () => {
   /* ==================== LOGIN STOPPED STATE ==================== */
   const [loginStoppedData, setLoginStoppedData] = useState(null);
 
+  /* ==================== EMAIL CHANGED STATE ==================== */
+  const [emailChangedData, setEmailChangedData] = useState(null);
+
   /* ==================== EXPIRED PLAN STATE ==================== */
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [expiredAdminDetails, setExpiredAdminDetails] = useState(null);
@@ -114,6 +117,12 @@ const Login = () => {
       if (userData) sessionStorage.setItem("hrmsUser", JSON.stringify(userData));
       
     } catch (err) {
+      // ✅ 401 with emailChanged flag → show email changed modal
+      if (err.response?.status === 401 && err.response?.data?.emailChanged) {
+        setEmailChangedData(err.response.data);
+        setLoading(false);
+        return;
+      }
       // ✅ 403 with loginStopped flag → show login stopped modal
       if (err.response?.status === 403 && err.response?.data?.loginStopped) {
         setLoginStoppedData(err.response.data);
@@ -693,6 +702,41 @@ const Login = () => {
                 className="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl transform hover:scale-[1.02]"
               >
                 Back to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== EMAIL CHANGED MODAL ==================== */}
+      {emailChangedData && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-[#1a0b2e] border border-blue-500/30 rounded-2xl sm:rounded-3xl shadow-2xl p-5 sm:p-8 max-w-md w-full relative animate-scaleIn">
+            <div className="flex flex-col items-center text-center gap-4 sm:gap-5">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-900/30 border border-blue-500/30 flex items-center justify-center animate-pulse">
+                <MdEmail className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
+              </div>
+              <div>
+                <span className="bg-blue-500/20 text-blue-300 text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full border border-blue-500/30">
+                  Email Updated
+                </span>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-2 sm:mt-3">Your login mail has changed</h2>
+              </div>
+              <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                Your company admin has updated your email address. This is your new login email:
+              </p>
+              <div className="w-full bg-blue-900/20 border border-blue-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center">
+                 <p className="text-white font-bold tracking-wider">{emailChangedData.newEmail}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEmailChangedData(null);
+                  setEmail("");
+                  setPassword("");
+                }}
+                className="w-full py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl transform hover:scale-[1.02]"
+              >
+                Okay, I will Remember
               </button>
             </div>
           </div>

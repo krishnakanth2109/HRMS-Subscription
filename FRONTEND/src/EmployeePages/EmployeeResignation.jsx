@@ -53,6 +53,20 @@ const StatusBadge = ({ status }) => {
 
 const hasReceivedFinalDocs = (r) => Array.isArray(r.adminFinalDocs) && r.adminFinalDocs.length > 0;
 
+const formatNoticeDate = (date) => new Date(date).toLocaleDateString("en-IN", {
+  timeZone: "Asia/Kolkata",
+  day: "2-digit",
+  month: "short",
+  year: "numeric"
+});
+
+const isNoticePeriodCompleted = (r) => r.noticePeriodEndDate && new Date() >= new Date(r.noticePeriodEndDate);
+
+const shouldShowExitFormalities = (r) =>
+  r.status === "Exit Formalities" ||
+  r.status === "Completed" ||
+  (r.status === "Approved" && isNoticePeriodCompleted(r));
+
 // ─── View Letter Modal ────────────────────────────────────────────────────────
 const LetterModal = ({ title, html, onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -562,7 +576,12 @@ const EmployeeResignation = () => {
                   )}
 
                   {/* Approved — show acceptance status */}
-                  {(r.status === "Approved" || r.status === "Exit Formalities" || r.status === "Completed") && (
+                  {r.status === "Approved" && r.noticePeriodEndDate && new Date(r.noticePeriodEndDate) > new Date() ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700 font-semibold">
+                      ✅ Your resignation has been accepted by HR, but you have notice period until {formatNoticeDate(r.noticePeriodEndDate)}.
+                      After completing this period, you can proceed to the next steps.
+                    </div>
+                  ) : (r.status === "Approved" || r.status === "Exit Formalities" || r.status === "Completed") && (
                     <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-semibold">
                       ✅ Your resignation has been accepted by HR.
                     </div>
@@ -582,8 +601,8 @@ const EmployeeResignation = () => {
                         📃 View Acceptance Letter
                       </button>
                     )}
-                    {/* Download acceptance letter file if admin uploaded one */}
-                    {r.acceptanceLetterFileUrl && (
+                    {/* Download acceptance letter file if admin uploaded one after notice period completion */}
+                    {r.acceptanceLetterFileUrl && (!r.noticePeriodEndDate || new Date(r.noticePeriodEndDate) <= new Date()) && (
                       <button onClick={() => downloadFile(r.acceptanceLetterFileUrl, `Acceptance_Letter_${r.employeeName}`)}
                         className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700">
                         ⬇ Download Acceptance Letter
@@ -592,7 +611,7 @@ const EmployeeResignation = () => {
                   </div>
 
                   {/* Exit Formalities */}
-                  {(r.status === "Exit Formalities" || r.status === "Completed") && (
+                  {shouldShowExitFormalities(r) && (
                     <ExitFormalitiesEmployee
                       resignation={r}
                       onUpdate={handleUpdate}

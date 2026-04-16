@@ -434,6 +434,13 @@ router.put("/:id", protect, async (req, res) => {
     const query = { employeeId: req.params.id };
     if (isAdmin) query.adminId = req.user._id;
 
+    if (req.body.email) {
+      const existingEmployee = await Employee.findOne(query);
+      if (existingEmployee && existingEmployee.email.toLowerCase() !== req.body.email.toLowerCase()) {
+        req.body.previousEmail = existingEmployee.email.toLowerCase();
+      }
+    }
+
     const updated = await Employee.findOneAndUpdate(query, req.body, { new: true });
 
     if (!updated) return res.status(404).json({ error: "Employee not found" });

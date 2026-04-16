@@ -37,6 +37,8 @@ export const login = async (req, res) => {
     // ── 1. Try Admin first ────────────────────────────────────────────────
     let user = null;
     let role = null;
+    let oldEmailMatch = false;
+    let newEmail = null;
 
     const admin = await Admin.findOne({ email: normalizedEmail }).select("+password");
     if (admin) {
@@ -48,7 +50,25 @@ export const login = async (req, res) => {
       if (employee) {
         user = employee;
         role = "employee";
+      } else {
+        // ── 2.1 Check if this is an old email ──────────────────────────────
+        const oldEmployee = await Employee.findOne({ previousEmail: normalizedEmail });
+        if (oldEmployee) {
+          oldEmailMatch = true;
+          newEmail = oldEmployee.email;
+          // ✅ Clear previousEmail immediately so the popup only shows ONCE.
+          // Next login attempt with this old email will get "Invalid email or password".
+          await Employee.findByIdAndUpdate(oldEmployee._id, { $unset: { previousEmail: "" } });
+        }
       }
+    }
+
+    if (oldEmailMatch) {
+      return res.status(401).json({ 
+        emailChanged: true, 
+        newEmail: newEmail,
+        message: `Your login mail is changed. This is your new mail: ${newEmail}` 
+      });
     }
 
     if (!user) {

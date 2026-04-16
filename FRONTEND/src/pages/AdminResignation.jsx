@@ -459,6 +459,12 @@ const AdminResignation = () => {
     setResignations(prev => prev.map(r => r._id === updated._id ? updated : r));
   };
 
+  const isNoticePeriodCompleted = (r) => r.noticePeriodEndDate && new Date() >= new Date(r.noticePeriodEndDate);
+  const showExitFormalities = (r) =>
+    r.status === "Exit Formalities" ||
+    r.status === "Completed" ||
+    (r.status === "Approved" && isNoticePeriodCompleted(r));
+
   const companies = ["All", ...new Set(resignations.map(r => r.companyName || "Unknown").filter(Boolean))];
 
   const filtered = resignations.filter(r => {
@@ -609,7 +615,7 @@ const AdminResignation = () => {
                   </div>
 
                   {/* Exit formalities panel */}
-                  {(r.status === "Exit Formalities" || r.status === "Completed") && (
+                  {showExitFormalities(r) && (
                     <ExitFormalities resignation={r} onUpdate={handleUpdate} />
                   )}
                 </div>

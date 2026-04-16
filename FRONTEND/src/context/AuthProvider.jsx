@@ -67,6 +67,11 @@ export const AuthProvider = ({ children }) => {
       }
 
       // ✅ 401 = Not an admin account → fall through to employee login below
+      // But if emailChanged flag is set, re-throw immediately
+      if (adminError.response?.data?.emailChanged) {
+        throw adminError;
+      }
+
       if (adminError.response?.status !== 401) {
         console.warn("Admin login unexpected error, trying employee:", adminError.response?.status);
       }
@@ -98,6 +103,11 @@ export const AuthProvider = ({ children }) => {
     } catch (employeeError) {
       // ✅ 403 from employee = login stopped → re-throw so Login.jsx shows the modal
       if (employeeError.response?.status === 403) {
+        throw employeeError;
+      }
+
+      // ✅ 401 with emailChanged flag → re-throw so Login.jsx shows the email changed modal
+      if (employeeError.response?.data?.emailChanged) {
         throw employeeError;
       }
 
