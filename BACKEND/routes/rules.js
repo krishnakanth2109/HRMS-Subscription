@@ -3,6 +3,7 @@ import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import Rule from '../models/Rule.js';
+import { protect } from '../middleware/protect.js';
 
 const router = express.Router();
 
@@ -31,12 +32,15 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 // 3. POST Route
-router.post('/', upload.array('images', 10), async (req, res) => {
+router.post('/', protect, upload.array('images', 10), async (req, res) => {
   try {
     if (!req.body.title) return res.status(400).json({ error: "Title is required" });
+    if (!req.body.description) return res.status(400).json({ error: "Description is required" });
 
     const { title, description, category } = req.body;
-    
+    const adminId = req.body.adminId || req.user?._id;
+    const companyId = req.body.companyId || req.user?.companyId;
+
     // CHANGED: Handle Multiple Files
     let imageArray = [];
 
@@ -52,7 +56,9 @@ router.post('/', upload.array('images', 10), async (req, res) => {
       title,
       description,
       category,
-      images: imageArray // Store the array of objects
+      images: imageArray,
+      adminId,
+      companyId,
     });
 
     const savedRule = await newRule.save();

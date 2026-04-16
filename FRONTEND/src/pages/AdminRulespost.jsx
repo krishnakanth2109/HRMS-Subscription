@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import Swal from 'sweetalert2';
+import { AuthContext } from '../context/AuthContext';
 // 1. Remove axios import
 // 2. Import the new functions from your api.js file
 import { getRules, createRule, deleteRule } from '../api'; // Adjust path if api.js is in a different folder
@@ -172,6 +173,7 @@ const RuleCard = ({ rule, onDelete }) => {
 
 // --- MAIN PARENT COMPONENT ---
 const AdminRulesPost = () => {
+  const { user } = useContext(AuthContext);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ title: '', category: 'General', description: '' });
   const [selectedImages, setSelectedImages] = useState([]);
@@ -229,6 +231,12 @@ const AdminRulesPost = () => {
     data.append('title', formData.title);
     data.append('category', formData.category);
     data.append('description', formData.description);
+
+    const adminId = user?._id || user?.id || user?.adminId || user?.creatorId;
+    const companyId = user?.companyId || user?.company?._id || user?.company;
+
+    if (adminId) data.append('adminId', adminId);
+    if (companyId) data.append('companyId', companyId);
 
     if (selectedImages.length > 0) {
       selectedImages.forEach((image) => data.append('images', image));

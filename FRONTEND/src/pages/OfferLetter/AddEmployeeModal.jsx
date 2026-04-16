@@ -487,7 +487,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                         </h3>
                         <div className="form-grid-12">
                             <div style={{ gridColumn: 'span 6' }}>
-                                <InputGroup label="Designation" name="designation" placeholder="e.g. Senior Principal" value={formData.designation} onChange={handleChange} error={errors.designation} required disabled={isViewOnly} />
+                                <InputGroup label="Designation" name="designation" placeholder="e.g. Senior Principal" value={formData.designation} onChange={handleChange} error={errors.designation} required  />
                             </div>
                             <div style={{ gridColumn: 'span 6' }}>
                                 <InputGroup label="Department" name="department" placeholder="e.g. Cloud Operations" value={formData.department} onChange={handleChange} error={errors.department} required disabled={isViewOnly} />

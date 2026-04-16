@@ -356,7 +356,7 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
             <p style="margin-bottom: 10px;"><strong>For ${company}</strong></p>
             <p style="margin: 0;">&nbsp;</p>
             <p style="margin: 0;">&nbsp;</p>
-            <p style="margin: 0;"><strong>D Navya</strong></p>
+          
             <p style="margin: 0;"><strong>Managing Director</strong></p>
         </div>
     </div>`;
@@ -399,7 +399,7 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
                 <p style="margin-bottom: 10px;"><strong>For ${company}</strong></p>
                 <p style="margin: 0;">&nbsp;</p>
                 <p style="margin: 0;">&nbsp;</p>
-                <p style="margin: 0;"><strong>D Navya</strong></p>
+               
                 <p style="margin: 0;"><strong>Managing Director</strong></p>
             </div>
             <div style="text-align: center; margin-bottom: 0;">

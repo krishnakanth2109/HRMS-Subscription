@@ -419,7 +419,8 @@ const EmployeePayslip = () => {
                 <div className="relative z-10 mx-4 pb-4">
                   <div className="flex justify-end mb-4">
                     <div className="text-center">
-                      <img src={SIGNATURE_IMAGE_LINK} alt="Signature" className="h-14 mx-auto mb-1 object-contain" />
+<br />
+<br />
                       <p className="text-xs font-bold border-t border-black pt-1 px-4">Authorized Signatory</p>
                     </div>
                   </div>

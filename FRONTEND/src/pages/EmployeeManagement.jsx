@@ -14,7 +14,7 @@ import {
   FaTimes,
   FaFileAlt,
   FaShieldAlt,
-  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop,FaFileSignature,FaGift,
+  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop,FaFileSignature,FaGift,FaClipboardCheck,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -195,7 +195,7 @@ const SmartSubmenu = ({ onClose, onNavigate }) => {
         onClick={() => { onNavigate("/admin/hr-checklist"); onClose(); }}
         className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
       >
-        <FaSearch className="text-violet-500" /> HR Checklist
+       <FaClipboardCheck className="text-violet-500" /> HR Checklist
       </button>
 
 
@@ -996,13 +996,7 @@ const EmployeeManagement = () => {
 
               {hrActivitiesOpen && (
                 <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999]">
-                  {/* Offer Letter */}
-                  <button
-                    onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
-                  >
-                    <FaFileAlt className="text-blue-500" /> Offer Letter
-                  </button>
+  
 
 
                   {/* Document Verification with smart positioned nested submenu */}
@@ -1030,6 +1024,13 @@ const EmployeeManagement = () => {
                       />
                     )}
                   </div>
+                                  {/* Offer Letter */}
+                  <button
+                    onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
+                  >
+                    <FaFileAlt className="text-blue-500" /> Offer Letter
+                  </button>
                   
                   {/* Onboarding Invitation */}
                   <button
@@ -1064,7 +1065,7 @@ const EmployeeManagement = () => {
                     onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
                     className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
                   >
-                    <FaGift className="text-blue-500" /> Welcome Kits
+                    <FaGift className="text-blue-500" /> Welcome Kit
                 </button>
 
                 </div>

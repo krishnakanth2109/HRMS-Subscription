@@ -3,8 +3,8 @@ import mongoose from 'mongoose';
 
 const ruleSchema = new mongoose.Schema({
   // HIERARCHY LINKS
-  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
-  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+  adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company" },
 
   title: {
     type: String,

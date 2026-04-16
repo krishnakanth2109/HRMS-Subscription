@@ -88,7 +88,7 @@ const MasterLogin = () => {
               <ShieldCheck className="w-8 h-8 text-blue-400" />
             </div>
             <h1 className="text-4xl xl:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
-              Master Admin <br/>
+              VW_SYNC Admin <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
                 Control Center
               </span>

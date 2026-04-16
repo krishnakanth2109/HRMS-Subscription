@@ -204,6 +204,10 @@ const filteredPlans = plans.filter(
                         <button onClick={() => navigate("/login")} className="px-4 md:px-6 py-2 rounded-full bg-blue-600 text-white text-xs md:text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/30">
                             Get Started
                         </button>
+                        <button onClick={() => navigate("/request-demo")} className="px-4 md:px-6 py-2 rounded-full bg-white text-blue-600 text-xs md:text-sm font-bold hover:bg-blue-100 transition-all shadow-lg shadow-blue-600/30">
+                            Request Demo
+                        </button>
+
                     </div>
                 </div>
             </nav>

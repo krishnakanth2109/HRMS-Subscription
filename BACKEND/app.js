@@ -52,6 +52,8 @@ import inductionRoutes from "./routes/inductionRoutes.js";
 
 import resignationRoutes from "./routes/resignationRoutes.js";
 
+
+
 /* ==================== 🔹 STRIPE IMPORTS ==================== */
 import stripeRoutes from "./routes/stripeRoutes.js";
 import stripeWebhookHandler from "./controllers/stripeWebhookController.js";
@@ -61,6 +63,9 @@ import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
+
+
+
 
 const app = express();
 const server = http.createServer(app);
