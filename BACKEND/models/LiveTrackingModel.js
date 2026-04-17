@@ -7,7 +7,8 @@ const idleSegmentSchema = new mongoose.Schema(
     {
         startTime: { type: Date, required: true },
         endTime: { type: Date, required: true },
-        idleDurationSeconds: { type: Number, required: false }
+        idleDurationSeconds: { type: Number, required: false },
+        screenshotUrl: { type: String, default: null }   // Cloudinary URL captured at 9-min idle
     },
     { _id: false }
 );
@@ -22,7 +23,9 @@ const dailyLiveSchema = new mongoose.Schema(
         idleSince: { type: Date, default: null },
         idleTimeline: { type: [idleSegmentSchema], default: [] },
         trackedWorkSeconds: { type: Number, default: 0 },
-        trackedIdleSeconds: { type: Number, default: 0 }
+        trackedIdleSeconds: { type: Number, default: 0 },
+        currentIdleScreenshot: { type: String, default: null },  // Live screenshot URL (cleared on WORKING)
+        screenshotCapturedAt: { type: Date, default: null }
     },
     { _id: false, timestamps: true }
 );

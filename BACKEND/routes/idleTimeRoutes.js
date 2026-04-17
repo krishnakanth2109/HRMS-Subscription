@@ -31,7 +31,9 @@ router.post('/live-status', async (req, res) => {
         idleSince: idleSinceTime,
         idleTimeline: [],
         trackedWorkSeconds: total_work_seconds || 0,
-        trackedIdleSeconds: total_idle_seconds || 0
+        trackedIdleSeconds: total_idle_seconds || 0,
+        currentIdleScreenshot: null,
+        screenshotCapturedAt: null
       });
     } else {
       // Update existing date's data
@@ -39,9 +41,15 @@ router.post('/live-status', async (req, res) => {
       todayData.currentStatus = status;
       todayData.lastPing = pingTime;
       todayData.idleSince = idleSinceTime;
-      
+
       if (total_work_seconds !== undefined) todayData.trackedWorkSeconds = total_work_seconds;
       if (total_idle_seconds !== undefined) todayData.trackedIdleSeconds = total_idle_seconds;
+
+      // Clear screenshot when employee resumes WORKING
+      if (status === "WORKING" || status === "OFFLINE") {
+        todayData.currentIdleScreenshot = null;
+        todayData.screenshotCapturedAt = null;
+      }
 
       // Crucial: Set it back into the Map to trigger Mongoose save
       doc.dates.set(date, todayData);
@@ -77,7 +85,9 @@ router.get('/live-status', async (req, res) => {
           idleSince: todayData.idleSince,
           idleTimeline: todayData.idleTimeline || [],
           trackedWorkSeconds: todayData.trackedWorkSeconds || 0,
-          trackedIdleSeconds: todayData.trackedIdleSeconds || 0
+          trackedIdleSeconds: todayData.trackedIdleSeconds || 0,
+          currentIdleScreenshot: todayData.currentIdleScreenshot || null,
+          screenshotCapturedAt: todayData.screenshotCapturedAt || null
         });
       }
     });
@@ -90,6 +100,52 @@ router.get('/live-status', async (req, res) => {
 });
 
 // ------------------------------------------
+// POST /live-screenshot
+// (Receives screenshot URL immediately from tracker — before session ends)
+// ------------------------------------------
+router.post('/live-screenshot', async (req, res) => {
+  try {
+    const { employeeId, screenshotUrl, capturedAt } = req.body;
+    if (!employeeId || !screenshotUrl) {
+      return res.status(400).json({ message: "Missing employeeId or screenshotUrl" });
+    }
+
+    const date = new Date().toISOString().split('T')[0];
+    const capturedDate = capturedAt ? new Date(capturedAt * 1000) : new Date();
+
+    let doc = await LiveTracking.findOne({ employeeId });
+    if (!doc) {
+      return res.status(404).json({ message: "Employee tracking record not found" });
+    }
+
+    if (!doc.dates.has(date)) {
+      doc.dates.set(date, { idleTimeline: [], currentIdleScreenshot: screenshotUrl, screenshotCapturedAt: capturedDate });
+    } else {
+      const todayData = doc.dates.get(date);
+      todayData.currentIdleScreenshot = screenshotUrl;
+      todayData.screenshotCapturedAt = capturedDate;
+
+      // Also attach to the most recent open idle segment (if any, and doesn't have one yet)
+      if (todayData.idleTimeline && todayData.idleTimeline.length > 0) {
+        const last = todayData.idleTimeline[todayData.idleTimeline.length - 1];
+        if (!last.screenshotUrl) {
+          last.screenshotUrl = screenshotUrl;
+        }
+      }
+
+      doc.dates.set(date, todayData);
+    }
+
+    await doc.save();
+    console.log(`📸 [Live Screenshot] Stored for ${employeeId}: ${screenshotUrl}`);
+    return res.json({ message: "Screenshot stored live" });
+  } catch (err) {
+    console.error("❌ Live screenshot error:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// ------------------------------------------
 // POST /
 // (Saves a COMPLETED Idle Session when user resumes work)
 // Python Payload maps `idleStart` -> `startTime`, `idleEnd` -> `endTime`
@@ -97,7 +153,7 @@ router.get('/live-status', async (req, res) => {
 router.post("/", async (req, res) => {
   console.log("📥 [Idle Time] Received completed session for:", req.body.employeeId);
   try {
-    const { employeeId, date, idleStart, idleEnd, idleDurationSeconds } = req.body;
+    const { employeeId, date, idleStart, idleEnd, idleDurationSeconds, screenshotUrl } = req.body;
 
     if (!employeeId || !idleStart || !idleEnd || !date) {
       return res.status(400).json({ message: "Missing required values" });
@@ -119,6 +175,7 @@ router.post("/", async (req, res) => {
       startTime: new Date(idleStart),
       endTime: new Date(idleEnd),
       idleDurationSeconds: Number(idleDurationSeconds),
+      screenshotUrl: screenshotUrl || null
     };
 
     // Prevent duplicate entries (if python script retries due to poor network)
@@ -131,7 +188,7 @@ router.post("/", async (req, res) => {
       todayData.idleTimeline.push(newSegment);
       doc.dates.set(date, todayData);
       await doc.save();
-      console.log(`✅ [Idle Time] Saved ${idleDurationSeconds}s idle session to DB`);
+      console.log(`✅ [Idle Time] Saved ${idleDurationSeconds}s idle session. Screenshot: ${screenshotUrl ? 'YES' : 'none'}`);
     } else {
       console.log(`⚠️ [Idle Time] Ignored duplicate idle session.`);
     }
@@ -140,6 +197,46 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("❌ Idle time save error:", err);
     return res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// ------------------------------------------
+// GET /screenshots/:employeeId
+// Returns all idle sessions that have a screenshot URL for an employee
+// ------------------------------------------
+router.get("/screenshots/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const doc = await LiveTracking.findOne({
+      employeeId: { $regex: new RegExp(`^${employeeId}$`, "i") }
+    });
+
+    if (!doc || !doc.dates) {
+      return res.json([]);
+    }
+
+    const screenshots = [];
+    for (const [dateStr, dailyData] of doc.dates.entries()) {
+      const timeline = dailyData.idleTimeline || [];
+      timeline.forEach((seg) => {
+        if (seg.screenshotUrl) {
+          screenshots.push({
+            date: dateStr,
+            idleStart: seg.startTime,
+            idleEnd: seg.endTime,
+            idleDurationSeconds: seg.idleDurationSeconds,
+            screenshotUrl: seg.screenshotUrl
+          });
+        }
+      });
+    }
+
+    // Sort newest first
+    screenshots.sort((a, b) => new Date(b.idleStart) - new Date(a.idleStart));
+    return res.json(screenshots);
+  } catch (err) {
+    console.error("❌ Get screenshots error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 

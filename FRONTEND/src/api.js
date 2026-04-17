@@ -146,8 +146,6 @@ export const activateEmployeeById = async (id, data) =>
    IDLE TIME TRACKING
 ============================================================================= */
 
-
-
 /* =============================================================================
    HOLIDAYS
 ============================================================================= */
@@ -841,8 +839,28 @@ export const getIdleTimeForEmployeeByDate = async (employeeId, date) => {
     const res = await api.get(`/api/idletime/${employeeId}/${date}`);
     return res.data;
   } catch (error) {
-    console.error("Get idle time by date error:", error);
-    throw error;
+    console.error("Get idle time error:", error);
+    return { idleTimeline: [], trackedIdleSeconds: 0, trackedWorkSeconds: 0 };
+  }
+};
+
+export const getIdleScreenshotsForEmployee = async (employeeId) => {
+  try {
+    const response = await api.get(`/api/idletime/screenshots/${employeeId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Get idle screenshots error:", error);
+    return [];
+  }
+};
+
+export const getIdleTimeHistoryForEmployee = async (employeeId) => {
+  try {
+    const response = await api.get(`/api/idletime/employee/${employeeId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Get idle time history error:", error);
+    return [];
   }
 };
 
