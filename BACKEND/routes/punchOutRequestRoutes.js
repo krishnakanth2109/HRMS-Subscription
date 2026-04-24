@@ -45,23 +45,95 @@ router.post("/action", onlyAdmin, async (req, res) => {
     request.status = status;
 
     if (status === "Approved") {
-      const targetDate = new Date(request.originalDate); 
-      // ... logic to find attendance record ...
-      let attendanceRecord = await Attendance.findOne({
+      // ✅ FIX: Attendance stores daily records inside an array — query at root level, then find the day inside
+      const attendanceDoc = await Attendance.findOne({
         employeeId: request.employeeId,
-        date: request.originalDate // Simplified match
+        adminId: req.user._id,
       });
 
-      if (attendanceRecord && !attendanceRecord.punchOut) {
-        attendanceRecord.punchOut = request.requestedPunchOut;
-        attendanceRecord.status = "COMPLETED"; // Updated status
-        attendanceRecord.adminPunchOut = true;
-        await attendanceRecord.save();
+      if (attendanceDoc) {
+        const dayRecord = attendanceDoc.attendance.find(
+          (a) => a.date === request.originalDate
+        );
+
+        if (dayRecord) {
+          const newPunchOut = new Date(request.requestedPunchOut);
+
+          // Close any open session
+          const openSession = (dayRecord.sessions || []).find((s) => !s.punchOut);
+          if (openSession) {
+            openSession.punchOut = newPunchOut;
+            openSession.durationSeconds =
+              (newPunchOut - new Date(openSession.punchIn)) / 1000;
+          }
+
+          // Set punch-out fields
+          dayRecord.punchOut = newPunchOut;
+          dayRecord.adminPunchOut = true;
+          dayRecord.adminPunchOutBy = req.user.name || "Admin";
+          dayRecord.adminPunchOutTimestamp = new Date();
+          dayRecord.isOnBreak = false;
+
+          // ✅ KEY FIX: Set isFinalPunchOut = false so the employee can punch in again
+          // The flow is: approved → employee is unblocked to punch in fresh today
+          dayRecord.isFinalPunchOut = false;
+          dayRecord.status = "COMPLETED";
+
+          // Recalculate total worked seconds from all sessions
+          let totalSeconds = 0;
+          dayRecord.sessions.forEach((sess) => {
+            if (sess.punchIn && sess.punchOut) {
+              const dur =
+                (new Date(sess.punchOut) - new Date(sess.punchIn)) / 1000;
+              if (dur > 0) totalSeconds += dur;
+            }
+          });
+
+          // Fallback if sessions are empty
+          if (totalSeconds <= 0 && dayRecord.punchIn) {
+            const breakSecs = dayRecord.totalBreakSeconds || 0;
+            totalSeconds = Math.max(
+              0,
+              (newPunchOut - new Date(dayRecord.punchIn)) / 1000 - breakSecs
+            );
+          }
+
+          const h = Math.floor(totalSeconds / 3600);
+          const m = Math.floor((totalSeconds % 3600) / 60);
+          const s = Math.floor(totalSeconds % 60);
+
+          dayRecord.workedHours = h;
+          dayRecord.workedMinutes = m;
+          dayRecord.workedSeconds = s;
+          dayRecord.displayTime = `${h}h ${m}m ${s}s`;
+
+          await attendanceDoc.save();
+        }
       }
     }
 
     await request.save();
     res.json({ success: true, message: `Request ${status}` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ✅ NEW: Employee checks the status of their own punch-out request for a given date
+router.get("/status", async (req, res) => {
+  try {
+    const { employeeId, date } = req.query;
+    if (!employeeId || !date)
+      return res.status(400).json({ message: "employeeId and date are required" });
+
+    const request = await PunchOutRequest.findOne({
+      employeeId,
+      originalDate: date,
+    }).sort({ requestDate: -1 });
+
+    if (!request) return res.json({ found: false });
+
+    res.json({ found: true, status: request.status, requestedPunchOut: request.requestedPunchOut });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

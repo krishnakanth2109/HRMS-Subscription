@@ -832,8 +832,7 @@ const TodayOverview = () => {
     }
   }, [loading]);
 
-  // Fetch employee details
-  useEffect(() => {
+ useEffect(() => {
     const fetchEmployeeDetails = async () => {
       if (allEmployees.length === 0) return;
       
@@ -864,83 +863,164 @@ const TodayOverview = () => {
     if (allEmployees.length > 0) fetchEmployeeDetails();
   }, [allEmployees]);
 
+  // Debug useEffect - check phone numbers in employee data
+  useEffect(() => {
+    if (allEmployees.length > 0) {
+      console.log("=== DEBUG: Employee Phone Numbers ===");
+      allEmployees.forEach(emp => {
+        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
+        console.log(`  emp.phone: ${emp.phone}`);
+        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
+        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
+        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
+        console.log("---");
+      });
+    }
+  }, [allEmployees]);
+
+// Debug useEffect - Moved OUTSIDE the previous useEffect
+useEffect(() => {
+  if (allEmployees.length > 0) {
+    console.log("=== DEBUG: Employee Phone Numbers ===");
+    allEmployees.forEach(emp => {
+      console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
+      console.log(`  emp.phone: ${emp.phone}`);
+      console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
+      console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
+      console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
+      console.log("---");
+    });
+  }
+}, [allEmployees]);
+    
+  useEffect(() => {
+  if (allEmployees.length > 0) {
+    console.log("=== DEBUG: Employee Phone Numbers ===");
+    allEmployees.forEach(emp => {
+      console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
+      console.log(`  emp.phone: ${emp.phone}`);
+      console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
+      console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
+      console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
+      console.log("---");
+    });
+  }
+}, [allEmployees]);
+
   // Initial data fetch
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  // 1. Consolidate Raw Data
-  const allDailyData = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const empNameMap = allEmployees.reduce((acc, emp) => {
-      acc[emp.employeeId] = emp.name || emp.employeeName;
-      return acc;
-    }, {});
+// In the allDailyData useMemo, add these variables at the beginning:
 
-    const attendanceWithDetails = attendanceData.map(item => {
-      const shift = shiftsMap[item.employeeId];
-      const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
-      const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
-      const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
-      
-      return {
-        ...item,
-        employeeName: realName,
-        department,
-        category: !item.punchIn ? 'NOT_LOGGED_IN' : (item.punchIn && !item.punchOut ? 'WORKING' : 'COMPLETED'),
-        isOnLeave: false,
-        loginStatus,
-        profilePic: employeeImages[item.employeeId],
-        phoneNumber: employeePhoneNumbers[item.employeeId] || null
-      };
-    });
+// In the allDailyData useMemo, update to include phone directly from employee object:
+// Update the allDailyData useMemo to check multiple phone number locations:
 
-    const activeEmployeeIds = new Set(allEmployees.filter(e => e.isActive !== false).map(e => e.employeeId));
+const allDailyData = useMemo(() => {
+  const today = new Date().toISOString().split("T")[0];
+  const empNameMap = allEmployees.reduce((acc, emp) => {
+    acc[emp.employeeId] = emp.name || emp.employeeName;
+    return acc;
+  }, {});
 
-    const onLeaveToday = leaveData.filter(leave => {
+  // ✅ FIX: Check multiple possible phone number locations in employee data
+  const empPhoneMap = allEmployees.reduce((acc, emp) => {
+    let phoneNumber = null;
+    
+    // Check all possible locations for phone number (same as EmployeeProfile)
+    if (emp.phone) {
+      phoneNumber = emp.phone;
+    } else if (emp.phoneNumber) {
+      phoneNumber = emp.phoneNumber;
+    } else if (emp.personalDetails?.phone) {
+      phoneNumber = emp.personalDetails.phone;
+    } else if (emp.personalDetails?.phoneNumber) {
+      phoneNumber = emp.personalDetails.phoneNumber;
+    }
+    
+    if (emp.employeeId && phoneNumber) {
+      acc[emp.employeeId] = phoneNumber;
+    }
+    return acc;
+  }, {});
+
+  // Define active employee IDs
+  const activeEmployeeIds = new Set(allEmployees.filter(e => e.isActive !== false).map(e => e.employeeId));
+  const presentIds = new Set(attendanceData.map(att => att.employeeId));
+  const onLeaveIds = new Set(
+    leaveData.filter(leave => {
       if (leave.status !== 'Approved') return false;
       return today >= leave.from && today <= leave.to;
-    }).map(leave => {
-      const emp = allEmployees.find(e => e.employeeId === leave.employeeId);
+    }).map(l => l.employeeId)
+  );
+
+  const attendanceWithDetails = attendanceData.map(item => {
+    const shift = shiftsMap[item.employeeId];
+    const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
+    const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
+    const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
+    
+    // ✅ FIX: Check both empPhoneMap AND employeePhoneNumbers state
+    const phoneNumber = empPhoneMap[item.employeeId] || employeePhoneNumbers[item.employeeId] || null;
+    
+    return {
+      ...item,
+      employeeName: realName,
+      department,
+      category: !item.punchIn ? 'NOT_LOGGED_IN' : (item.punchIn && !item.punchOut ? 'WORKING' : 'COMPLETED'),
+      isOnLeave: false,
+      loginStatus,
+      profilePic: employeeImages[item.employeeId],
+      phoneNumber: phoneNumber
+    };
+  });
+
+  const onLeaveToday = leaveData.filter(leave => {
+    if (leave.status !== 'Approved') return false;
+    return today >= leave.from && today <= leave.to;
+  }).map(leave => {
+    const emp = allEmployees.find(e => e.employeeId === leave.employeeId);
+    const phoneNumber = empPhoneMap[leave.employeeId] || employeePhoneNumbers[leave.employeeId] || null;
+    
+    return {
+      employeeId: leave.employeeId,
+      employeeName: empNameMap[leave.employeeId] || leave.employeeName || leave.employeeId,
+      category: 'ON_LEAVE',
+      isOnLeave: true,
+      leaveType: leave.leaveType,
+      reason: leave.reason,
+      department: emp?.experienceDetails?.[0]?.department || 'Unassigned',
+      punchIn: null,
+      punchOut: null,
+      loginStatus: { status: "--", isLate: false },
+      profilePic: employeeImages[leave.employeeId],
+      phoneNumber: phoneNumber
+    };
+  });
+
+  const notLoggedIn = Array.from(activeEmployeeIds)
+    .filter(id => !presentIds.has(id) && !onLeaveIds.has(id))
+    .map(id => {
+      const emp = allEmployees.find(e => e.employeeId === id);
+      const phoneNumber = empPhoneMap[id] || employeePhoneNumbers[id] || null;
+      
       return {
-        employeeId: leave.employeeId,
-        employeeName: empNameMap[leave.employeeId] || leave.employeeName || leave.employeeId,
-        category: 'ON_LEAVE',
-        isOnLeave: true,
-        leaveType: leave.leaveType,
-        reason: leave.reason,
+        employeeId: id,
+        employeeName: empNameMap[id] || id,
+        category: 'NOT_LOGGED_IN',
+        isOnLeave: false,
         department: emp?.experienceDetails?.[0]?.department || 'Unassigned',
         punchIn: null,
         punchOut: null,
         loginStatus: { status: "--", isLate: false },
-        profilePic: employeeImages[leave.employeeId],
-        phoneNumber: employeePhoneNumbers[leave.employeeId] || null
+        profilePic: employeeImages[id],
+        phoneNumber: phoneNumber
       };
     });
 
-    const presentIds = new Set(attendanceData.map(att => att.employeeId));
-    const onLeaveIds = new Set(onLeaveToday.map(l => l.employeeId));
-    
-    const notLoggedIn = Array.from(activeEmployeeIds)
-      .filter(id => !presentIds.has(id) && !onLeaveIds.has(id))
-      .map(id => {
-        const emp = allEmployees.find(e => e.employeeId === id);
-        return {
-          employeeId: id,
-          employeeName: empNameMap[id] || id,
-          category: 'NOT_LOGGED_IN',
-          isOnLeave: false,
-          department: emp?.experienceDetails?.[0]?.department || 'Unassigned',
-          punchIn: null,
-          punchOut: null,
-          loginStatus: { status: "--", isLate: false },
-          profilePic: employeeImages[id],
-          phoneNumber: employeePhoneNumbers[id] || null
-        };
-      });
-
-    return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
-  }, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers]);
+  return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
+}, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers]); // ✅ Added employeePhoneNumbers to dependencies
 
   // 2. Department Filter Data (Source for Stats)
   const departmentFilteredData = useMemo(() => {
@@ -1273,7 +1353,7 @@ const TodayOverview = () => {
             isOpen={callModal.isOpen}
             onClose={() => setCallModal({ isOpen: false, employee: null })}
             employee={callModal.employee}
-            phoneNumber={employeePhoneNumbers[callModal.employee?.employeeId]}
+            phoneNumber={callModal.employee?.phoneNumber}
           />
         )}
 
@@ -1282,7 +1362,7 @@ const TodayOverview = () => {
             isOpen={messageModal.isOpen}
             onClose={() => setMessageModal({ isOpen: false, employee: null })}
             employee={messageModal.employee}
-            phoneNumber={employeePhoneNumbers[messageModal.employee?.employeeId]}
+            phoneNumber={messageModal.employee?.phoneNumber}
           />
         )}
 

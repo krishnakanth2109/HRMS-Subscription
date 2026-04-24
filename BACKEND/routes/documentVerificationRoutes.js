@@ -79,7 +79,28 @@ const DOCUMENT_FIELDS = [
 ];
 
 // ---------------------------------------------------
-// SEND INVITATION (SINGLE)
+// CHECK IF EMAIL ALREADY SENT (NEW ENDPOINT - FIXED)
+// ---------------------------------------------------
+router.get('/company/:companyId/check/:email', async (req, res) => {
+  try {
+    const { companyId, email } = req.params;
+    const decodedEmail = decodeURIComponent(email);
+    
+    // IMPORTANT: Use 'company' field (not 'companyId') and correct model name 'DocumentVerification'
+    const existing = await DocumentVerification.findOne({ 
+      company: companyId, 
+      email: decodedEmail.toLowerCase() 
+    });
+    
+    res.json({ alreadySent: !!existing });
+  } catch (error) {
+    console.error('Check email error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------------------------------------------------
+// SEND INVITATION (SINGLE) - MODIFIED TO PREVENT RESEND
 // ---------------------------------------------------
 router.post('/invite', async (req, res) => {
   try {
@@ -92,13 +113,22 @@ router.post('/invite', async (req, res) => {
     const company = await Company.findById(companyId);
     if (!company) return res.status(404).json({ success: false, error: 'Company not found' });
 
-    // Check existing
+    // Check if already exists and prevent resend
     let existing = await DocumentVerification.findOne({ email: email.toLowerCase(), company: companyId });
-    const token = uuidv4();
+    
+    // If already exists and status is not 'rejected', prevent resend
+    if (existing && existing.status !== 'rejected') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Document verification already sent to this email. Please check history.' 
+      });
+    }
 
+    const token = uuidv4();
     const docSlots = DOCUMENT_FIELDS.map(f => ({ fieldKey: f.fieldKey, label: f.label, fileUrl: null, adminVerified: false }));
 
     if (existing) {
+      // Update existing record with new token (only for rejected cases)
       existing.name = name || existing.name;
       existing.fullName = fullName || existing.fullName;
       existing.role = role || existing.role;
@@ -124,7 +154,6 @@ router.post('/invite', async (req, res) => {
     const formLink = `${formBaseUrl || 'https://hrms-420.netlify.app'}/document-verification?token=${token}`;
 
     // Fire-and-forget email — same pattern as offerLetterRoutes.js
-    // Responds instantly to frontend; mail sends in the background
     fireDocVerifyMail({
       to: email,
       name: name || fullName,
@@ -146,7 +175,7 @@ router.post('/invite', async (req, res) => {
 });
 
 // ---------------------------------------------------
-// SEND INVITATION (BULK)
+// SEND INVITATION (BULK) - MODIFIED TO PREVENT RESEND
 // ---------------------------------------------------
 router.post('/bulk-invite', async (req, res) => {
   try {
@@ -159,7 +188,7 @@ router.post('/bulk-invite', async (req, res) => {
     const company = await Company.findById(companyId);
     if (!company) return res.status(404).json({ success: false, error: 'Company not found' });
 
-    const results = { success: [], failed: [], employeesWithLinks: [] };
+    const results = { success: [], failed: [], skipped: [], employeesWithLinks: [] };
     const docSlots = DOCUMENT_FIELDS.map(f => ({ fieldKey: f.fieldKey, label: f.label, fileUrl: null, adminVerified: false }));
 
     for (const emp of employees) {
@@ -169,8 +198,18 @@ router.post('/bulk-invite', async (req, res) => {
         const emailLower = emp.email.toLowerCase();
 
         let existing = await DocumentVerification.findOne({ email: emailLower, company: companyId });
+        
+        // Skip if already exists and not rejected
+        if (existing && existing.status !== 'rejected') {
+          results.skipped.push({ email: emailLower, reason: 'Already sent previously' });
+          continue; // Skip this email without sending
+        }
+        
         if (existing) {
-          existing.token = token; existing.status = 'pending'; existing.invitedAt = new Date();
+          // Update only for rejected cases
+          existing.token = token; 
+          existing.status = 'pending'; 
+          existing.invitedAt = new Date();
           Object.assign(existing, { name: emp.name, fullName: emp.fullName, role: emp.role, department: emp.department, employmentType: emp.employmentType });
           await existing.save();
         } else {
@@ -184,7 +223,7 @@ router.post('/bulk-invite', async (req, res) => {
         // Build unique form link for this employee
         const formLink = `${formBaseUrl || 'https://hrms-420.netlify.app'}/document-verification?token=${token}`;
 
-        // Fire-and-forget email — same pattern as offerLetterRoutes.js — DO NOT AWAIT
+        // Fire-and-forget email
         fireDocVerifyMail({
           to: emailLower,
           name: emp.name || emp.fullName,
@@ -201,7 +240,11 @@ router.post('/bulk-invite', async (req, res) => {
       }
     }
 
-    res.status(200).json({ success: true, message: `Processed ${employees.length} invitations`, results });
+    res.status(200).json({ 
+      success: true, 
+      message: `Processed ${employees.length} invitations. Sent: ${results.success.length}, Skipped: ${results.skipped.length}, Failed: ${results.failed.length}`, 
+      results 
+    });
   } catch (error) {
     console.error('Bulk invite error:', error);
     res.status(500).json({ success: false, error: error.message });

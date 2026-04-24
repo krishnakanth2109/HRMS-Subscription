@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getAllCompanies } from '../api';
 import api from '../api';
+import Swal from 'sweetalert2';
 
 const BASE_URL = import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:5000';
 const FORM_BASE = window.location.origin;
@@ -148,9 +149,34 @@ const DocVerifyInvite = () => {
 
   const parseSubject = () => emailSubject.replace('[Company Name]', getCompanyName());
 
+  // Function to check if email already sent
+  const checkEmailAlreadySent = async (email) => {
+    try {
+      const res = await api.get(`/api/doc-verification/company/${selectedCompany}/check/${encodeURIComponent(email)}`);
+      return res.data.alreadySent || false;
+    } catch (error) {
+      console.error('Error checking email:', error);
+      return false;
+    }
+  };
+
   const handleSendSingle = async (e) => {
     e.preventDefault();
     if (!selectedCompany) return alert('Please select a company first');
+    
+    // Check if email already sent
+    const alreadySent = await checkEmailAlreadySent(singleData.email);
+    if (alreadySent) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Already Sent!',
+        html: `Document verification email has already been sent to <strong>${singleData.email}</strong> with PRF message.`,
+        confirmButtonColor: '#7c3aed',
+        confirmButtonText: 'OK'
+      });
+      return;
+    }
+    
     setSending(true);
     try {
       // Backend saves to DB, fires email in background (fire-and-forget — same as offerLetterRoutes)
@@ -165,9 +191,20 @@ const DocVerifyInvite = () => {
 
       setSingleData({ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' });
       fetchHistory(selectedCompany);
-      alert('Document verification invitation sent successfully!');
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Sent Successfully!',
+        text: 'Document verification invitation sent successfully!',
+        confirmButtonColor: '#7c3aed'
+      });
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to send invitation');
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed!',
+        text: err.response?.data?.error || 'Failed to send invitation',
+        confirmButtonColor: '#7c3aed'
+      });
     } finally {
       setSending(false);
     }
@@ -178,12 +215,60 @@ const DocVerifyInvite = () => {
     if (!selectedCompany) return alert('Please select a company first');
     const validRows = bulkRows.filter(r => r.email && r.email.includes('@'));
     if (!validRows.length) return alert('Add at least one valid email');
+    
+    // Check for already sent emails in bulk
+    const emailsToCheck = validRows.map(row => row.email);
+    const alreadySentEmails = [];
+    
+    for (const email of emailsToCheck) {
+      const alreadySent = await checkEmailAlreadySent(email);
+      if (alreadySent) {
+        alreadySentEmails.push(email);
+      }
+    }
+    
+    if (alreadySentEmails.length > 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Some Emails Already Sent!',
+        html: `The following emails have already received document verification with PRF message:<br/><br/>
+               <strong>${alreadySentEmails.join('<br/>')}</strong><br/><br/>
+               Do you want to continue sending to remaining emails?`,
+        showCancelButton: true,
+        confirmButtonColor: '#7c3aed',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Yes, send remaining',
+        cancelButtonText: 'Cancel'
+      }).then(async (result) => {
+        if (result.isConfirmed) {
+          // Filter out already sent emails
+          const remainingRows = validRows.filter(row => !alreadySentEmails.includes(row.email));
+          await sendBulkInvites(remainingRows);
+        }
+      });
+      return;
+    }
+    
+    await sendBulkInvites(validRows);
+  };
+  
+  const sendBulkInvites = async (rowsToSend) => {
+    if (rowsToSend.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: 'No Emails to Send',
+        text: 'All selected emails have already received invitations.',
+        confirmButtonColor: '#7c3aed'
+      });
+      return;
+    }
+    
     setSending(true);
     try {
       // Backend saves all invites to DB and fires all emails in background (fire-and-forget)
       // No separate mail loop needed — responds instantly
       await api.post('/api/doc-verification/bulk-invite', {
-        employees: validRows,
+        employees: rowsToSend,
         companyId: selectedCompany,
         formBaseUrl: FORM_BASE,
         emailSubject: parseSubject(),
@@ -192,21 +277,54 @@ const DocVerifyInvite = () => {
 
       setBulkRows([{ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' }]);
       fetchHistory(selectedCompany);
-      alert(`${validRows.length} invitation(s) sent successfully!`);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Sent Successfully!',
+        text: `${rowsToSend.length} invitation(s) sent successfully!`,
+        confirmButtonColor: '#7c3aed'
+      });
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to send bulk invitations');
+      Swal.fire({
+        icon: 'error',
+        title: 'Failed!',
+        text: err.response?.data?.error || 'Failed to send bulk invitations',
+        confirmButtonColor: '#7c3aed'
+      });
     } finally {
       setSending(false);
     }
   };
 
   const handleDeleteRecord = async (id) => {
-    if (!window.confirm('Delete this record permanently?')) return;
-    try {
-      await api.delete(`/api/doc-verification/${id}`);
-      setHistory(prev => prev.filter(r => r._id !== id));
-    } catch {
-      alert('Failed to delete');
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "You won't be able to revert this!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#7c3aed',
+      confirmButtonText: 'Yes, delete it!'
+    });
+    
+    if (result.isConfirmed) {
+      try {
+        await api.delete(`/api/doc-verification/${id}`);
+        setHistory(prev => prev.filter(r => r._id !== id));
+        Swal.fire({
+          icon: 'success',
+          title: 'Deleted!',
+          text: 'Record has been deleted.',
+          confirmButtonColor: '#7c3aed'
+        });
+      } catch {
+        Swal.fire({
+          icon: 'error',
+          title: 'Failed!',
+          text: 'Failed to delete record',
+          confirmButtonColor: '#7c3aed'
+        });
+      }
     }
   };
 

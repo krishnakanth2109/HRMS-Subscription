@@ -420,7 +420,6 @@ const EmployeeDashboard = () => {
       const prevLog = attendance.find(a => a.date === yesterdayStr);
 
       if (prevLog && prevLog.punchIn && !prevLog.punchOut) {
-        setMissedPunchLog(prevLog);
         setReqData(prev => ({ ...prev, date: yesterdayStr }));
 
         // Fetch status dynamically from backend
@@ -431,12 +430,20 @@ const EmployeeDashboard = () => {
             });
             if (data.found) {
               setMissedPunchRequestStatus(data.status);
+              // ✅ FIX: If approved, reload attendance so punchOut gets populated
+              // and missedPunchLog clears automatically on next cycle
+              if (data.status === "Approved") {
+                await loadAttendance(user.employeeId);
+                return; // attendance reload will re-trigger this effect and clear missedPunchLog
+              }
             } else {
               setMissedPunchRequestStatus(null);
             }
           } catch (error) {
             console.error("Failed to check request status:", error);
           }
+          // Only set missedPunchLog if status is NOT Approved
+          setMissedPunchLog(prevLog);
         };
         fetchStatus();
 
@@ -725,11 +732,13 @@ const EmployeeDashboard = () => {
     if (!user) return;
     if (action === "IN") {
       if (!todayLog) {
-        if (missedPunchLog) {
+        if (missedPunchLog && missedPunchRequestStatus !== "Approved") {
           Swal.fire({
             icon: 'error',
             title: 'Punch In Disabled',
-            text: 'You did not punch out yesterday. Please use the "Request Punch Out" button above to resolve this with Admin.'
+            text: missedPunchRequestStatus === "Pending"
+              ? 'Your punch-out request is pending admin approval. You can punch in once it is approved.'
+              : 'You did not punch out yesterday. Please use the "Request Punch Out" button above to resolve this with Admin.'
           });
           return;
         }
@@ -1272,7 +1281,7 @@ const EmployeeDashboard = () => {
               {/* ✅ NEW: Pending Status Logic */}
               {missedPunchRequestStatus === 'Pending' && (
                 <span className="text-orange-600 font-bold text-xs bg-orange-100 border border-orange-200 px-2 py-1 rounded mt-2 inline-flex items-center gap-1">
-                  <FaRegClock /> Request Pending Approval
+                  <FaRegClock /> Request Pending Approval Please Wait for Approval
                 </span>
               )}
               {missedPunchRequestStatus === 'Rejected' && (
@@ -1482,7 +1491,7 @@ const EmployeeDashboard = () => {
                     <span className="text-gray-500 font-bold text-[10px] uppercase tracking-wider bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">Shift Completed</span>
                   ) : showPunchInButton ? (
                     <button
-                      className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                      className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog && missedPunchRequestStatus !== "Approved" ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                       onClick={() => handlePunch("IN")}
                       disabled={punchStatus !== "IDLE"}
                     >

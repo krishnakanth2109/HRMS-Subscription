@@ -14,7 +14,7 @@ import {
   FaTimes,
   FaFileAlt,
   FaShieldAlt,
-  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop,FaFileSignature,FaGift,FaClipboardCheck,
+  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop,FaFileSignature,FaGift,FaClipboardCheck, FaInfoCircle
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -464,8 +464,6 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
                 {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
               </button>
             </div>
-            <label className="block text-sm font-medium text-gray-700">Reason</label>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full mt-1" rows={3} required />
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2 justify-end mt-4">
@@ -508,7 +506,6 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
     }
   }, [open]);
 
-  useEffect(() => { if (open) { setDate(new Date().toISOString().split("T")[0]); setReason(""); setError(""); } }, [open]);
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -549,8 +546,6 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
                 {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
               </button>
             </div>
-            <label className="block text-sm font-medium text-gray-700">Reason</label>
-            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full mt-1" rows={3} required />
           </div>
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex gap-2 justify-end mt-4">
@@ -849,6 +844,9 @@ const EmployeeManagement = () => {
   const [hrActivitiesOpen, setHrActivitiesOpen] = useState(false);
   // Document Verification nested submenu
   const [docVerifyOpen, setDocVerifyOpen] = useState(false);
+  
+  // HR Flow Process Image modal
+  const [hrFlowImageOpen, setHrFlowImageOpen] = useState(false);
 
   const hrDropdownRef = useRef(null);
   const [employeeImages, setEmployeeImages] = useState({});
@@ -984,92 +982,101 @@ const EmployeeManagement = () => {
           </div>
 
           <div className="flex gap-3 flex-wrap">
-            {/* HR Activities Dropdown */}
-            <div className="relative" ref={hrDropdownRef}>
+            <div className="flex flex-col items-end gap-1">
+              
+              {/* HR Flow Process Info Link Button */}
               <button
-                onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+                onClick={() => setHrFlowImageOpen(true)}
+                className="text-sm text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 font-medium transition-colors cursor-pointer mr-1"
+                title="View HR Flow Process"
               >
-                <FaClipboardList /> HR Activities
-                <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
+                <FaInfoCircle /> View HR Flow Process
               </button>
 
-              {hrActivitiesOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999]">
-  
+              {/* HR Activities Dropdown */}
+              <div className="relative" ref={hrDropdownRef}>
+                <button
+                  onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+                >
+                  <FaClipboardList /> HR Activities
+                  <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
+                </button>
 
+                {hrActivitiesOpen && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999]">
+    
+                    {/* Document Verification with smart positioned nested submenu */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDocVerifyOpen(!docVerifyOpen); }}
+                        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-colors duration-150 border-b border-slate-100"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FaShieldAlt className="text-violet-500" />
+                          Document Verification
+                        </div>
+                        <FaChevronDown className={`text-xs text-slate-400 transition-transform duration-200 ${docVerifyOpen ? "rotate-180" : ""}`} />
+                      </button>
 
-                  {/* Document Verification with smart positioned nested submenu */}
-                  <div className="relative">
+                      {/* Smart positioned submenu - opens right by default, left if off-screen */}
+                      {docVerifyOpen && (
+                        <SmartSubmenu
+                          onClose={() => setDocVerifyOpen(false)}
+                          onNavigate={(path) => {
+                            navigate(path);
+                            setHrActivitiesOpen(false);
+                            setDocVerifyOpen(false);
+                          }}
+                        />
+                      )}
+                    </div>
+                    {/* Offer Letter */}
                     <button
-                      onClick={(e) => { e.stopPropagation(); setDocVerifyOpen(!docVerifyOpen); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-colors duration-150 border-b border-slate-100"
+                      onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
                     >
-                      <div className="flex items-center gap-3">
-                        <FaShieldAlt className="text-violet-500" />
-                        Document Verification
-                      </div>
-                      <FaChevronDown className={`text-xs text-slate-400 transition-transform duration-200 ${docVerifyOpen ? "rotate-180" : ""}`} />
+                      <FaFileAlt className="text-blue-500" /> Offer Letter
+                    </button>
+                    
+                    {/* Onboarding Invitation */}
+                    <button
+                      onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
+                    >
+                      <FaUser className="text-blue-500" /> Onboarding Invitation
                     </button>
 
-                    {/* Smart positioned submenu - opens right by default, left if off-screen */}
-                    {docVerifyOpen && (
-                      <SmartSubmenu
-                        onClose={() => setDocVerifyOpen(false)}
-                        onNavigate={(path) => {
-                          navigate(path);
-                          setHrActivitiesOpen(false);
-                          setDocVerifyOpen(false);
-                        }}
-                      />
-                    )}
+                    {/* Add Employee */}
+                    <button
+                      onClick={() => { navigate("/employees/add"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    >
+                      <FaUserPlus className="text-blue-500" /> Add Employee
+                    </button>
+                    <button
+                      onClick={() => { navigate("/admin/induction"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    >
+                      <FaConnectdevelop className="text-blue-500" /> Induction
+                    </button>
+                    <button
+                      onClick={() => { navigate("/admin/resignation"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    >
+                      <FaFileSignature className="text-blue-500" /> Resignations
+                  </button>
+              
+                  <button
+                      onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    >
+                      <FaGift className="text-blue-500" /> Welcome Kit
+                  </button>
+
                   </div>
-                                  {/* Offer Letter */}
-                  <button
-                    onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
-                  >
-                    <FaFileAlt className="text-blue-500" /> Offer Letter
-                  </button>
-                  
-                  {/* Onboarding Invitation */}
-                  <button
-                    onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
-                  >
-                    <FaUser className="text-blue-500" /> Onboarding Invitation
-                  </button>
-
-                  {/* Add Employee */}
-                  <button
-                    onClick={() => { navigate("/employees/add"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
-                  >
-                    <FaUserPlus className="text-blue-500" /> Add Employee
-                  </button>
-                  <button
-                    onClick={() => { navigate("/admin/induction"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
-                  >
-                    <FaConnectdevelop className="text-blue-500" /> Induction
-                  </button>
-                  <button
-                    onClick={() => { navigate("/admin/resignation"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
-                  >
-                    <FaFileSignature className="text-blue-500" /> Resignations
-                </button>
-            
-
-                           <button
-                    onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
-                  >
-                    <FaGift className="text-blue-500" /> Welcome Kit
-                </button>
-
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1140,6 +1147,7 @@ const EmployeeManagement = () => {
           </div>
         </div>
 
+        {/* MODALS */}
         <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
         <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
         <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
@@ -1151,6 +1159,32 @@ const EmployeeManagement = () => {
             <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
           </div>
         )}
+
+        {/* HR Flow Process Image Modal Popup - SCROLL FIX APPLIED */}
+        {hrFlowImageOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
+            <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+               <div className="flex justify-between items-center p-4 border-b shrink-0">
+                 <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                   <FaInfoCircle className="text-indigo-600" /> HR Flow Process
+                 </h3>
+                 <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
+                   <FaTimes size={20} />
+                 </button>
+               </div>
+               
+               {/* Fixed flex/scroll area: using block context inside an overflow-y-auto container instead of items-center */}
+               <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
+                 <img 
+                   src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png" 
+                   alt="HR Flow Process Image Not Found" 
+                   className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm" 
+                 />
+               </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
