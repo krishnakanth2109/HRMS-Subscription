@@ -938,96 +938,36 @@ const TodayOverview = () => {
     fetchAllData();
   }, []);
 
-  // In the allDailyData useMemo, add these variables at the beginning:
-
-  const attendanceWithDetails = attendanceData.map(item => {
-    const shift = shiftsMap[item.employeeId];
-    const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
-    const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
-    const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
-    const isPendingResignation = resignationData.some(r => r.employeeId === item.employeeId && r.status === "Pending");
-
-    return {
-      ...item,
-      employeeName: realName,
-      department,
-      category: !item.punchIn ? 'NOT_LOGGED_IN' : (item.punchIn && !item.punchOut ? 'WORKING' : 'COMPLETED'),
-      isOnLeave: false,
-      loginStatus,
-      profilePic: employeeImages[item.employeeId],
-      phoneNumber: employeePhoneNumbers[item.employeeId] || null,
-      isPendingResignation
-    };
-  });
-  // In the allDailyData useMemo, update to include phone directly from employee object:
-  // Update the allDailyData useMemo to check multiple phone number locations:
-
   const allDailyData = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
+    
     const empNameMap = allEmployees.reduce((acc, emp) => {
       acc[emp.employeeId] = emp.name || emp.employeeName;
       return acc;
     }, {});
 
-    // ✅ FIX: Check multiple possible phone number locations in employee data
     const empPhoneMap = allEmployees.reduce((acc, emp) => {
       let phoneNumber = null;
-
-      // Check all possible locations for phone number (same as EmployeeProfile)
-      if (emp.phone) {
-        phoneNumber = emp.phone;
-      } else if (emp.phoneNumber) {
-        phoneNumber = emp.phoneNumber;
-      } else if (emp.personalDetails?.phone) {
-        phoneNumber = emp.personalDetails.phone;
-      } else if (emp.personalDetails?.phoneNumber) {
-        phoneNumber = emp.personalDetails.phoneNumber;
-      }
-
+      if (emp.phone) phoneNumber = emp.phone;
+      else if (emp.phoneNumber) phoneNumber = emp.phoneNumber;
+      else if (emp.personalDetails?.phone) phoneNumber = emp.personalDetails.phone;
+      else if (emp.personalDetails?.phoneNumber) phoneNumber = emp.personalDetails.phoneNumber;
+      
       if (emp.employeeId && phoneNumber) {
         acc[emp.employeeId] = phoneNumber;
       }
       return acc;
     }, {});
 
-    // Define active employee IDs
     const activeEmployeeIds = new Set(allEmployees.filter(e => e.isActive !== false).map(e => e.employeeId));
     const presentIds = new Set(attendanceData.map(att => att.employeeId));
-    const onLeaveIds = new Set(
-      leaveData.filter(leave => {
-        if (leave.status !== 'Approved') return false;
-        return today >= leave.from && today <= leave.to;
-      }).map(l => l.employeeId)
-    );
-
-    const attendanceWithDetails = attendanceData.map(item => {
-      const shift = shiftsMap[item.employeeId];
-      const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
-      const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
-      const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
-
-      // ✅ FIX: Check both empPhoneMap AND employeePhoneNumbers state
-      const phoneNumber = empPhoneMap[item.employeeId] || employeePhoneNumbers[item.employeeId] || null;
-
-      return {
-        ...item,
-        employeeName: realName,
-        department,
-        category: !item.punchIn ? 'NOT_LOGGED_IN' : (item.punchIn && !item.punchOut ? 'WORKING' : 'COMPLETED'),
-        isOnLeave: false,
-        loginStatus,
-        profilePic: employeeImages[item.employeeId],
-        phoneNumber: phoneNumber
-      };
-    });
-
+    
     const onLeaveToday = leaveData.filter(leave => {
       if (leave.status !== 'Approved') return false;
       return today >= leave.from && today <= leave.to;
     }).map(leave => {
       const emp = allEmployees.find(e => e.employeeId === leave.employeeId);
       const phoneNumber = empPhoneMap[leave.employeeId] || employeePhoneNumbers[leave.employeeId] || null;
-
       return {
         employeeId: leave.employeeId,
         employeeName: empNameMap[leave.employeeId] || leave.employeeName || leave.employeeId,
@@ -1044,34 +984,36 @@ const TodayOverview = () => {
       };
     });
 
+    const onLeaveIds = new Set(onLeaveToday.map(l => l.employeeId));
+
+    const attendanceWithDetails = attendanceData.map(item => {
+      const shift = shiftsMap[item.employeeId];
+      const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
+      const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
+      const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
+      const phoneNumber = empPhoneMap[item.employeeId] || employeePhoneNumbers[item.employeeId] || null;
+      const isPendingResignation = resignationData.some(r => r.employeeId === item.employeeId && r.status === "Pending");
+
+      return {
+        ...item,
+        employeeName: realName,
+        department,
+        category: !item.punchIn ? 'NOT_LOGGED_IN' : (item.punchIn && !item.punchOut ? 'WORKING' : 'COMPLETED'),
+        isOnLeave: false,
+        loginStatus,
+        profilePic: employeeImages[item.employeeId],
+        phoneNumber: phoneNumber,
+        isPendingResignation
+      };
+    });
+
     const notLoggedIn = Array.from(activeEmployeeIds)
       .filter(id => !presentIds.has(id) && !onLeaveIds.has(id))
       .map(id => {
         const emp = allEmployees.find(e => e.employeeId === id);
         const phoneNumber = empPhoneMap[id] || employeePhoneNumbers[id] || null;
+        const isPendingResignation = resignationData.some(r => r.employeeId === id && r.status === "Pending");
 
-        return {
-          employeeId: id,
-          employeeName: empNameMap[id] || id,
-          category: 'NOT_LOGGED_IN',
-          isOnLeave: false,
-          department: emp?.experienceDetails?.[0]?.department || 'Unassigned',
-          punchIn: null,
-          punchOut: null,
-          loginStatus: { status: "--", isLate: false },
-          profilePic: employeeImages[leave.employeeId],
-          phoneNumber: employeePhoneNumbers[leave.employeeId] || null,
-          isPendingResignation: resignationData.some(r => r.employeeId === leave.employeeId && r.status === "Pending")
-        };
-      });
-
-    const presentIds = new Set(attendanceData.map(att => att.employeeId));
-    const onLeaveIds = new Set(onLeaveToday.map(l => l.employeeId));
-
-    const notLoggedIn = Array.from(activeEmployeeIds)
-      .filter(id => !presentIds.has(id) && !onLeaveIds.has(id))
-      .map(id => {
-        const emp = allEmployees.find(e => e.employeeId === id);
         return {
           employeeId: id,
           employeeName: empNameMap[id] || id,
@@ -1082,20 +1024,14 @@ const TodayOverview = () => {
           punchOut: null,
           loginStatus: { status: "--", isLate: false },
           profilePic: employeeImages[id],
-          phoneNumber: employeePhoneNumbers[id] || null,
-          isPendingResignation: resignationData.some(r => r.employeeId === id && r.status === "Pending")
+          phoneNumber: phoneNumber,
+          isPendingResignation
         };
       });
 
     return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
   }, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers, resignationData]);
-  profilePic: employeeImages[id],
-    phoneNumber: phoneNumber
-};
-    });
-
-return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
-}, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers]); // ✅ Added employeePhoneNumbers to dependencies
+ // ✅ Added employeePhoneNumbers to dependencies
 
 // 2. Department Filter Data (Source for Stats)
 const departmentFilteredData = useMemo(() => {

@@ -14,7 +14,6 @@ import {
   FaTimes,
   FaFileAlt,
   FaShieldAlt,
-  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop, FaFileSignature, FaGift, FaClipboardCheck,
   FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop, FaFileSignature, FaGift, FaClipboardCheck, FaInfoCircle
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
@@ -1007,26 +1006,6 @@ const EmployeeManagement = () => {
 
               {/* HR Flow Process Info Link Button */}
               <button
-<<<<<<< HEAD
-                onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105 relative"
-              >
-                <FaClipboardList /> HR Activities
-                {allResignations.filter(r => r.status === "Pending").length > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-bounce">
-                    {allResignations.filter(r => r.status === "Pending").length}
-                  </span>
-                )}
-                <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
-              </button>
-              {hrActivitiesOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
-                  {/* Document Verification with smart positioned nested submenu */}
-                  <div className="relative">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDocVerifyOpen(!docVerifyOpen); }}
-                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100 rounded-t-xl"
-=======
                 onClick={() => setHrFlowImageOpen(true)}
                 className="text-sm text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 font-medium transition-colors cursor-pointer mr-1"
                 title="View HR Flow Process"
@@ -1038,20 +1017,24 @@ const EmployeeManagement = () => {
               <div className="relative" ref={hrDropdownRef}>
                 <button
                   onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105 relative"
                 >
                   <FaClipboardList /> HR Activities
+                  {allResignations.filter(r => r.status === "Pending").length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-bounce">
+                      {allResignations.filter(r => r.status === "Pending").length}
+                    </span>
+                  )}
                   <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
                 </button>
 
                 {hrActivitiesOpen && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999]">
-
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
                     {/* Document Verification with smart positioned nested submenu */}
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setDocVerifyOpen(!docVerifyOpen); }}
-                        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-colors duration-150 border-b border-slate-100"
+                        className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100 rounded-t-xl"
                       >
                         <div className="flex items-center gap-3">
                           <FaShieldAlt className="text-violet-500" />
@@ -1072,11 +1055,11 @@ const EmployeeManagement = () => {
                         />
                       )}
                     </div>
+
                     {/* Offer Letter */}
                     <button
                       onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
->>>>>>> 6ecad1c676acb75cbde41e891e8e38c4b72832dd
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                     >
                       <FaFileAlt className="text-blue-500" /> Offer Letter
                     </button>
@@ -1084,7 +1067,7 @@ const EmployeeManagement = () => {
                     {/* Onboarding Invitation */}
                     <button
                       onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                     >
                       <FaUser className="text-blue-500" /> Onboarding Invitation
                     </button>
@@ -1092,91 +1075,48 @@ const EmployeeManagement = () => {
                     {/* Add Employee */}
                     <button
                       onClick={() => { navigate("/employees/add"); setHrActivitiesOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                     >
                       <FaUserPlus className="text-blue-500" /> Add Employee
                     </button>
+
+                    {/* Induction */}
                     <button
                       onClick={() => { navigate("/admin/induction"); setHrActivitiesOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                     >
                       <FaConnectdevelop className="text-blue-500" /> Induction
                     </button>
+
+                    {/* Resignations */}
                     <button
                       onClick={() => { navigate("/admin/resignation"); setHrActivitiesOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100"
                     >
-                      <FaFileSignature className="text-blue-500" /> Resignations
+                      <div className="flex items-center gap-3">
+                        <FaFileSignature className="text-blue-500" /> Resignations
+                      </div>
+                      {allResignations.filter(r => r.status === "Pending").length > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                          {allResignations.filter(r => r.status === "Pending").length} New
+                        </span>
+                      )}
                     </button>
 
+                    {/* Welcome Kit */}
                     <button
                       onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 rounded-b-xl"
                     >
                       <FaGift className="text-blue-500" /> Welcome Kit
                     </button>
-
                   </div>
-<<<<<<< HEAD
-  {/* Offer Letter */ }
-  <button
-    onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
-    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
-  >
-    <FaFileAlt className="text-blue-500" /> Offer Letter
-  </button>
-
-  {/* Onboarding Invitation */ }
-  <button
-    onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
-    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
-  >
-    <FaUser className="text-blue-500" /> Onboarding Invitation
-  </button>
-
-  {/* Add Employee */ }
-                  <button
-                    onClick={() => { navigate("/employees/add"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
-                  >
-                    <FaUserPlus className="text-blue-500" /> Add Employee
-                  </button>
-                  <button
-                    onClick={() => { navigate("/admin/induction"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
-                  >
-                    <FaConnectdevelop className="text-blue-500" /> Induction
-                  </button>
-                  <button
-                    onClick={() => { navigate("/admin/resignation"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FaFileSignature className="text-blue-500" /> Resignations
-                    </div>
-                    {allResignations.filter(r => r.status === "Pending").length > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                        {allResignations.filter(r => r.status === "Pending").length} New
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 rounded-b-xl"
-                  >
-                    <FaGift className="text-blue-500" /> Welcome Kit
-                  </button>
-                </div >
-              )}
-
-=======
                 )}
               </div>
->>>>>>> 6ecad1c676acb75cbde41e891e8e38c4b72832dd
-            </div >
-          </div >
-        </div >
+            </div>
+          </div>
+        </div>
+
 
         <div className="flex flex-col md:flex-row gap-4 mb-10 px-8">
           <input

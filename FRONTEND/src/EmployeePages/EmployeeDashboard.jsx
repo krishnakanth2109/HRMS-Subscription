@@ -1564,57 +1564,49 @@ const EmployeeDashboard = () => {
                         Success ✅
                       </span>
                     ) : (!todayLog || todayLog.status === "NOT_STARTED") ? (
-                      {
-                        isShiftCompleted?(
-                    <span className = "text-gray-500 font-bold text-[10px] uppercase tracking-wider bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm" > Shift Completed</span>
-                  ) : showPunchInButton ? (
-                  <button
-                    className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog && missedPunchRequestStatus !== "Approved" ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                    onClick={() => handlePunch("IN")}
-                    disabled={punchStatus !== "IDLE"}
-                  >
-                    {getPunchButtonContent("IN")}
-                  </button>
-                  ) : (
-                  // ✅ NEW: Punch Out + Take Break buttons side-by-side
-                  <div className="flex flex-col gap-2 items-center w-full max-w-[140px] mx-auto">
-                    <button
-                      className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                      onClick={() => handlePunch("IN")}
-                      disabled={punchStatus !== "IDLE" || missedPunchLog}
-                    >
-                      {getPunchButtonContent("IN")}
-                    </button>
+                      showPunchInButton ? (
+                        <button
+                          className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog && missedPunchRequestStatus !== "Approved" ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                          onClick={() => handlePunch("IN")}
+                          disabled={punchStatus !== "IDLE"}
+                        >
+                          {getPunchButtonContent("IN")}
+                        </button>
+                      ) : (
+                        <span className="text-gray-500 font-bold text-[10px] uppercase tracking-wider bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">
+                          Shift Completed
+                        </span>
+                      )
                     ) : (
-                    <>
-                      {/* Punch Out Button (Shown only when working) */}
-                      {todayLog?.status === "WORKING" && (
-                        <button
-                          className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'} disabled:opacity-50`}
-                          onClick={() => handlePunch("OUT")}
-                          disabled={punchStatus !== "IDLE"}
-                        >
-                          {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : <FaSignOutAlt />}
-                          {punchStatus === "PUNCHING" ? "Processing..." : "Punch Out"}
-                        </button>
-                      )}
+                      <div className="flex flex-col gap-2 items-center w-full max-w-[140px] mx-auto">
+                        {/* Punch Out Button (Shown only when working) */}
+                        {todayLog?.status === "WORKING" && (
+                          <button
+                            className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'} disabled:opacity-50`}
+                            onClick={() => handlePunch("OUT")}
+                            disabled={punchStatus !== "IDLE"}
+                          >
+                            {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : <FaSignOutAlt />}
+                            {punchStatus === "PUNCHING" ? "Processing..." : "Punch Out"}
+                          </button>
+                        )}
 
-                      {/* ✅ NEW: Toggling Break Button */}
-                      {isPunchedIn && !isShiftCompleted && (
-                        <button
-                          onClick={handleBreak}
-                          disabled={punchStatus !== "IDLE"}
-                          className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] border
-                            ${isOnBreak
-                              ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
-                              : 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
-                            }`}
-                        >
-                          {isOnBreak ? <FaPlay /> : <FaCoffee />}
-                          {isOnBreak ? "Continue Work" : "Take a Break"}
-                        </button>
-                      )}
-                    </>
+                        {/* ✅ NEW: Toggling Break Button */}
+                        {todayLog?.punchIn && !isShiftCompleted && (
+                          <button
+                            onClick={handleBreak}
+                            disabled={punchStatus !== "IDLE"}
+                            className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] border
+                              ${todayLog?.isOnBreak
+                                ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                : 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
+                              }`}
+                          >
+                            {todayLog?.isOnBreak ? <FaPlay /> : <FaCoffee />}
+                            {todayLog?.isOnBreak ? "Continue Work" : "Take a Break"}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </td>
