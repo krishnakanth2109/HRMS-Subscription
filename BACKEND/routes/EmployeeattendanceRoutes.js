@@ -9,6 +9,11 @@ import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import Holiday from "../models/Holiday.js";
 import Overtime from "../models/Overtime.js";
+import Admin from "../models/adminModel.js";
+import Employee from "../models/employeeModel.js";
+import Notification from "../models/notificationModel.js";
+import AttendanceRequest from "../models/AttendanceRequest.js";
+import Company from "../models/CompanyModel.js";
 import nodemailer from 'nodemailer';
 
 const router = express.Router();
@@ -65,11 +70,11 @@ const createInsufficientHoursEmail = (employeeData) => {
 
   const getStatusBadge = (status) => {
     const colors = {
-      'ON_TIME':  { bg: '#10b981', text: '#ffffff' },
-      'LATE':     { bg: '#ef4444', text: '#ffffff' },
+      'ON_TIME': { bg: '#10b981', text: '#ffffff' },
+      'LATE': { bg: '#ef4444', text: '#ffffff' },
       'FULL_DAY': { bg: '#10b981', text: '#ffffff' },
       'HALF_DAY': { bg: '#f59e0b', text: '#ffffff' },
-      'ABSENT':   { bg: '#ef4444', text: '#ffffff' },
+      'ABSENT': { bg: '#ef4444', text: '#ffffff' },
     };
     const color = colors[status] || { bg: '#6b7280', text: '#ffffff' };
     return `<span style="background-color:${color.bg};color:${color.text};padding:4px 12px;border-radius:12px;font-size:12px;font-weight:600;">${status.replace(/_/g, ' ')}</span>`;
@@ -140,8 +145,8 @@ const createMissingAttendanceEmail = (employeeData) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return '--';
     const d = new Date(dateStr);
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     return `${months[d.getMonth()]} ${d.getDate()} ${d.getFullYear()}, ${days[d.getDay()]}`;
   };
 
@@ -703,10 +708,10 @@ router.post('/punch-in', async (req, res) => {
 
         // Check if yesterday was a Holiday
         const startOfYest = new Date(`${yesterday}T00:00:00.000Z`);
-        const endOfYest   = new Date(`${yesterday}T23:59:59.999Z`);
+        const endOfYest = new Date(`${yesterday}T23:59:59.999Z`);
         const isHoliday = await Holiday.findOne({
           startDate: { $lte: endOfYest },
-          endDate:   { $gte: startOfYest }
+          endDate: { $gte: startOfYest }
         });
 
         const approvedLeaveYesterday = await LeaveRequest.findOne({
@@ -771,7 +776,7 @@ router.post('/punch-in', async (req, res) => {
 
     // --- Recording the Punch-In ---
     let address = "Unknown Location";
-    try { address = await reverseGeocode(latitude, longitude); } catch {}
+    try { address = await reverseGeocode(latitude, longitude); } catch { }
 
     let todayRecord = attendance.attendance.find(a => a.date === today);
 
@@ -904,8 +909,8 @@ router.post('/punch-out', async (req, res) => {
     let attendanceCategory = "ABSENT";
     let workedStatus = "ABSENT";
 
-    if (h >= shift.fullDayHours)         { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
-    else if (h >= shift.halfDayHours)    { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
+    if (h >= shift.fullDayHours) { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
+    else if (h >= shift.halfDayHours) { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
     else if (h >= (shift.quarterDayHours || 2)) { workedStatus = "HALF_DAY"; }
 
     todayRecord.workedStatus = workedStatus;
@@ -1004,8 +1009,8 @@ router.post('/punch-break', async (req, res) => {
     let attendanceCategory = "ABSENT";
     let workedStatus = "ABSENT";
 
-    if (h >= shift.fullDayHours)         { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
-    else if (h >= shift.halfDayHours)    { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
+    if (h >= shift.fullDayHours) { attendanceCategory = "FULL_DAY"; workedStatus = "FULL_DAY"; }
+    else if (h >= shift.halfDayHours) { attendanceCategory = "HALF_DAY"; workedStatus = "HALF_DAY"; }
     else if (h >= (shift.quarterDayHours || 2)) { workedStatus = "HALF_DAY"; }
 
     todayRecord.workedStatus = workedStatus;
@@ -1089,7 +1094,7 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
     if (!shift) shift = { fullDayHours: 8, halfDayHours: 4, quarterDayHours: 2 };
 
     let workedStatus = "ABSENT";
-    if (h >= shift.fullDayHours)      workedStatus = "FULL_DAY";
+    if (h >= shift.fullDayHours) workedStatus = "FULL_DAY";
     else if (h >= shift.halfDayHours) workedStatus = "HALF_DAY";
     else if (h >= (shift.quarterDayHours || 2)) workedStatus = "HALF_DAY";
 
@@ -1097,6 +1102,31 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
     dayRecord.attendanceCategory = workedStatus === "FULL_DAY" ? "FULL_DAY" : (workedStatus === "HALF_DAY" ? "HALF_DAY" : "ABSENT");
 
     await attendance.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      const employee = await Employee.findOne({ employeeId });
+      if (employee) {
+        const notif = await Notification.create({
+          adminId: req.user._id,
+          companyId: attendance.companyId,
+          userId: employee._id,
+          userType: "Employee",
+          title: "Admin Force Punch Out",
+          message: "An administrator has punched you out.",
+          type: "FORCE_PUNCH_OUT",
+          date: new Date(),
+        });
+        io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+        io.to(`user_${employee._id.toString()}`).emit("attendance:correctionUpdate", {
+          date: targetDateStr,
+          status: "Admin_Punched_Out",
+          type: "FORCE_PUNCH_OUT",
+          message: "An administrator has punched you out."
+        });
+      }
+    }
+
     res.json({ success: true, message: "Employee punched out by Admin successfully", data: dayRecord });
 
   } catch (err) {
@@ -1184,6 +1214,16 @@ router.post("/submit-late-correction", async (req, res) => {
 
     attendanceRecord.monthlyRequestLimits.set(currentMonth, { limit: monthData.limit, used: monthData.used + 1 });
     await attendanceRecord.save();
+
+    const io = req.app.get("io");
+    if (io && attendanceRecord.adminId) {
+      io.to(`user_${attendanceRecord.adminId.toString()}`).emit("attendance:lateNew", {
+        employeeId,
+        date,
+        message: `New late correction request from ${attendanceRecord.employeeName}`
+      });
+    }
+
     res.json({ success: true, message: "Request submitted" });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1230,6 +1270,16 @@ router.post('/request-status-correction', async (req, res) => {
     };
 
     await attendance.save();
+
+    const io = req.app.get("io");
+    if (io && attendance.adminId) {
+      io.to(`user_${attendance.adminId.toString()}`).emit("attendance:correctionNew", {
+        employeeId,
+        date,
+        message: `New status correction request from ${attendance.employeeName}`
+      });
+    }
+
     res.json({ success: true, message: "Correction request submitted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1297,6 +1347,26 @@ router.post('/approve-correction', onlyAdmin, async (req, res) => {
     }
 
     await attendance.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      const employee = await Employee.findOne({ employeeId });
+      if (employee) {
+        const notif = await Notification.create({
+          adminId: req.user._id,
+          companyId: attendance.companyId,
+          userId: employee._id,
+          userType: "Employee",
+          title: `Late Correction ${status === 'APPROVED' ? 'Approved' : 'Rejected'}`,
+          message: `Your late correction request for ${date} has been ${status.toLowerCase()}.`,
+          type: "attendance-correction-status",
+          date: new Date(),
+        });
+        io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+        io.to(`user_${employee._id.toString()}`).emit("attendance:correctionUpdate", { date, status });
+      }
+    }
+
     res.json({ success: true, message: `Request ${status.toLowerCase()} successfully.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1368,9 +1438,9 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
     let workedStatus = "ABSENT";
     let attendanceCategory = "ABSENT";
 
-    if (h >= shift.fullDayHours)                  { workedStatus = "FULL_DAY";    attendanceCategory = "FULL_DAY"; }
-    else if (h >= shift.halfDayHours)             { workedStatus = "HALF_DAY";    attendanceCategory = "HALF_DAY"; }
-    else if (h >= (shift.quarterDayHours || 2))   { workedStatus = "QUARTER_DAY"; attendanceCategory = "ABSENT"; }
+    if (h >= shift.fullDayHours) { workedStatus = "FULL_DAY"; attendanceCategory = "FULL_DAY"; }
+    else if (h >= shift.halfDayHours) { workedStatus = "HALF_DAY"; attendanceCategory = "HALF_DAY"; }
+    else if (h >= (shift.quarterDayHours || 2)) { workedStatus = "QUARTER_DAY"; attendanceCategory = "ABSENT"; }
 
     dayRecord.workedStatus = workedStatus;
     dayRecord.attendanceCategory = attendanceCategory;
@@ -1378,6 +1448,26 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
     dayRecord.statusCorrectionRequest.adminComment = adminComment || "Approved by Admin";
 
     await attendance.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      const employee = await Employee.findOne({ employeeId });
+      if (employee) {
+        const notif = await Notification.create({
+          adminId: req.user._id,
+          companyId: attendance.companyId,
+          userId: employee._id,
+          userType: "Employee",
+          title: "Status Correction Approved",
+          message: `Your status correction request for ${date} has been approved.`,
+          type: "attendance-correction-status",
+          date: new Date(),
+        });
+        io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+        io.to(`user_${employee._id.toString()}`).emit("attendance:correctionUpdate", { date, status: "APPROVED" });
+      }
+    }
+
     res.json({
       success: true,
       message: `Attendance corrected. Worked: ${h}h ${m}m ${s}s → Status: ${workedStatus}`,
@@ -1404,9 +1494,43 @@ router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
     dayRecord.statusCorrectionRequest.status = "REJECTED";
     dayRecord.statusCorrectionRequest.adminComment = adminComment || "Rejected by Admin";
     await attendance.save();
+
+    const io = req.app.get("io");
+    if (io) {
+      const employee = await Employee.findOne({ employeeId });
+      if (employee) {
+        const notif = await Notification.create({
+          adminId: req.user._id,
+          companyId: attendance.companyId,
+          userId: employee._id,
+          userType: "Employee",
+          title: "Status Correction Rejected",
+          message: `Your status correction request for ${date} has been rejected.`,
+          type: "attendance-correction-status",
+          date: new Date(),
+        });
+        io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+        io.to(`user_${employee._id.toString()}`).emit("attendance:correctionUpdate", { date, status: "REJECTED" });
+      }
+    }
+
     res.json({ success: true, message: "Request rejected successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Admin: Get All Attendance Records (scoped to admin)
+ * GET /api/attendance/all
+ */
+router.get("/all", protect, onlyAdmin, async (req, res) => {
+  try {
+    const records = await Attendance.find({ adminId: req.user._id });
+    res.json({ success: true, data: records });
+  } catch (err) {
+    console.error("Error fetching all attendance records:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -1484,5 +1608,537 @@ router.post("/set-request-limit", onlyAdmin, async (req, res) => {
   }
 });
 
+
+
+
+/* ==========================================================
+   ✅ HALF DAY → FULL DAY EDIT REQUEST ROUTES
+   ========================================================== */
+
+/**
+ * Employee: Submit Half Day → Full Day Request
+ * POST /api/attendance/request-full-day
+ */
+router.post("/request-full-day", protect, async (req, res) => {
+  try {
+    const { employeeId, date, reason } = req.body;
+
+    if (!employeeId || !date || !reason) {
+      return res.status(400).json({ message: "Employee ID, date, and reason are required." });
+    }
+
+    const record = await Attendance.findOne({ employeeId });
+    if (!record) return res.status(404).json({ message: "Attendance record not found." });
+
+    // Find the specific day
+    const dateStr = new Date(date).toISOString().split("T")[0];
+    const dayRecord = record.attendance.find(
+      (a) => new Date(a.date).toISOString().split("T")[0] === dateStr
+    );
+
+    if (!dayRecord) {
+      return res.status(404).json({ message: "No attendance entry found for this date." });
+    }
+
+    // Check: must have punched in
+    if (!dayRecord.punchIn) {
+      return res.status(400).json({ message: "No punch-in record for this date." });
+    }
+
+    // Check: must NOT already have a pending/approved full day request
+    if (dayRecord.fullDayRequest?.hasRequest && dayRecord.fullDayRequest?.status === "PENDING") {
+      return res.status(400).json({ message: "An attendance request is already pending for this date." });
+    }
+    if (dayRecord.fullDayRequest?.hasRequest && dayRecord.fullDayRequest?.status === "APPROVED") {
+      return res.status(400).json({ message: "This date is already approved as a Full Day." });
+    }
+    if (dayRecord.workedStatus === "FULL_DAY") {
+      return res.status(400).json({ message: "Attendance for this date is already marked as Full Day." });
+    }
+
+    // Set the full day request
+    dayRecord.fullDayRequest = {
+      hasRequest: true,
+      status: "PENDING",
+      requestedAt: new Date(),
+      reviewedAt: null,
+      reason: reason,
+      adminComment: null,
+    };
+
+    await record.save({ validateBeforeSave: false });
+
+    // ✅ Real-time Notification for Admin
+    const io = req.app.get("io");
+    const adminId = record.adminId;
+
+    if (adminId) {
+      // Create permanent notification in DB
+      const notif = await Notification.create({
+        adminId: adminId,
+        companyId: record.companyId,
+        userId: adminId,
+        userType: "Admin",
+        title: "New Full Day Request",
+        message: `${record.employeeName || "An employee"} requested Full Day upgrade for ${dateStr}`,
+        type: "full-day-request",
+        isRead: false,
+        date: new Date(),
+      });
+
+      if (io) {
+        // Emit general notification for bell/toast
+        io.to(`user_${adminId.toString()}`).emit("newNotification", notif);
+        // Emit specific event to refresh lists instantly
+        io.to(`user_${adminId.toString()}`).emit("fullDay:new", { employeeId, date: dateStr });
+      }
+    }
+
+    res.json({ success: true, message: "Full Day request submitted successfully." });
+  } catch (error) {
+    console.error("Error submitting full day request:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Admin: Get All Pending Full Day Requests (scoped to admin)
+ * GET /api/attendance/admin/full-day-requests
+ */
+router.get("/admin/full-day-requests", protect, onlyAdmin, async (req, res) => {
+  try {
+    const allRecords = await Attendance.find({ adminId: req.user._id });
+
+    const pendingRequests = [];
+
+    for (const empRecord of allRecords) {
+      if (!empRecord.attendance || !Array.isArray(empRecord.attendance)) continue;
+
+      for (const dayLog of empRecord.attendance) {
+        if (
+          dayLog.fullDayRequest?.hasRequest &&
+          dayLog.fullDayRequest?.status === "PENDING"
+        ) {
+          pendingRequests.push({
+            employeeId: empRecord.employeeId,
+            employeeName: empRecord.employeeName,
+            date: dayLog.date,
+            punchIn: dayLog.punchIn,
+            punchOut: dayLog.punchOut,
+            displayTime: dayLog.displayTime,
+            workedStatus: dayLog.workedStatus,
+            reason: dayLog.fullDayRequest.reason,
+            requestedAt: dayLog.fullDayRequest.requestedAt,
+          });
+        }
+      }
+    }
+
+    // Sort newest first
+    pendingRequests.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+
+    res.json({ success: true, data: pendingRequests });
+  } catch (error) {
+    console.error("Error fetching full day requests:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Admin: Approve Full Day Request
+ * POST /api/attendance/approve-full-day
+ */
+router.post("/approve-full-day", protect, onlyAdmin, async (req, res) => {
+  try {
+    const { employeeId, date, adminComment } = req.body;
+
+    if (!employeeId || !date) {
+      return res.status(400).json({ message: "Employee ID and date are required." });
+    }
+
+    const record = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    if (!record) return res.status(404).json({ message: "Attendance record not found." });
+
+    const dateStr = new Date(date).toISOString().split("T")[0];
+    const dayRecord = record.attendance.find(
+      (a) => new Date(a.date).toISOString().split("T")[0] === dateStr
+    );
+
+    if (!dayRecord) {
+      return res.status(404).json({ message: "No attendance entry found for this date." });
+    }
+
+    if (!dayRecord.fullDayRequest?.hasRequest || dayRecord.fullDayRequest?.status !== "PENDING") {
+      return res.status(400).json({ message: "No pending full day request found for this date." });
+    }
+
+    // Approve: update the request status AND upgrade the day to Full Day
+    dayRecord.fullDayRequest.status = "APPROVED";
+    dayRecord.fullDayRequest.reviewedAt = new Date();
+    dayRecord.fullDayRequest.adminComment = adminComment || "Approved by Admin";
+
+    // Upgrade the worked status
+    dayRecord.workedStatus = "FULL_DAY";
+    dayRecord.status = "PRESENT";
+
+    await record.save({ validateBeforeSave: false });
+
+    // ✅ Real-time Notification for Employee
+    const io = req.app.get("io");
+    const employee = await Employee.findOne({ employeeId });
+    if (employee) {
+      const notif = await Notification.create({
+        adminId: req.user._id,
+        companyId: record.companyId,
+        userId: employee._id,
+        userType: "Employee",
+        title: "Full Day Request Approved",
+        message: `Your Full Day request for ${dateStr} has been approved.`,
+        type: "full-day-status",
+        isRead: false,
+        date: new Date(),
+      });
+      if (io) {
+        io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+        io.to(`user_${employee._id.toString()}`).emit("fullDay:statusUpdate", { date: dateStr, status: "APPROVED" });
+      }
+    }
+
+    res.json({ success: true, message: "Full Day request approved successfully." });
+  } catch (error) {
+    console.error("Error approving full day request:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Admin: Reject Full Day Request
+ * POST /api/attendance/reject-full-day
+ */
+router.post("/reject-full-day", protect, onlyAdmin, async (req, res) => {
+  try {
+    const { employeeId, date, adminComment } = req.body;
+
+    if (!employeeId || !date) {
+      return res.status(400).json({ message: "Employee ID and date are required." });
+    }
+
+    if (!adminComment) {
+      return res.status(400).json({ message: "Admin comment is required for rejection." });
+    }
+
+    const record = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    if (!record) return res.status(404).json({ message: "Attendance record not found." });
+
+    const dateStr = new Date(date).toISOString().split("T")[0];
+    const dayRecord = record.attendance.find(
+      (a) => new Date(a.date).toISOString().split("T")[0] === dateStr
+    );
+
+    if (!dayRecord) {
+      return res.status(404).json({ message: "No attendance entry found for this date." });
+    }
+
+    if (!dayRecord.fullDayRequest?.hasRequest || dayRecord.fullDayRequest?.status !== "PENDING") {
+      return res.status(400).json({ message: "No pending full day request found for this date." });
+    }
+
+    // Reject: just update the request status, leave workedStatus unchanged
+    dayRecord.fullDayRequest.status = "REJECTED";
+    dayRecord.fullDayRequest.reviewedAt = new Date();
+    dayRecord.fullDayRequest.adminComment = adminComment;
+
+    await record.save({ validateBeforeSave: false });
+
+    // ✅ Real-time Notification for Employee
+    const io = req.app.get("io");
+    const employee = await Employee.findOne({ employeeId });
+    if (employee) {
+      const notif = await Notification.create({
+        adminId: req.user._id,
+        companyId: record.companyId,
+        userId: employee._id,
+        userType: "Employee",
+        title: "Full Day Request Rejected",
+        message: `Your Full Day request for ${dateStr} was rejected. Note: ${adminComment}`,
+        type: "full-day-status",
+        isRead: false,
+        date: new Date(),
+      });
+      if (io) {
+        io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+        io.to(`user_${employee._id.toString()}`).emit("fullDay:statusUpdate", { date: dateStr, status: "REJECTED" });
+      }
+    }
+
+    res.json({ success: true, message: "Full Day request rejected." });
+  } catch (error) {
+    console.error("Error rejecting full day request:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/* ==========================================================
+   16. ADVANCED ATTENDANCE CORRECTION SYSTEM
+   ========================================================== */
+
+/**
+ * Employee: Submit Advanced Attendance Correction Request
+ * POST /api/attendance/request-correction-advanced
+ */
+router.post("/request-correction-advanced", protect, async (req, res) => {
+  try {
+    const {
+      employeeId,
+      date,
+      currentStatus,
+      requestedStatus,
+      currentPunchIn,
+      currentPunchOut,
+      requestedPunchIn,
+      requestedPunchOut,
+      reason
+    } = req.body;
+
+    if (!employeeId || !date || !requestedStatus || !reason) {
+      return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    // Find employee's attendance record to get adminId and companyId
+    const attendanceRecord = await Attendance.findOne({ employeeId });
+    if (!attendanceRecord) {
+      return res.status(404).json({ message: "Employee attendance record not found." });
+    }
+
+    // Check if a pending request already exists for this date
+    const existing = await AttendanceRequest.findOne({
+      employeeId,
+      date,
+      requestStatus: 'pending'
+    });
+    if (existing) {
+      return res.status(400).json({ message: "A request for this date is already pending." });
+    }
+
+    const newRequest = await AttendanceRequest.create({
+      employeeId,
+      adminId: attendanceRecord.adminId,
+      companyId: attendanceRecord.companyId,
+      employeeName: attendanceRecord.employeeName,
+      date,
+      currentStatus,
+      requestedStatus,
+      currentPunchIn,
+      currentPunchOut,
+      requestedPunchIn,
+      requestedPunchOut,
+      reason
+    });
+
+    // Real-time Notification for Admin
+    const io = req.app.get("io");
+    if (attendanceRecord.adminId) {
+      const notif = await Notification.create({
+        adminId: attendanceRecord.adminId,
+        companyId: attendanceRecord.companyId,
+        userId: attendanceRecord.adminId,
+        userType: "Admin",
+        title: "New Attendance Correction Request",
+        message: `${attendanceRecord.employeeName} requested correction for ${date}`,
+        type: "attendance-correction-request",
+        date: new Date(),
+      });
+      if (io) io.to(`user_${attendanceRecord.adminId.toString()}`).emit("newNotification", notif);
+      if (io) io.to(`user_${attendanceRecord.adminId.toString()}`).emit("attendance:correctionNew", { employeeId, date });
+    }
+
+    res.json({ success: true, message: "Correction request submitted successfully.", data: newRequest });
+  } catch (error) {
+    console.error("Error submitting correction request:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Admin: Get Pending Correction Requests
+ * GET /api/attendance/admin/pending-corrections
+ */
+router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) => {
+  try {
+    let companyIds = [];
+
+    if (req.user.role === 'admin') {
+      // Find all companies owned by this admin
+      const companies = await Company.find({ adminId: req.user._id });
+      companyIds = companies.map(c => c._id);
+    } else {
+      // Manager/Other roles should have a company field
+      companyIds = [req.user.company];
+    }
+
+    const requests = await AttendanceRequest.find({
+      companyId: { $in: companyIds },
+      requestStatus: 'pending'
+    }).sort({ requestedAt: -1 });
+
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    console.error("Error fetching pending corrections:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Admin: Act on Correction Request (Approve/Reject)
+ * POST /api/attendance/admin/act-on-correction
+ */
+router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => {
+  try {
+    const {
+      requestId,
+      status, // 'approved' | 'rejected'
+      finalPunchIn,
+      finalPunchOut,
+      finalStatus,
+      adminComment
+    } = req.body;
+
+    const request = await AttendanceRequest.findById(requestId);
+    if (!request) return res.status(404).json({ message: "Request not found." });
+
+    if (request.requestStatus !== 'pending') {
+      return res.status(400).json({ message: "Request has already been processed." });
+    }
+
+    let calculatedStatus = finalStatus;
+    let workedHours = 0;
+
+    if (status === 'approved') {
+      // ⏱️ Auto Calculate Hours & Status
+      const punchInTime = new Date(`1970-01-01T${finalPunchIn}`);
+      const punchOutTime = new Date(`1970-01-01T${finalPunchOut}`);
+      workedHours = (punchOutTime - punchInTime) / (1000 * 60 * 60);
+
+      // Handle overnight shift if out time is smaller than in time
+      if (workedHours < 0) {
+        workedHours += 24;
+      }
+
+      if (workedHours >= 9) {
+        calculatedStatus = 'Full Day';
+      } else if (workedHours >= 4.5) {
+        calculatedStatus = 'Half Day';
+      } else {
+        calculatedStatus = 'Absent';
+      }
+
+      // Step 1 — Find original attendance record
+      const attendance = await Attendance.findOne({ employeeId: request.employeeId });
+      if (attendance) {
+        const dayRecord = attendance.attendance.find(a => a.date === request.date);
+        if (dayRecord) {
+          // Calculate time for display
+          const totalSeconds = Math.max(0, workedHours * 3600);
+          const h = Math.floor(totalSeconds / 3600);
+          const m = Math.floor((totalSeconds % 3600) / 60);
+          const s = Math.floor(totalSeconds % 60);
+
+          // Step 2 — Replace ALL fields with admin approved values
+          // Note: using the same date context for Date objects
+          const actualPunchIn = new Date(`${request.date}T${finalPunchIn}:00`);
+          const actualPunchOut = new Date(`${request.date}T${finalPunchOut}:00`);
+
+
+          dayRecord.punchIn = actualPunchIn;
+          dayRecord.punchOut = actualPunchOut;
+
+          dayRecord.workedHours = h;
+          dayRecord.workedMinutes = m;
+          dayRecord.workedSeconds = s;
+          dayRecord.displayTime = `${h}h ${m}m ${s}s`;
+
+          dayRecord.workedStatus = calculatedStatus;
+          dayRecord.status = calculatedStatus === "Absent" ? "ABSENT" : "PRESENT";
+          dayRecord.attendanceCategory = calculatedStatus;
+
+          dayRecord.isAdminCorrected = true;
+          dayRecord.correctedAt = new Date();
+          dayRecord.correctedPunchIn = finalPunchIn;
+          dayRecord.correctedPunchOut = finalPunchOut;
+          dayRecord.isFinalPunchOut = true;
+
+          if (dayRecord.fullDayRequest) dayRecord.fullDayRequest.hasRequest = false;
+
+          await attendance.save({ validateBeforeSave: false });
+        }
+      }
+    }
+
+    // Step 3 — Mark request as approved/rejected
+    request.requestStatus = status;
+    request.finalPunchIn = finalPunchIn;
+    request.finalPunchOut = finalPunchOut;
+    request.finalStatus = calculatedStatus;
+    request.adminComment = adminComment;
+    request.reviewedAt = new Date();
+    await request.save();
+
+    const io = req.app.get("io");
+    const employee = await Employee.findOne({ employeeId: request.employeeId });
+    if (employee) {
+      // Step 5 — Save notification to DB
+      const notif = await Notification.create({
+        adminId: req.user._id,
+        companyId: request.companyId,
+        userId: employee._id,
+        userType: "Employee",
+        title: status === 'approved' ? 'Attendance Correction Approved ✅' : 'Attendance Correction Rejected ❌',
+        message: status === 'approved'
+          ? `Your correction request for ${request.date} has been approved.\nPunch In    : ${finalPunchIn}\nPunch Out   : ${finalPunchOut}\nTotal Hours : ${Math.floor(workedHours || 0)} hrs ${Math.round(((workedHours || 0) % 1) * 60)} mins\nStatus      : ${calculatedStatus}`
+          : `Your correction request for ${request.date} has been rejected by admin.`,
+        type: "attendance-correction-status",
+        date: new Date(),
+      });
+
+      if (io) io.to(`user_${employee._id.toString()}`).emit("newNotification", notif);
+
+      // Step 4 — Emit Socket.io event to employee
+      if (io) {
+        // Provide attendanceUpdated for the exact requested format, but also fire the existing one for backward compatibility
+        io.to(`user_${employee._id.toString()}`).emit('attendanceUpdated', {
+          date: request.date,
+          punchIn: finalPunchIn,
+          punchOut: finalPunchOut,
+          workedHours: calculatedStatus,
+          status: calculatedStatus
+        });
+        io.to(`user_${employee._id.toString()}`).emit("attendance:correctionUpdate", { date: request.date, status, updatedRecord: true });
+      }
+    }
+
+    res.json({ success: true, message: `Request ${status} successfully.` });
+  } catch (error) {
+    console.error("Error processing correction request:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+/**
+ * Employee: Get Own Correction Requests
+ * GET /api/attendance/my-corrections
+ */
+router.get("/my-corrections", protect, async (req, res) => {
+  try {
+    const requests = await AttendanceRequest.find({
+      employeeId: req.user.employeeId
+    }).sort({ requestedAt: -1 });
+
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 export default router;
+
 // --- END OF FILE EmployeeattendanceRoutes.js ---

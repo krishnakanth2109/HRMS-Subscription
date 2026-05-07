@@ -428,11 +428,14 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
   );
 };
 
-const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, allEmployees, loading }) => {
+const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, allEmployees, loading, onPunchOut, date }) => {
   if (!isOpen) return null;
   const employeeInfoMap = useMemo(() => { const map = {}; allEmployees.forEach(emp => { map[emp.employeeId] = { name: emp.name, role: getCurrentRole(emp) }; }); return map; }, [allEmployees]);
   const isLoginRequired = title === "Login Required";
   const isOnBreakModal = title === "On Break";
+  const isWorkingModal = title === "Currently Working";
+  const canPunchOutInModal = isWorkingModal || isOnBreakModal;
+
   const getBreakStartTime = (emp) => { if (!emp.breakSessions || emp.breakSessions.length === 0) return null; const openBreak = [...emp.breakSessions].reverse().find(b => !b.to); return openBreak ? openBreak.from : emp.breakSessions[emp.breakSessions.length - 1]?.from; };
 
   return (
@@ -458,6 +461,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
                     {isOnBreakModal && <th className="px-6 py-4">Break At</th>}
                     {isOnBreakModal && <th className="px-6 py-4">Total Break Time</th>}
                     {!isLoginRequired && !isOnBreakModal && <th className="px-6 py-4">Worked Status</th>}
+                    {canPunchOutInModal && <th className="px-6 py-4 text-center">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -480,6 +484,16 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
                         {isOnBreakModal && (<td className="px-6 py-4">{breakStartTime ? (<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100"><FaCoffee size={10} /> {new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>) : (<span className="text-gray-400 text-xs">--</span>)}</td>)}
                         {isOnBreakModal && (<td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100 font-mono">{formatBreakDuration(totalBreakSecs)}</span></td>)}
                         {!isLoginRequired && !isOnBreakModal && (<td className="px-6 py-4">{emp.displayLoginStatus && (<span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md font-bold ${emp.displayLoginStatus === 'LATE' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{emp.displayLoginStatus}</span>)}</td>)}
+                        {canPunchOutInModal && (
+                          <td className="px-6 py-4 text-center">
+                            <button 
+                              onClick={() => onPunchOut(emp)} 
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-lg transition-colors border border-red-100"
+                            >
+                              <FaSignOutAlt size={10} /> Punch Out
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1012,7 +1026,7 @@ const AdminAttendance = () => {
                   <tr><td colSpan="10" className="text-center p-10 text-gray-500 font-medium">No records found.</td></tr>
                 ) : processedDailyData.map((item, idx) => {
                   const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
-                  const canPunchOut = item.punchIn && !item.isFinalPunchOut && !item.adminPunchOut && item.status === "WORKING";
+                  const canPunchOut = item.punchIn && !item.isFinalPunchOut && !item.adminPunchOut;
                   const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
                   const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
                   const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
@@ -1226,7 +1240,28 @@ const AdminAttendance = () => {
       </div>
 
       <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} holidays={holidays} dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} employeeImages={employeeImages} />
-      <StatusListModal isOpen={statusListModal.isOpen} onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} title={statusListModal.title} employees={statusListModal.employees} loading={statusListModal.loading} employeeImages={employeeImages} allEmployees={allEmployees} />
+      <StatusListModal 
+        isOpen={statusListModal.isOpen} 
+        onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} 
+        title={statusListModal.title} 
+        employees={statusListModal.employees} 
+        loading={statusListModal.loading} 
+        employeeImages={employeeImages} 
+        allEmployees={allEmployees} 
+        date={startDate}
+        onPunchOut={(emp) => {
+          // Prepare employee object for AdminPunchOutModal
+          // StatusListModal employees have slightly different structure from rawDailyData
+          const empForPunchOut = {
+            ...emp,
+            employeeName: emp.name || emp.employeeName || (allEmployees.find(e => e.employeeId === emp.employeeId)?.name),
+            date: startDate,
+            punchIn: emp.punchIn || (rawDailyData.find(d => d.employeeId === emp.employeeId && d.date === startDate)?.punchIn)
+          };
+          setPunchOutModal({ isOpen: true, employee: empForPunchOut });
+          setStatusListModal(prev => ({ ...prev, isOpen: false }));
+        }}
+      />
       <AdminPunchOutModal isOpen={punchOutModal.isOpen} onClose={() => setPunchOutModal({ isOpen: false, employee: null })} employee={punchOutModal.employee} onPunchOut={handleAdminPunchOut} />
       <PunchOutRequestsModal isOpen={isPunchOutRequestsOpen} onClose={() => setIsPunchOutRequestsOpen(false)} requests={punchOutRequests} loading={requestsLoading} onAction={handlePunchOutRequestAction} onDelete={handleDeletePunchOutRequest} actionLoading={requestActionLoading} />
       <AttendanceComparisonModal isOpen={isComparisonModalOpen} onClose={() => setIsComparisonModalOpen(false)} selectedStats={selectedStatsForComparison} employeeImages={employeeImages} startDate={summaryStartDate} endDate={summaryEndDate} />

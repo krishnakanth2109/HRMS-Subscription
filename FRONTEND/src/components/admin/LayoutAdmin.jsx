@@ -12,9 +12,20 @@ const LayoutAdmin = () => {
   const toggleTheme = (selectedTheme) => {
     setTheme(selectedTheme);
     sessionStorage.setItem("adminTheme", selectedTheme);
+    if (selectedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   };
 
   useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
     if (theme === "bubbles") {
       const newBubbles = Array.from({ length: 8 }).map((_, i) => ({
         id: i,
@@ -33,7 +44,7 @@ const LayoutAdmin = () => {
   }, [theme]);
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${theme === 'white' ? 'bg-white' : 'bg-[#F8FAFF]'}`}>
+    <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-gray-900' : theme === 'white' ? 'bg-white' : 'bg-[#F8FAFF]'}`}>
       
       {/* SIDEBAR */}
       {/* Given z-30 so it sits above the background, but below popups (z-50) */}
@@ -82,7 +93,7 @@ const LayoutAdmin = () => {
 
           {/* CONTENT */}
           {/* Removed specific z-indexes here so your Modals can freely escape and cover the Sidebar! */}
-          <div className="relative h-full w-full overflow-y-auto p-6 md:p-8">
+          <div className="relative h-full w-full overflow-y-auto px-2 md:p-4 lg:p-8">
             <Outlet />
           </div>
         </main>

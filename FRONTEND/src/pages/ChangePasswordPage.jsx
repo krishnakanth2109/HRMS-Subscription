@@ -69,7 +69,7 @@ const ChangePasswordPage = () => {
     }
 
     setLoading(true);
-    
+
     try {
       // It correctly calls the API function from api.js
       await changeUserPassword({
@@ -89,7 +89,7 @@ const ChangePasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100">
+    <div className="min-h-screen flex items-center justify-center">
       <form
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-blue-100"

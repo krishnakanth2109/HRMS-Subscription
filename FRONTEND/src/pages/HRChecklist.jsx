@@ -197,7 +197,7 @@ const HRChecklist = () => {
                           {(rec.name || rec.email || '?')[0].toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`font-bold text-sm truncate ${isSelected ? 'text-indigo-900' : 'text-slate-800'}`}>{rec.fullName || rec.name || rec.email}</p>
+                          <p className={`font-bold text-sm truncate ${isSelected ? 'text-indigo-800' : 'text-slate-800'}`}>{rec.fullName || rec.name || rec.email}</p>
                           <p className="text-xs text-slate-500 truncate">{rec.role || 'No Role'}</p>
                           <div className="flex items-center gap-2 mt-1.5">
                             <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">

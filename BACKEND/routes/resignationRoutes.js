@@ -7,6 +7,8 @@ import WelcomeKit from "../models/WelcomeKit.js";
 import transporter from "../config/nodemailer.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
+import Employee from "../models/employeeModel.js";
+import Notification from "../models/notificationModel.js";
 
 const router = express.Router();
 
@@ -88,6 +90,29 @@ router.post("/submit", protect, async (req, res) => {
       status: "Pending",
     });
 
+    // Create Notification for Admin
+    try {
+      await Notification.create({
+        adminId: resignation.adminId,
+        companyId: req.user.company,
+        message: `New resignation request received from ${employeeName}.`,
+        title: "Resignation Request",
+        type: "resignation",
+        role: "admin",
+        date: new Date()
+      });
+    } catch (nErr) { console.error("Admin notification error:", nErr); }
+
+    // Real-time notification for admin
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("resignation:new", { 
+        employeeName, 
+        department, 
+        submittedAt: resignation.submittedAt 
+      });
+    }
+
     res.status(201).json({ message: "Resignation submitted successfully.", resignation });
   } catch (err) {
     console.error("Submit resignation error:", err);
@@ -137,6 +162,32 @@ router.post("/admin/decision/:id", protect, onlyAdmin, upload.single("acceptance
       resignation.adminRemark = adminRemark || "";
       resignation.rejectedAt = new Date();
       await resignation.save();
+
+      // Notify Employee
+      const employee = await Employee.findOne({ employeeId: resignation.employeeId });
+      if (employee) {
+        const io = req.app.get("io");
+        if (io) {
+          io.to(`user_${employee._id}`).emit("resignation:status_update", {
+            status: "Rejected",
+            message: "Your resignation request has been rejected."
+          });
+        }
+      }
+
+      // Create Persistent Notification for Employee
+      try {
+        await Notification.create({
+          adminId: resignation.adminId,
+          companyId: employee.company,
+          userId: employee._id,
+          userType: "Employee",
+          message: "Your resignation request has been rejected.",
+          title: "Resignation Update",
+          type: "resignation-status",
+          date: new Date()
+        });
+      } catch (nErr) { console.error("Employee notification error:", nErr); }
 
       sendMail(resignation.employeeEmail, "Your Resignation Has Been Rejected",
         `<p>Dear ${resignation.employeeName},</p><p>Your resignation has been reviewed and unfortunately it has been rejected.</p><p><strong>Remark:</strong> ${adminRemark || "N/A"}</p><p>Please reach out to HR for more information.</p>`
@@ -188,6 +239,32 @@ router.post("/admin/decision/:id", protect, onlyAdmin, upload.single("acceptance
       }
 
       await resignation.save();
+
+      // Notify Employee
+      const employee = await Employee.findOne({ employeeId: resignation.employeeId });
+      if (employee) {
+        const io = req.app.get("io");
+        if (io) {
+          io.to(`user_${employee._id}`).emit("resignation:status_update", {
+            status: resignation.status,
+            message: `Your resignation request has been ${resignation.status === "Approved" ? "approved" : "updated"}.`
+          });
+        }
+
+        // Create Persistent Notification for Employee
+        try {
+          await Notification.create({
+            adminId: resignation.adminId,
+            companyId: employee.company,
+            userId: employee._id,
+            userType: "Employee",
+            message: `Your resignation request has been ${resignation.status === "Approved" ? "approved" : "updated"}.`,
+            title: "Resignation Update",
+            type: "resignation-status",
+            date: new Date()
+          });
+        } catch (nErr) { console.error("Employee notification error:", nErr); }
+      }
 
       sendMail(
         resignation.employeeEmail,
@@ -470,6 +547,32 @@ router.post("/admin/complete/:id", protect, onlyAdmin, async (req, res) => {
       { new: true }
     );
     if (!resignation) return res.status(404).json({ message: "Not found" });
+
+    // Notify Employee
+    const employee = await Employee.findOne({ employeeId: resignation.employeeId });
+    if (employee) {
+      const io = req.app.get("io");
+      if (io) {
+        io.to(`user_${employee._id}`).emit("resignation:status_update", {
+          status: "Completed",
+          message: "Your exit formalities are completed. Final exit ready."
+        });
+      }
+    }
+
+    // Create Persistent Notification for Employee
+    try {
+      await Notification.create({
+        adminId: resignation.adminId,
+        companyId: employee.company,
+        userId: employee._id,
+        userType: "Employee",
+        message: "Your exit formalities are completed. Final exit ready.",
+        title: "Resignation Update",
+        type: "resignation-status",
+        date: new Date()
+      });
+    } catch (nErr) { console.error("Employee notification error:", nErr); }
 
     sendMail(
       resignation.employeeEmail,

@@ -213,10 +213,13 @@ const PayrollPage = () => {
 
     return (
         <div className="">
-            <div className="p-6 bg-gray-50 rounded-xl flex justify-between items-center mb-8">
+            <div className="p-8 bg-gray-50 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border  shadow-sm transition-all duration-300">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Payroll Candidates Management</h1>
-                    <p className="text-gray-600 mt-1">Manage Payroll Candidates information and documents</p>
+                    <h1 className="text-3xl font-extrabold text-gray-800 tracking-tight">Payroll Candidates Management</h1>
+                    <p className="text-gray-600  mt-1.5 font-medium flex items-center gap-2">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                        Manage payroll information, salaries and legal documents
+                    </p>
                 </div>
                 <button
                     onClick={() => {
@@ -232,47 +235,50 @@ const PayrollPage = () => {
                         setFiles({ profilePic: null, panDoc: null, aadhaarDoc: null });
                         setPreviewImage(null);
                     }}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2 font-semibold"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-500 dark:to-indigo-500 text-white px-7 py-3.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-indigo-500/25 flex items-center gap-2.5 font-black active:scale-[0.98]"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path>
                     </svg>
-                    Add Candidate
+                    Add New Candidate
                 </button>
             </div>
 
             {/* TABLE - SCROLLABLE WITH SINGLE LINE CONTENT */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-                <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                    <h2 className="text-lg font-semibold text-gray-800">All Candidates ({candidates.length})</h2>
+            <div className="bg-white  rounded-2xl shadow-xl overflow-hidden border border-gray-200 ">
+                <div className="px-6 py-4 border-b border-gray-100  bg-gradient-to-r from-gray-50 to-white ">
+                    <h2 className="text-lg font-bold text-gray-800  flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 bg-indigo-500 rounded-full"></span>
+                        All Candidates <span className="text-sm font-medium text-gray-400 ml-1">({candidates.length})</span>
+                    </h2>
                 </div>
 
                 {isTableLoading ? (
                     <div className="flex flex-col items-center justify-center py-20">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                        <p className="text-gray-600">Loading candidates...</p>
+                        <p className="text-gray-600 font-medium">Loading candidates...</p>
                     </div>
                 ) : candidates.length === 0 ? (
-                    <div className="text-center py-16">
-                        <div className="text-gray-400 mb-4">
-                            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <div className="text-center py-20">
+                        <div className="text-gray-300  mb-5 animate-pulse">
+                            <svg className="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
                             </svg>
                         </div>
-                        <h3 className="text-xl font-medium text-gray-700 mb-2">No candidates found</h3>
-                        <p className="text-gray-500 mb-6">Add your first candidate to get started</p>
+                        <h3 className="text-xl font-bold text-gray-700  mb-2">No candidates found</h3>
+                        <p className="text-gray-500 mb-8 max-w-xs mx-auto">Get started by adding your first payroll candidate to the system.</p>
                         <button
                             onClick={() => { setEditId(null); setIsFormOpen(true); }}
-                            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition"
+                            className="bg-blue-600 text-white px-8 py-2.5 rounded-xl hover:bg-blue-700 transition-all font-bold shadow-lg shadow-blue-500/25 active:scale-95"
                         >
                             Add First Candidate
                         </button>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto w-full">
+                    <div className="overflow-x-auto w-full custom-scrollbar">
                         <div className="min-w-[1300px]">
                             <table className="w-full text-left table-fixed">
-                                <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-semibold">
+                                <thead className="bg-gray-50  text-gray-700 uppercase text-xs font-black tracking-widest border-b ">
                                     <tr>
                                         <th className="p-4 pl-6 w-20 whitespace-nowrap">Profile</th>
                                         <th className="p-4 w-40 whitespace-nowrap">Full Name</th>
@@ -284,13 +290,13 @@ const PayrollPage = () => {
                                         <th className="p-4 w-80 whitespace-nowrap text-center">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody className="text-sm divide-y divide-gray-200">
+                                <tbody className="text-sm divide-y divide-gray-100">
                                     {candidates.map(user => (
                                         <tr key={user._id} className="hover:bg-blue-50 transition-colors duration-200">
                                             <td className="p-4 pl-6 whitespace-nowrap">
                                                 <div className="flex items-center gap-3">
                                                     <div
-                                                        className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                                                        className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-sm font-black flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity shadow-md"
                                                         onClick={() => {
                                                             setSelectedUser(user);
                                                             setIsProfilePicOpen(true);
@@ -304,69 +310,64 @@ const PayrollPage = () => {
                                                                 className="w-full h-full rounded-full object-cover"
                                                             />
                                                         ) : (
-                                                            user.fullName.charAt(0)
+                                                            user.fullName.charAt(0).toUpperCase()
                                                         )}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 font-medium text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis" title={user.fullName}>
+                                            <td className="p-4 font-bold text-gray-900  whitespace-nowrap overflow-hidden text-ellipsis" title={user.fullName}>
                                                 {user.fullName}
                                             </td>
-                                            <td className="p-4 text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={user.email}>
+                                            <td className="p-4 text-gray-700  whitespace-nowrap overflow-hidden text-ellipsis font-medium" title={user.email}>
                                                 {user.email}
                                             </td>
-                                            <td className="p-4 text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={user.phone}>
+                                            <td className="p-4 text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis font-medium" title={user.phone}>
                                                 {user.phone}
                                             </td>
                                             <td className="p-4 whitespace-nowrap overflow-hidden text-ellipsis" title={user.companyName}>
-                                                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded truncate inline-block max-w-full">
+                                                <span className="bg-blue-100  text-blue-800  text-[10px] font-black px-2.5 py-0.5 rounded-lg truncate inline-block max-w-full border border-blue-200 ">
                                                     {user.companyName}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={user.designation}>
+                                            <td className="p-4 text-gray-700  whitespace-nowrap overflow-hidden text-ellipsis font-medium" title={user.designation}>
                                                 {user.designation}
                                             </td>
                                             <td className="p-4 whitespace-nowrap">
-                                                <span className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-bold px-3 py-1 rounded-lg">
+                                                <span className="bg-gradient-to-r from-green-100 to-emerald-100  text-green-800  text-sm font-black px-3 py-1 rounded-xl shadow-inner">
                                                     {formatCurrency(user.netSalary)}
                                                 </span>
                                             </td>
                                             <td className="p-4 whitespace-nowrap">
-                                                <div className="flex justify-center gap-2">
+                                                <div className="flex justify-center gap-2.5">
                                                     <button
                                                         onClick={() => { setSelectedUser(user); setIsViewOpen(true); }}
-                                                        className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+                                                        className="bg-blue-50  text-blue-600  hover:bg-blue-100 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 shadow-sm active:scale-95 border border-blue-100"
                                                     >
-                                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                                         </svg>
                                                         View
                                                     </button>
                                                     <button
                                                         onClick={() => {
                                                             setEditId(user._id);
-                                                            setFormData({
-                                                                ...user,
-                                                                dob: user.dob?.split('T')[0],
-                                                                joiningDate: user.joiningDate?.split('T')[0]
-                                                            });
+                                                            setFormData({ ...user, agreedSalary: user.agreedSalary || '', pfDeduction: user.pfDeduction || '', ptDeduction: user.ptDeduction || '', otherDeductions: user.otherDeductions || '', netSalary: user.netSalary || '' });
                                                             setIsFormOpen(true);
-                                                            setPreviewImage(user.profilePic || null);
                                                         }}
-                                                        className="bg-yellow-50 text-yellow-600 hover:bg-yellow-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+                                                        className="bg-orange-50  text-orange-600  hover:bg-orange-100  px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 shadow-sm active:scale-95 border border-orange-100 "
                                                     >
-                                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5M18.364 5.636a2.121 2.121 0 113 3L12 18.121l-4 1 1-4 9.364-9.364z"></path>
                                                         </svg>
                                                         Edit
                                                     </button>
                                                     <button
                                                         onClick={() => deleteUser(user._id, user.fullName)}
-                                                        className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 whitespace-nowrap flex-shrink-0"
+                                                        className="bg-red-50 text-red-600 hover:bg-red-100 px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 shadow-sm active:scale-95 border border-red-100 "
                                                     >
-                                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-4v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                                         </svg>
                                                         Delete
                                                     </button>

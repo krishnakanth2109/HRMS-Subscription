@@ -1241,11 +1241,11 @@ const EmployeeLeavemanagement = () => {
   const renderStatusBadge = (status) => {
     const s = status || "Pending";
     const base = "px-3 py-1 rounded-full text-sm font-semibold shadow-sm ";
-    if (s === "Pending") return <span className={`${base} bg-yellow-100 text-yellow-800 border border-yellow-300`}>{s}</span>;
-    if (s === "Approved") return <span className={`${base} bg-green-100 text-green-800 border border-green-300`}>{s}</span>;
-    if (s === "Rejected") return <span className={`${base} bg-red-100 text-red-800 border border-red-300`}>{s}</span>;
-    if (s === "Cancelled") return <span className={`${base} bg-gray-100 text-gray-800 border border-gray-300`}>{s}</span>;
-    return <span className={`${base} bg-gray-100 text-gray-800 border border-gray-300`}>{s}</span>;
+    if (s === "Pending") return <span className={`${base} bg-yellow-100 text-yellow-700 border border-yellow-300`}>{s}</span>;
+    if (s === "Approved") return <span className={`${base} bg-green-100 text-green-700 border border-green-300`}>{s}</span>;
+    if (s === "Rejected") return <span className={`${base} bg-red-100 text-red-700 border border-red-300`}>{s}</span>;
+    if (s === "Cancelled") return <span className={`${base} bg-gray-100 text-gray-700 border border-gray-300`}>{s}</span>;
+    return <span className={`${base} bg-gray-100 text-gray-700 border border-gray-300`}>{s}</span>;
   };
 
   const formatDisplayDate = (dateStr) => {
@@ -1576,12 +1576,12 @@ const EmployeeLeavemanagement = () => {
                         <div className="text-sm text-gray-900 max-w-xs">{lv.reason || "-"}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                           {lv.halfDaySession || "Full Day"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
                           {lv.leaveType || "-"}
                         </span>
                       </td>
@@ -1770,7 +1770,7 @@ const EmployeeLeavemanagement = () => {
             >
               <div className="p-6 border-b border-gray-200 bg-indigo-50 flex justify-between items-center sticky top-0">
                 <div>
-                  <h3 className="text-xl font-bold text-indigo-900">Upcoming Team Leaves</h3>
+                  <h3 className="text-xl font-bold text-indigo-800">Upcoming Team Leaves</h3>
                   <p className="text-sm text-indigo-600">Approved leaves of your colleagues from today onwards.</p>
                 </div>
                 <button 

@@ -15,7 +15,8 @@ import {
   FaInfinity,
   FaSyncAlt,
   FaCalendarDay,
-  FaInfoCircle
+  FaInfoCircle,
+  FaEdit
 } from "react-icons/fa";
 
 const EmployeeWorkModeRequest = () => {
@@ -40,6 +41,18 @@ const EmployeeWorkModeRequest = () => {
     { id: 4, label: "Thu" }, { id: 5, label: "Fri" }, { id: 6, label: "Sat" }, { id: 0, label: "Sun" }
   ];
 
+  // Edit States
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editRequestId, setEditRequestId] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  
+  const [editRequestType, setEditRequestType] = useState("Temporary");
+  const [editRequestedMode, setEditRequestedMode] = useState("WFH");
+  const [editFromDate, setEditFromDate] = useState("");
+  const [editToDate, setEditToDate] = useState("");
+  const [editSelectedDays, setEditSelectedDays] = useState([]);
+  const [editReason, setEditReason] = useState("");
+
   useEffect(() => {
     if (user?.employeeId) {
       fetchRequests();
@@ -49,11 +62,12 @@ const EmployeeWorkModeRequest = () => {
 
   const fetchRequests = async () => {
     try {
-      // ✅ FIX: Updated URL to match adminRoutes structure
       const { data } = await api.get(`/api/admin/requests/my/${user.employeeId}`);
       setRequests(data);
     } catch (err) { console.error("Error fetching requests", err); }
   };
+
+
 
   const fetchOfficeSettings = async () => {
     setStatusLoading(true);
@@ -189,6 +203,55 @@ const EmployeeWorkModeRequest = () => {
     }
   };
 
+  const handleEditClick = (req) => {
+    setIsEditMode(true);
+    setEditRequestId(req._id);
+    setEditRequestType(req.requestType);
+    setEditRequestedMode(req.requestedMode);
+    setEditFromDate(req.fromDate ? new Date(req.fromDate).toISOString().split('T')[0] : "");
+    setEditToDate(req.toDate ? new Date(req.toDate).toISOString().split('T')[0] : "");
+    setEditSelectedDays(req.recurringDays || []);
+    setEditReason(req.reason || "");
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (editRequestType === "Temporary" && (!editFromDate || !editToDate)) return Swal.fire("Missing Dates", "Please select a start and end date.", "warning");
+    if (editRequestType === "Recurring" && editSelectedDays.length === 0) return Swal.fire("Missing Days", "Please select at least one day for the recurring schedule.", "warning");
+    if (!editReason.trim()) return Swal.fire("Missing Reason", "Please provide a reason for this request.", "warning");
+
+    const payload = {
+      requestType: editRequestType,
+      requestedMode: editRequestedMode,
+      fromDate: editRequestType === "Temporary" ? editFromDate : null,
+      toDate: editRequestType === "Temporary" ? editToDate : null,
+      recurringDays: editRequestType === "Recurring" ? editSelectedDays : [],
+      reason: editReason
+    };
+
+    try {
+      setLoading(true);
+      await api.put(`/api/work-mode/request/${editRequestId}`, payload);
+      Swal.fire({
+        title: "Updated!",
+        text: "Your request has been updated.",
+        icon: "success",
+        confirmButtonColor: "#3b82f6"
+      });
+      setShowEditModal(false);
+      fetchRequests();
+    } catch (err) {
+      Swal.fire("Error", err.response?.data?.message || "Update failed", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleEditDay = (id) => {
+    setEditSelectedDays(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+  };
+
   // --- UI HELPER COMPONENTS ---
 
   const RequestTypeCard = ({ type, icon, title, desc }) => (
@@ -200,7 +263,7 @@ const EmployeeWorkModeRequest = () => {
         {icon}
       </div>
       <div>
-        <h4 className={`font-bold text-sm ${requestType === type ? 'text-blue-900' : 'text-gray-700'}`}>{title}</h4>
+        <h4 className={`font-bold text-sm ${requestType === type ? 'text-blue-700' : 'text-gray-700'}`}>{title}</h4>
         <p className="text-xs text-gray-500">{desc}</p>
       </div>
     </div>
@@ -361,10 +424,11 @@ const EmployeeWorkModeRequest = () => {
           {/* 3. REQUEST HISTORY (Right Column) */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 flex flex-col h-full max-h-[800px]">
-              <div className="p-5 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl">
+              <div className="p-5 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl flex justify-between items-center">
                 <h3 className="font-bold text-gray-800 flex items-center gap-2">
                   <FaHistory className="text-blue-500" /> Request History
                 </h3>
+
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
@@ -383,10 +447,21 @@ const EmployeeWorkModeRequest = () => {
                         <span className="text-[10px] text-gray-400">{new Date(req.createdAt).toLocaleDateString()}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex justify-between items-center mb-3">
                         <span className={`font-bold text-sm ${req.requestedMode === 'WFH' ? 'text-green-600' : 'text-blue-600'}`}>
                           {req.requestedMode === 'WFH' ? 'Work From Home' : 'Work From Office'}
                         </span>
+                        <div className="flex gap-2">
+                          {req.status === 'Pending' && (
+                            <button
+                              onClick={() => handleEditClick(req)}
+                              className="text-blue-500 hover:text-blue-700 bg-blue-50 p-1.5 rounded-full transition-colors"
+                              title="Edit Request"
+                            >
+                              <FaEdit size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="text-xs text-gray-500 mb-3 flex items-start gap-1.5">
@@ -418,6 +493,121 @@ const EmployeeWorkModeRequest = () => {
 
         </div>
       </div>
+
+      {/* EDIT MODAL */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <FaEdit className="text-blue-600" /> Edit Work Mode Request
+              </h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-red-500 transition-colors">
+                <FaTimesCircle size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              <form onSubmit={handleUpdate} className="space-y-6">
+                
+                {/* Request Type Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Select Request Type</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div onClick={() => setEditRequestType("Temporary")} className={`cursor-pointer p-3 rounded-xl border-2 transition-all flex items-center gap-2 ${editRequestType === "Temporary" ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                      <FaCalendarAlt className={editRequestType === "Temporary" ? 'text-blue-600' : 'text-gray-400'} />
+                      <span className={`text-sm font-bold ${editRequestType === "Temporary" ? 'text-blue-900' : 'text-gray-600'}`}>Temporary</span>
+                    </div>
+                    <div onClick={() => setEditRequestType("Recurring")} className={`cursor-pointer p-3 rounded-xl border-2 transition-all flex items-center gap-2 ${editRequestType === "Recurring" ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                      <FaSyncAlt className={editRequestType === "Recurring" ? 'text-blue-600' : 'text-gray-400'} />
+                      <span className={`text-sm font-bold ${editRequestType === "Recurring" ? 'text-blue-900' : 'text-gray-600'}`}>Recurring</span>
+                    </div>
+                    <div onClick={() => setEditRequestType("Permanent")} className={`cursor-pointer p-3 rounded-xl border-2 transition-all flex items-center gap-2 ${editRequestType === "Permanent" ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                      <FaInfinity className={editRequestType === "Permanent" ? 'text-blue-600' : 'text-gray-400'} />
+                      <span className={`text-sm font-bold ${editRequestType === "Permanent" ? 'text-blue-900' : 'text-gray-600'}`}>Permanent</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mode Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Desired Work Mode</label>
+                  <div className="flex gap-4">
+                    <label className={`flex-1 cursor-pointer p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-2 ${editRequestedMode === "WFO" ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}>
+                      <input type="radio" name="editReqMode" className="hidden" checked={editRequestedMode === "WFO"} onChange={() => setEditRequestedMode("WFO")} />
+                      <FaBuilding className="text-2xl" />
+                      <span className="font-bold text-sm">Work From Office</span>
+                    </label>
+                    <label className={`flex-1 cursor-pointer p-3 rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-2 ${editRequestedMode === "WFH" ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}>
+                      <input type="radio" name="editReqMode" className="hidden" checked={editRequestedMode === "WFH"} onChange={() => setEditRequestedMode("WFH")} />
+                      <FaLaptopHouse className="text-2xl" />
+                      <span className="font-bold text-sm">Work From Home</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Conditional Fields */}
+                <div className="bg-gray-50 p-5 rounded-xl border border-gray-100">
+                  {editRequestType === "Temporary" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">From Date</label>
+                        <input type="date" value={editFromDate} onChange={(e) => setEditFromDate(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">To Date</label>
+                        <input type="date" value={editToDate} onChange={(e) => setEditToDate(e.target.value)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                      </div>
+                    </div>
+                  )}
+
+                  {editRequestType === "Recurring" && (
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-3">Select Days of the Week</label>
+                      <div className="flex flex-wrap gap-2">
+                        {daysOfWeek.map(day => (
+                          <button 
+                            type="button"
+                            key={day.id} 
+                            onClick={() => toggleEditDay(day.id)}
+                            className={`w-10 h-10 rounded-full text-xs font-bold transition-all shadow-sm ${editSelectedDays.includes(day.id) ? "bg-blue-600 text-white transform scale-110" : "bg-white text-gray-600 border border-gray-200 hover:bg-blue-50"}`}
+                          >
+                            {day.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {editRequestType === "Permanent" && (
+                    <div className="text-sm text-gray-600 italic flex items-center gap-2">
+                      <FaInfinity className="text-orange-500"/> Permanent change.
+                    </div>
+                  )}
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Reason for Request</label>
+                  <textarea 
+                    value={editReason} 
+                    onChange={(e) => setEditReason(e.target.value)} 
+                    className="w-full p-3 border border-gray-300 rounded-xl h-24 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4 border-t border-gray-100">
+                  <button type="button" onClick={() => setShowEditModal(false)} className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">Cancel</button>
+                  <button type="submit" disabled={loading} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-blue-700 transition flex justify-center items-center gap-2">
+                    {loading ? <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"/> : <><FaPaperPlane size={16} /> Update Request</>}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

@@ -1,893 +1,22 @@
-// // --- START OF FILE EmployeeDailyAttendance.jsx ---
 
-// import React, { useContext, useEffect, useState, useMemo, useCallback } from "react";
-// import { AuthContext } from "../context/AuthContext";
-// import { 
-//   getAttendanceForEmployee, 
-//   getShiftByEmployeeId, 
-//   getHolidays, 
-//   getLeaveRequestsForEmployee 
-// } from "../api";
-
-// // --- Import Chart.js and React wrapper ---
-// import { Bar } from 'react-chartjs-2';
-// import {
-//   Chart as ChartJS,
-//   CategoryScale,
-//   LinearScale,
-//   BarElement,
-//   Title,
-//   Tooltip,
-//   Legend,
-// } from 'chart.js';
-
-// // --- Import Icons ---
-// import {
-//   FaRegClock,
-//   FaSearch,
-//   FaSort,
-//   FaSortUp,
-//   FaSortDown,
-//   FaCalendarCheck,
-//   FaUserClock,
-//   FaExclamationTriangle,
-//   FaBusinessTime,
-//   FaStarHalfAlt,
-//   FaTimesCircle,
-//   FaFilter,
-//   FaCouch,        
-//   FaUmbrellaBeach,
-//   FaFileDownload,
-//   FaBriefcase,
-//   FaListAlt, // Added for the Requests button
-//   FaTimes, // Added for closing modal
-//   FaCheckCircle // Added for Present icon
-// } from "react-icons/fa";
-
-// // --- Register Chart.js components ---
-// ChartJS.register(
-//   CategoryScale,
-//   LinearScale,
-//   BarElement,
-//   Title,
-//   Tooltip,
-//   Legend
-// );
-
-// // ==========================================
-// // HELPER FUNCTIONS & SUB-COMPONENTS
-// // ==========================================
-
-// const getDaysInMonth = (year, month) => {
-//   const date = new Date(year, month, 1);
-//   const days = [];
-//   while (date.getMonth() === month) {
-//     days.push(new Date(date));
-//     date.setDate(date.getDate() + 1);
-//   }
-//   return days;
-// };
-
-// // Convert Date to YYYY-MM-DD for accurate comparison
-// const toISODateString = (date) => {
-//   if (!date) return "";
-//   const d = new Date(date);
-//   const year = d.getFullYear();
-//   const month = String(d.getMonth() + 1).padStart(2, '0');
-//   const day = String(d.getDate()).padStart(2, '0');
-//   return `${year}-${month}-${day}`;
-// };
-
-// const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
-//   if (!punchInTime) return "--";
-//   if (apiStatus === "LATE") return "LATE";
-  
-//   if (shiftData && shiftData.shiftStartTime) {
-//     try {
-//       const punchDate = new Date(punchInTime);
-//       const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number);
-//       const shiftDate = new Date(punchDate);
-//       shiftDate.setHours(sHour, sMin, 0, 0);
-      
-//       const grace = shiftData.lateGracePeriod || 15;
-//       shiftDate.setMinutes(shiftDate.getMinutes() + grace);
-      
-//       if (punchDate > shiftDate) return "LATE";
-//     } catch (e) {
-//       console.error("Date calc error", e);
-//     }
-//   }
-//   return "ON_TIME";
-// };
-
-// const TableRowSkeleton = () => (
-//   <tr className="animate-pulse">
-//     <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
-//     <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
-//     <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
-//     <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-1/4"></div></td>
-//     <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
-//     <td className="px-4 py-4"><div className="h-6 bg-gray-200 rounded-full w-20"></div></td>
-//     <td className="px-4 py-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
-//   </tr>
-// );
-
-// // Defined outside main component to avoid scope issues
-// const StatCard = ({ icon, title, value, colorClass }) => (
-//   <div className="flex-1 p-4 bg-white rounded-xl shadow-md flex items-center gap-4 transition-transform transform hover:scale-105 border border-gray-100">
-//     <div className={`p-3 rounded-full ${colorClass}`}>{icon}</div>
-//     <div>
-//       <p className="text-xs text-gray-500 font-bold uppercase">{title}</p>
-//       <p className="text-2xl font-bold text-gray-800">{value}</p>
-//     </div>
-//   </div>
-// );
-
-// const BreakdownItem = ({ icon, title, value, color, bg }) => (
-//   <div className={`flex flex-col items-start p-4 rounded-xl ${bg} border border-transparent hover:border-${color}-200 transition-all duration-200`}>
-//     <div className={`text-2xl mb-2 ${color}`}>{icon}</div>
-//     <p className="text-3xl font-bold text-gray-800 mb-1">{value}</p>
-//     <p className="text-xs text-gray-500 uppercase font-bold tracking-wide">{title}</p>
-//   </div>
-// );
-
-// // ==========================================
-// // MAIN COMPONENT
-// // ==========================================
-
-// const EmployeeDailyAttendance = () => {
-//   const { user } = useContext(AuthContext);
-  
-//   // State
-//   const [attendance, setAttendance] = useState([]);
-//   const [shiftDetails, setShiftDetails] = useState(null);
-//   const [holidays, setHolidays] = useState([]); 
-//   const [leaves, setLeaves] = useState([]); 
-//   const [loading, setLoading] = useState(true);
-//   const [selectedDate, setSelectedDate] = useState(new Date());
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
-  
-//   // ✅ New State for Requests Modal
-//   const [showRequestsModal, setShowRequestsModal] = useState(false);
-
-//   // --- Fetch Data ---
-//   const loadData = useCallback(async (empId) => {
-//     setLoading(true);
-//     try {
-//       const [attendanceRes, shiftRes, holidaysRes, leavesRes] = await Promise.all([
-//         getAttendanceForEmployee(empId),
-//         getShiftByEmployeeId(empId).catch(err => {
-//             console.warn("Failed to fetch shift, using defaults");
-//             return null;
-//         }),
-//         getHolidays().catch(err => []),
-//         getLeaveRequestsForEmployee(empId).catch(err => [])
-//       ]);
-
-//       const attendanceData = Array.isArray(attendanceRes) ? attendanceRes : (attendanceRes.data || []);
-//       setAttendance(attendanceData);
-//       setShiftDetails(shiftRes);
-      
-//       const hData = Array.isArray(holidaysRes) ? holidaysRes : (holidaysRes.data || []);
-//       setHolidays(hData);
-
-//       const lData = Array.isArray(leavesRes) ? leavesRes : (leavesRes.data || []);
-//       setLeaves(lData);
-
-//     } catch (err) {
-//       console.error("Error loading data:", err);
-//       setAttendance([]);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     if (user?.employeeId) {
-//       loadData(user.employeeId);
-//     } else {
-//       setLoading(false);
-//     }
-//   }, [user, loadData]);
-
-//   // --- Extract Available Years ---
-//   const availableYears = useMemo(() => {
-//     const currentYear = new Date().getFullYear();
-//     if (attendance.length === 0) return [currentYear];
-//     const years = new Set(attendance.map(a => new Date(a.date).getFullYear()));
-//     years.add(currentYear);
-//     return Array.from(years).sort((a, b) => b - a);
-//   }, [attendance]);
-
-//   // --- Process Data for Calendar Table ---
-//   const processedCalendarData = useMemo(() => {
-//     const year = selectedDate.getFullYear();
-//     const month = selectedDate.getMonth();
-//     const daysInMonth = getDaysInMonth(year, month);
-    
-//     const today = new Date();
-//     today.setHours(0,0,0,0);
-//     const todayISO = toISODateString(today);
-
-//     const adminFullDayHours = shiftDetails?.fullDayHours || 9;
-//     const adminHalfDayHours = shiftDetails?.halfDayHours || 4.5;
-//     const weeklyOffDays = shiftDetails?.weeklyOffDays || [0]; 
-
-//     return daysInMonth.map(dayDate => {
-//       const currentDateISO = toISODateString(dayDate);
-//       const isFuture = dayDate > today;
-//       const dayOfWeek = dayDate.getDay();
-
-//       const record = attendance.find(a => toISODateString(a.date) === currentDateISO);
-
-//       // Check Holiday
-//       const activeHoliday = holidays.find(h => {
-//         const start = new Date(h.startDate);
-//         const end = new Date(h.endDate || h.startDate);
-//         const hStartLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-//         const hEndLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-//         const currLocal = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
-//         return currLocal >= hStartLocal && currLocal <= hEndLocal;
-//       });
-
-//       // Check Leave
-//       const activeLeave = leaves.find(l => {
-//         if(l.status !== 'Approved') return false;
-//         const start = new Date(l.from);
-//         const end = new Date(l.to);
-//         const lStartLocal = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-//         const lEndLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-//         const currLocal = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate());
-//         return currLocal >= lStartLocal && currLocal <= lEndLocal;
-//       });
-
-//       const isWeekOff = weeklyOffDays.includes(dayOfWeek);
-
-//       let finalStatus = "Absent"; 
-//       let loginStatus = "--";
-//       let displayTime = "00:00";
-//       let statusDetails = null; // To store Holiday Name or Leave Reason
-
-//       if (record && record.punchIn) {
-//         const end = record.punchOut ? new Date(record.punchOut) : new Date();
-//         const start = new Date(record.punchIn);
-//         const workedHours = (end - start) / (1000 * 60 * 60);
-
-//         if (workedHours >= adminFullDayHours) finalStatus = "Full Day";
-//         else if (workedHours >= adminHalfDayHours) finalStatus = "Half Day";
-//         else finalStatus = "Absent"; 
-
-//         if (!record.punchOut && currentDateISO === todayISO) finalStatus = "Working..";
-//         displayTime = record.displayTime || "00:00";
-//         loginStatus = calculateLoginStatus(record.punchIn, shiftDetails, record.loginStatus);
-//       } else {
-//         if (activeLeave) {
-//             finalStatus = "Leave";
-//             statusDetails = activeLeave.reason; 
-//         } else if (activeHoliday) {
-//             finalStatus = "Holiday";
-//             statusDetails = activeHoliday.name;
-//         } else if (isWeekOff) {
-//             finalStatus = "Week Off";
-//         } else if (isFuture) {
-//             finalStatus = "Upcoming";
-//         } else {
-//             finalStatus = "Absent";
-//         }
-//       }
-
-//       return {
-//         date: dayDate.toISOString(),
-//         punchIn: record?.punchIn || null,
-//         punchOut: record?.punchOut || null,
-//         displayTime,
-//         status: record?.status || finalStatus.toUpperCase(),
-//         loginStatus,
-//         workedStatus: finalStatus,
-//         details: statusDetails
-//       };
-//     });
-//   }, [selectedDate, attendance, shiftDetails, holidays, leaves]);
-
-//   // --- Filter Logic ---
-//   const filteredData = useMemo(() => {
-//     let data = [...processedCalendarData];
-    
-//     const today = new Date();
-//     today.setHours(23, 59, 59, 999);
-
-//     data = data.filter(item => {
-//         const d = new Date(item.date);
-//         return d <= today && item.workedStatus !== "Upcoming";
-//     });
-
-//     if (searchTerm) {
-//       data = data.filter(item =>
-//         Object.values(item).some(val =>
-//           String(val).toLowerCase().includes(searchTerm.toLowerCase())
-//         )
-//       );
-//     }
-
-//     if (sortConfig.key) {
-//       data.sort((a, b) => {
-//         const valA = a[sortConfig.key];
-//         const valB = b[sortConfig.key];
-//         if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-//         if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-//         return 0;
-//       });
-//     }
-
-//     return data;
-//   }, [processedCalendarData, searchTerm, sortConfig]);
-
-//   // --- Calculate Yearly Stats for Graph ---
-//   const yearlyStats = useMemo(() => {
-//     const year = selectedDate.getFullYear();
-//     const statsPerMonth = Array(12).fill(null).map(() => ({
-//         present: 0,
-//         absent: 0,
-//         fullDay: 0,
-//         halfDay: 0,
-//         leave: 0,
-//         holidays: 0
-//     }));
-
-//     const today = new Date();
-//     today.setHours(0,0,0,0);
-
-//     const adminFullDayHours = shiftDetails?.fullDayHours || 9;
-//     const adminHalfDayHours = shiftDetails?.halfDayHours || 4.5;
-//     const weeklyOffDays = shiftDetails?.weeklyOffDays || [0];
-
-//     for (let m = 0; m < 12; m++) {
-//         const days = getDaysInMonth(year, m);
-        
-//         days.forEach(dayDate => {
-//             if (dayDate > today) return; 
-
-//             const currentDateISO = toISODateString(dayDate);
-//             const dayOfWeek = dayDate.getDay();
-//             const record = attendance.find(a => toISODateString(a.date) === currentDateISO);
-            
-//             const isHoliday = holidays.some(h => {
-//                 const s = new Date(h.startDate); s.setHours(0,0,0,0);
-//                 const e = new Date(h.endDate || h.startDate); e.setHours(23,59,59,999);
-//                 return dayDate >= s && dayDate <= e;
-//             });
-
-//             const isLeave = leaves.some(l => {
-//                 if(l.status !== 'Approved') return false;
-//                 const s = new Date(l.from); s.setHours(0,0,0,0);
-//                 const e = new Date(l.to); e.setHours(23,59,59,999);
-//                 return dayDate >= s && dayDate <= e;
-//             });
-
-//             const isWeekOff = weeklyOffDays.includes(dayOfWeek);
-
-//             if (record && record.punchIn) {
-//                 statsPerMonth[m].present++;
-//                 const end = record.punchOut ? new Date(record.punchOut) : new Date();
-//                 const start = new Date(record.punchIn);
-//                 const workedHours = (end - start) / (1000 * 60 * 60);
-
-//                 if (workedHours >= adminFullDayHours) statsPerMonth[m].fullDay++;
-//                 else if (workedHours >= adminHalfDayHours) statsPerMonth[m].halfDay++;
-                
-//             } else if (isLeave || (record && record.status === "LEAVE")) {
-//                 statsPerMonth[m].leave++;
-//             } else {
-//                 if (isHoliday) statsPerMonth[m].holidays++;
-//                 else if (isWeekOff) { /* WeekOff */ }
-//                 else statsPerMonth[m].absent++;
-//             }
-//         });
-//     }
-//     return statsPerMonth;
-
-//   }, [selectedDate, attendance, shiftDetails, holidays, leaves]);
-
-//   // --- Chart Data Configuration ---
-//   const graphData = useMemo(() => {
-//     return {
-//       labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-//       datasets: [
-//         {
-//           label: 'Present',
-//           data: yearlyStats.map(s => s.present),
-//           backgroundColor: '#22c55e', 
-//           borderRadius: 4,
-//           barPercentage: 0.6,
-//           categoryPercentage: 0.8
-//         },
-//         {
-//           label: 'Absent',
-//           // Leaves included in Absent for graph
-//           data: yearlyStats.map(s => s.absent + s.leave),
-//           backgroundColor: '#ef4444', 
-//           borderRadius: 4,
-//           barPercentage: 0.6,
-//           categoryPercentage: 0.8
-//         }
-//       ]
-//     };
-//   }, [yearlyStats]);
-
-//   const graphOptions = {
-//     responsive: true,
-//     maintainAspectRatio: false,
-//     plugins: {
-//       legend: { position: 'top', align: 'end' },
-//       tooltip: {
-//         enabled: true,
-//         backgroundColor: 'rgba(17, 24, 39, 0.95)',
-//         padding: 12,
-//         cornerRadius: 8,
-//         titleFont: { size: 14, weight: 'bold' },
-//         bodyFont: { size: 13 },
-//         callbacks: {
-//           label: function(context) {
-//              return `${context.dataset.label}: ${context.raw}`;
-//           },
-//           afterBody: function(tooltipItems) {
-//              const index = tooltipItems[0].dataIndex;
-//              const stats = yearlyStats[index];
-//              return [
-//                  '', 
-//                  `✅ Full Days: ${stats.fullDay}`,
-//                  `🌗 Half Days: ${stats.halfDay}`,
-//                  `🏖️ Holidays: ${stats.holidays}`,
-//                  `📄 Leaves:   ${stats.leave}`,
-//                  `❌ Absent:   ${stats.absent}`
-//              ];
-//           }
-//         }
-//       }
-//     },
-//     scales: {
-//       y: { beginAtZero: true, grid: { borderDash: [3, 4] }, border: { display: false } },
-//       x: { grid: { display: false }, border: { display: false } }
-//     }
-//   };
-
-//   // --- Summary Stats ---
-//   const summaryStats = useMemo(() => {
-//     const m = selectedDate.getMonth();
-//     const stats = yearlyStats[m];
-    
-//     // Filter out future dates to get "from 1st of month to Today"
-//     const currentMonthData = processedCalendarData.filter(d => d.workedStatus !== "Upcoming");
-    
-//     const weekOffs = currentMonthData.filter(d => d.workedStatus === "Week Off").length;
-//     const holidaysCount = currentMonthData.filter(d => d.workedStatus === "Holiday").length;
-    
-//     // UPDATED: Working Days Logic
-//     const workingDays = Math.max(0, currentMonthData.length - weekOffs - holidaysCount);
-
-//     // Consolidated Absent Count (Regular Absent + Leaves)
-//     const absentTotal = stats.absent + stats.leave;
-
-//     return {
-//         presentDays: stats.present,
-//         fullDays: stats.fullDay,
-//         halfDays: stats.halfDay,
-//         leaveDays: stats.leave,
-//         absentDays: absentTotal,
-//         holidayCount: stats.holidays,
-//         weekOffs: weekOffs,
-//         workingDays: workingDays,
-//         lateCount: processedCalendarData.filter(a => a.loginStatus === 'LATE' && a.workedStatus !== "Upcoming").length,
-//         onTimeCount: processedCalendarData.filter(a => a.loginStatus === 'ON_TIME' && a.workedStatus !== "Upcoming").length
-//     };
-//   }, [yearlyStats, selectedDate, processedCalendarData]);
-
-//   // --- Dynamic Heading Logic ---
-//   const getBreakdownTitle = () => {
-//     const today = new Date();
-//     const isCurrent = selectedDate.getMonth() === today.getMonth() && 
-//                       selectedDate.getFullYear() === today.getFullYear();
-    
-//     if (isCurrent) return "Monthly Breakdown As Per Today";
-    
-//     const monthName = selectedDate.toLocaleString('default', { month: 'long' });
-//     return `Monthly Breakdown of ${monthName} ${selectedDate.getFullYear()}`;
-//   };
-
-//   // ✅ MEMOIZED: Get Late Requests for Selected Period
-//   const lateRequestsHistory = useMemo(() => {
-//     const selectedMonth = selectedDate.getMonth();
-//     const selectedYear = selectedDate.getFullYear();
-
-//     return attendance.filter(record => {
-//         const recordDate = new Date(record.date);
-//         return record.lateCorrectionRequest?.hasRequest && 
-//                recordDate.getMonth() === selectedMonth && 
-//                recordDate.getFullYear() === selectedYear;
-//     }).sort((a, b) => new Date(b.date) - new Date(a.date));
-//   }, [attendance, selectedDate]);
-
-//   // --- Event Handlers (Defined BEFORE they are used in JSX) ---
-  
-//   const handleYearChange = (e) => {
-//     setSelectedDate(new Date(parseInt(e.target.value), selectedDate.getMonth()));
-//   };
-
-//   const handleMonthChange = (e) => {
-//     setSelectedDate(new Date(selectedDate.getFullYear(), parseInt(e.target.value)));
-//   };
-
-//   const requestSort = (key) => {
-//     setSortConfig(prev => ({
-//       key,
-//       direction: prev.key === key && prev.direction === 'ascending' ? 'descending' : 'ascending'
-//     }));
-//   };
-
-//   const getSortIcon = (key) => {
-//     if (sortConfig.key !== key) return <FaSort className="text-gray-400" />;
-//     return sortConfig.direction === 'ascending' ? <FaSortUp className="text-blue-600" /> : <FaSortDown className="text-blue-600" />;
-//   };
-
-//   // --- Export Function ---
-//   const handleExport = () => {
-//     if (filteredData.length === 0) {
-//         alert("No data to export.");
-//         return;
-//     }
-
-//     const monthName = graphData.labels[selectedDate.getMonth()];
-//     const year = selectedDate.getFullYear();
-//     const empName = user.name.replace(/\s+/g, '_');
-//     const fileName = `Attendance_${monthName}_${year}_${empName}.csv`;
-
-//     const headers = ["Date", "Day", "Punch In", "Punch Out", "Worked Hours", "Status", "Login Status", "Remarks"];
-    
-//     const rows = filteredData.map(item => {
-//         const dateObj = new Date(item.date);
-//         const day = String(dateObj.getDate()).padStart(2, '0');
-//         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-//         const yearStr = dateObj.getFullYear();
-//         const dateStr = `${day}-${month}-${yearStr}`;
-
-//         const dayStr = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-        
-//         const punchIn = item.punchIn ? new Date(item.punchIn).toLocaleTimeString() : "--";
-//         const punchOut = item.punchOut ? new Date(item.punchOut).toLocaleTimeString() : "--";
-//         const remarks = item.details ? item.details.replace(/,/g, ' ').replace(/\n/g, ' ') : "";
-        
-//         return [
-//             dateStr,
-//             dayStr,
-//             punchIn,
-//             punchOut,
-//             item.displayTime,
-//             item.workedStatus,
-//             item.loginStatus,
-//             remarks
-//         ].join(",");
-//     });
-
-//     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
-//     const encodedUri = encodeURI(csvContent);
-//     const link = document.createElement("a");
-//     link.setAttribute("href", encodedUri);
-//     link.setAttribute("download", fileName);
-//     document.body.appendChild(link);
-//     link.click();
-//     document.body.removeChild(link);
-//   };
-
-//   return (
-//     <div className="p-4 md:p-6 min-h-screen font-sans">
-//       <div className="max-w-7xl mx-auto">
-//         <div className="flex items-center mb-6 gap-3">
-//           <FaRegClock className="text-blue-600 text-3xl" />
-//           <h1 className="font-bold text-3xl text-gray-800">Your Attendance History</h1>
-//         </div>
-
-//         {/* Filters */}
-//         <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-col md:flex-row items-center gap-4 md:gap-6 border border-gray-100">
-//           <div className="flex items-center gap-2 text-gray-700 font-semibold">
-//             <FaFilter />
-//             <span>Filter by Period</span>
-//           </div>
-//           <div className="w-full md:w-auto">
-//             <select value={selectedDate.getFullYear()} onChange={handleYearChange} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-//               {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
-//             </select>
-//           </div>
-//           <div className="w-full md:w-auto">
-//             <select value={selectedDate.getMonth()} onChange={handleMonthChange} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-//               {graphData.labels.map((month, index) => <option key={index} value={index}>{month}</option>)}
-//             </select>
-//           </div>
-          
-//           <div className="flex-grow md:text-right flex justify-end gap-3">
-//              {/* ✅ Added View Requests Button */}
-//              <button 
-//                 onClick={() => setShowRequestsModal(true)}
-//                 className="inline-flex items-center gap-2 bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 px-4 py-2 rounded-lg font-semibold shadow-sm transition-colors"
-//              >
-//                 <FaListAlt /> Late Requests History
-//              </button>
-
-//              <button 
-//                 onClick={handleExport}
-//                 className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold shadow-sm transition-colors"
-//              >
-//                 <FaFileDownload /> Export CSV
-//              </button>
-//           </div>
-//         </div>
-
-//         {/* Stats & Chart Grid */}
-//         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-          
-//           {/* Summary Column - UPDATED DYNAMIC TITLE & CONTENT */}
-//           <div className="lg:col-span-2 p-6 bg-white rounded-xl shadow-md border border-gray-100">
-//             <h3 className="font-bold text-lg mb-4 text-gray-800 border-b pb-2">
-//               {getBreakdownTitle()}
-//             </h3>
-//             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-              
-//               {/* Full Days (Kept) */}
-//               <BreakdownItem 
-//                 icon={<FaBusinessTime />} 
-//                 title="Full Days" 
-//                 value={summaryStats.fullDays} 
-//                 color="text-green-600" 
-//                 bg="bg-green-50" 
-//               />
-              
-//               {/* Half Days (Kept) */}
-//               <BreakdownItem 
-//                 icon={<FaStarHalfAlt />} 
-//                 title="Half Days" 
-//                 value={summaryStats.halfDays} 
-//                 color="text-yellow-600" 
-//                 bg="bg-yellow-50" 
-//               />
-
-//               {/* Present (New - replaced Working Days) */}
-//                <BreakdownItem 
-//                 icon={<FaCheckCircle />} 
-//                 title="Present" 
-//                 value={summaryStats.presentDays} 
-//                 color="text-blue-600" 
-//                 bg="bg-blue-50" 
-//               />
-              
-//               {/* On Time (New - replaced Leaves) */}
-//               <BreakdownItem 
-//                 icon={<FaUserClock />} 
-//                 title="On Time" 
-//                 value={summaryStats.onTimeCount} 
-//                 color="text-teal-600" 
-//                 bg="bg-teal-50" 
-//               />
-
-//               {/* Late Login (New - replaced Holidays) */}
-//               <BreakdownItem 
-//                 icon={<FaExclamationTriangle />} 
-//                 title="Late Login" 
-//                 value={summaryStats.lateCount} 
-//                 color="text-red-600" 
-//                 bg="bg-red-50" 
-//               />
-              
-//               {/* Absent (Consolidated: Leave + Absent) */}
-//               <BreakdownItem 
-//                 icon={<FaTimesCircle />} 
-//                 title="Absent" 
-//                 value={summaryStats.absentDays} 
-//                 color="text-rose-700" 
-//                 bg="bg-rose-50" 
-//               />
-
-//             </div>
-//           </div>
-
-//           {/* Graph Column */}
-//           <div className="lg:col-span-3 p-4 bg-white rounded-xl shadow-md border border-gray-100">
-//             <h3 className="font-semibold text-lg mb-2 text-gray-800">Yearly Overview - {selectedDate.getFullYear()}</h3>
-//             <div className="relative h-64">
-//               <Bar options={graphOptions} data={graphData} />
-//             </div>
-//           </div>
-//         </div>
-
-
-
-//         {/* Table Section */}
-//         <div className="bg-white rounded-xl shadow-md border border-gray-100">
-//           <div className="p-4 border-b border-gray-200">
-//             <div className="relative">
-//               <FaSearch className="absolute top-1/2 left-4 -translate-y-1/2 text-gray-400" />
-//               <input type="text" placeholder={`Search records...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
-//             </div>
-//           </div>
-
-//           <div className="overflow-x-auto">
-//             <table className="min-w-full text-sm">
-//               <thead className="bg-gray-50">
-//                 <tr className="text-gray-600 uppercase border-b border-gray-200">
-//                   {['date', 'in', 'out', 'worked', 'status', 'login Status', 'worked status'].map(header => (
-//                     <th key={header} className="px-4 py-3 text-left font-semibold" onClick={() => requestSort(header.replace(/\s+/g, '').toLowerCase())}>
-//                       <div className="flex items-center gap-2 cursor-pointer select-none hover:text-blue-600 transition-colors">
-//                         <span>{header}</span>
-//                         {getSortIcon(header.replace(/\s+/g, '').toLowerCase())}
-//                       </div>
-//                     </th>
-//                   ))}
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 {loading ? (
-//                   Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} />)
-//                 ) : filteredData.length > 0 ? (
-//                   filteredData.map((a) => {
-//                     const isAbsent = a.workedStatus === 'Absent';
-//                     const isLeave = a.workedStatus === 'Leave';
-//                     const isHoliday = a.workedStatus === 'Holiday';
-//                     const isWeekOff = a.workedStatus === 'Week Off';
-//                     const isHalfDay = a.workedStatus === 'Half Day';
-
-//                     let rowClass = "hover:bg-blue-50/50 transition-colors duration-200 border-b border-gray-100 last:border-b-0 ";
-//                     if (isAbsent) rowClass += "bg-red-50/30";
-//                     else if (isLeave) rowClass += "bg-orange-50/30";
-//                     else if (isHalfDay) rowClass += "bg-yellow-50/30";
-//                     else if (isWeekOff) rowClass += "bg-gray-50/60 text-gray-500";
-//                     else if (isHoliday) rowClass += "bg-purple-50/30";
-
-//                     return (
-//                       <tr key={a.date} className={rowClass}>
-//                         <td className="px-4 py-3 font-medium text-left whitespace-nowrap">
-//                           <div className="flex flex-col">
-//                             <span>{new Date(a.date).toLocaleDateString('en-GB')}</span>
-//                             <span className="text-xs text-gray-400 font-normal">{new Date(a.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-//                           </div>
-//                         </td>
-                        
-//                         <td className="px-4 py-3 text-left whitespace-nowrap text-green-600 font-medium">
-//                            {a.punchIn ? new Date(a.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">--:--</span>}
-//                         </td>
-                        
-//                         <td className="px-4 py-3 text-left whitespace-nowrap text-red-600 font-medium">
-//                            {a.punchOut ? new Date(a.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="text-gray-300">--:--</span>}
-//                         </td>
-                        
-//                         <td className="px-4 py-3 font-mono text-left whitespace-nowrap text-gray-700">
-//                            {a.punchIn ? a.displayTime : <span className="text-gray-300">00:00</span>}
-//                         </td>
-                        
-//                         <td className="px-4 py-3 text-left whitespace-nowrap text-xs font-bold">
-//                             {a.details ? 
-//                                 <span className="text-gray-700 truncate max-w-[150px] inline-block" title={a.details}>{a.details}</span> 
-//                                 : a.status
-//                             }
-//                         </td>
-                        
-//                         <td className="px-4 py-3 text-left whitespace-nowrap">
-//                           {a.punchIn ? (
-//                             <span className={`px-2 py-0.5 rounded text-xs font-semibold inline-flex items-center gap-1 border ${a.loginStatus === "LATE" ? "bg-red-50 text-red-600 border-red-100" : "bg-green-50 text-green-600 border-green-100"}`}>
-//                               {a.loginStatus === "LATE" ? "Late" : "On Time"}
-//                             </span>
-//                           ) : <span className="text-gray-300">--</span>}
-//                         </td>
-
-//                         <td className="px-4 py-3 capitalize text-left whitespace-nowrap font-medium">
-//                           {(() => {
-//                             if (isAbsent) return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-600"><FaTimesCircle/> Absent</span>;
-//                             if (isWeekOff) return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600"><FaCouch/> Week Off</span>;
-//                             if (isHoliday) return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-600"><FaUmbrellaBeach/> Holiday</span>;
-//                             if (isLeave) return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-600">On Leave</span>;
-//                             if (isHalfDay) return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700"><FaStarHalfAlt/> Half Day</span>;
-//                             if (a.workedStatus === "Full Day") return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">Full Day</span>;
-//                             return <span className="text-gray-500 text-xs">{a.workedStatus}</span>;
-//                           })()}
-//                         </td>
-//                       </tr>
-//                     )
-//                   })
-//                 ) : (
-//                   <tr><td colSpan="7" className="text-center py-16 text-gray-500">
-//                     <p className="font-semibold text-lg">No Records Found</p>
-//                     <p className="text-sm mt-1">No attendance data is available for the selected period.</p>
-//                   </td></tr>
-//                 )}
-//               </tbody>
-//             </table>
-//           </div>
-//         </div>
-
-//         {/* ✅ LATE REQUESTS MODAL */}
-//         {showRequestsModal && (
-//             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-//                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden animate-fade-in-down flex flex-col max-h-[80vh]">
-//                     <div className="bg-orange-600 px-6 py-4 flex justify-between items-center text-white">
-//                         <div>
-//                             <h3 className="text-lg font-bold flex items-center gap-2"><FaUserClock /> Late Requests History</h3>
-//                             <p className="text-xs text-orange-100 opacity-90 mt-1">Showing requests for {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
-//                         </div>
-//                         <button onClick={() => setShowRequestsModal(false)} className="hover:bg-orange-700 p-2 rounded-full transition"><FaTimes /></button>
-//                     </div>
-                    
-//                     <div className="p-0 overflow-auto flex-1">
-//                         <table className="min-w-full text-sm text-left">
-//                             <thead className="bg-gray-50 sticky top-0 shadow-sm z-10">
-//                                 <tr className="text-gray-600 uppercase">
-//                                     <th className="px-6 py-3 font-semibold">Date</th>
-//                                     <th className="px-6 py-3 font-semibold">Status</th>
-//                                     <th className="px-6 py-3 font-semibold">Punch In</th>
-//                                     <th className="px-6 py-3 font-semibold">Requested Time</th>
-//                                     <th className="px-6 py-3 font-semibold">Reason</th>
-//                                     <th className="px-6 py-3 font-semibold">Admin Comment</th>
-//                                 </tr>
-//                             </thead>
-//                             <tbody className="divide-y divide-gray-100">
-//                                 {lateRequestsHistory.length > 0 ? (
-//                                     lateRequestsHistory.map((req, idx) => (
-//                                         <tr key={idx} className="hover:bg-gray-50">
-//                                             <td className="px-6 py-4 font-medium text-gray-800">
-//                                                 {new Date(req.date).toLocaleDateString('en-GB')}
-//                                             </td>
-//                                             <td className="px-6 py-4">
-//                                                 <span className={`px-2 py-1 rounded text-xs font-bold border ${
-//                                                     req.lateCorrectionRequest.status === "APPROVED" ? "bg-green-100 text-green-700 border-green-200" :
-//                                                     req.lateCorrectionRequest.status === "REJECTED" ? "bg-red-100 text-red-700 border-red-200" :
-//                                                     "bg-yellow-100 text-yellow-700 border-yellow-200"
-//                                                 }`}>
-//                                                     {req.lateCorrectionRequest.status}
-//                                                 </span>
-//                                             </td>
-//                                             <td className="px-6 py-4 text-gray-500">
-//                                                 {req.punchIn ? new Date(req.punchIn).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "--:--"}
-//                                             </td>
-//                                             <td className="px-6 py-4 font-mono text-blue-600 font-bold">
-//                                                 {new Date(req.lateCorrectionRequest.requestedTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-//                                             </td>
-//                                             <td className="px-6 py-4 max-w-xs truncate" title={req.lateCorrectionRequest.reason}>
-//                                                 {req.lateCorrectionRequest.reason}
-//                                             </td>
-//                                             <td className="px-6 py-4 text-gray-500 italic">
-//                                                 {req.lateCorrectionRequest.adminComment || "--"}
-//                                             </td>
-//                                         </tr>
-//                                     ))
-//                                 ) : (
-//                                     <tr>
-//                                         <td colSpan="6" className="text-center py-12 text-gray-400">
-//                                             No late correction requests found for this month.
-//                                         </td>
-//                                     </tr>
-//                                 )}
-//                             </tbody>
-//                         </table>
-//                     </div>
-//                 </div>
-//             </div>
-//         )}
-
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default EmployeeDailyAttendance;
 
 
 // --- START OF FILE EmployeeDailyAttendance.jsx ---
 
 import React, { useContext, useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { NotificationContext } from "../context/NotificationContext";
+import Swal from "sweetalert2";
 import {
   getAttendanceForEmployee,
   getShiftByEmployeeId,
   getHolidays,
   getLeaveRequestsForEmployee,
-  requestStatusCorrection
+  requestStatusCorrection,
+  requestFullDay,
+  requestCorrectionAdvanced,
+  getPendingCorrections,
+  getMyCorrections
 } from "../api";
 
 // --- Import Chart.js and React wrapper ---
@@ -1029,6 +158,7 @@ const SummaryCard = ({ title, count, icon, colorClass, bgClass }) => (
 
 const EmployeeDailyAttendance = () => {
   const { user } = useContext(AuthContext);
+  const { socket } = useContext(NotificationContext);
 
   // State
   const [attendance, setAttendance] = useState([]);
@@ -1048,7 +178,29 @@ const EmployeeDailyAttendance = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [correctionData, setCorrectionData] = useState({ date: "", punchIn: "", currentStatus: "" });
   const [requestedPunchOut, setRequestedPunchOut] = useState("");
+
+  // ✅ NEW: Full Day Request Modal State
+  const [showFullDayModal, setShowFullDayModal] = useState(false);
+  const [fullDayData, setFullDayData] = useState({ date: "", currentStatus: "" });
+  const [fullDayReason, setFullDayReason] = useState("");
+  const [fullDaySubmitting, setFullDaySubmitting] = useState(false);
+  const [showFullDayHistoryModal, setShowFullDayHistoryModal] = useState(false);
   const [statusReason, setStatusReason] = useState("");
+
+  // --- NEW: Advanced Correction Modal State ---
+  const [showAdvancedModal, setShowAdvancedModal] = useState(false);
+  const [advancedReqData, setAdvancedReqData] = useState({
+    date: "",
+    currentStatus: "",
+    requestedStatus: "",
+    currentPunchIn: "",
+    currentPunchOut: "",
+    requestedPunchIn: "10:00",
+    requestedPunchOut: "19:00",
+    reason: ""
+  });
+  const [myCorrections, setMyCorrections] = useState([]);
+  const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
 
   // --- NEW: Live Timer State ---
   const [liveTimer, setLiveTimer] = useState("0h 0m 0s");
@@ -1061,11 +213,12 @@ const EmployeeDailyAttendance = () => {
   const loadData = useCallback(async (empId) => {
     setLoading(true);
     try {
-      const [attendanceRes, shiftRes, holidaysRes, leavesRes] = await Promise.all([
+      const [attendanceRes, shiftRes, holidaysRes, leavesRes, correctionsRes] = await Promise.all([
         getAttendanceForEmployee(empId),
         getShiftByEmployeeId(empId).catch(() => null),
         getHolidays().catch(() => []),
-        getLeaveRequestsForEmployee(empId).catch(() => [])
+        getLeaveRequestsForEmployee(empId).catch(() => []),
+        getMyCorrections().catch(() => ({ data: [] }))
       ]);
 
       const attendanceData = Array.isArray(attendanceRes) ? attendanceRes : (attendanceRes.data || []);
@@ -1077,6 +230,8 @@ const EmployeeDailyAttendance = () => {
 
       const lData = Array.isArray(leavesRes) ? leavesRes : (leavesRes.data || []);
       setLeaves(lData);
+
+      setMyCorrections(correctionsRes.data || []);
 
     } catch (err) {
       console.error("Error loading data:", err);
@@ -1093,6 +248,36 @@ const EmployeeDailyAttendance = () => {
       setLoading(false);
     }
   }, [user, loadData]);
+
+  // ✅ Real-time refresh when Admin approves/rejects
+  useEffect(() => {
+    if (socket && user?.employeeId) {
+      const handleStatusUpdate = (data) => {
+        console.log("⚡ Attendance Status Update received via Socket:", data);
+        loadData(user.employeeId);
+
+        // Optional: Show a subtle toast or notification
+        if (data.status === "APPROVED") {
+          Swal.fire({
+            icon: 'success',
+            title: 'Attendance Updated',
+            text: `Your request for ${data.date} has been approved!`,
+            toast: true,
+            position: 'top-end',
+            timer: 3000,
+            showConfirmButton: false
+          });
+        }
+      };
+
+      socket.on("fullDay:statusUpdate", handleStatusUpdate);
+      socket.on("attendance:correctionUpdate", handleStatusUpdate);
+      return () => {
+        socket.off("fullDay:statusUpdate", handleStatusUpdate);
+        socket.off("attendance:correctionUpdate", handleStatusUpdate);
+      };
+    }
+  }, [socket, user, loadData]);
 
   // --- Extract Available Years ---
   const availableYears = useMemo(() => {
@@ -1161,6 +346,10 @@ const EmployeeDailyAttendance = () => {
         else if (workedHours >= adminHalfDayHours) finalStatus = "Half Day";
         else finalStatus = "Absent";
 
+        // Override if record already has a specific status from DB (e.g. manually set by admin)
+        if (record.workedStatus === "FULL_DAY") finalStatus = "Full Day";
+        else if (record.workedStatus === "HALF_DAY") finalStatus = "Half Day";
+
         if (!record.punchOut && currentDateISO === todayISO) finalStatus = "Working";
         displayTime = record.displayTime || "00:00";
         loginStatus = calculateLoginStatus(record.punchIn, shiftDetails, record.loginStatus);
@@ -1191,7 +380,8 @@ const EmployeeDailyAttendance = () => {
         workedStatus: finalStatus,
         details: statusDetails,
         statusCorrectionRequest: record?.statusCorrectionRequest || { hasRequest: false },
-        lateCorrectionRequest: record?.lateCorrectionRequest || { hasRequest: false }
+        lateCorrectionRequest: record?.lateCorrectionRequest || { hasRequest: false },
+        fullDayRequest: record?.fullDayRequest || { hasRequest: false }
       };
     });
   }, [selectedDate, attendance, shiftDetails, holidays, leaves]);
@@ -1416,6 +606,13 @@ const EmployeeDailyAttendance = () => {
     ).sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [attendance]);
 
+  // ✅ NEW: Full Day Request History
+  const fullDayRequestHistory = useMemo(() => {
+    return attendance.filter(record =>
+      record.fullDayRequest?.hasRequest
+    ).sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [attendance]);
+
   // --- NEW: Scroll Detection Logic ---
   const handleScroll = () => {
     if (tableContainerRef.current) {
@@ -1464,7 +661,14 @@ const EmployeeDailyAttendance = () => {
   // EmployeeDailyAttendance.jsx - Update this function only
 
   const submitStatusCorrection = async () => {
-    if (!requestedPunchOut || !statusReason) return alert("Please provide both time and reason.");
+    if (!requestedPunchOut || !statusReason) {
+      return Swal.fire({
+        icon: 'warning',
+        title: 'Missing Information',
+        text: 'Please provide both time and reason.',
+        confirmButtonColor: '#3b82f6'
+      });
+    }
 
     try {
       // Create a date string that preserves the local time
@@ -1483,16 +687,133 @@ const EmployeeDailyAttendance = () => {
         reason: statusReason
       });
 
-      alert("Request submitted successfully!");
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Request submitted successfully!',
+        timer: 2000,
+        showConfirmButton: false
+      });
       setShowStatusModal(false);
       loadData(user.employeeId);
     } catch (error) {
-      alert(error.response?.data?.message || "Failed to submit request");
+      Swal.fire({
+        icon: 'error',
+        title: 'Submission Failed',
+        text: error.response?.data?.message || "Failed to submit request",
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  };
+
+  // ✅ NEW: Open Full Day Request Modal
+  const openFullDayModal = (record) => {
+    setFullDayData({
+      date: toISODateString(record.date),
+      currentStatus: record.workedStatus
+    });
+    setFullDayReason("");
+    setShowFullDayModal(true);
+  };
+
+  // ✅ NEW: Submit Full Day Request
+  const submitFullDayRequest = async () => {
+    if (!fullDayReason.trim()) {
+      return Swal.fire({
+        icon: 'warning',
+        title: 'Reason Required',
+        text: 'Please provide a reason.',
+        confirmButtonColor: '#10b981'
+      });
+    }
+    setFullDaySubmitting(true);
+    try {
+      await requestFullDay({
+        employeeId: user.employeeId,
+        date: fullDayData.date,
+        reason: fullDayReason
+      });
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'Full Day request submitted successfully!',
+        timer: 2000,
+        showConfirmButton: false
+      });
+      setShowFullDayModal(false);
+      loadData(user.employeeId);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Submission Failed',
+        text: error.response?.data?.message || "Failed to submit request.",
+        confirmButtonColor: '#ef4444'
+      });
+    } finally {
+      setFullDaySubmitting(false);
+    }
+  };
+
+  // ✅ NEW: Advanced Correction Request Handlers
+  const openAdvancedCorrectionModal = (record) => {
+    // Determine existing punch times if available
+    const existingPunchIn = record.punchIn ? new Date(record.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "";
+    const existingPunchOut = record.punchOut ? new Date(record.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "";
+
+    setAdvancedReqData({
+      date: toISODateString(record.date),
+      currentStatus: record.workedStatus || "Absent",
+      requestedStatus: record.workedStatus || "Full Day",
+      currentPunchIn: existingPunchIn,
+      currentPunchOut: existingPunchOut,
+      requestedPunchIn: existingPunchIn || "10:00",
+      requestedPunchOut: existingPunchOut || "19:00",
+      reason: ""
+    });
+    setShowAdvancedModal(true);
+  };
+
+  const submitAdvancedCorrection = async () => {
+    if (!advancedReqData.reason.trim()) {
+      return Swal.fire({ icon: 'warning', title: 'Reason Required', text: 'Please explain why you are requesting this change.' });
+    }
+
+    setIsSubmittingCorrection(true);
+    try {
+      await requestCorrectionAdvanced({
+        employeeId: user.employeeId,
+        ...advancedReqData
+      });
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Request Sent',
+        text: 'Your attendance correction request has been submitted to Admin.',
+        timer: 3000,
+        showConfirmButton: false
+      });
+      setShowAdvancedModal(false);
+      loadData(user.employeeId);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Request Failed',
+        text: error.response?.data?.message || "Failed to submit correction request."
+      });
+    } finally {
+      setIsSubmittingCorrection(false);
     }
   };
 
   const handleExport = () => {
-    if (filteredData.length === 0) return alert("No data to export.");
+    if (filteredData.length === 0) {
+      return Swal.fire({
+        icon: 'info',
+        title: 'No Data',
+        text: 'No data to export.',
+        confirmButtonColor: '#1f2937'
+      });
+    }
     const monthName = barGraphData.labels[selectedDate.getMonth()];
     const fileName = `Attendance_${monthName}_${selectedDate.getFullYear()}_${user.name.replace(/\s+/g, '_')}.csv`;
     const headers = ["Date", "Day", "Punch In", "Punch Out", "Worked Hours", "Status", "Login Status", "Remarks"];
@@ -1744,6 +1065,13 @@ const EmployeeDailyAttendance = () => {
                   Attendence Correction History
                 </button>
 
+                <button
+                  onClick={() => setShowFullDayHistoryModal(true)}
+                  className="px-3 py-2 text-teal-600 bg-teal-50 rounded-lg hover:bg-teal-100 text-sm font-medium"
+                >
+                  Full Day Request History
+                </button>
+
               </div>
             </div>
           </div>
@@ -1779,13 +1107,16 @@ const EmployeeDailyAttendance = () => {
                     filteredData.map((row) => {
                       const isWeekend = row.workedStatus === 'Week Off';
                       const isAbsent = row.workedStatus === 'Absent';
-                      const isPending = row.statusCorrectionRequest?.hasRequest && row.statusCorrectionRequest?.status === 'PENDING';
+                      const correctionReq = myCorrections.find(c => c.date === toISODateString(row.date));
+                      const isCorrectionPending = correctionReq?.requestStatus === 'pending';
+                      const isCorrectionApproved = correctionReq?.requestStatus === 'approved';
+                      const isCorrectionRejected = correctionReq?.requestStatus === 'rejected';
 
                       return (
                         <tr key={row.date} className="hover:bg-gray-50/50 transition-colors group">
                           <td className="px-6 py-4 w-[14.2%]">
                             <p className="font-bold text-gray-700">{new Date(row.date).getDate()} {new Date(row.date).toLocaleString('default', { month: 'short', year: 'numeric' })}</p>
-                            <p className="text-xs text-gray-400 hidden group-hover:block">{new Date(row.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
+                            <p className="text-xs text-gray-400 ">{new Date(row.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
                           </td>
                           <td className="px-6 py-4 w-[14.2%] font-medium text-gray-600">
                             {row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
@@ -1818,7 +1149,7 @@ const EmployeeDailyAttendance = () => {
                               <span className="text-green-500 font-bold text-xs">On-Time</span>
                             ) : <span className="text-gray-300">--</span>}
                           </td>
-                          <td className="px-6 py-4 w-[14.2%]">
+                          <td className="px-1 py-4 w-[14.2%]">
                             <div className="flex items-center justify-between">
                               <span className={`px-3 py-1 rounded-md text-xs font-bold ${isWeekend ? "bg-gray-100 text-gray-500" :
                                 isAbsent ? "bg-red-50 text-red-500" :
@@ -1828,13 +1159,33 @@ const EmployeeDailyAttendance = () => {
                                 {isWeekend ? "Weekend" : row.workedStatus === "Full Day" ? "Full Day" : row.workedStatus}
                               </span>
 
-                              {/* Correction Action */}
-                              {(row.punchIn && (isAbsent || row.workedStatus === 'Half Day') && !isPending) && (
-                                <button onClick={() => openCorrectionModal(row)} className="text-gray-400 hover:text-blue-600 ml-2" title="Request Correction">
-                                  <FaEdit />
-                                </button>
-                              )}
-                              {isPending && <span className="text-[10px] text-orange-500 font-semibold ml-2">Pending</span>}
+                              <div className="flex items-center gap-2">
+                                {!isWeekend && !isCorrectionPending && !isCorrectionApproved && !row.isAdminCorrected && (
+                                  <button
+                                    onClick={() => openAdvancedCorrectionModal(row)}
+                                    className="text-gray-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-full transition-all"
+                                    title="Request Correction"
+                                  >
+                                    <FaEdit size={14} />
+                                  </button>
+                                )}
+
+                                {isCorrectionPending && (
+                                  <span className="flex items-center gap-1 text-[10px] text-orange-500 font-bold bg-orange-50 px-2 py-1 rounded-full animate-pulse">
+                                    <FaRegClock size={10} /> Pending
+                                  </span>
+                                )}
+                                {isCorrectionApproved && (
+                                  <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full">
+                                    <FaCheckCircle size={10} /> Approved
+                                  </span>
+                                )}
+                                {isCorrectionRejected && (
+                                  <span className="flex items-center gap-1 text-[10px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded-full">
+                                    <FaTimesCircle size={10} /> Rejected
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -1857,6 +1208,113 @@ const EmployeeDailyAttendance = () => {
         </div>
 
         {/* --- MODALS (IMPROVED UI & DATA MAPPING) --- */}
+
+        {/* Advanced Correction Modal */}
+        {showAdvancedModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-0 animate-fade-in-up overflow-hidden">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex justify-between items-center text-white">
+                <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <FaEdit /> Attendance Correction
+                  </h3>
+                  <p className="text-blue-100 text-xs mt-1">
+                    Requesting change for {new Date(advancedReqData.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+                <button onClick={() => setShowAdvancedModal(false)} className="hover:bg-white/20 p-2 rounded-full transition">
+                  <FaTimes />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Status Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Current Status</label>
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 font-semibold text-sm">
+                      {advancedReqData.currentStatus}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Requested Status</label>
+                    <select
+                      value={advancedReqData.requestedStatus}
+                      onChange={(e) => setAdvancedReqData({ ...advancedReqData, requestedStatus: e.target.value })}
+                      className="w-full p-3 bg-white border border-blue-200 rounded-xl text-blue-600 font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none transition cursor-pointer"
+                    >
+                      <option value="Full Day">Full Day</option>
+                      <option value="Half Day">Half Day</option>
+                      <option value="Absent">Absent</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Time Selection */}
+                {advancedReqData.requestedStatus !== 'Absent' && (
+                  <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Requested Punch In</label>
+                      <input
+                        type="time"
+                        value={advancedReqData.requestedPunchIn}
+                        onChange={(e) => setAdvancedReqData({ ...advancedReqData, requestedPunchIn: e.target.value })}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-medium text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Requested Punch Out</label>
+                      <input
+                        type="time"
+                        value={advancedReqData.requestedPunchOut}
+                        onChange={(e) => setAdvancedReqData({ ...advancedReqData, requestedPunchOut: e.target.value })}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-medium text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Reason */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Reason for Request</label>
+                  <textarea
+                    rows="3"
+                    value={advancedReqData.reason}
+                    onChange={(e) => setAdvancedReqData({ ...advancedReqData, reason: e.target.value })}
+                    placeholder="E.g., Forget to punch in, Bio-metric error, Worked extra hours..."
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition resize-none"
+                  ></textarea>
+                </div>
+
+                {/* Business Rule Warning */}
+                <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex gap-3 items-start">
+                  <FaExclamationTriangle className="text-orange-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-[11px] text-orange-700 leading-relaxed">
+                    <strong>Note:</strong> Requests are subject to Admin approval. Ensure punch times meet office policy (9h for Full Day, 4.5h for Half Day).
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+                <button
+                  onClick={() => setShowAdvancedModal(false)}
+                  className="flex-1 px-4 py-3 text-gray-600 font-bold hover:bg-gray-200 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitAdvancedCorrection}
+                  disabled={isSubmittingCorrection}
+                  className="flex-1 px-4 py-3 bg-blue-600 text-white font-bold hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingCorrection ? "Sending..." : "Submit Request"} <FaArrowRight />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Late Request History */}
         {showRequestsModal && (
@@ -1998,6 +1456,93 @@ const EmployeeDailyAttendance = () => {
               <div className="mt-8 flex gap-3">
                 <button onClick={() => setShowStatusModal(false)} className="flex-1 px-4 py-3 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition">Cancel</button>
                 <button onClick={submitStatusCorrection} className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex justify-center items-center gap-2">Submit <FaArrowRight /></button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ NEW: Full Day Request Confirmation Modal */}
+        {showFullDayModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-fade-in-down">
+              <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                <h3 className="text-lg font-bold text-gray-800">Request Full Day</h3>
+                <button onClick={() => setShowFullDayModal(false)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+              </div>
+
+              <p className="text-sm text-gray-600 mb-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                You are currently marked as <span className="font-bold text-yellow-600">{fullDayData.currentStatus}</span> for <span className="font-bold text-gray-800">{new Date(fullDayData.date).toLocaleDateString()}</span>.
+                <br />Submit a request to upgrade this to <span className="font-bold text-green-600">Full Day</span>.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason for Full Day Request</label>
+                  <textarea
+                    rows="3"
+                    value={fullDayReason}
+                    onChange={(e) => setFullDayReason(e.target.value)}
+                    placeholder="Explain why this should be marked as Full Day..."
+                    className="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-green-500 outline-none resize-none transition bg-gray-50 focus:bg-white"
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button onClick={() => setShowFullDayModal(false)} className="flex-1 px-4 py-3 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition">Cancel</button>
+                <button
+                  onClick={submitFullDayRequest}
+                  disabled={fullDaySubmitting}
+                  className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 shadow-lg shadow-green-200 transition flex justify-center items-center gap-2 disabled:opacity-50"
+                >
+                  {fullDaySubmitting ? "Submitting..." : "Submit Request"} <FaArrowRight />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ NEW: Full Day Request History Modal */}
+        {showFullDayHistoryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[85vh] overflow-hidden">
+              <div className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 flex justify-between items-center text-white">
+                <h3 className="text-lg font-bold flex items-center gap-2"><FaStarHalfAlt /> Full Day Request History</h3>
+                <button onClick={() => setShowFullDayHistoryModal(false)} className="hover:bg-white/20 p-2 rounded-full transition"><FaTimes /></button>
+              </div>
+
+              <div className="overflow-y-auto p-0 flex-1 bg-gray-50">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-white text-gray-500 text-xs uppercase sticky top-0 shadow-sm z-10">
+                    <tr>
+                      <th className="px-6 py-4">Date</th>
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Submitted On</th>
+                      <th className="px-6 py-4">Reason</th>
+                      <th className="px-6 py-4">Admin Note</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {fullDayRequestHistory.length > 0 ? (
+                      fullDayRequestHistory.map((row, i) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 font-bold text-gray-700">{new Date(row.date).toLocaleDateString()}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold border ${row.fullDayRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                              row.fullDayRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                                'bg-yellow-50 text-yellow-600 border-yellow-200'
+                              }`}>{row.fullDayRequest.status}</span>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-xs">{row.fullDayRequest.requestedAt ? new Date(row.fullDayRequest.requestedAt).toLocaleString() : '--'}</td>
+                          <td className="px-6 py-4 max-w-xs truncate text-gray-500" title={row.fullDayRequest.reason}>{row.fullDayRequest.reason}</td>
+                          <td className="px-6 py-4 italic text-gray-400">{row.fullDayRequest.adminComment || "--"}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan="5" className="text-center py-12 text-gray-400">No full day request history found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { NoticeContext } from "../context/NoticeContext";
+import { NotificationContext } from "../context/NotificationContext";
 // ✅ Ensuring Chart imports are correct
 import { Bar, Doughnut } from "react-chartjs-2";
 import {
@@ -45,6 +46,9 @@ import {
   FaLuggageCart,
   FaClock,
   FaBullhorn,
+  FaSignInAlt,
+  FaSignOutAlt,
+  FaPlay,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 
@@ -107,6 +111,7 @@ const toISODateString = (date) => {
 const EmployeeDashboard = () => {
   const { user } = useContext(AuthContext);
   const { notices } = useContext(NoticeContext);
+  const { socket } = useContext(NotificationContext);
 
   // ✅ OPTIMIZATION: Split loading state
   const [loading, setLoading] = useState(true);
@@ -140,6 +145,33 @@ const EmployeeDashboard = () => {
   // ✅ NEW: Real-time Clock State
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // ✅ Socket Listener for Real-time Attendance Updates
+  useEffect(() => {
+    if (socket && user?.employeeId) {
+      const handleUpdate = (data) => {
+        console.log("Real-time attendance update received:", data);
+        // Refresh attendance data
+        loadAttendance(user.employeeId);
+
+        if (data?.type === "FORCE_PUNCH_OUT") {
+          Swal.fire({
+            title: "Admin Action",
+            text: data.message || "An administrator has punched you out.",
+            icon: "info",
+            confirmButtonColor: "#3085d6"
+          });
+        }
+      };
+
+      socket.on("attendance:correctionUpdate", handleUpdate);
+      socket.on("fullDay:statusUpdate", handleUpdate);
+      return () => {
+        socket.off("attendance:correctionUpdate", handleUpdate);
+        socket.off("fullDay:statusUpdate", handleUpdate);
+      };
+    }
+  }, [socket, user?.employeeId]);
+
   const [isShiftDropdownOpen, setIsShiftDropdownOpen] = useState(false);
   const [isBreakDropdownOpen, setIsBreakDropdownOpen] = useState(false);
 
@@ -172,6 +204,17 @@ const EmployeeDashboard = () => {
   const alarmPlayedRef = useRef(false);
 
   const todayIso = new Date().toISOString().split("T")[0];
+
+  // ✅ NEW: Break state toggle
+  const [isOnBreak, setIsOnBreak] = useState(false);
+
+  // ✅ Sync isOnBreak with todayLog
+  useEffect(() => {
+    setIsOnBreak(todayLog?.isOnBreak || false);
+  }, [todayLog]);
+
+  // ✅ Helper for visibility
+  const isPunchedIn = !!todayLog?.punchIn;
 
   // --- Voice Feedback ---
   const speak = (text) => {
@@ -534,7 +577,7 @@ const EmployeeDashboard = () => {
 
   useEffect(() => {
     let interval;
-    const isWorking = todayLog?.status === "WORKING";
+    const isWorking = todayLog?.status === "WORKING" && !todayLog?.isOnBreak;
 
     if (isWorking) {
       const updateTimer = () => {
@@ -582,7 +625,12 @@ const EmployeeDashboard = () => {
     let interval;
     const isOnBreak = todayLog?.isOnBreak === true;
 
-    if (isOnBreak) {
+    // ✅ Logic: Stop counting break if shift is completed (by admin or punch-out)
+    const isCompleted =
+      todayLog?.isFinalPunchOut === true ||
+      todayLog?.adminPunchOut === true;
+
+    if (isOnBreak && !isCompleted) {
       const updateBreakTimer = () => {
         const now = new Date();
         const alreadyDone = todayLog.totalBreakSeconds || 0;
@@ -816,23 +864,30 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // ✅ NEW: Break handler with confirmation dialog
+  // ✅ NEW: Toggling Break handler
   const handleBreak = async () => {
     if (!user) return;
-    Swal.fire({
-      title: "Take a Break?",
-      text: "Your work session will be paused. You can Punch In again to resume working.",
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonColor: '#f97316',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, take a break!',
-      cancelButtonText: 'Cancel'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        performPunchAction("BREAK");
-      }
-    });
+
+    if (isOnBreak) {
+      // Resume Work
+      handlePunch("IN");
+    } else {
+      // Take a Break
+      Swal.fire({
+        title: "Take a Break?",
+        text: "Your work session will be paused. You can Click 'Continue Work' to resume.",
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#f97316',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, take a break!',
+        cancelButtonText: 'Cancel'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          performPunchAction("BREAK");
+        }
+      });
+    }
   };
 
   // ✅ UPDATED: Request Submit Validation with State Update (No localStorage)
@@ -1050,7 +1105,7 @@ const EmployeeDashboard = () => {
       return { label: "On Break", color: "bg-amber-100 text-amber-800 animate-pulse border border-amber-200" };
     }
 
-    if (!todayLog.punchOut) { return { label: "Working...", color: "bg-blue-100 text-blue-800 animate-pulse border border-blue-200" }; }
+    if (!todayLog.punchOut) { return { label: "Working...", color: "bg-blue-100 text-blue-700 animate-pulse border border-blue-200" }; }
 
     const fullDaySeconds = shiftTimings ? (shiftTimings.fullDayHours * 3600) : (9 * 3600);
     const halfDaySeconds = shiftTimings ? (shiftTimings.halfDayHours * 3600) : (4.5 * 3600);
@@ -1234,11 +1289,11 @@ const EmployeeDashboard = () => {
 
   const targetSeconds = shiftTimings ? (shiftTimings.fullDayHours * 3600) : (9 * 3600);
 
-  // ✅ UPDATED: Uses isFinalPunchOut + adminPunchOut flags from updated Attendance model
+  // ✅ UPDATED: Shift completed ONLY if final punch out or admin punch out
   const isShiftCompleted =
-    todayLog?.isFinalPunchOut === true ||
+    (todayLog?.status === "COMPLETED" && todayLog?.isFinalPunchOut === true) ||
     todayLog?.adminPunchOut === true ||
-    todayLog?.workedStatus === "FULL_DAY";
+    (todayLog?.punchIn && todayLog?.punchOut && todayLog?.isFinalPunchOut === true);
 
   const isShiftReqCompleted = workedTime >= targetSeconds;
 
@@ -1429,9 +1484,11 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
+     
+
       {/* Daily Attendance Table */}
-      <div className="rounded-2xl shadow-lg border border-gray-200 relative bg-white mb-8 animate-fade-in">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-white/40">
+      <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative bg-white mb-8 animate-fade-in">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-white/50">
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><FaRegClock size={18} /></div>
             <h2 className="font-bold text-lg text-gray-800">Daily Attendance</h2>
@@ -1457,18 +1514,32 @@ const EmployeeDashboard = () => {
                 <td className="px-6 py-4 font-semibold text-gray-800">{formatDateDDMMYYYY(todayIso)}</td>
                 <td className="px-6 py-4 font-medium text-gray-600">{todayLog?.punchIn ? new Date(todayLog.punchIn).toLocaleTimeString() : "--"}</td>
                 <td className="px-6 py-4">
-                  {todayLog?.status === "WORKING" ? (
-                    <span className="bg-green-50 border border-green-200 text-green-700 px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold animate-pulse">Active</span>
+                  {isShiftCompleted ? (
+                    <span className="font-bold text-green-600">
+                      {todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
+                    </span>
+                  ) : todayLog?.status === "WORKING" ? (
+                    <span className="bg-green-50 border border-green-200 text-green-700 px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold animate-pulse">Working </span>
                   ) : todayLog?.isOnBreak ? (
                     <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold animate-pulse">On Break</span>
                   ) : (
-                    <span className="font-medium text-gray-600">{todayLog?.punchOut ? new Date(todayLog.punchOut).toLocaleTimeString() : "--"}</span>
+                    <span className="text-gray-400 font-medium">--</span>
                   )}
                 </td>
                 <td className="px-6 py-4 font-mono font-bold text-blue-600">{todayLog?.punchIn ? formatWorkedTime(workedTime) : "0h 0m 0s"}</td>
                 <td className="px-6 py-4">{displayLoginStatusContent}</td>
                 <td className="px-6 py-4">
-                  {todayLog?.punchIn ? (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border shadow-sm ${workedStatusBadge.color}`}> {workedStatusBadge.label} </span>) : (<span className="text-gray-400 font-medium">--</span>)}
+                  {!todayLog || todayLog.status === "NOT_STARTED" ? (
+                    <span className="text-gray-400 font-medium">Not Started</span>
+                  ) : isShiftCompleted ? (
+                    <span className="px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border bg-green-50 text-green-600 border-green-200 shadow-sm">
+                      Shift Completed ✅
+                    </span>
+                  ) : (
+                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase border shadow-sm ${workedStatusBadge.color}`}>
+                      {workedStatusBadge.label}
+                    </span>
+                  )}
                 </td>
                 {/* ✅ UPDATED: Live break timer — counts up when on break, static otherwise */}
                 <td className="px-6 py-4 font-mono font-medium">
@@ -1478,41 +1549,51 @@ const EmployeeDashboard = () => {
                 </td>
 
                 <td className="px-6 py-4 text-center">
-                  {isShiftCompleted ? (
-                    <span className="text-gray-500 font-bold text-[10px] uppercase tracking-wider bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm">Shift Completed</span>
-                  ) : showPunchInButton ? (
-                    <button
-                      className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                      onClick={() => handlePunch("IN")}
-                      disabled={punchStatus !== "IDLE"}
-                    >
-                      {getPunchButtonContent("IN")}
-                    </button>
-                  ) : (
-                    // ✅ NEW: Punch Out + Take Break buttons side-by-side
-                    <div className="flex flex-col gap-2 items-center w-full max-w-[140px] mx-auto">
+                  <div className="flex flex-col gap-2 items-center">
+                    {isShiftCompleted ? (
+                      <span className="text-green-600 font-black text-[10px] uppercase tracking-widest bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg shadow-sm">
+                        Success ✅
+                      </span>
+                    ) : (!todayLog || todayLog.status === "NOT_STARTED") ? (
                       <button
-                        className={`px-4 py-2 rounded-xl w-full flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-500 hover:bg-orange-600'} disabled:opacity-50`}
-                        onClick={() => handlePunch("OUT")}
-                        disabled={punchStatus !== "IDLE"}
+                        className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                        onClick={() => handlePunch("IN")}
+                        disabled={punchStatus !== "IDLE" || missedPunchLog}
                       >
-                        {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : null}
-                        {punchStatus === "PUNCHING" ? "Punching Out..." : "Punch Out"}
+                        {getPunchButtonContent("IN")}
                       </button>
-                      <button
-                        className="px-4 py-2 rounded-xl w-full flex items-center justify-center gap-2 shadow-sm text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 font-bold text-xs transition transform active:scale-95 disabled:opacity-50"
-                        onClick={handleBreak}
-                        disabled={punchStatus !== "IDLE"}
-                      >
-                        {punchStatus === "FETCHING" || punchStatus === "PUNCHING" ? (
-                          <div className="animate-spin h-3 w-3 border-2 border-blue-700 border-t-transparent rounded-full" />
-                        ) : (
-                          <FaCoffee />
+                    ) : (
+                      <>
+                        {/* Punch Out Button (Shown only when working) */}
+                        {todayLog?.status === "WORKING" && (
+                          <button
+                            className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'} disabled:opacity-50`}
+                            onClick={() => handlePunch("OUT")}
+                            disabled={punchStatus !== "IDLE"}
+                          >
+                            {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : <FaSignOutAlt />}
+                            {punchStatus === "PUNCHING" ? "Processing..." : "Punch Out"}
+                          </button>
                         )}
-                        Take Break
-                      </button>
-                    </div>
-                  )}
+
+                        {/* ✅ NEW: Toggling Break Button */}
+                        {isPunchedIn && !isShiftCompleted && (
+                          <button
+                            onClick={handleBreak}
+                            disabled={punchStatus !== "IDLE"}
+                            className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] border
+                            ${isOnBreak
+                                ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                                : 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
+                              }`}
+                          >
+                            {isOnBreak ? <FaPlay /> : <FaCoffee />}
+                            {isOnBreak ? "Continue Work" : "Take a Break"}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             </tbody>

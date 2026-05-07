@@ -457,8 +457,13 @@ const PendingRequestsModal = ({
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h4 className="font-bold text-gray-800">
+                        <h4 className="font-bold text-gray-800 flex items-center gap-2">
                           {req.employeeName}
+                          {req.isEdited && (
+                            <span className="bg-yellow-100 text-yellow-800 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1" title={`Edited on ${new Date(req.lastEditedAt).toLocaleString()}`}>
+                              ⚠️ Edited
+                            </span>
+                          )}
                         </h4>
                         <p className="text-xs text-gray-500">
                           {req.employeeId} • {req.department}
@@ -1552,7 +1557,7 @@ const AdminLocationSettings = () => {
           </div>
 
           <div className="m-4 bg-white p-4 rounded-2xl flex flex-col md:flex-row gap-4 items-center justify-between border border-gray-300">
-            <div className="relative w-full md:w-96 shadow-sm">
+            <div className="relative w-full md:w-96 shadow-sm rounded-xl">
                <FaSearch className="absolute top-3.5 left-4 text-gray-400" size={14} />
                <input type="text" placeholder="Search employees by name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500 outline-none transition" />
             </div>
@@ -1630,7 +1635,7 @@ const AdminLocationSettings = () => {
                             </td>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-4">
-                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-gray-600 border border-gray-300 font-bold text-sm shadow-sm">
+                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700 border border-gray-300 font-bold text-sm shadow-sm">
                                   {employee.name.charAt(0)}
                                 </div>
                                 <div>

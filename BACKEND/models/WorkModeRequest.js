@@ -36,7 +36,13 @@ const workModeRequestSchema = new mongoose.Schema({
     enum: ["Pending", "Approved", "Rejected"], 
     default: "Pending" 
   },
-  adminComment: { type: String } 
+  adminComment: { type: String },
+
+  // Edit Feature Tracking
+  isEdited: { type: Boolean, default: false },
+  lastEditedAt: { type: Date },
+  editCount: { type: Number, default: 0 },
+  originalData: { type: Object }
 }, { timestamps: true });
 
 export default mongoose.model("WorkModeRequest", workModeRequestSchema);

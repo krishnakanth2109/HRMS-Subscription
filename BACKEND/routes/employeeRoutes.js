@@ -1,4 +1,4 @@
-﻿// --- START OF FILE: routes/employeeRoutes.js ---
+// --- START OF FILE: routes/employeeRoutes.js ---
 
 import express from "express";
 import multer from "multer";
@@ -658,7 +658,8 @@ router.post("/idle-activity", protect, async (req, res) => {
     });
 
     const io = req.app.get("io");
-    if (io) io.emit("newNotification", notification);
+    // ✅ FEATURE 2 + BUG 3 FIX — emit only to this admin's private socket room
+    if (io) io.to(`user_${adminId}`).emit("newNotification", notification);
 
     res.json({ success: true, notification });
   } catch (error) {

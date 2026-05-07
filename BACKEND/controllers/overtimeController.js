@@ -31,9 +31,10 @@ export const applyOvertime = async (req, res) => {
     });
 
     const io = req.app.get("io");
-    if (io) io.emit("overtime:new", overtime);
+    // ✅ FEATURE 2 + BUG 3 FIX — target only this admin's room
+    if (io) io.to(`user_${user.adminId}`).emit("overtime:new", overtime);
 
-    // 2. Notify ONLY the specific Admin
+    // 2. Notify ONLY the specific Admin via their private socket room
     const admin = await Admin.findById(user.adminId);
     if (admin) {
       const notif = await Notification.create({
@@ -48,7 +49,8 @@ export const applyOvertime = async (req, res) => {
         date: new Date(),
       });
 
-      if (io) io.emit("newNotification", notif);
+      // Emit ONLY to this admin's private socket room — not to all clients
+      if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
     }
 
     return res.status(201).json(overtime);
@@ -120,13 +122,13 @@ export const updateOvertimeStatus = async (req, res) => {
     }
 
     const io = req.app.get("io");
-    if (io) io.emit("overtime:updated", updated);
+    // ✅ FEATURE 2 + BUG 3 FIX — broadcast overtime update to admin room only
+    if (io) io.to(`user_${req.user._id}`).emit("overtime:updated", updated);
 
-    // Fetch employee 
+    // Fetch employee and notify them via their private room
     const employee = await Employee.findOne({ employeeId: updated.employeeId });
 
     if (employee) {
-      // Create notification
       const notif = await Notification.create({
         adminId: req.user._id,
         companyId: updated.companyId,
@@ -139,7 +141,8 @@ export const updateOvertimeStatus = async (req, res) => {
         date: new Date(),
       });
 
-      if (io) io.emit("newNotification", notif);
+      // Emit only to this specific employee's socket room
+      if (io) io.to(`user_${employee._id}`).emit("newNotification", notif);
     }
 
     return res.json(updated);
@@ -171,9 +174,10 @@ export const cancelOvertime = async (req, res) => {
     await Overtime.findByIdAndDelete(req.params.id);
 
     const io = req.app.get("io");
-    if (io) io.emit("overtime:cancelled", { _id: req.params.id });
+    // ✅ FEATURE 2 + BUG 3 FIX — notify only the relevant admin room
+    if (io) io.to(`user_${overtime.adminId}`).emit("overtime:cancelled", { _id: req.params.id });
 
-    // Notify specific Admin
+    // Notify specific Admin via their private socket room
     const admin = await Admin.findById(overtime.adminId);
     if (admin) {
       const notif = await Notification.create({
@@ -188,7 +192,8 @@ export const cancelOvertime = async (req, res) => {
         date: new Date(),
       });
 
-      if (io) io.emit("newNotification", notif);
+      // Emit ONLY to this admin's private socket room
+      if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
     }
 
     res.json({ message: "Overtime cancelled successfully" });

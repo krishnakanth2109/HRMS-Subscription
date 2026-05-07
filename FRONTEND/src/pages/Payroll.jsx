@@ -432,7 +432,7 @@ const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, per
   useEffect(() => {
     getOfferLetterTemplates()
       .then(data => setTemplates(data || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingT(false));
   }, []);
 
@@ -634,7 +634,7 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition" />
             </div>
             <label className="flex items-center gap-2.5 cursor-pointer select-none group">
-              <div onClick={handleSelectAll} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${ allFilteredSelected ? 'bg-indigo-600 border-indigo-600' : someFilteredSelected ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-300 group-hover:border-indigo-400' }`}>
+              <div onClick={handleSelectAll} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${allFilteredSelected ? 'bg-indigo-600 border-indigo-600' : someFilteredSelected ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-300 group-hover:border-indigo-400'}`}>
                 {allFilteredSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                 {someFilteredSelected && !allFilteredSelected && <div className="w-2.5 h-0.5 bg-indigo-600 rounded" />}
               </div>
@@ -656,12 +656,12 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
               const isSelected = selectedIds.has(emp.employeeId);
               return (
                 <div key={emp.employeeId} onClick={() => handleToggle(emp.employeeId)}
-                  className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150 ${ isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent' }`}
+                  className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150 ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
                 >
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${ isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300' }`}>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
                     {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </div>
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all ${ isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600' }`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all ${isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'}`}>
                     {emp.employeeName.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -674,7 +674,7 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
                     {emp.lopDays > 0 && <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">LOP:{emp.lopDays}</span>}
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-sm font-extrabold ${ isSelected ? 'text-indigo-700' : 'text-gray-700' }`}>{formatCurrency(emp.netPayableSalary)}</p>
+                    <p className={`text-sm font-extrabold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>{formatCurrency(emp.netPayableSalary)}</p>
                     <p className="text-[10px] text-gray-400">net pay</p>
                   </div>
                 </div>
@@ -685,7 +685,7 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
           {/* Footer */}
           <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-white">
             <div className="flex items-center justify-between mb-4">
-              <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${ selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200' }`}>
+              <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
                 {selectedCount === 0 ? 'No employees selected' : `${selectedCount} employee${selectedCount > 1 ? 's' : ''} selected`}
               </div>
               {selectedCount > 0 && (
@@ -698,7 +698,7 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
             <div className="flex gap-3">
               <button onClick={onClose} className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
               <button onClick={handleRelease} disabled={selectedCount === 0}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow ${ selectedCount > 0 ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]' : 'bg-gray-200 text-gray-400 cursor-not-allowed' }`}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow ${selectedCount > 0 ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -888,7 +888,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
             </div>
             <div className="bg-indigo-50 p-4 rounded-xl text-center border border-indigo-100">
               <p className="text-xs text-indigo-600 font-bold uppercase">Net Pay</p>
-              <p className="text-xl font-extrabold text-indigo-900">{formatCurrency(employee.netPayableSalary)}</p>
+              <p className="text-xl font-extrabold text-indigo-800">{formatCurrency(employee.netPayableSalary)}</p>
             </div>
           </div>
 
@@ -1519,7 +1519,7 @@ const PayrollManagement = () => {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                  <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text">
                     Payroll Management
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5">Manage employee salaries & payroll rules</p>
@@ -1708,17 +1708,17 @@ const PayrollManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded font-bold text-xs">{emp.workedDays}</span>
+                      <span className="bg-purple-50 text-purple-600 px-2 py-1 rounded font-bold text-xs">{emp.workedDays}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex gap-1 justify-center">
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-bold text-xs">{emp.fullDays}</span>
-                        <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded font-bold text-xs">{emp.halfDays}</span>
+                        <span className="bg-green-50 text-green-700 px-2 py-1 rounded font-bold text-xs">{emp.fullDays}</span>
+                        <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded font-bold text-xs">{emp.halfDays}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center gap-1">
-                        <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lopDays > 0 ? 'bg-orange-100 text-orange-800' : 'text-gray-400'}`}>
+                        <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lopDays > 0 ? 'bg-orange-50 text-orange-700' : 'text-gray-400'}`}>
                           LOP: {emp.lopDays}
                         </span>
                         <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lateDaysCount > 0 ? 'bg-red-100 text-red-800' : 'text-gray-400'}`}>
@@ -1726,7 +1726,7 @@ const PayrollManagement = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-indigo-700 bg-indigo-50">
+                    <td className="px-6 py-4 text-right font-bold text-indigo-600 bg-indigo-50">
                       {formatCurrency(emp.netPayableSalary)}
                     </td>
                     <td className="px-6 py-4 text-center">

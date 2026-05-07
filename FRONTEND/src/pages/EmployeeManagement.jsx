@@ -14,7 +14,7 @@ import {
   FaTimes,
   FaFileAlt,
   FaShieldAlt,
-  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop,FaFileSignature,FaGift,FaClipboardCheck,
+  FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop, FaFileSignature, FaGift, FaClipboardCheck,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -195,7 +195,7 @@ const SmartSubmenu = ({ onClose, onNavigate }) => {
         onClick={() => { onNavigate("/admin/hr-checklist"); onClose(); }}
         className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
       >
-       <FaClipboardCheck className="text-violet-500" /> HR Checklist
+        <FaClipboardCheck className="text-violet-500" /> HR Checklist
       </button>
 
 
@@ -216,7 +216,10 @@ const EmployeeRow = ({
   onOverviewClick,
   profilePic,
   onImageClick,
+  resignations = []
 }) => {
+  const isPendingResignation = resignations.some(r => r.employeeId === emp.employeeId && r.status === "Pending");
+
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const currentDepartment = getCurrentDepartment(emp);
   const currentRole = getCurrentRole(emp);
@@ -245,7 +248,7 @@ const EmployeeRow = ({
       <td className="p-4 align-middle text-left">
         <div className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-blue-700 font-bold border border-gray-300 overflow-hidden cursor-pointer flex-shrink-0"
+            className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-blue-700 font-bold border border-gray-300 overflow-hidden cursor-pointer flex-shrink-0 relative"
             onClick={() => profilePic && onImageClick(profilePic)}
           >
             {profilePic ? (
@@ -253,13 +256,25 @@ const EmployeeRow = ({
             ) : (
               emp.name?.split(" ").map((n) => n[0]).join("")
             )}
+            {isPendingResignation && (
+              <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse shadow-sm" title="Pending Resignation">
+                <span className="text-[8px] text-white font-bold">!</span>
+              </div>
+            )}
           </div>
-          <span
-            onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
-            className="font-bold text-gray-900 cursor-pointer hover:text-blue-700 hover:underline text-sm"
-          >
-            {emp.name}
-          </span>
+          <div className="flex flex-col">
+            <span
+              onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
+              className="font-bold text-gray-900 cursor-pointer hover:text-blue-700 hover:underline text-sm flex items-center gap-2"
+            >
+              {emp.name}
+              {isPendingResignation && (
+                <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter">
+                  Resigning
+                </span>
+              )}
+            </span>
+          </div>
         </div>
       </td>
       <td className="p-4 align-middle text-left">
@@ -833,6 +848,7 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
 const EmployeeManagement = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
+  const [allResignations, setAllResignations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
@@ -872,19 +888,23 @@ const EmployeeManagement = () => {
     if (!hrActivitiesOpen) setDocVerifyOpen(false);
   }, [hrActivitiesOpen]);
 
-  const fetchEmployees = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getEmployees();
-      setEmployees(data);
+      const [empRes, resignationRes] = await Promise.all([
+        getEmployees(),
+        api.get("/api/resignations/admin/all")
+      ]);
+      setEmployees(empRes);
+      setAllResignations(resignationRes.data || []);
     } catch (err) {
-      console.error("Failed to fetch employees:", err);
+      console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchEmployees(); }, [fetchEmployees]);
+  useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -906,14 +926,14 @@ const EmployeeManagement = () => {
   const handleDeactivateSubmit = async ({ endDate, reason }) => {
     try {
       await deactivateEmployeeById(selectedEmployee.employeeId, { endDate, reason });
-      fetchEmployees(); setDeactivateModalOpen(false); setSelectedEmployee(null);
+      fetchAllData(); setDeactivateModalOpen(false); setSelectedEmployee(null);
     } catch (e) { alert("Error deactivating"); }
   };
 
   const handleReactivateSubmit = async ({ date, reason }) => {
     try {
       await activateEmployeeById(selectedEmployee.employeeId, { date, reason });
-      fetchEmployees(); setReactivateModalOpen(false); setSelectedEmployee(null);
+      fetchAllData(); setReactivateModalOpen(false); setSelectedEmployee(null);
     } catch (e) { alert("Error reactivating"); }
   };
 
@@ -970,7 +990,7 @@ const EmployeeManagement = () => {
       <div className="w-full max-w-[95%] xl:max-w-7xl mx-auto">
 
         {/* relative z-[20] keeps header above table (z-10) so dropdown never goes under */}
-        <div className="relative z-[20] flex flex-col bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 md:flex-row justify-between items-center mb-8 gap-4 px-8 py-6">
+        <div className="relative z-15 flex flex-col bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 md:flex-row justify-between items-center mb-8 gap-4 px-8 py-6">
           <div>
             <h2 className="text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
             <div className="flex gap-3 mt-3">
@@ -988,22 +1008,23 @@ const EmployeeManagement = () => {
             <div className="relative" ref={hrDropdownRef}>
               <button
                 onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105"
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105 relative"
               >
                 <FaClipboardList /> HR Activities
+                {allResignations.filter(r => r.status === "Pending").length > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-bounce">
+                    {allResignations.filter(r => r.status === "Pending").length}
+                  </span>
+                )}
                 <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
               </button>
-
               {hrActivitiesOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999]">
-  
-
-
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
                   {/* Document Verification with smart positioned nested submenu */}
                   <div className="relative">
                     <button
                       onClick={(e) => { e.stopPropagation(); setDocVerifyOpen(!docVerifyOpen); }}
-                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-colors duration-150 border-b border-slate-100"
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100 rounded-t-xl"
                     >
                       <div className="flex items-center gap-3">
                         <FaShieldAlt className="text-violet-500" />
@@ -1024,18 +1045,18 @@ const EmployeeManagement = () => {
                       />
                     )}
                   </div>
-                                  {/* Offer Letter */}
+                  {/* Offer Letter */}
                   <button
                     onClick={() => { navigate("/admin/offer-letter"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
+                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                   >
                     <FaFileAlt className="text-blue-500" /> Offer Letter
                   </button>
-                  
+
                   {/* Onboarding Invitation */}
                   <button
                     onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
+                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                   >
                     <FaUser className="text-blue-500" /> Onboarding Invitation
                   </button>
@@ -1043,33 +1064,39 @@ const EmployeeManagement = () => {
                   {/* Add Employee */}
                   <button
                     onClick={() => { navigate("/employees/add"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                   >
                     <FaUserPlus className="text-blue-500" /> Add Employee
                   </button>
                   <button
                     onClick={() => { navigate("/admin/induction"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
                   >
                     <FaConnectdevelop className="text-blue-500" /> Induction
                   </button>
                   <button
                     onClick={() => { navigate("/admin/resignation"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100"
                   >
-                    <FaFileSignature className="text-blue-500" /> Resignations
-                </button>
-            
+                    <div className="flex items-center gap-3">
+                      <FaFileSignature className="text-blue-500" /> Resignations
+                    </div>
+                    {allResignations.filter(r => r.status === "Pending").length > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                        {allResignations.filter(r => r.status === "Pending").length} New
+                      </span>
+                    )}
+                  </button>
 
-                           <button
+                  <button
                     onClick={() => { navigate("/admin/welcome-kits-management"); setHrActivitiesOpen(false); }}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+                    className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 rounded-b-xl"
                   >
                     <FaGift className="text-blue-500" /> Welcome Kit
-                </button>
-
+                  </button>
                 </div>
               )}
+
             </div>
           </div>
         </div>
@@ -1115,7 +1142,7 @@ const EmployeeManagement = () => {
                 ) : activeEmployees.length > 0 || inactiveEmployees.length > 0 ? (
                   <>
                     {activeEmployees.map((emp, idx) => (
-                      <EmployeeRow key={emp.employeeId} emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} />
+                      <EmployeeRow key={emp.employeeId} emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} resignations={allResignations} />
                     ))}
                     {activeEmployees.length > 0 && inactiveEmployees.length > 0 && (
                       <tr>

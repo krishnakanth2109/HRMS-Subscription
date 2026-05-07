@@ -35,9 +35,20 @@ const LayoutEmployee = () => {
   const toggleTheme = (selectedTheme) => {
     setTheme(selectedTheme);
     sessionStorage.setItem("employeeTheme", selectedTheme);
+    if (selectedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   };
 
   useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
     if (theme === "bubbles") {
       const newBubbles = Array.from({ length: 8 }).map((_, i) => ({
         id: i,
@@ -120,7 +131,7 @@ const LayoutEmployee = () => {
           </div>
 
           {/* CONTENT AREA */}
-          <div className="relative h-full w-full overflow-y-auto p-6 md:p-8 custom-scrollbar">
+          <div className="relative h-full w-full overflow-y-auto p-3 md:p-6 lg:p-8 custom-scrollbar">
             <Outlet />
           </div>
         </main>

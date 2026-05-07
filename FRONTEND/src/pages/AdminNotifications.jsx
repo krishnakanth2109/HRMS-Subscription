@@ -1,9 +1,11 @@
 // pages/AdminNotifications.jsx
 import { useContext, useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { NotificationContext } from "../context/NotificationContext";
 import { 
   FaBell, FaCheckCircle, FaTrash, FaUndo, 
-  FaExclamationCircle, FaClock, FaMapMarkerAlt, FaSignOutAlt, FaUserClock 
+  FaExclamationCircle, FaClock, FaMapMarkerAlt, FaSignOutAlt, FaUserClock,
+  FaArrowLeft, FaStarHalfAlt, FaUserMinus
 } from "react-icons/fa";
 import api, { getAllOvertimeRequests } from "../api"; 
 
@@ -12,7 +14,14 @@ const HIDDEN_KEY = "admin_hidden_notifications";
 const READ_SYSTEM_KEY = "admin_read_system_notifications";
 
 const AdminNotifications = () => {
-  const { notifications, markAsRead, markAllAsRead: markContextAllRead } = useContext(NotificationContext);
+  const navigate = useNavigate();
+  const {
+    notifications,
+    markAsRead,
+    markAllAsRead: markContextAllRead,
+    clearAll: clearAllFromDB, // ✅ BUG 1 FIX — delete from DB
+    socket,
+  } = useContext(NotificationContext);
 
   const [localNotifications, setLocalNotifications] = useState([]);
   
@@ -21,6 +30,8 @@ const AdminNotifications = () => {
   const [punchOutData, setPunchOutData] = useState([]);
   const [lateLoginData, setLateLoginData] = useState([]);
   const [workModeData, setWorkModeData] = useState([]);
+  const [fullDayData, setFullDayData] = useState([]);
+  const [resignationData, setResignationData] = useState([]);
 
   // --- HELPERS FOR SYSTEM READ STATUS ---
   const getReadSystemIds = () => {
@@ -61,9 +72,12 @@ const AdminNotifications = () => {
     }
   };
 
+  // ✅ BUG 2 FIX — guard: only run if there are unread notifications
   const handleMarkAllAsReadWrapper = () => {
+    const hasUnread = localNotifications.some((n) => !n.isRead);
+    if (!hasUnread) return; // Nothing to do
     markAllSystemAsRead(); // Mark local system alerts
-    markContextAllRead();  // Mark database notifications
+    markContextAllRead();  // Mark database notifications (already guarded in context)
   };
 
   // --- FETCHING LOGIC ---
@@ -125,12 +139,32 @@ const AdminNotifications = () => {
     }
   }, []);
 
+  const fetchFullDayRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/attendance/admin/full-day-requests");
+      setFullDayData(data.data || []);
+    } catch (err) {
+      console.error("Error fetching full day requests:", err);
+    }
+  }, []);
+
+  const fetchResignationRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/resignations/admin/all");
+      setResignationData((data || []).filter(r => r.status === "Pending"));
+    } catch (err) {
+      console.error("Error fetching resignation requests:", err);
+    }
+  }, []);
+
   // Initial Data Load
   useEffect(() => {
     fetchOvertimeRequests();
     fetchPunchOutRequests();
     fetchLateRequests();
     fetchWorkModeRequests();
+    fetchFullDayRequests();
+    fetchResignationRequests();
     
     // Poll every 60 seconds (increased from 30s to reduce load for Late Requests)
     const interval = setInterval(() => {
@@ -138,10 +172,43 @@ const AdminNotifications = () => {
         fetchPunchOutRequests();
         fetchLateRequests();
         fetchWorkModeRequests();
+        fetchFullDayRequests();
+        fetchResignationRequests();
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [fetchOvertimeRequests, fetchPunchOutRequests, fetchLateRequests, fetchWorkModeRequests]);
+  }, [fetchOvertimeRequests, fetchPunchOutRequests, fetchLateRequests, fetchWorkModeRequests, fetchFullDayRequests, fetchResignationRequests]);
+
+  // ✅ Real-time refresh
+  useEffect(() => {
+    if (socket) {
+      socket.on("fullDay:new", () => {
+        console.log("⚡ New Full Day Request received via Socket. Refreshing list...");
+        fetchFullDayRequests();
+      });
+
+      socket.on("resignation:new", () => {
+        console.log("⚡ New Resignation Request received via Socket. Refreshing list...");
+        fetchResignationRequests();
+      });
+      
+      socket.on("workMode:updated", () => {
+        console.log("⚡ Work Mode Request updated via Socket. Refreshing list...");
+        fetchWorkModeRequests();
+      });
+
+      socket.on("resignation:new", () => {
+        console.log("⚡ New Resignation received via Socket. Refreshing list...");
+        fetchResignationRequests();
+      });
+
+      return () => {
+        socket.off("fullDay:new");
+        socket.off("workMode:updated");
+        socket.off("resignation:new");
+      };
+    }
+  }, [socket, fetchFullDayRequests, fetchWorkModeRequests, fetchResignationRequests]);
 
 
   // --- HIDDEN NOTIFICATIONS HELPERS ---
@@ -156,10 +223,15 @@ const AdminNotifications = () => {
     updateLocalNotifications(); // Trigger re-render
   };
 
-  const clearAllLocal = () => {
-    const allIds = localNotifications.map((n) => n._id);
-    sessionStorage.setItem(HIDDEN_KEY, JSON.stringify(allIds));
+  // ✅ BUG 1 FIX — Permanently deletes DB notifications + clears local system alerts
+  const clearAllLocal = async () => {
+    // 1. Clear local system-generated notifications from UI
     setLocalNotifications([]);
+    // 2. Delete DB-backed notifications permanently (they will never reappear)
+    await clearAllFromDB();
+    // 3. Clean up sessionStorage state too
+    sessionStorage.removeItem(HIDDEN_KEY);
+    sessionStorage.removeItem(READ_SYSTEM_KEY);
   };
 
   const restoreAll = () => {
@@ -221,14 +293,41 @@ const AdminNotifications = () => {
 
     // 4. Process Work Mode
     workModeData.forEach(item => {
-        const id = `sys-wm-${item._id}`;
+        const id = `sys-wm-${item._id}${item.isEdited ? `-edit-${item.editCount}` : ''}`;
         systemNotifs.push({
             _id: id,
-            message: `📍 Work Mode Request: ${item.employeeName} requested ${item.requestedMode === 'WFH' ? 'Work From Home' : 'Work From Office'}`,
-            date: item.createdAt || new Date().toISOString(),
+            message: `📍 Work Mode Request: ${item.employeeName} requested ${item.requestedMode === 'WFH' ? 'Work From Home' : 'Work From Office'} ${item.isEdited ? '⚠️ (Edited)' : ''}`,
+            date: item.isEdited ? item.lastEditedAt : (item.createdAt || new Date().toISOString()),
             isRead: readSystemIds.includes(id),
             type: "system",
             icon: <FaMapMarkerAlt className="text-blue-500" />
+        });
+    });
+
+    // 5. Process Full Day Requests
+    fullDayData.forEach(item => {
+        const id = `sys-fd-${item.employeeId}-${item.date}`;
+        const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Unknown Date";
+        systemNotifs.push({
+            _id: id,
+            message: `📋 Full Day Request: ${item.employeeName || "Employee"} requested Half Day → Full Day for ${dateStr}`,
+            date: item.requestedAt || new Date().toISOString(),
+            isRead: readSystemIds.includes(id),
+            type: "system",
+            icon: <FaStarHalfAlt className="text-teal-500" />
+        });
+    });
+
+    // 6. Process Resignations
+    resignationData.forEach(item => {
+        const id = `sys-res-${item._id}`;
+        systemNotifs.push({
+            _id: id,
+            message: `⚠️ Resignation Submitted: ${item.employeeName} (${item.employeeId}) has submitted a resignation letter.`,
+            date: item.submittedAt || new Date().toISOString(),
+            isRead: readSystemIds.includes(id),
+            type: "system",
+            icon: <FaUserMinus className="text-red-600" />
         });
     });
 
@@ -242,7 +341,7 @@ const AdminNotifications = () => {
 
     setLocalNotifications(final);
 
-  }, [notifications, overtimeData, punchOutData, lateLoginData, workModeData]);
+  }, [notifications, overtimeData, punchOutData, lateLoginData, workModeData, fullDayData, resignationData]);
 
   // Update logic whenever data dependencies change
   useEffect(() => {
@@ -251,26 +350,26 @@ const AdminNotifications = () => {
 
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="max-w-6xl mx-auto flex gap-6 h-screen overflow-hidden">
+    <div className="min-h-screen bg-gray-100 p-2 md:p-4">
+      <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-3 md:gap-6 h-screen overflow-hidden">
         
         {/* ----------------- SIDE PANEL ----------------- */}
-        <div className="w-60 bg-white shadow-md rounded-xl p-5 border">
+        <div className="lg:w-60 w-full bg-white shadow-md rounded-xl p-5 border">
           <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
             <FaBell className="text-blue-600" />
             Actions
           </h3>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex  lg:flex-col  gap-3">
             <button
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+              className="flex items-center text-sm md:text-[16px] gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white  hover:bg-blue-700 transition"
               onClick={handleMarkAllAsReadWrapper}
             >
               <FaCheckCircle /> Mark All Read
             </button>
 
             <button
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
+              className="flex items-center gap-2 px-3 py-2 text-sm md:text-[16px] rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
               onClick={clearAllLocal}
             >
               <FaTrash /> Clear All
@@ -281,19 +380,29 @@ const AdminNotifications = () => {
         </div>
 
         {/* ----------------- MAIN CONTENT ----------------- */}
-        <div className="flex-1 bg-white rounded-xl shadow-md p-6 border overflow-y-auto">
+        <div className="flex-1 bg-white rounded-xl shadow-md md:p-6 p-3 border overflow-y-auto">
           <div className="flex justify-between items-center mb-5">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-700">
-                Notifications
-              </h2>
-              <p className="text-gray-500 text-sm">
-                Manage all your system alerts here
-              </p>
+            <div className="flex items-center gap-3">
+              {/* ← Back button */}
+              <button
+                onClick={() => navigate(-1)}
+                title="Go back"
+                className="flex items-center justify-center md:w-9 md:h-9 h-6 w-7 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-600 text-gray-500 transition-all shadow-sm"
+              >
+                <FaArrowLeft className="text-sm" />
+              </button>
+              <div>
+                <h2 className="md:text-2xl text-lg font-semibold text-gray-700">
+                  Notifications
+                </h2>
+                <p className="text-gray-500 text-sm">
+                  Manage all your system alerts here
+                </p>
+              </div>
             </div>
 
             {localNotifications.filter((n) => !n.isRead).length > 0 && (
-              <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+              <span className="bg-red-500 text-white md:px-3 md:py-1 px-1  rounded-full md:text-sm text-[12px] font-semibold">
                 {localNotifications.filter((n) => !n.isRead).length} New
               </span>
             )}
@@ -310,7 +419,7 @@ const AdminNotifications = () => {
               {localNotifications.map((n) => (
                 <div
                   key={n._id}
-                  className={`flex items-start gap-4 p-4 rounded-xl border shadow-sm transition cursor-pointer ${
+                  className={`flex items-start gap-2 md:gap-4 md:p-4 p-2 rounded-xl border shadow-sm transition cursor-pointer ${
                     !n.isRead
                       ? "bg-blue-50 border-blue-300" // Highlighted Style (New)
                       : "bg-white border-gray-200 opacity-75" // Read Style
@@ -318,7 +427,7 @@ const AdminNotifications = () => {
                   onClick={() => handleMarkAsReadWrapper(n)}
                 >
                   <div
-                    className={`p-3 rounded-full text-lg ${
+                    className={`md:p-3 p-1 rounded-full text-lg ${
                        n.type === "system" 
                        ? "bg-orange-100" 
                        : !n.isRead ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-600"
@@ -329,7 +438,7 @@ const AdminNotifications = () => {
                   </div>
 
                   <div className="flex-1">
-                    <p className={`font-medium ${n.type === "system" ? "text-gray-800" : "text-gray-800"}`}>
+                    <p className={`font-medium md:text-[16px] text-[14px] ${n.type === "system" ? "text-gray-800" : "text-gray-800"}`}>
                       {n.message}
                     </p>
                     <p className="text-xs mt-1 text-gray-500">

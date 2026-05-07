@@ -431,7 +431,7 @@ if (holidayData.endDate && holidayData.endDate < holidayData.startDate) {
           </div>
 
           <div className="lg:col-span-6">
-            <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 h-full relative">
+            <div className="bg-white  rounded-3xl shadow-xl border border-slate-100 p-8 h-full relative">
               <Calendar
                 tileClassName={tileClassName}
                 tileContent={tileContent}

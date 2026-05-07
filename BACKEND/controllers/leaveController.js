@@ -325,7 +325,8 @@ export const createLeave = async (req, res) => {
         type: "leave", isRead: false,
       });
       const io = req.app.get("io");
-      if (io) io.emit("newNotification", notif);
+      // ✅ FEATURE 2 + BUG 3 FIX — emit only to this admin's private room
+      if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
     }
 
     return res.status(201).json(doc);
@@ -419,7 +420,8 @@ export const updateLeaveStatus = async (req, res) => {
         type: "leave-status", isRead: false,
       });
       const io = req.app.get("io");
-      if (io) io.emit("newNotification", notif);
+      // ✅ FEATURE 2 + BUG 3 FIX — emit only to this employee's private room
+      if (io) io.to(`user_${employee._id}`).emit("newNotification", notif);
 
       if (employee.email) {
         try {
@@ -466,7 +468,8 @@ export const cancelLeave = async (req, res) => {
         type: "leave", isRead: false,
       });
       const io = req.app.get("io");
-      if (io) io.emit("newNotification", notif);
+      // ✅ FEATURE 2 + BUG 3 FIX — emit only to this admin's private room
+      if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
     }
 
     return res.json({ message: "Leave cancelled successfully" });

@@ -2,30 +2,33 @@
 import Notification from "../models/notificationModel.js";
 
 /*
- Helper to filter notifications based on user role and hierarchy
+  🔒 BUG 3 FIX — Helper to build a scoped filter per user.
+  Admin ONLY sees notifications that belong to their own adminId tenant.
+  This prevents an admin from seeing another admin's employees' messages.
 */
 const buildNotificationFilterForUser = (user) => {
   if (!user) return { _id: null };
 
   if (user.role === "admin" || user.role === "manager") {
-    // Admin: 
-    // 1. Direct messages (userId matches)
-    // 2. Broadcasts to role 'admin' WITHIN their tenant (adminId matches)
+    // Admin sees:
+    //  1. Notifications directly addressed to them (userId == admin._id)
+    //  2. Broadcast notifications scoped to their tenant (adminId == admin._id)
+    // The strict adminId check on BOTH clauses prevents cross-admin leakage.
     return {
       $or: [
-        { userId: user._id }, 
-        { role: "admin", adminId: user._id } 
+        { userId: user._id, adminId: user._id },
+        { role: "admin",    adminId: user._id },
       ],
     };
   }
 
-  // Employee:
-  // 1. Direct messages
-  // 2. Broadcasts to 'employee' WITHIN their company
+  // Employee sees:
+  //  1. Direct messages addressed to them
+  //  2. Broadcasts scoped to their company
   return {
     $or: [
       { userId: user._id },
-      { role: "employee", companyId: user.company } 
+      { role: "employee", companyId: user.company },
     ],
   };
 };
@@ -118,6 +121,7 @@ export const markNotificationAsReadController = async (req, res) => {
 /*
 ===================================================================
  🔹 Mark ALL My Notifications Read
+ ✅ BUG 2 FIX — Only runs if unread notifications actually exist.
 ===================================================================
 */
 export const markAllNotificationsAsReadController = async (req, res) => {
@@ -125,11 +129,37 @@ export const markAllNotificationsAsReadController = async (req, res) => {
     const user = req.user;
     const filter = buildNotificationFilterForUser(user);
 
-    await Notification.updateMany(filter, { isRead: true });
+    // 🛡️ Guard: check if any unread notifications exist first
+    const unreadCount = await Notification.countDocuments({ ...filter, isRead: false });
+    if (unreadCount === 0) {
+      return res.json({ message: "No unread notifications to mark", updated: 0 });
+    }
 
-    res.json({ message: "All notifications marked as read" });
+    await Notification.updateMany({ ...filter, isRead: false }, { isRead: true });
+
+    res.json({ message: "All notifications marked as read", updated: unreadCount });
   } catch (err) {
     console.error("PATCH /api/notifications/mark-all error:", err);
     res.status(500).json({ message: "Failed to mark all as read" });
+  }
+};
+
+/*
+===================================================================
+ 🔹 Delete ALL My Notifications (Clear All)
+ ✅ BUG 1 FIX — Permanently removes from DB so they never reappear.
+===================================================================
+*/
+export const deleteAllMyNotificationsController = async (req, res) => {
+  try {
+    const user = req.user;
+    const filter = buildNotificationFilterForUser(user);
+
+    const result = await Notification.deleteMany(filter);
+
+    res.json({ message: "All notifications cleared", deleted: result.deletedCount });
+  } catch (err) {
+    console.error("DELETE /api/notifications/clear-all error:", err);
+    res.status(500).json({ message: "Failed to clear notifications" });
   }
 };

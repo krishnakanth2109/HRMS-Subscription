@@ -221,7 +221,7 @@ const GoodbyePopup = ({ employeeName, onLogout }) => {
 
         {/* Manual logout button */}
         <button onClick={onLogout}
-          className="mt-5 px-8 py-3 bg-white text-indigo-900 font-bold rounded-xl hover:bg-indigo-50 transition text-sm">
+          className="mt-5 px-8 py-3 bg-white text-indigo-800 font-bold rounded-xl hover:bg-indigo-50 transition text-sm">
           Logout Now →
         </button>
       </div>
@@ -500,10 +500,10 @@ const EmployeeResignation = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6 ">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-800">📝 Resignation Portal</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-indigo-700   ">📝 Resignation Portal</h1>
         <p className="text-slate-500 mt-1 text-sm">Submit and track your resignation request here.</p>
       </div>
 

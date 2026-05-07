@@ -17,7 +17,8 @@ import {
   FaChevronRight,
   FaChevronLeft,
   FaSyncAlt,
-  FaChartLine // Added for Leave Summary
+  FaChartLine, // Added for Leave Summary
+  FaFileSignature
 } from "react-icons/fa";
 import {
   BarChart,
@@ -122,6 +123,7 @@ const AdminDashboard = () => {
   const [allEmployees, setAllEmployees] = useState([]);
   const [todayAttendance, setTodayAttendance] = useState([]);
   const [allLeaves, setAllLeaves] = useState([]);
+  const [allResignations, setAllResignations] = useState([]);
   const [employeeWorkModes, setEmployeeWorkModes] = useState({});
   const [loadingData, setLoadingData] = useState(true);
 
@@ -154,15 +156,17 @@ const AdminDashboard = () => {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      const [todayAtt, leavesData, empData] = await Promise.all([
+      const [todayAtt, leavesData, empData, resignationData] = await Promise.all([
         getAttendanceByDateRange(today, today).catch(() => []),
         getLeaveRequests().catch(() => []),
         getEmployees().catch(() => []),
+        api.get("/api/resignations/admin/all").catch(() => ({ data: [] }))
       ]);
 
       setTodayAttendance(Array.isArray(todayAtt) ? todayAtt : []);
       setAllLeaves(Array.isArray(leavesData) ? leavesData : []);
       setAllEmployees(Array.isArray(empData) ? empData : []);
+      setAllResignations(Array.isArray(resignationData.data) ? resignationData.data : []);
 
       // Fetch work modes for remote detection
       try {
@@ -534,7 +538,8 @@ const AdminDashboard = () => {
       <div className="relative z-10 w-full h-full overflow-y-auto p-6 pb-20 internal-scroll">
 
         {/* 1. TOP STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+
           {/* Total Employees */}
           <div className="relative bg-blue-500 rounded-[20px] p-5 shadow-lg overflow-hidden h-[130px] flex flex-col justify-between transition-transform hover:scale-[1.02]">
             <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white opacity-10"></div>
@@ -596,6 +601,27 @@ const AdminDashboard = () => {
     </h3>
   </div>
 </div>
+
+          {/* Pending Resignations */}
+          <Link
+            to="/admin/resignation"
+            className="bg-white rounded-[20px] p-5 shadow-sm h-[130px] flex flex-col justify-between border border-gray-100 transition-all hover:shadow-md hover:border-red-200 cursor-pointer relative"
+          >
+            <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center text-red-600 text-xl">
+              <FaFileSignature />
+            </div>
+            {allResignations.filter(r => r.status === "Pending").length > 0 && (
+              <span className="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-bounce">
+                {allResignations.filter(r => r.status === "Pending").length}
+              </span>
+            )}
+            <div>
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Pending Resignations</p>
+              <h3 className="text-3xl font-bold text-[#2B3674] tracking-tight">
+                {allResignations.filter(r => r.status === "Pending").length}
+              </h3>
+            </div>
+          </Link>
         </div>
 
         {/* 2. CHARTS SECTION */}
@@ -863,7 +889,7 @@ x
                   recentLeaves.map((item, idx) => (
                     <div
                       key={item._id || idx}
-                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100"
+                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default"
                     >
                       <div className="flex items-center gap-4">
                         <div
@@ -942,7 +968,7 @@ x
                   onLeaveTodayList.map((item, idx) => (
                     <div
                       key={item.employeeId + idx}
-                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100"
+                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default"
                     >
                       <div className="flex items-center gap-4">
                         <div
@@ -991,7 +1017,7 @@ x
                   remoteWorkers.map((item, idx) => (
                     <div
                       key={item.employeeId + idx}
-                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100"
+                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default"
                     >
                       <div className="flex items-center gap-4">
                         <div
@@ -1038,7 +1064,7 @@ x
                   <button
                     key={idx}
                     onClick={() => navigate(action.path)}
-                    className="flex items-center justify-between w-full p-3 rounded-xl border border-gray-100 hover:shadow-md transition bg-white"
+                    className="flex items-center justify-between w-full p-3 rounded-xl border border-gray-100 hover:shadow-md hover:bg-gray-50 transition bg-white"
                   >
                     <div className="flex items-center gap-4">
                       <div

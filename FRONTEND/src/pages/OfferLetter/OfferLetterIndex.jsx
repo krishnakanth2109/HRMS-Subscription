@@ -24,6 +24,25 @@ function OfferLetterIndex() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [viewMode, setViewMode] = useState('list');
+  const [isDark, setIsDark] = useState(false);
+
+  // Detect dark mode on mount and when theme changes
+  useEffect(() => {
+    const checkDark = () => {
+      const dark = document.documentElement.classList.contains('dark');
+      setIsDark(dark);
+    };
+    // Initial check
+    checkDark();
+    // Observe class changes on <html>
+    const observer = new MutationObserver(checkDark);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Determine theme attribute for wrapper
+  const themeAttr = isDark ? 'dark' : 'light';
+
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [isBulkSending, setIsBulkSending] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -152,7 +171,7 @@ function OfferLetterIndex() {
   const selectedBg = 'var(--accent-soft)';
 
   return (
-    <div className="offer-letter-wrapper ol-container">
+    <div className="offer-letter-wrapper ol-container" data-theme={themeAttr}>
       <header style={{ marginBottom: '2rem', textAlign: 'center', paddingTop: '1rem' }}>
         <h1 style={{ fontWeight: 1000, color: 'var(--accent-color)', marginBottom: '0.25rem', letterSpacing: '-0.025em' }}>Offer Letter Management</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Professional Document Automation</p>

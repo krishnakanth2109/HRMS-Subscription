@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from "react";
 import api from "../api"; // Updated path based on your code
 import { AuthContext } from "../context/AuthContext";
-import { 
-  FaUser, FaEnvelope, FaPhone, FaBuilding, 
+import {
+  FaUser, FaEnvelope, FaPhone, FaBuilding,
   FaCrown, FaCalendarAlt, FaCheckCircle, FaTimesCircle,
   FaClock, FaCreditCard, FaEdit, FaSave, FaTimes
 } from "react-icons/fa";
@@ -72,9 +72,9 @@ const AdminProfile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f4f9] p-4 lg:p-8">
+    <div className="min-h-screen p-4 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        
+
         {/* HEADER SECTION */}
         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
           <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg shrink-0">
@@ -82,10 +82,10 @@ const AdminProfile = () => {
           </div>
           <div className="text-center md:text-left flex-1">
             {isEditing ? (
-              <input 
+              <input
                 className="text-3xl font-bold text-gray-900 border-b-2 border-purple-200 outline-none focus:border-purple-600 bg-transparent w-full md:w-auto"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             ) : (
               <h1 className="text-3xl font-bold text-gray-900">{profile?.name}</h1>
@@ -97,26 +97,26 @@ const AdminProfile = () => {
 
           <div className="flex gap-2">
             {!isEditing ? (
-              <button 
+              <button
                 onClick={() => setIsEditing(true)}
                 className="flex items-center gap-2 bg-purple-600 text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
               >
-                <FaEdit size={14}/> Edit Profile
+                <FaEdit size={14} /> Edit Profile
               </button>
             ) : (
               <>
-                <button 
+                <button
                   onClick={handleUpdate}
                   disabled={updateLoading}
                   className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
                 >
-                  <FaSave size={14}/> {updateLoading ? "Saving..." : "Save Changes"}
+                  <FaSave size={14} /> {updateLoading ? "Saving..." : "Save Changes"}
                 </button>
-                <button 
+                <button
                   onClick={() => setIsEditing(false)}
                   className="flex items-center gap-2 bg-gray-100 text-gray-600 px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-gray-200 transition-all"
                 >
-                  <FaTimes size={14}/> Cancel
+                  <FaTimes size={14} /> Cancel
                 </button>
               </>
             )}
@@ -124,17 +124,17 @@ const AdminProfile = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+
           {/* BASIC INFORMATION CARD */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
               <h3 className="text-gray-900 font-bold mb-6 flex items-center gap-2">
                 <FaUser className="text-purple-500 text-sm" /> Basic Information
               </h3>
-              
+
               <div className="space-y-6">
                 <InfoItem icon={<FaEnvelope />} label="Email Address (Locked)" value={profile?.email} />
-                
+
                 {/* Editable Phone */}
                 <div className="flex items-center gap-4 group">
                   <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400">
@@ -143,10 +143,10 @@ const AdminProfile = () => {
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Phone Number</p>
                     {isEditing ? (
-                      <input 
+                      <input
                         className="w-full font-bold text-gray-900 border-b border-purple-200 focus:border-purple-600 outline-none py-1"
                         value={formData.phone}
-                        onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       />
                     ) : (
                       <p className="text-gray-900 font-bold">{profile?.phone || "Not Provided"}</p>
@@ -162,10 +162,10 @@ const AdminProfile = () => {
                   <div className="flex-1">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Department</p>
                     {isEditing ? (
-                      <input 
+                      <input
                         className="w-full font-bold text-gray-900 border-b border-purple-200 focus:border-purple-600 outline-none py-1"
                         value={formData.department}
-                        onChange={(e) => setFormData({...formData, department: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                       />
                     ) : (
                       <p className="text-gray-900 font-bold">{profile?.department}</p>

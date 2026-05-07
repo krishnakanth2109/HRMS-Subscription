@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useContext } from "react";
+import { NotificationContext } from "../context/NotificationContext";
 import api from "../api";
 import Swal from "sweetalert2";
 import {
@@ -10,14 +11,34 @@ import {
   FaUsers,
   FaEdit,
   FaExclamationTriangle,
-  FaCog
+  FaCog,
+  FaStarHalfAlt,
+  FaArrowRight
 } from "react-icons/fa";
 
 const AdminLateRequests = () => {
+  const { socket } = useContext(NotificationContext);
   // --- STATE FROM CODE 1 ---
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState("");
+
+  // --- Full Day Requests State ---
+  const [fullDayRequests, setFullDayRequests] = useState([]);
+  const [fullDayLoading, setFullDayLoading] = useState(false);
+  
+  // --- Attendance Correction Requests State ---
+  const [correctionRequests, setCorrectionRequests] = useState([]);
+  const [correctionLoading, setCorrectionLoading] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedCorrection, setSelectedCorrection] = useState(null);
+  const [reviewData, setReviewData] = useState({
+    finalPunchIn: "",
+    finalPunchOut: "",
+    finalStatus: "",
+    adminComment: ""
+  });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // --- NEW STATE FOR LIMITS (FROM CODE 2) ---
   const [requestType, setRequestType] = useState("PENDING");
@@ -76,6 +97,32 @@ const AdminLateRequests = () => {
       console.error("Error fetching requests:", err);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  // ✅ NEW: Fetch Full Day Requests
+  const fetchFullDayRequests = useCallback(async () => {
+    setFullDayLoading(true);
+    try {
+      const { data } = await api.get("/api/attendance/admin/full-day-requests");
+      setFullDayRequests(data.data || []);
+    } catch (err) {
+      console.error("Error fetching full day requests:", err);
+    } finally {
+      setFullDayLoading(false);
+    }
+  }, []);
+
+  // ✅ NEW: Fetch Advanced Correction Requests
+  const fetchCorrectionRequests = useCallback(async () => {
+    setCorrectionLoading(true);
+    try {
+      const { data } = await api.get("/api/attendance/admin/pending-corrections");
+      setCorrectionRequests(data.data || []);
+    } catch (err) {
+      console.error("Error fetching correction requests:", err);
+    } finally {
+      setCorrectionLoading(false);
     }
   }, []);
 
@@ -143,7 +190,97 @@ const AdminLateRequests = () => {
   // Initial Load
   useEffect(() => {
     fetchRequests();
-  }, [fetchRequests]);
+    fetchFullDayRequests();
+    fetchCorrectionRequests();
+    fetchEmployeeLimits();
+  }, [fetchRequests, fetchFullDayRequests, fetchCorrectionRequests]);
+
+  // ✅ REAL-TIME UPDATES VIA SOCKET
+  useEffect(() => {
+    if (socket) {
+      socket.on("attendance:correctionNew", () => {
+        console.log("⚡ New correction request received.");
+        fetchCorrectionRequests();
+      });
+
+      socket.on("attendance:lateNew", () => {
+        console.log("⚡ New late correction request received.");
+        fetchRequests();
+      });
+
+      socket.on("fullDay:new", () => {
+        fetchFullDayRequests();
+      });
+
+      return () => {
+        socket.off("attendance:correctionNew");
+        socket.off("attendance:lateNew");
+        socket.off("fullDay:new");
+      };
+    }
+  }, [socket, fetchCorrectionRequests, fetchFullDayRequests]);
+
+  // ✅ NEW: Handle Full Day Approve / Reject
+  const handleFullDayAction = async (reqItem, action) => {
+    const isApprove = action === "APPROVED";
+    let adminComment = "";
+
+    if (!isApprove) {
+      const { value: text } = await Swal.fire({
+        input: "textarea",
+        inputLabel: "Rejection Reason",
+        inputPlaceholder: "Type your reason here...",
+        showCancelButton: true,
+        confirmButtonText: "Reject Request",
+        confirmButtonColor: "#d33",
+      });
+      if (text === undefined) return;
+      if (!text) {
+        Swal.fire("Required", "Please provide a reason for rejection", "warning");
+        return;
+      }
+      adminComment = text;
+    } else {
+      const confirm = await Swal.fire({
+        title: "Approve Full Day?",
+        html: `This will upgrade <b>${reqItem.employeeName}'s</b> attendance for <b>${new Date(reqItem.date).toLocaleDateString()}</b> from <b style="color:orange">Half Day</b> to <b style="color:green">Full Day</b>.`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#10b981",
+        confirmButtonText: "Yes, Approve"
+      });
+      if (!confirm.isConfirmed) return;
+    }
+
+    Swal.fire({
+      title: isApprove ? 'Approving...' : 'Rejecting...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    try {
+      const endpoint = isApprove ? "/api/attendance/approve-full-day" : "/api/attendance/reject-full-day";
+      await api.post(endpoint, {
+        employeeId: reqItem.employeeId,
+        date: reqItem.date,
+        adminComment: adminComment
+      });
+
+      // Optimistic update
+      setFullDayRequests(prev => prev.filter(r =>
+        !(r.employeeId === reqItem.employeeId && r.date === reqItem.date)
+      ));
+
+      Swal.fire(
+        isApprove ? "Approved!" : "Rejected",
+        isApprove ? "Attendance upgraded to Full Day." : "Full Day request has been rejected.",
+        "success"
+      );
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message;
+      Swal.fire("Error", errMsg, "error");
+    }
+  };
 
   // ✅ OPTIMIZED: Memoize filtering for requests (Code 1)
   const filteredRequests = useMemo(() => {
@@ -255,6 +392,77 @@ const AdminLateRequests = () => {
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message;
       Swal.fire("Error", errMsg, "error");
+    }
+  };
+
+  // ✅ NEW: Advanced Correction Action Handlers
+  const openReviewModal = (req) => {
+    setSelectedCorrection(req);
+    setReviewData({
+      finalPunchIn: req.requestedPunchIn || "",
+      finalPunchOut: req.requestedPunchOut || "",
+      finalStatus: req.requestedStatus || "Full Day",
+      adminComment: ""
+    });
+    setShowReviewModal(true);
+  };
+
+  const calculateHours = (inTime, outTime) => {
+    if (!inTime || !outTime) return 0;
+    const [hIn, mIn] = inTime.split(':').map(Number);
+    const [hOut, mOut] = outTime.split(':').map(Number);
+    const diff = (hOut * 60 + mOut) - (hIn * 60 + mIn);
+    return Math.max(0, diff / 60);
+  };
+
+  const handleCorrectionAction = async (isApproved) => {
+    if (!isApproved && !reviewData.adminComment.trim()) {
+      return Swal.fire("Required", "Please provide a reason for rejection.", "warning");
+    }
+
+    if (isApproved) {
+      const hours = calculateHours(reviewData.finalPunchIn, reviewData.finalPunchOut);
+      if (reviewData.finalStatus === 'Full Day' && hours < 9) {
+        const confirm = await Swal.fire({
+          title: "Low Hours Warning",
+          text: `Total hours (${hours.toFixed(2)}h) are less than the required 9h for a Full Day. Proceed anyway?`,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Yes, Approve",
+          cancelButtonText: "Adjust Times"
+        });
+        if (!confirm.isConfirmed) return;
+      } else if (reviewData.finalStatus === 'Half Day' && hours < 4.5) {
+        const confirm = await Swal.fire({
+          title: "Low Hours Warning",
+          text: `Total hours (${hours.toFixed(2)}h) are less than the required 4.5h for a Half Day. Proceed anyway?`,
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Yes, Approve",
+          cancelButtonText: "Adjust Times"
+        });
+        if (!confirm.isConfirmed) return;
+      }
+    }
+
+    setIsProcessing(true);
+    try {
+      await api.post("/api/attendance/admin/act-on-correction", {
+        requestId: selectedCorrection._id,
+        status: isApproved ? "approved" : "rejected",
+        finalPunchIn: reviewData.finalPunchIn,
+        finalPunchOut: reviewData.finalPunchOut,
+        finalStatus: reviewData.finalStatus,
+        adminComment: reviewData.adminComment
+      });
+
+      Swal.fire("Success!", `Correction request ${isApproved ? 'approved' : 'rejected'} successfully.`, "success");
+      setShowReviewModal(false);
+      fetchCorrectionRequests();
+    } catch (err) {
+      Swal.fire("Error", err.response?.data?.message || "Failed to process request.", "error");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -431,23 +639,28 @@ const AdminLateRequests = () => {
       <div className="flex flex-col border-gray-300 p-4 rounded-2xl bg-white md:flex-row md:justify-between md:items-center mb-6 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <FaUserClock className="text-orange-600" /> Late Login Requests
+            <FaUserClock className="text-orange-600" /> Attendance Requests
           </h2>
           <p className="text-sm text-gray-500 mt-1">
-            Employees requesting correction for "Late" login status.
+            Manage late correction, status adjustments, and full day requests.
           </p>
         </div>
         
         <div className="flex gap-2">
           <button 
             onClick={() => { setRequestType("PENDING"); fetchRequests(); }} 
-            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium ${
+            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium relative ${
               requestType === "PENDING" 
                 ? "bg-orange-600 text-white" 
                 : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
             }`}
           >
             Pending Approvals
+            {requests.length > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm animate-bounce">
+                {requests.length}
+              </span>
+            )}
           </button>
           <button 
             onClick={() => { setRequestType("LIMITS"); fetchEmployeeLimits(); }} 
@@ -458,6 +671,31 @@ const AdminLateRequests = () => {
             }`}
           >
             <FaUsers /> Manage Limits
+          </button>
+          {/* <button 
+            onClick={() => { setRequestType("FULL_DAY"); fetchFullDayRequests(); }} 
+            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium flex items-center gap-2 ${
+              requestType === "FULL_DAY" 
+                ? "bg-teal-600 text-white" 
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <FaStarHalfAlt /> Full Day Requests
+          </button> */}
+          <button 
+            onClick={() => { setRequestType("CORRECTIONS"); fetchCorrectionRequests(); }} 
+            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium flex items-center gap-2 relative ${
+              requestType === "CORRECTIONS" 
+                ? "bg-blue-600 text-white" 
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <FaEdit /> Attendance Corrections
+            {correctionRequests.length > 0 && (
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm animate-bounce">
+                {correctionRequests.length}
+              </span>
+            )}
           </button>
           
           {requestType === "PENDING" && (
@@ -506,7 +744,188 @@ const AdminLateRequests = () => {
       </div>
 
       {/* Content Area */}
-      {requestType === "LIMITS" ? (
+      {requestType === "CORRECTIONS" ? (
+        /* --- ATTENDANCE CORRECTION REQUESTS VIEW --- */
+        correctionLoading ? (
+          <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-600"></div>
+            <p className="mt-4 text-gray-500 font-medium">Fetching correction requests...</p>
+          </div>
+        ) : correctionRequests.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaCheck className="text-blue-500 text-2xl" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-700">All clear!</h3>
+            <p className="text-gray-400 mt-1">No pending attendance correction requests found.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold tracking-wider">
+                <tr>
+                  <th className="px-6 py-4">Employee</th>
+                  <th className="px-6 py-4">Date</th>
+                  <th className="px-6 py-4">Requested Change</th>
+                  <th className="px-6 py-4">Requested Times</th>
+                  <th className="px-6 py-4">Reason</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {correctionRequests
+                  .filter(req => {
+                    if (!filterText) return true;
+                    const lf = filterText.toLowerCase();
+                    return req.employeeName?.toLowerCase().includes(lf) || req.employeeId?.includes(lf);
+                  })
+                  .map((req) => (
+                  <tr key={req._id} className="hover:bg-blue-50/30 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-bold text-gray-800">{req.employeeName}</div>
+                      <div className="text-xs text-gray-500 font-mono">{req.employeeId}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-gray-700 font-medium">{new Date(req.date).toLocaleDateString()}</div>
+                      <div className="text-[10px] text-gray-400">{new Date(req.date).toLocaleDateString(undefined, { weekday: 'long' })}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold">{req.currentStatus}</span>
+                        <FaArrowRight size={10} className="text-gray-400" />
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[10px] font-bold">{req.requestedStatus}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-[11px] space-y-0.5">
+                        <div className="flex gap-2">
+                          <span className="text-gray-400 w-12 italic">Punch In:</span>
+                          <span className="font-bold text-gray-700">{req.requestedPunchIn || '--'}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-gray-400 w-12 italic">Punch Out:</span>
+                          <span className="font-bold text-gray-700">{req.requestedPunchOut || '--'}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="max-w-xs text-xs text-gray-600 line-clamp-2" title={req.reason}>
+                        {req.reason}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button 
+                        onClick={() => openReviewModal(req)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md shadow-blue-100 transition flex items-center gap-2 mx-auto"
+                      >
+                        <FaEdit /> Review
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : requestType === "FULL_DAY" ? (
+        /* --- FULL DAY REQUESTS VIEW --- */
+        fullDayLoading ? (
+          <div className="flex flex-col justify-center items-center h-64 bg-white rounded-xl shadow-sm border border-gray-100">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-teal-600"></div>
+            <p className="mt-4 text-gray-500 font-medium">Fetching full day requests...</p>
+          </div>
+        ) : fullDayRequests.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="bg-green-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaCheck className="text-green-500 text-2xl" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-700">All caught up!</h3>
+            <p className="text-gray-400 mt-1">No pending full day requests found.</p>
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {fullDayRequests
+              .filter(req => {
+                if (!filterText) return true;
+                const lf = filterText.toLowerCase();
+                return req.employeeName?.toLowerCase().includes(lf) || req.employeeId?.includes(lf);
+              })
+              .map((req) => (
+              <div key={`${req.employeeId}-${req.date}`} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 flex flex-col group">
+                {/* Card Header */}
+                <div className="p-4 bg-gradient-to-r from-teal-50 to-white border-b border-gray-100 flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">{req.employeeName}</h3>
+                    <span className="text-[11px] font-bold text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                      {req.employeeId}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                    <FaCalendarDay />
+                    {new Date(req.date).toLocaleDateString("en-GB")}
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div className="p-5 flex-1 space-y-4">
+                  {/* Status Change Visual */}
+                  <div className="flex items-center justify-between bg-teal-50/50 p-3 rounded-xl border border-teal-100">
+                    <div className="text-center">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Current</p>
+                      <p className="text-yellow-600 font-bold text-lg bg-yellow-50 px-2 rounded">
+                        Half Day
+                      </p>
+                    </div>
+                    <div className="text-teal-300 text-xl font-light">➜</div>
+                    <div className="text-center">
+                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Requested</p>
+                      <p className="text-green-600 font-bold text-xl bg-green-50 px-2 rounded">
+                        Full Day
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Work Hours Info */}
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Worked Hours</p>
+                      <p className="font-mono font-bold text-gray-700">{req.displayTime || '--'}</p>
+                    </div>
+                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">Requested On</p>
+                      <p className="font-mono font-bold text-gray-700 text-xs">{req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : '--'}</p>
+                    </div>
+                  </div>
+
+                  {/* Reason Block */}
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Reason provided</p>
+                    <p className="text-sm text-gray-700 italic leading-relaxed">
+                      "{req.reason}"
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions Footer */}
+                <div className="p-3 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                  <button
+                    onClick={() => handleFullDayAction(req, "REJECTED")}
+                    className="flex-1 flex items-center justify-center gap-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 py-2.5 rounded-lg font-bold transition text-xs shadow-sm"
+                  >
+                    <FaTimes /> Reject
+                  </button>
+                  <button
+                    onClick={() => handleFullDayAction(req, "APPROVED")}
+                    className="flex-1 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 py-2.5 rounded-lg font-bold transition text-xs shadow-md shadow-teal-200"
+                  >
+                    <FaCheck /> Approve Full Day
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      ) : requestType === "LIMITS" ? (
         /* --- NEW: LIMITS VIEW --- */
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex justify-between items-center">
@@ -859,6 +1278,141 @@ const AdminLateRequests = () => {
                 className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold transition shadow-lg shadow-purple-200"
               >
                 Update All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ATTENDANCE CORRECTION REVIEW MODAL --- */}
+      {showReviewModal && selectedCorrection && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-0 animate-fade-in-up overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 flex justify-between items-center text-white">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <FaEdit /> Review Attendance Correction
+                </h3>
+                <p className="text-blue-100 text-xs mt-1">
+                  Request by {selectedCorrection.employeeName} for {new Date(selectedCorrection.date).toLocaleDateString()}
+                </p>
+              </div>
+              <button onClick={() => setShowReviewModal(false)} className="hover:bg-white/20 p-2 rounded-full transition">
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-6 grid md:grid-cols-2 gap-8">
+              {/* Left Column: Request Details */}
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Original Request</h4>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 italic">Current Status:</span>
+                      <span className="text-xs font-bold text-gray-700 bg-gray-200 px-2 py-0.5 rounded">{selectedCorrection.currentStatus}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 italic">Requested Status:</span>
+                      <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{selectedCorrection.requestedStatus}</span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-200 space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-400">Requested In:</span>
+                        <span className="font-mono font-bold text-gray-600">{selectedCorrection.requestedPunchIn || '--'}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-gray-400">Requested Out:</span>
+                        <span className="font-mono font-bold text-gray-600">{selectedCorrection.requestedPunchOut || '--'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Employee Reason</h4>
+                  <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-100 italic text-sm text-gray-600 leading-relaxed">
+                    "{selectedCorrection.reason}"
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Admin Decision */}
+              <div className="space-y-5">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Admin Decision</h4>
+                
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase">Final Status</label>
+                  <select 
+                    value={reviewData.finalStatus}
+                    onChange={(e) => setReviewData({...reviewData, finalStatus: e.target.value})}
+                    className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  >
+                    <option value="Full Day">Full Day</option>
+                    <option value="Half Day">Half Day</option>
+                    <option value="Absent">Absent</option>
+                  </select>
+                </div>
+
+                {reviewData.finalStatus !== 'Absent' && (
+                  <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-gray-500 uppercase">Adjust Punch In</label>
+                      <input 
+                        type="time" 
+                        value={reviewData.finalPunchIn}
+                        onChange={(e) => setReviewData({...reviewData, finalPunchIn: e.target.value})}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-gray-500 uppercase">Adjust Punch Out</label>
+                      <input 
+                        type="time" 
+                        value={reviewData.finalPunchOut}
+                        onChange={(e) => setReviewData({...reviewData, finalPunchOut: e.target.value})}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase">Admin Comment (Optional for Approve)</label>
+                  <textarea 
+                    rows="3"
+                    value={reviewData.adminComment}
+                    onChange={(e) => setReviewData({...reviewData, adminComment: e.target.value})}
+                    placeholder={reviewData.adminComment ? "" : "Add notes or reason for rejection..."}
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
+                  ></textarea>
+                </div>
+
+                <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 flex justify-between items-center">
+                  <span className="text-xs text-gray-500 font-medium">Calculated Hours:</span>
+                  <span className={`text-sm font-bold ${calculateHours(reviewData.finalPunchIn, reviewData.finalPunchOut) >= (reviewData.finalStatus === 'Full Day' ? 9 : 4.5) ? 'text-green-600' : 'text-orange-500'}`}>
+                    {calculateHours(reviewData.finalPunchIn, reviewData.finalPunchOut).toFixed(2)}h
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4">
+              <button 
+                onClick={() => handleCorrectionAction(false)}
+                disabled={isProcessing}
+                className="flex-1 py-3 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <FaTimes /> Reject
+              </button>
+              <button 
+                onClick={() => handleCorrectionAction(true)}
+                disabled={isProcessing}
+                className="flex-[2] py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isProcessing ? "Processing..." : "Approve & Update Attendance"} <FaCheck />
               </button>
             </div>
           </div>

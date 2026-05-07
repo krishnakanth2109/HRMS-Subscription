@@ -129,6 +129,19 @@ export const getEmployees = async () => (await api.get("/api/employees")).data;
 export const requestStatusCorrection = async (data) =>
   (await api.post("/api/attendance/request-status-correction", data)).data;
 
+// ✅ Half Day → Full Day Request APIs
+export const requestFullDay = async (data) =>
+  (await api.post("/api/attendance/request-full-day", data)).data;
+
+export const getFullDayRequests = async () =>
+  (await api.get("/api/attendance/admin/full-day-requests")).data;
+
+export const approveFullDayRequest = async (data) =>
+  (await api.post("/api/attendance/approve-full-day", data)).data;
+
+export const rejectFullDayRequest = async (data) =>
+  (await api.post("/api/attendance/reject-full-day", data)).data;
+
 export const getEmployeeById = async (id) =>
   (await api.get(`/api/employees/${id}`)).data;
 export const addEmployee = async (data) =>
@@ -231,6 +244,10 @@ export const markNotificationAsRead = async (id) =>
 export const markAllNotificationsAsRead = async () =>
   (await api.post("/api/notifications/mark-all")).data;
 
+// ✅ BUG 1 FIX — Permanently deletes ALL notifications from the DB
+export const deleteAllNotifications = async () =>
+  (await api.delete("/api/notifications/clear-all")).data;
+
 /* =============================================================================
    OVERTIME
 ============================================================================= */
@@ -280,18 +297,20 @@ export const punchOut = async (data) =>
 export const adminPunchOut = async (data) =>
   (await api.post("/api/attendance/admin-punch-out", data)).data;
 
-export const getAllAttendanceRecords = async () => {
-  try {
-    const response = await api.get("/api/attendance/all");
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Get all attendance error:",
-      error.response?.data || error.message
-    );
-    throw error;
-  }
-};
+
+
+// --- Advanced Correction System ---
+export const requestCorrectionAdvanced = async (data) => 
+  (await api.post("/api/attendance/request-correction-advanced", data)).data;
+
+export const getPendingCorrections = async () =>
+  (await api.get("/api/attendance/admin/pending-corrections")).data;
+
+export const actOnCorrection = async (data) =>
+  (await api.post("/api/attendance/admin/act-on-correction", data)).data;
+
+export const getMyCorrections = async () =>
+  (await api.get("/api/attendance/my-corrections")).data;
 
 /* =============================================================================
    USER PROFILE

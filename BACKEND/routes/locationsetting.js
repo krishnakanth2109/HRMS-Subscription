@@ -688,6 +688,17 @@ router.post("/request", protect, async (req, res) => {
       }
     }
 
+    // 3. Socket Notification for Sidebar Alert
+    const io = req.app.get("io");
+    if (io) {
+      const adminId = getAdminId(req.user);
+      io.to(`user_${adminId}`).emit("workMode:newRequest", {
+        message: `New work mode request from ${employeeName}`,
+        employeeName,
+        adminId
+      });
+    }
+
     res.status(201).json({ message: "Request submitted successfully" });
   } catch (error) {
     console.error("WorkMode /request error:", error);
@@ -810,8 +821,33 @@ router.put("/requests/action", protect, async (req, res) => {
 // =======================================================================
 router.delete("/requests/:id", protect, async (req, res) => {
   try {
-    await WorkModeRequest.findOneAndDelete({ _id: req.params.id, ...getScopeQuery(req.user) });
+    const query = { _id: req.params.id };
+    if (req.user.role === "admin") {
+      query.adminId = req.user._id;
+    } else {
+      query.employeeId = req.user.employeeId;
+    }
+
+    const deleted = await WorkModeRequest.findOneAndDelete(query);
+    if (!deleted) return res.status(404).json({ message: "Request not found or unauthorized" });
+
     res.status(200).json({ message: "Request deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+});
+
+// =======================================================================
+// CLEAR EMPLOYEE'S OWN REQUEST HISTORY
+// =======================================================================
+router.delete("/requests/my/clear/:employeeId", protect, async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    if (req.user.role !== "admin" && req.user.employeeId !== employeeId) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+    await WorkModeRequest.deleteMany({ employeeId });
+    res.status(200).json({ message: "History cleared" });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }

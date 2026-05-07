@@ -13,7 +13,7 @@ const notificationSchema = new Schema(
     userId: {
       type: Schema.Types.ObjectId,
       refPath: "userType",
-      required: false,      
+      required: false,
     },
 
     // 🔥 Required for refPath to work properly
@@ -44,6 +44,12 @@ const notificationSchema = new Schema(
         "overtime",
         "overtime-status",
         "system",
+        "full-day-request",
+        "full-day-status",
+        "attendance-correction-request",
+        "attendance-correction-status",
+        "resignation",
+        "resignation-status"
       ],
       default: "general",
     },

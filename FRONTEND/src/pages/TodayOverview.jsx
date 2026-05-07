@@ -29,7 +29,8 @@ import {
   FaUserCheck,
   FaList,
   FaThLarge,
-  FaFilter
+  FaFilter,
+  FaUserMinus
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -504,6 +505,7 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
 
 const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessageClick }) => {
   const profilePic = employee.profilePic;
+  const isPendingResignation = employee.isPendingResignation;
   const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
@@ -534,7 +536,7 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
               className="relative cursor-pointer group"
               onClick={() => onImageClick(profilePic)}
             >
-              <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 shadow-sm">
+              <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 shadow-sm relative">
                 {profilePic ? (
                   <img 
                     src={profilePic} 
@@ -548,12 +550,22 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
                     </span>
                   </div>
                 )}
+                {isPendingResignation && (
+                  <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center animate-pulse" title="Resignation Pending">
+                    <span className="text-[8px] text-white font-bold">!</span>
+                  </div>
+                )}
               </div>
             </div>
             
             <div className="overflow-hidden">
-              <h3 className="font-semibold text-slate-900 text-base truncate" title={employee.employeeName}>
+              <h3 className="font-semibold text-slate-900 text-base truncate flex items-center gap-2" title={employee.employeeName}>
                 {employee.employeeName}
+                {isPendingResignation && (
+                  <span className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter">
+                    Resigning
+                  </span>
+                )}
               </h3>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <FaIdBadge className="text-slate-400 text-xs" />
@@ -692,20 +704,32 @@ const TableView = ({ data, onImageClick, onCallClick, onMessageClick }) => {
               <tr key={employee.employeeId || idx} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                    <div 
-                      className="flex-shrink-0 h-10 w-10 cursor-pointer"
-                      onClick={() => onImageClick(employee.profilePic)}
-                    >
-                      {employee.profilePic ? (
-                        <img className="h-10 w-10 rounded-full object-cover border border-slate-200" src={employee.profilePic} alt="" />
-                      ) : (
-                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-medium">
-                          {(employee.employeeName || "U").charAt(0)}
-                        </div>
-                      )}
-                    </div>
+                      <div 
+                        className="flex-shrink-0 h-10 w-10 cursor-pointer relative"
+                        onClick={() => onImageClick(employee.profilePic)}
+                      >
+                        {employee.profilePic ? (
+                          <img className="h-10 w-10 rounded-full object-cover border border-slate-200" src={employee.profilePic} alt="" />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-medium">
+                            {(employee.employeeName || "U").charAt(0)}
+                          </div>
+                        )}
+                        {employee.isPendingResignation && (
+                          <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 border border-white rounded-full flex items-center justify-center animate-pulse shadow-sm">
+                            <span className="text-[7px] text-white font-bold">!</span>
+                          </div>
+                        )}
+                      </div>
                     <div className="ml-4">
-                      <div className="text-sm font-medium text-slate-900">{employee.employeeName}</div>
+                      <div className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                        {employee.employeeName}
+                        {employee.isPendingResignation && (
+                          <span className="bg-red-50 text-red-600 text-[8px] px-1.5 py-0.5 rounded-full font-black border border-red-100 uppercase tracking-tighter">
+                            Resigning
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-500">{employee.department} • {employee.employeeId}</div>
                     </div>
                   </div>
@@ -779,6 +803,7 @@ const TodayOverview = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
+  const [resignationData, setResignationData] = useState([]);
   const [shiftsMap, setShiftsMap] = useState({});
   const [employeeImages, setEmployeeImages] = useState({});
   const [loading, setLoading] = useState(false);
@@ -807,17 +832,20 @@ const TodayOverview = () => {
         attendanceRes,
         leaveRes,
         employeesRes,
-        shiftsRes
+        shiftsRes,
+        resignationRes
       ] = await Promise.all([
         getAttendanceByDateRange(today, today),
         getLeaveRequests(),
         getEmployees(),
-        getAllShifts()
+        getAllShifts(),
+        api.get("/api/resignations/admin/all")
       ]);
 
       setAttendanceData(Array.isArray(attendanceRes) ? attendanceRes : []);
       setLeaveData(Array.isArray(leaveRes) ? leaveRes : []);
       setAllEmployees(Array.isArray(employeesRes) ? employeesRes : []);
+      setResignationData(Array.isArray(resignationRes.data) ? resignationRes.data : []);
 
       const shiftsArray = Array.isArray(shiftsRes) ? shiftsRes : shiftsRes?.data || [];
       const map = {};
@@ -882,6 +910,7 @@ const TodayOverview = () => {
       const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
       const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
       const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
+      const isPendingResignation = resignationData.some(r => r.employeeId === item.employeeId && r.status === "Pending");
       
       return {
         ...item,
@@ -891,7 +920,8 @@ const TodayOverview = () => {
         isOnLeave: false,
         loginStatus,
         profilePic: employeeImages[item.employeeId],
-        phoneNumber: employeePhoneNumbers[item.employeeId] || null
+        phoneNumber: employeePhoneNumbers[item.employeeId] || null,
+        isPendingResignation
       };
     });
 
@@ -914,7 +944,8 @@ const TodayOverview = () => {
         punchOut: null,
         loginStatus: { status: "--", isLate: false },
         profilePic: employeeImages[leave.employeeId],
-        phoneNumber: employeePhoneNumbers[leave.employeeId] || null
+        phoneNumber: employeePhoneNumbers[leave.employeeId] || null,
+        isPendingResignation: resignationData.some(r => r.employeeId === leave.employeeId && r.status === "Pending")
       };
     });
 
@@ -935,12 +966,13 @@ const TodayOverview = () => {
           punchOut: null,
           loginStatus: { status: "--", isLate: false },
           profilePic: employeeImages[id],
-          phoneNumber: employeePhoneNumbers[id] || null
+          phoneNumber: employeePhoneNumbers[id] || null,
+          isPendingResignation: resignationData.some(r => r.employeeId === id && r.status === "Pending")
         };
       });
 
     return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
-  }, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers]);
+  }, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers, resignationData]);
 
   // 2. Department Filter Data (Source for Stats)
   const departmentFilteredData = useMemo(() => {

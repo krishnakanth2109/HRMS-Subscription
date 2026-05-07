@@ -24,6 +24,7 @@ import {
   FaLock,
   FaReceipt,
   FaFileSignature,
+  FaUserMinus,
 } from "react-icons/fa";
 
 import { io } from "socket.io-client";
@@ -46,13 +47,13 @@ const ALL_NAV_LINKS = [
   { to: "/employees", route: "/employees", label: "Employee Management", icon: <FaUserTie /> },
   { to: "/attendance", route: "/attendance", label: "Employees Attendance", icon: <FaUserClock /> },
   { to: "/admin/settings", route: "/admin/settings", label: "Shift Management", icon: <FaUserPlus /> },
-  { to: "/admin/shifttype", route: "/admin/shifttype", label: "Location Settings", icon: <FaMapMarkedAlt /> },
+  { to: "/admin/shifttype", route: "/admin/shifttype", label: "Location Settings", icon: <FaMapMarkedAlt />, isWorkModeRequests: true },
   { to: "/admin/leave-summary", route: "/admin/leave-summary", label: "Leave Summary", icon: <FaChartLine /> },
   { to: "/admin/holiday-calendar", route: "/admin/holiday-calendar", label: "Holiday Calendar", icon: <FaCalendarAlt /> },
   { to: "/admin/payroll", route: "/admin/payroll", label: "Payroll", icon: <FaMoneyBillWave /> },
   { to: "/admin/notices", route: "/admin/notices", label: "Announcements", icon: <FaBullhorn />, isNotice: true },
   { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests", icon: <FaCheckDouble />, isLeave: true },
-  { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Adjustment", icon: <FaUserCheck />, isLateRequests: true },
+  { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Requests", icon: <FaUserCheck />, isLateRequests: true },
   { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
   { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
   // { to: "/admin/induction", route: "/admin/induction", label: "Induction", icon: <FaConnectdevelop /> },
@@ -60,7 +61,6 @@ const ALL_NAV_LINKS = [
   // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
   // To add more owner-only features in future, just add them here with ownerOnly: true
   { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: <FaReceipt />, isPayrollCandidates: true, ownerOnly: true },
-
 ];
 
 const calculateUnreadNotices = (notices, readState) => {
@@ -95,9 +95,10 @@ const Sidebar = () => {
   const [lateRequestsCount, setLateRequestsCount] = useState(0);
   const [workModeRequestsCount, setWorkModeRequestsCount] = useState(0);
   const [attendanceRequestsCount, setAttendanceRequestsCount] = useState(0);
+  const [fullDayRequestsCount, setFullDayRequestsCount] = useState(0);
 
   const [allowedRoutes, setAllowedRoutes] = useState(null);
-  const [isOwnerPlan, setIsOwnerPlan]     = useState(false); // ✅ true = owner, skip all restrictions
+  const [isOwnerPlan, setIsOwnerPlan] = useState(false); // ✅ true = owner, skip all restrictions
 
   const [socket, setSocket] = useState(null);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
@@ -109,6 +110,7 @@ const Sidebar = () => {
   const prevLateRequests = useRef(0);
   const prevWorkModeRequests = useRef(0);
   const prevAttendanceRequestsCount = useRef(0);
+  const prevFullDayRequestsCount = useRef(0);
   const prevUnreadNoticeCount = useRef(0);
   const isOnNoticesPage = useRef(false);
   const hasPlayedSoundForCurrentCount = useRef(0);
@@ -165,8 +167,8 @@ const Sidebar = () => {
     const fetchPlanFeatures = async () => {
       try {
         const res = await api.get("/api/admin/my-plan-features");
-        const routes    = res.data?.allowedRoutes || [];
-        const ownerFlag = res.data?.isOwnerPlan   || false;
+        const routes = res.data?.allowedRoutes || [];
+        const ownerFlag = res.data?.isOwnerPlan || false;
         setIsOwnerPlan(ownerFlag);
         setAllowedRoutes(ownerFlag ? [] : routes); // owner doesn't need routes array checked
       } catch (err) {
@@ -204,55 +206,80 @@ const Sidebar = () => {
     } catch { }
   }, [tempHideNoticeBadge]);
 
-const fetchLateRequests = useCallback(async () => {
-  try {
-    const response = await api.get("/api/attendance/all");
-    const employees = response?.data?.data || [];
+  const fetchLateRequests = useCallback(async () => {
+    try {
+      const response = await api.get("/api/attendance/all");
+      const employees = response?.data?.data || [];
 
-    let count = 0;
+      let count = 0;
 
-    for (let i = 0; i < employees.length; i++) {
-      const emp = employees[i];
-      const attendance = emp.attendance || [];
+      for (let i = 0; i < employees.length; i++) {
+        const emp = employees[i];
+        const attendance = emp.attendance || [];
 
-      for (let j = 0; j < attendance.length; j++) {
-        const day = attendance[j];
+        for (let j = 0; j < attendance.length; j++) {
+          const day = attendance[j];
 
-        if (
-          day.lateCorrectionRequest &&
-          day.lateCorrectionRequest.hasRequest === true &&
-          day.lateCorrectionRequest.status === "PENDING"
-        ) {
-          count++;
+          if (
+            day.lateCorrectionRequest &&
+            day.lateCorrectionRequest.hasRequest === true &&
+            day.lateCorrectionRequest.status === "PENDING"
+          ) {
+            count++;
+          }
         }
       }
+
+      setLateRequestsCount(count);
+    } catch (error) {
+      console.error("Error fetching late requests:", error);
     }
+  }, []);
 
-    setLateRequestsCount(count);
-  } catch (error) {
-    console.error("Error fetching late requests:", error);
-  }
-}, []);
+  const fetchAttendanceRequests = useCallback(async () => {
+    try {
+      // Legacy status corrections
+      const { data } = await api.get("/api/attendance/admin/status-correction-requests");
+      const count1 = (data?.data || []).filter((r) => isPending(r.status)).length;
 
-const fetchAttendanceRequests = useCallback(async () => {
-  try {
-    const { data } = await api.get("/api/attendance/admin/status-correction-requests");
+      // Modern advanced corrections
+      const res2 = await api.get("/api/attendance/admin/pending-corrections");
+      const count2 = (res2?.data?.data || []).length;
 
-    const count1 = (data?.data || []).filter((r) =>
-      isPending(r.status)
-    ).length;
+      setAttendanceRequestsCount(count1 + count2);
+    } catch (error) {
+      console.error("Error fetching attendance requests:", error);
+    }
+  }, []);
 
-    const res2 = await api.get("/api/attendance-correction/all-requests");
+  const fetchFullDayRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/attendance/admin/full-day-requests");
+      setFullDayRequestsCount((data?.data || []).length);
+    } catch (error) {
+      console.error("Error fetching full day requests:", error);
+    }
+  }, []);
 
-    const count2 = (res2?.data || []).filter((r) =>
-      isPending(r.status)
-    ).length;
+  const fetchWorkModeRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/admin/requests");
+      const pendingCount = (data || []).filter(r => r.status === "Pending").length;
+      setWorkModeRequestsCount(pendingCount);
+    } catch (error) {
+      console.error("Error fetching work mode requests:", error);
+    }
+  }, []);
 
-    setAttendanceRequestsCount(count1 + count2);
-  } catch (error) {
-    console.error("Error fetching attendance requests:", error);
-  }
-}, []);
+  const fetchResignationRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get("/api/resignations/admin/all");
+      const pendingCount = (data || []).filter(r => r.status === "Pending").length;
+      setPendingResignationCount(pendingCount);
+    } catch (error) {
+      console.error("Error fetching resignation requests:", error);
+    }
+  }, []);
 
   const fetchOvertimeRequests = useCallback(async () => {
     try {
@@ -281,6 +308,11 @@ const fetchAttendanceRequests = useCallback(async () => {
     prevWorkModeRequests.current = workModeRequestsCount;
     if (attendanceRequestsCount > prevAttendanceRequestsCount.current) playNotificationSound("generic");
     prevAttendanceRequestsCount.current = attendanceRequestsCount;
+    if (fullDayRequestsCount > prevFullDayRequestsCount.current) playNotificationSound("generic");
+    prevFullDayRequestsCount.current = fullDayRequestsCount;
+
+
+
     if (unreadNoticeCount > prevUnreadNoticeCount.current && unreadNoticeCount > hasPlayedSoundForCurrentCount.current) {
       playNotificationSound("notice");
       hasPlayedSoundForCurrentCount.current = unreadNoticeCount;
@@ -307,12 +339,15 @@ const fetchAttendanceRequests = useCallback(async () => {
       await fetchOvertimeRequests();
       await fetchLateRequests();
       await fetchAttendanceRequests();
+      await fetchFullDayRequests();
+      await fetchWorkModeRequests();
+
       await fetchAndCalculateUnreadNotices();
     };
     fetchAll();
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
-  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchAndCalculateUnreadNotices]);
+  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices]);
 
   useEffect(() => {
     const s = io(SOCKET_URL, { transports: ["websocket", "polling"] });
@@ -334,8 +369,12 @@ const fetchAttendanceRequests = useCallback(async () => {
     socket.on("overtime:updated", fetchOvertimeRequests);
     socket.on("latecorrection:new", fetchLateRequests);
     socket.on("latecorrection:updated", fetchLateRequests);
-    socket.on("attendancecorrection:new", fetchAttendanceRequests);
-    socket.on("attendancecorrection:updated", fetchAttendanceRequests);
+    socket.on("attendance:correctionNew", fetchAttendanceRequests);
+    socket.on("attendance:correctionUpdate", fetchAttendanceRequests);
+    socket.on("fullDay:new", fetchFullDayRequests);
+    socket.on("workMode:newRequest", fetchWorkModeRequests);
+    socket.on("workMode:updated", fetchWorkModeRequests);
+
     const handleNewReply = (data) => {
       if (data.sentBy === "Employee") {
         actualUnreadCount.current += 1;
@@ -353,8 +392,12 @@ const fetchAttendanceRequests = useCallback(async () => {
       socket.off("overtime:updated", fetchOvertimeRequests);
       socket.off("latecorrection:new", fetchLateRequests);
       socket.off("latecorrection:updated", fetchLateRequests);
-      socket.off("attendancecorrection:new", fetchAttendanceRequests);
-      socket.off("attendancecorrection:updated", fetchAttendanceRequests);
+      socket.off("attendance:correctionNew", fetchAttendanceRequests);
+      socket.off("attendance:correctionUpdate", fetchAttendanceRequests);
+      socket.off("fullDay:new", fetchFullDayRequests);
+      socket.off("workMode:newRequest", fetchWorkModeRequests);
+      socket.off("workMode:updated", fetchWorkModeRequests);
+
       socket.off("notice:reply:new", handleNewReply);
       socket.off("notice:updated", handleNoticeUpdate);
     };
@@ -369,8 +412,9 @@ const fetchAttendanceRequests = useCallback(async () => {
     if (link.isLeave) return pendingLeaves;
     if (link.isOvertime) return pendingOvertime;
     if (link.isPunchOutRequests) return punchOutRequestsCount;
-    if (link.isLateRequests) return lateRequestsCount + attendanceRequestsCount;
+    if (link.isLateRequests) return lateRequestsCount + attendanceRequestsCount + fullDayRequestsCount;
     if (link.isWorkModeRequests) return workModeRequestsCount;
+
     if (link.isAttendanceRequests) return attendanceRequestsCount;
     if (link.isNotice && !tempHideNoticeBadge) return unreadNoticeCount;
     return 0;
@@ -514,7 +558,7 @@ const fetchAttendanceRequests = useCallback(async () => {
                     <div
                       onClick={() => handleDisabledClick(link.label)}
                       className={`flex items-center gap-4 px-4 py-2.5 rounded-lg text-base border-l-4 border-transparent cursor-pointer 
-                        text-slate-500 opacity-60 hover:bg-slate-800/40 transition-all
+                        text-slate-500 dark:opacity-40 hover:bg-slate-800/40 transition-all
                         ${collapsed && !isMobile ? "justify-center px-2" : ""}`}
                     >
                       <span className="text-xl w-5 flex justify-center shrink-0">
@@ -523,7 +567,7 @@ const fetchAttendanceRequests = useCallback(async () => {
                       {(!collapsed || isMobile) && (
                         <span className="flex items-center gap-2 relative w-full min-w-0">
                           <span className="truncate">{link.label}</span>
-                          <FaLock className="ml-auto text-xs text-slate-600" />
+                          <FaLock className="ml-auto text-xs text-slate-500" />
                         </span>
                       )}
                     </div>
