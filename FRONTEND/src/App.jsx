@@ -104,6 +104,10 @@ import AdminResignation from "./pages/AdminResignation";
 import EmployeeResignation from "./EmployeePages/EmployeeResignation";
 import HRChecklist from "./pages/HRChecklist";
 import AdminWelcomeKits from "./pages/Adminwelcomekits";
+import WhatsNew from "./pages/versionpage";
+import DomainSettings from "./pages/Domainsettings";
+
+
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -216,6 +220,7 @@ function App() {
         <Route path="manage-logins" element={<ManageLogins />} />
          <Route path="manage-issues" element={<SuperAdminIssues/>} />
          <Route path="manage-demo-requests" element={<AdminDemoRequests />}/>
+         <Route path="domain-settings" element={<DomainSettings/>} />
 
       </Route>
 
@@ -298,6 +303,7 @@ function App() {
           <Route path="/admin/resignation" element={<AdminResignation />} />
           <Route path="/admin/hr-checklist" element={<HRChecklist />} />
            <Route path="/admin/welcome-kits-management" element={<AdminWelcomeKits />} />
+           <Route path="/admin/whats-new" element={<WhatsNew /> }/>
          
       </Route>
 

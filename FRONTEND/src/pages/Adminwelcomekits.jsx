@@ -1,5 +1,5 @@
 // pages/Admin/AdminWelcomeKits.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import {
   FaGift,
   FaSearch,
@@ -21,9 +21,11 @@ import {
   FaTimes,
   FaUserCircle,
   FaCheckCircle,
+  FaBuilding,
 } from "react-icons/fa";
 import api from ".././api"; // adjust path
 import Swal from "sweetalert2";
+import { AuthContext } from "../context/AuthContext"; // Import AuthContext
 
 // ─── Item metadata ───
 const KIT_ITEMS = [
@@ -140,7 +142,11 @@ const AdminWelcomeKits = () => {
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all"); // "all" | "taken" | "not_taken"
   const [selectedKit, setSelectedKit] = useState(null);
+  const [companyName, setCompanyName] = useState("");
+  
+  const { user } = useContext(AuthContext); // Get logged-in user context
 
+  // Fetch data on component mount
   useEffect(() => {
     fetchKits();
   }, []);
@@ -148,10 +154,23 @@ const AdminWelcomeKits = () => {
   const fetchKits = async () => {
     setLoading(true);
     try {
-      // ✅ FIX: Added /api/ prefix
+      // Backend now filters based on logged-in user's company
       const res = await api.get("/api/welcome-kit/all");
-      console.log("Fetched kits:", res.data); // Debug log
+      console.log("Fetched kits for company:", res.data);
+      
       setKits(res.data.data || []);
+      
+      // Set company name from first kit or user context
+      if (res.data.data && res.data.data.length > 0 && res.data.data[0].companyId) {
+        const company = res.data.data[0].companyId;
+        if (typeof company === 'object' && company.name) {
+          setCompanyName(company.name);
+        } else {
+          setCompanyName(user?.company?.name || user?.companyName || "Your Company");
+        }
+      } else {
+        setCompanyName(user?.company?.name || user?.companyName || "Your Company");
+      }
     } catch (err) {
       console.error("Fetch error:", err);
       Swal.fire({ 
@@ -176,7 +195,6 @@ const AdminWelcomeKits = () => {
     if (!confirm.isConfirmed) return;
 
     try {
-      // ✅ FIX: Added /api/ prefix
       await api.delete(`/api/welcome-kit/${id}`);
       setKits((prev) => prev.filter((k) => k._id !== id));
       Swal.fire({ icon: "success", title: "Deleted", timer: 1500, showConfirmButton: false });
@@ -209,6 +227,42 @@ const AdminWelcomeKits = () => {
   // ─── Item count summary ───
   const getItemCount = (key) => kits.filter((k) => k.itemsReceived?.[key]).length;
 
+  // Export to CSV
+  const handleExport = () => {
+    if (filtered.length === 0) {
+      Swal.fire({ icon: "warning", title: "No data to export" });
+      return;
+    }
+
+    const headers = ["S.No", "Employee Name", "Employee Code", "Department", "Role", "Email", "Items Taken", "Submitted Date"];
+    const csvRows = [headers];
+    
+    filtered.forEach((kit, idx) => {
+      const itemsList = KIT_ITEMS.filter(i => kit.itemsReceived?.[i.key]).map(i => i.label).join(", ");
+      const itemsValue = kit.notTakenAnything ? "Not Taken" : (itemsList || "None");
+      
+      csvRows.push([
+        idx + 1,
+        kit.employeeName || "",
+        kit.employeeCode || "",
+        kit.department || "",
+        kit.role || "",
+        kit.email || "",
+        itemsValue,
+        formatDate(kit.submittedAt),
+      ]);
+    });
+
+    const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `welcome_kits_${companyName.replace(/\s/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       {/* Detail Modal */}
@@ -216,7 +270,7 @@ const AdminWelcomeKits = () => {
         <KitDetailModal kit={selectedKit} onClose={() => setSelectedKit(null)} />
       )}
 
-      {/* ─── Header ─── */}
+      {/* ─── Header with Company Name ─── */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-1">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow">
@@ -224,7 +278,10 @@ const AdminWelcomeKits = () => {
           </div>
           <div>
             <h1 className="text-2xl font-black text-gray-800">Welcome Kit Submissions</h1>
-            <p className="text-sm text-gray-400">Track which employees have submitted their welcome kit acknowledgment</p>
+            <div className="flex items-center gap-2 mt-1">
+              <FaBuilding className="text-blue-500 text-xs" />
+              <p className="text-sm text-gray-500 font-medium">{companyName}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -291,6 +348,12 @@ const AdminWelcomeKits = () => {
             <option value="not_taken">Not Taken</option>
           </select>
         </div>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-xl shadow-sm transition font-bold text-sm"
+        >
+          <FaDownload /> Export
+        </button>
       </div>
 
       {/* ─── Table ─── */}
@@ -310,93 +373,103 @@ const AdminWelcomeKits = () => {
             <FaGift className="text-gray-200 text-5xl" />
             <p className="text-gray-400 font-bold text-sm">No submissions found</p>
             {search && <p className="text-xs text-gray-300">Try clearing your search</p>}
+            {kits.length === 0 && !search && (
+              <p className="text-xs text-gray-400">No welcome kit submissions for this company yet.</p>
+            )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">#</th>
-                  <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">Employee</th>
-                  <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400 hidden sm:table-cell">Department</th>
-                  <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">Items</th>
-                  <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400 hidden md:table-cell">Submitted</th>
-                  <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.map((kit, idx) => {
-                  const receivedCount = KIT_ITEMS.filter((i) => kit.itemsReceived?.[i.key]).length;
-                  return (
-                    <tr key={kit._id} className="hover:bg-gray-50/70 transition group">
-                      <td className="px-5 py-3.5 text-gray-400 font-bold">{idx + 1}</td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">#</th>
+                    <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">Employee</th>
+                    <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400 hidden sm:table-cell">Department</th>
+                    <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">Items</th>
+                    <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400 hidden md:table-cell">Submitted</th>
+                    <th className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-widest text-gray-400">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filtered.map((kit, idx) => {
+                    const receivedCount = KIT_ITEMS.filter((i) => kit.itemsReceived?.[i.key]).length;
+                    return (
+                   <tr key={kit._id} className="hover:bg-gray-50/70 transition">
+                        <td className="px-5 py-3.5 text-gray-400 font-bold">{idx + 1}</td>
 
-                      {/* Employee */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm">
-                            {(kit.employeeName || "E")[0].toUpperCase()}
+                        {/* Employee */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0 shadow-sm">
+                              {(kit.employeeName || "E")[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-gray-800">{kit.employeeName}</p>
+                              <p className="text-[10px] text-gray-400 font-semibold">
+                                {kit.employeeCode && <span className="text-blue-500">{kit.employeeCode} &bull; </span>}
+                                {kit.role || ""}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-bold text-gray-800">{kit.employeeName}</p>
-                            <p className="text-[10px] text-gray-400 font-semibold">
-                              {kit.employeeCode && <span className="text-blue-500">{kit.employeeCode} &bull; </span>}
-                              {kit.role || ""}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Department */}
-                      <td className="px-5 py-3.5 hidden sm:table-cell">
-                        <span className="text-xs font-bold text-gray-600 bg-gray-100 rounded-full px-2 py-1">
-                          {kit.department || "—"}
-                        </span>
-                      </td>
-
-                      {/* Items */}
-                      <td className="px-5 py-3.5">
-                        {kit.notTakenAnything ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
-                            <FaBan className="text-[10px]" /> Not Taken
+                        {/* Department */}
+                        <td className="px-5 py-3.5 hidden sm:table-cell">
+                          <span className="text-xs font-bold text-gray-600 bg-gray-100 rounded-full px-2 py-1">
+                            {kit.department || "—"}
                           </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
-                            <FaGift className="text-[10px]" />
-                            {receivedCount} item{receivedCount !== 1 ? "s" : ""}
-                          </span>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Submitted date */}
-                      <td className="px-5 py-3.5 hidden md:table-cell">
-                        <span className="text-xs text-gray-500 font-semibold">{formatDate(kit.submittedAt)}</span>
-                      </td>
+                        {/* Items */}
+                        <td className="px-5 py-3.5">
+                          {kit.notTakenAnything ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-500 bg-red-50 border border-red-200 rounded-full px-2.5 py-1">
+                              <FaBan className="text-[10px]" /> Not Taken
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 border border-green-200 rounded-full px-2.5 py-1">
+                              <FaGift className="text-[10px]" />
+                              {receivedCount} item{receivedCount !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </td>
 
-                      {/* Actions */}
+                        {/* Submitted date */}
+                        <td className="px-5 py-3.5 hidden md:table-cell">
+                          <span className="text-xs text-gray-500 font-semibold">{formatDate(kit.submittedAt)}</span>
+                        </td>
+
+                        {/* Actions */}
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
-                          <button
-                            onClick={() => setSelectedKit(kit)}
-                            className="w-8 h-8 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-500 rounded-lg transition border border-blue-100"
-                            title="View details"
-                          >
-                            <FaEye size={13} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(kit._id)}
-                            className="w-8 h-8 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-400 rounded-lg transition border border-red-100"
-                            title="Delete (allows re-submission)"
-                          >
-                            <FaTimes size={13} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+  <div className="group flex items-center justify-between">
+    
+    {/* Your normal content (if any) */}
+
+    <div className="flex items-center gap-2 opacity-0 invisible pointer-events-none group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto transition-all duration-200">
+      <button
+        onClick={() => setSelectedKit(kit)}
+        className="w-8 h-8 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-500 rounded-lg transition border border-blue-100"
+      >
+        <FaEye size={13} />
+      </button>
+
+      <button
+        onClick={() => handleDelete(kit._id)}
+        className="w-8 h-8 flex items-center justify-center bg-red-50 hover:bg-red-100 text-red-400 rounded-lg transition border border-red-100"
+      >
+        <FaTimes size={13} />
+      </button>
+    </div>
+
+  </div>
+</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {/* Footer count */}
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
@@ -405,7 +478,7 @@ const AdminWelcomeKits = () => {
                 <span className="text-gray-600 font-black">{kits.length}</span> submissions
               </p>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>
