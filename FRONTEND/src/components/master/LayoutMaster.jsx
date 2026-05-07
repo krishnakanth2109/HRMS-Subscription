@@ -44,6 +44,11 @@ const LayoutMaster = () => {
   label: "Demo Requests", 
     path: "/master/manage-demo-requests",  
   icon: <CalendarCheck size={22} /> 
+},
+{ 
+  label: "Domain Settings", 
+  path: "/master/domain-settings", 
+  icon: <Settings size={22} /> 
 }
 
 

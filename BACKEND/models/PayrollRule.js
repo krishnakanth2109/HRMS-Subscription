@@ -33,7 +33,17 @@ const payrollRuleSchema = new mongoose.Schema(
     ptSlab1Limit: { type: Number, default: 15000 },
     ptSlab2Limit: { type: Number, default: 20000 },
     ptSlab1Amount: { type: Number, default: 150 },
-    ptSlab2Amount: { type: Number, default: 200 }
+    ptSlab2Amount: { type: Number, default: 200 },
+
+    // --- LATE PENALTY SETTINGS ---
+    latePenaltyEnabled: { type: Boolean, default: false },
+    latePenaltyThreshold: { type: Number, default: 3 },          // # of late logins before penalty applies
+    latePenaltyType: {
+      type: String,
+      enum: ['halfDay', 'fullDay', 'manual'],
+      default: 'halfDay'
+    },
+    latePenaltyManualAmount: { type: Number, default: 0 }         // Fixed ₹ per penalty occurrence
   },
   { timestamps: true }
 );

@@ -139,14 +139,42 @@ const handleVerifyEmail = async () => {
 
       if (response.data.success) {
         const empData = response.data.data;
-        
-        // Update Local State with fetched data
+
+        // --- EMPLOYEE ALREADY ONBOARDED BUT POLICY NOT ACCEPTED ---
+        // Skip full onboarding form and jump directly to Policy Compliance
+        if (response.data.needsComplianceOnly) {
+          setVerifiedCompany(empData.company);
+          setFormData(prev => ({
+            ...prev,
+            email: empData.email,
+            company: empData.company._id,
+            name: empData.name || "",
+            currentRole: empData.role || "",
+            currentDepartment: empData.department || "",
+            employmentType: empData.employmentType || "",
+            currentSalary: empData.salary || 0
+          }));
+          Swal.fire({
+            icon: 'info', 
+            title: 'Profile Already Exists',
+            html: `Welcome back, <b>${empData.name}</b>!<br/>Your profile is set up — please complete the <b>Policy Compliance</b> step.`,
+            timer: 3500,
+            showConfirmButton: false,
+            position: 'top-end',
+            toast: true
+          }).then(() => setStage('compliance'));
+          // Also fire immediately without waiting for toast close
+          setTimeout(() => setStage('compliance'), 500);
+          return;
+        }
+
+        // --- NEW EMPLOYEE: full onboarding form ---
         setEmailVerified(true);
         setVerifiedCompany(empData.company);
         setAssignedDocs(empData.requiredDocuments || []);
         setFormData(prev => ({
           ...prev,
-          email: empData.email, // Ensure email is set
+          email: empData.email,
           company: empData.company._id,
           name: empData.name || "",
           currentRole: empData.role || "",
@@ -155,8 +183,8 @@ const handleVerifyEmail = async () => {
           currentSalary: empData.salary || 0
         }));
 
-      // Immediately load any admin-verified documents for this employee
-      fetchVerifiedEmployeeDocuments(empData.email);
+        // Immediately load any admin-verified documents for this employee
+        fetchVerifiedEmployeeDocuments(empData.email);
 
         Swal.fire({
           icon: 'success',

@@ -33,7 +33,12 @@ const DEFAULT_RULES = {
   pfFixedAmountEmployer: 0,
   // PT Defaults
   ptSlab1Amount: 150,
-  ptSlab2Amount: 200
+  ptSlab2Amount: 200,
+  // Late Penalty Defaults
+  latePenaltyEnabled: false,
+  latePenaltyThreshold: 3,         // number of late logins before penalty kicks in
+  latePenaltyType: 'halfDay',      // 'halfDay' | 'fullDay' | 'manual'
+  latePenaltyManualAmount: 0,      // fixed ₹ amount per penalty unit (used when type='manual')
 };
 
 // --- HELPER FUNCTIONS ---
@@ -182,8 +187,8 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (type === 'checkbox') {
-      // Not used currently
-    } else if (name === 'pfCalculationMethod') {
+      setRules(prev => ({ ...prev, [name]: checked }));
+    } else if (name === 'pfCalculationMethod' || name === 'latePenaltyType') {
       setRules(prev => ({ ...prev, [name]: value }));
     } else {
       setRules(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
@@ -300,6 +305,103 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
                 <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
                 <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
               </div>
+            </div>
+
+            {/* LATE PENALTY SECTION */}
+            <div className="mt-4 pt-3 border-t border-red-200">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Late Penalty</label>
+                {/* Toggle */}
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="latePenaltyEnabled"
+                    checked={!!rules.latePenaltyEnabled}
+                    onChange={handleChange}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:bg-red-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                  <span className="ml-2 text-xs font-semibold text-gray-600">{rules.latePenaltyEnabled ? 'ON' : 'OFF'}</span>
+                </label>
+              </div>
+
+              {rules.latePenaltyEnabled && (
+                <div className="bg-white border border-red-100 rounded-lg p-3 space-y-3">
+                  {/* Threshold */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600">
+                      Apply penalty after how many late logins?
+                    </label>
+                    <input
+                      type="number"
+                      name="latePenaltyThreshold"
+                      min="1"
+                      value={rules.latePenaltyThreshold ?? 3}
+                      onChange={handleChange}
+                      className="w-full border rounded p-2 mt-1 text-sm"
+                      placeholder="e.g. 3"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      e.g. 3 means penalty is applied for every 3 late logins
+                    </p>
+                  </div>
+
+                  {/* Penalty Type */}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 block mb-2">Penalty Amount per occurrence:</label>
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="latePenaltyType"
+                          value="halfDay"
+                          checked={rules.latePenaltyType === 'halfDay'}
+                          onChange={handleChange}
+                          className="accent-red-500"
+                        />
+                        <span className="text-sm text-gray-700">Half Day Salary deduction per late occurrence</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="latePenaltyType"
+                          value="fullDay"
+                          checked={rules.latePenaltyType === 'fullDay'}
+                          onChange={handleChange}
+                          className="accent-red-500"
+                        />
+                        <span className="text-sm text-gray-700">Full Day Salary deduction per late occurrence</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="latePenaltyType"
+                          value="manual"
+                          checked={rules.latePenaltyType === 'manual'}
+                          onChange={handleChange}
+                          className="accent-red-500"
+                        />
+                        <span className="text-sm text-gray-700">Manual fixed amount per late occurrence</span>
+                      </label>
+                    </div>
+
+                    {rules.latePenaltyType === 'manual' && (
+                      <div className="mt-2">
+                        <label className="text-xs font-semibold text-gray-600">Fixed Penalty Amount (₹) per occurrence</label>
+                        <input
+                          type="number"
+                          name="latePenaltyManualAmount"
+                          min="0"
+                          value={rules.latePenaltyManualAmount ?? 0}
+                          onChange={handleChange}
+                          className="w-full border rounded p-2 mt-1 text-sm"
+                          placeholder="e.g. 500"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -800,7 +902,16 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">HRA</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.hra)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${employerPfLabel}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.employerPf)}</td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Conveyance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.conveyance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">Professional Tax</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.pt)}</td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Medical</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.medical)}</td><td style="padding:5px 7px;border:1px solid #ddd;">LOP Deduction (${employee.lopDays} days)</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lopDeduction)}</td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Travelling Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">Late Penalty (${employee.latePenaltyDays} half days)</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lateDeduction)}</td></tr>
+          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Travelling Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${(() => {
+            const r = employee.appliedRules;
+            if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
+            const type = r?.latePenaltyType || 'halfDay';
+            const occ = employee.latePenaltyOccurrences || 0;
+            const late = employee.lateDaysCount;
+            if (type === 'halfDay') return `Late Penalty (${late} late × 0.5 day each)`;
+            if (type === 'fullDay') return `Late Penalty (${late} late × 1 day each)`;
+            return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
+          })()}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lateDeduction)}</td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Other Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Special</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.special)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
           <tr style="background:#eff6ff;font-weight:bold;"><td style="padding:6px 7px;border:1px solid #ddd;">GROSS EARNINGS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.gross)}</td><td style="padding:6px 7px;border:1px solid #ddd;">TOTAL DEDUCTIONS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.totalDeductions)}</td></tr>
@@ -923,8 +1034,39 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                 <p className="font-bold text-red-700">{employee.lopDays} × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lopDeduction)}</p>
               </div>
               <div className="bg-white p-3 rounded border">
-                <p className="text-gray-600 text-xs">Late Penalty ({employee.lateDaysCount} late → {employee.latePenaltyDays} half days)</p>
-                <p className="font-bold text-red-700">{employee.latePenaltyDays} × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lateDeduction)}</p>
+                {(() => {
+                  const rules = employee.appliedRules;
+                  const penaltyEnabled = rules?.latePenaltyEnabled;
+                  const penaltyType = rules?.latePenaltyType || 'halfDay';
+                  const threshold = rules?.latePenaltyThreshold || 3;
+                  const manualAmt = rules?.latePenaltyManualAmount || 0;
+                  const lateCount = employee.lateDaysCount;
+                  const occurrences = employee.latePenaltyOccurrences || 0;
+
+                  if (!penaltyEnabled) {
+                    return <>
+                      <p className="text-gray-600 text-xs">Late Penalty (Disabled)</p>
+                      <p className="font-bold text-gray-400">No penalty configured</p>
+                    </>;
+                  }
+                  if (penaltyType === 'halfDay') {
+                    return <>
+                      <p className="text-gray-600 text-xs">Late Penalty ({lateCount} late logins × 0.5 day each)</p>
+                      <p className="font-bold text-red-700">{employee.latePenaltyDays} days × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lateDeduction)}</p>
+                    </>;
+                  }
+                  if (penaltyType === 'fullDay') {
+                    return <>
+                      <p className="text-gray-600 text-xs">Late Penalty ({lateCount} late logins × 1 full day each)</p>
+                      <p className="font-bold text-red-700">{employee.latePenaltyDays} days × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lateDeduction)}</p>
+                    </>;
+                  }
+                  // manual
+                  return <>
+                    <p className="text-gray-600 text-xs">Late Penalty ({lateCount} late logins × ₹{manualAmt} fixed each)</p>
+                    <p className="font-bold text-red-700">{occurrences} × {formatCurrency(manualAmt)} = -{formatCurrency(employee.lateDeduction)}</p>
+                  </>;
+                })()}
               </div>
             </div>
           </div>
@@ -1006,7 +1148,22 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                   </tr>
                   <tr><td className="py-2">Professional Tax</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.pt)}</td></tr>
                   <tr><td className="py-2">LOP Deduction ({employee.lopDays} days)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lopDeduction)}</td></tr>
-                  <tr><td className="py-2">Late Penalty ({employee.latePenaltyDays} half days)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lateDeduction)}</td></tr>
+                  <tr>
+                    <td className="py-2">
+                      {(() => {
+                        const rules = employee.appliedRules;
+                        const penaltyEnabled = rules?.latePenaltyEnabled;
+                        if (!penaltyEnabled) return 'Late Penalty (Disabled)';
+                        const type = rules?.latePenaltyType || 'halfDay';
+                        const occ = employee.latePenaltyOccurrences || 0;
+                        const lateCount = employee.lateDaysCount;
+                        if (type === 'halfDay') return `Late Penalty (${lateCount} late × 0.5 day each)`;
+                        if (type === 'fullDay') return `Late Penalty (${lateCount} late × 1 day each)`;
+                        return `Late Penalty (${lateCount} late × ₹${rules?.latePenaltyManualAmount || 0} each)`;
+                      })()}
+                    </td>
+                    <td className="text-right font-medium text-red-600">{formatCurrency(employee.lateDeduction)}</td>
+                  </tr>
                   <tr className="bg-red-50"><td className="py-2 font-bold">Total Deductions</td><td className="text-right font-bold text-red-700">{formatCurrency(employee.totalDeductions)}</td></tr>
                 </tbody>
               </table>
@@ -1289,8 +1446,30 @@ const PayrollManagement = () => {
       const holidayDays = leaves.holidayDays || 0;
       const calculatedSalary = (totalWorkedDays + weekOffDays + holidayDays) * perDaySalary;
       const lopDeduction = leaves.extraLeaves * perDaySalary;
-      const latePenaltyDays = Math.floor(att.lateCount / 3) * 0.5;
-      const lateDeduction = latePenaltyDays * perDaySalary;
+
+      // --- DYNAMIC LATE PENALTY CALCULATION ---
+      // latePenaltyDays = salary-days equivalent (0.5 per halfDay occ, 1 per fullDay/manual occ)
+      // latePenaltyOccurrences = raw count of penalty events triggered
+      let latePenaltyDays = 0;
+      let latePenaltyOccurrences = 0;
+      let lateDeduction = 0;
+      if (payrollRules.latePenaltyEnabled) {
+        const penaltyOccurrences = att.lateCount; // each late login = 1 occurrence, no threshold division
+        latePenaltyOccurrences = penaltyOccurrences;
+        if (penaltyOccurrences > 0) {
+          const penaltyType = payrollRules.latePenaltyType || 'halfDay';
+          if (penaltyType === 'halfDay') {
+            latePenaltyDays = penaltyOccurrences * 0.5;
+            lateDeduction = latePenaltyDays * perDaySalary;
+          } else if (penaltyType === 'fullDay') {
+            latePenaltyDays = penaltyOccurrences;
+            lateDeduction = latePenaltyDays * perDaySalary;
+          } else if (penaltyType === 'manual') {
+            latePenaltyDays = penaltyOccurrences;
+            lateDeduction = penaltyOccurrences * (Number(payrollRules.latePenaltyManualAmount) || 0);
+          }
+        }
+      }
 
       let pfDeduction = 0;
       let employerPfAmount = 0;
@@ -1331,6 +1510,7 @@ const PayrollManagement = () => {
         lopDays: leaves.extraLeaves,
         lateDaysCount: att.lateCount,
         latePenaltyDays,
+        latePenaltyOccurrences,
         perDaySalary,
         calculatedSalary,
         appliedRules: payrollRules,

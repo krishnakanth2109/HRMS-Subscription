@@ -3,11 +3,22 @@ import mongoose from "mongoose";
 
 let welcomeKitSchema = new mongoose.Schema(
   {
+    // HIERARCHY LINKS - made optional for backward compatibility
+    adminId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      index: true,
+    },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      index: true,
+    },
+
     employeeId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
       required: true,
-      unique: true, // one submission per employee
     },
     employeeCode: {
       type: String,
@@ -59,6 +70,11 @@ let welcomeKitSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Create indexes for better query performance
+welcomeKitSchema.index({ employeeId: 1 });
+welcomeKitSchema.index({ adminId: 1, submittedAt: -1 });
+welcomeKitSchema.index({ companyId: 1, submittedAt: -1 });
 
 let WelcomeKit = mongoose.model("WelcomeKit", welcomeKitSchema);
 

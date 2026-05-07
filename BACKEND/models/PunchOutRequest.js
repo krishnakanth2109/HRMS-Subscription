@@ -1,7 +1,7 @@
 // --- START OF FILE models/PunchOutRequest.js ---
 import mongoose from "mongoose";
 
-const punchOutRequestSchema = new mongoose.Schema({
+const PunchOutRequestSchema = new mongoose.Schema({
   // HIERARCHY LINKS
   adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
@@ -19,6 +19,5 @@ const punchOutRequestSchema = new mongoose.Schema({
   },
 });
 
-const PunchOutRequest = mongoose.model("PunchOutRequest", punchOutRequestSchema);
-
-export default PunchOutRequest;
+// CORRECT - reuses the existing model if already compiled
+export default mongoose.models.PunchOutRequest || mongoose.model("PunchOutRequest", PunchOutRequestSchema);

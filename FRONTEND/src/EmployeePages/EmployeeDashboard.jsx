@@ -463,7 +463,6 @@ const EmployeeDashboard = () => {
       const prevLog = attendance.find(a => a.date === yesterdayStr);
 
       if (prevLog && prevLog.punchIn && !prevLog.punchOut) {
-        setMissedPunchLog(prevLog);
         setReqData(prev => ({ ...prev, date: yesterdayStr }));
 
         // Fetch status dynamically from backend
@@ -474,12 +473,20 @@ const EmployeeDashboard = () => {
             });
             if (data.found) {
               setMissedPunchRequestStatus(data.status);
+              // ✅ FIX: If approved, reload attendance so punchOut gets populated
+              // and missedPunchLog clears automatically on next cycle
+              if (data.status === "Approved") {
+                await loadAttendance(user.employeeId);
+                return; // attendance reload will re-trigger this effect and clear missedPunchLog
+              }
             } else {
               setMissedPunchRequestStatus(null);
             }
           } catch (error) {
             console.error("Failed to check request status:", error);
           }
+          // Only set missedPunchLog if status is NOT Approved
+          setMissedPunchLog(prevLog);
         };
         fetchStatus();
 
@@ -503,7 +510,7 @@ const EmployeeDashboard = () => {
           // ✅ FIX: Fetch fresh employee data from DB so edits from EditEmployee are reflected immediately
           getEmployeeById(user.employeeId)
             .then((freshData) => { if (freshData) setEmployeeData(freshData); })
-            .catch(() => {}),
+            .catch(() => { }),
         ]);
         setLoading(false);
 
@@ -773,11 +780,13 @@ const EmployeeDashboard = () => {
     if (!user) return;
     if (action === "IN") {
       if (!todayLog) {
-        if (missedPunchLog) {
+        if (missedPunchLog && missedPunchRequestStatus !== "Approved") {
           Swal.fire({
             icon: 'error',
             title: 'Punch In Disabled',
-            text: 'You did not punch out yesterday. Please use the "Request Punch Out" button above to resolve this with Admin.'
+            text: missedPunchRequestStatus === "Pending"
+              ? 'Your punch-out request is pending admin approval. You can punch in once it is approved.'
+              : 'You did not punch out yesterday. Please use the "Request Punch Out" button above to resolve this with Admin.'
           });
           return;
         }
@@ -1327,7 +1336,7 @@ const EmployeeDashboard = () => {
               {/* ✅ NEW: Pending Status Logic */}
               {missedPunchRequestStatus === 'Pending' && (
                 <span className="text-orange-600 font-bold text-xs bg-orange-100 border border-orange-200 px-2 py-1 rounded mt-2 inline-flex items-center gap-1">
-                  <FaRegClock /> Request Pending Approval
+                  <FaRegClock /> Request Pending Approval Please Wait for Approval
                 </span>
               )}
               {missedPunchRequestStatus === 'Rejected' && (
@@ -1484,7 +1493,7 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-     
+
 
       {/* Daily Attendance Table */}
       <div className="rounded-2xl overflow-hidden shadow-lg border border-gray-200 relative bg-white mb-8 animate-fade-in">
@@ -1555,43 +1564,57 @@ const EmployeeDashboard = () => {
                         Success ✅
                       </span>
                     ) : (!todayLog || todayLog.status === "NOT_STARTED") ? (
-                      <button
-                        className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
-                        onClick={() => handlePunch("IN")}
-                        disabled={punchStatus !== "IDLE" || missedPunchLog}
-                      >
-                        {getPunchButtonContent("IN")}
-                      </button>
+                      {
+                        isShiftCompleted?(
+                    <span className = "text-gray-500 font-bold text-[10px] uppercase tracking-wider bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm" > Shift Completed</span>
+                  ) : showPunchInButton ? (
+                  <button
+                    className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog && missedPunchRequestStatus !== "Approved" ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                    onClick={() => handlePunch("IN")}
+                    disabled={punchStatus !== "IDLE"}
+                  >
+                    {getPunchButtonContent("IN")}
+                  </button>
+                  ) : (
+                  // ✅ NEW: Punch Out + Take Break buttons side-by-side
+                  <div className="flex flex-col gap-2 items-center w-full max-w-[140px] mx-auto">
+                    <button
+                      className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${missedPunchLog ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                      onClick={() => handlePunch("IN")}
+                      disabled={punchStatus !== "IDLE" || missedPunchLog}
+                    >
+                      {getPunchButtonContent("IN")}
+                    </button>
                     ) : (
-                      <>
-                        {/* Punch Out Button (Shown only when working) */}
-                        {todayLog?.status === "WORKING" && (
-                          <button
-                            className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'} disabled:opacity-50`}
-                            onClick={() => handlePunch("OUT")}
-                            disabled={punchStatus !== "IDLE"}
-                          >
-                            {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : <FaSignOutAlt />}
-                            {punchStatus === "PUNCHING" ? "Processing..." : "Punch Out"}
-                          </button>
-                        )}
+                    <>
+                      {/* Punch Out Button (Shown only when working) */}
+                      {todayLog?.status === "WORKING" && (
+                        <button
+                          className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm text-white font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] ${isShiftReqCompleted ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'} disabled:opacity-50`}
+                          onClick={() => handlePunch("OUT")}
+                          disabled={punchStatus !== "IDLE"}
+                        >
+                          {punchStatus === "PUNCHING" ? <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" /> : <FaSignOutAlt />}
+                          {punchStatus === "PUNCHING" ? "Processing..." : "Punch Out"}
+                        </button>
+                      )}
 
-                        {/* ✅ NEW: Toggling Break Button */}
-                        {isPunchedIn && !isShiftCompleted && (
-                          <button
-                            onClick={handleBreak}
-                            disabled={punchStatus !== "IDLE"}
-                            className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] border
+                      {/* ✅ NEW: Toggling Break Button */}
+                      {isPunchedIn && !isShiftCompleted && (
+                        <button
+                          onClick={handleBreak}
+                          disabled={punchStatus !== "IDLE"}
+                          className={`px-5 py-2.5 rounded-xl mx-auto flex items-center justify-center gap-2 shadow-sm font-bold text-xs transition transform active:scale-95 w-full max-w-[140px] border
                             ${isOnBreak
-                                ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
-                                : 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
-                              }`}
-                          >
-                            {isOnBreak ? <FaPlay /> : <FaCoffee />}
-                            {isOnBreak ? "Continue Work" : "Take a Break"}
-                          </button>
-                        )}
-                      </>
+                              ? 'text-green-700 bg-green-50 border-green-200 hover:bg-green-100'
+                              : 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100'
+                            }`}
+                        >
+                          {isOnBreak ? <FaPlay /> : <FaCoffee />}
+                          {isOnBreak ? "Continue Work" : "Take a Break"}
+                        </button>
+                      )}
+                    </>
                     )}
                   </div>
                 </td>

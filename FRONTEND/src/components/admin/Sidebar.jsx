@@ -1,6 +1,7 @@
 // --- START OF FILE Sidebar.jsx ---
 import { NavLink, useLocation } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Link } from "react-router-dom";
 import Swal from "sweetalert2"; // Added SweetAlert2
 import {
   FaTachometerAlt,
@@ -578,9 +579,24 @@ const Sidebar = () => {
           )}
         </ul>
 
-        <div className={`mt-auto p-4 text-center text-xs text-slate-300 shrink-0 ${collapsed && !isMobile ? "opacity-0 hidden" : "opacity-100 block"}`}>
-          &copy; {new Date().getFullYear()} HRMS Admin
-        </div>
+<div
+  className={`mt-auto flex flex-col items-center justify-center pb-4 text-center shrink-0 ${
+    collapsed && !isMobile ? "opacity-0 hidden" : "opacity-100 block"
+  }`}
+>
+  {/* Footer Text */}
+  <div className="text-xs text-slate-300">
+    &copy; {new Date().getFullYear()} HRMS Admin
+  </div>
+
+  {/* Version Link */}
+  <Link
+    to="/admin/whats-new"
+    className="mt-1 text-xs text-blue-400 hover:text-blue-500 hover:underline transition"
+  >
+    v5.1.1 Updates
+  </Link>
+</div>
       </div>
     </>
   );

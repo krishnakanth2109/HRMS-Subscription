@@ -59,7 +59,7 @@ const LiveTimer = ({ startTime }) => {
 
   useEffect(() => {
     if (!startTime) return;
-    
+
     const updateTimer = () => {
       const now = new Date();
       const start = new Date(startTime);
@@ -96,12 +96,12 @@ const LiveTimer = ({ startTime }) => {
 // Calculate login status
 const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
   if (!punchInTime) return { status: "--", isLate: false };
-  
+
   const statusUpper = (apiStatus || "").toUpperCase();
   if (statusUpper === "LATE") {
     return { status: "LATE", isLate: true };
   }
-  
+
   if (shiftData && shiftData.shiftStartTime) {
     try {
       const punchDate = new Date(punchInTime);
@@ -110,7 +110,7 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
       shiftDate.setHours(sHour, sMin, 0, 0);
       const grace = shiftData.lateGracePeriod || 15;
       shiftDate.setMinutes(shiftDate.getMinutes() + grace);
-      
+
       if (punchDate > shiftDate) {
         return { status: "LATE", isLate: true };
       }
@@ -118,7 +118,7 @@ const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
       console.error("Date calc error", e);
     }
   }
-  
+
   return { status: "ON TIME", isLate: false };
 };
 
@@ -165,40 +165,40 @@ const LoginStatusBadge = ({ status }) => {
 
 const StatusBadge = ({ status }) => {
   const config = {
-    WORKING: { 
-      label: 'Working', 
+    WORKING: {
+      label: 'Working',
       icon: <FaClock className="text-xs" />,
       bg: 'bg-blue-50',
       border: 'border-blue-200',
       text: 'text-blue-700',
       dot: 'bg-blue-500'
     },
-    COMPLETED: { 
-      label: 'Completed', 
+    COMPLETED: {
+      label: 'Completed',
       icon: <FaCheckCircle className="text-xs" />,
       bg: 'bg-emerald-50',
       border: 'border-emerald-200',
       text: 'text-emerald-700',
       dot: 'bg-emerald-500'
     },
-    NOT_LOGGED_IN: { 
-      label: 'LOGIN REQUIRED', 
+    NOT_LOGGED_IN: {
+      label: 'LOGIN REQUIRED',
       icon: <FaUserSlash className="text-xs" />,
       bg: 'bg-slate-50',
       border: 'border-slate-200',
       text: 'text-slate-600',
       dot: 'bg-slate-400'
     },
-    ON_LEAVE: { 
-      label: 'On Leave', 
+    ON_LEAVE: {
+      label: 'On Leave',
       icon: <FaCalendarAlt className="text-xs" />,
       bg: 'bg-purple-50',
       border: 'border-purple-200',
       text: 'text-purple-700',
       dot: 'bg-purple-500'
     },
-    LATE: { 
-      label: 'Late', 
+    LATE: {
+      label: 'Late',
       icon: <FaUserClock className="text-xs" />,
       bg: 'bg-amber-50',
       border: 'border-amber-200',
@@ -220,31 +220,31 @@ const StatusBadge = ({ status }) => {
 
 const StatCard = ({ icon, title, value, color, onClick, category, isActive }) => {
   const colors = {
-    WORKING: { 
+    WORKING: {
       bg: 'bg-gradient-to-br from-blue-500/5 via-blue-500/2 to-transparent',
       border: 'border-blue-200',
       text: 'text-blue-600',
       gradient: 'from-blue-500 to-blue-600'
     },
-    COMPLETED: { 
+    COMPLETED: {
       bg: 'bg-gradient-to-br from-emerald-500/5 via-emerald-500/2 to-transparent',
       border: 'border-emerald-200',
       text: 'text-emerald-600',
       gradient: 'from-emerald-500 to-emerald-600'
     },
-    NOT_LOGGED_IN: { 
+    NOT_LOGGED_IN: {
       bg: 'bg-gradient-to-br from-slate-500/5 via-slate-500/2 to-transparent',
       border: 'border-slate-200',
       text: 'text-slate-600',
       gradient: 'from-slate-500 to-slate-600'
     },
-    ON_LEAVE: { 
+    ON_LEAVE: {
       bg: 'bg-gradient-to-br from-purple-500/5 via-purple-500/2 to-transparent',
       border: 'border-purple-200',
       text: 'text-purple-600',
       gradient: 'from-purple-500 to-purple-600'
     },
-    LATE: { 
+    LATE: {
       bg: 'bg-gradient-to-br from-amber-500/5 via-amber-500/2 to-transparent',
       border: 'border-amber-200',
       text: 'text-amber-600',
@@ -259,16 +259,14 @@ const StatCard = ({ icon, title, value, color, onClick, category, isActive }) =>
       whileHover={{ scale: 1.03, y: -4 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-xl p-5 cursor-pointer transition-all duration-300 ${
-        isActive ? 'ring-2 ring-offset-2' : ''
-      } ${config.bg} border ${config.border} ${
-        isActive ? `ring-${category === 'WORKING' ? 'blue' : category === 'COMPLETED' ? 'emerald' : category === 'NOT_LOGGED_IN' ? 'slate' : category === 'ON_LEAVE' ? 'purple' : 'amber'}-500/30` : ''
-      }`}
+      className={`relative overflow-hidden rounded-xl p-5 cursor-pointer transition-all duration-300 ${isActive ? 'ring-2 ring-offset-2' : ''
+        } ${config.bg} border ${config.border} ${isActive ? `ring-${category === 'WORKING' ? 'blue' : category === 'COMPLETED' ? 'emerald' : category === 'NOT_LOGGED_IN' ? 'slate' : category === 'ON_LEAVE' ? 'purple' : 'amber'}-500/30` : ''
+        }`}
     >
       <div className="absolute top-0 right-0 w-20 h-20 -mr-4 -mt-4 opacity-10">
         <div className={`w-full h-full bg-gradient-to-br ${config.gradient} rounded-full`}></div>
       </div>
-      
+
       <div className="relative z-10">
         <div className="flex items-start justify-between">
           <div>
@@ -278,8 +276,8 @@ const StatCard = ({ icon, title, value, color, onClick, category, isActive }) =>
             </p>
           </div>
           <div className={`p-2.5 rounded-lg ${config.bg}`}>
-            {React.cloneElement(icon, { 
-              className: `text-lg ${config.text}` 
+            {React.cloneElement(icon, {
+              className: `text-lg ${config.text}`
             })}
           </div>
         </div>
@@ -290,7 +288,7 @@ const StatCard = ({ icon, title, value, color, onClick, category, isActive }) =>
 
 const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
   if (!isOpen) return null;
-  
+
   const isDisabled = !phoneNumber;
 
   const handleNormalCall = () => {
@@ -342,7 +340,7 @@ const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
             </button>
           </div>
         </div>
-        
+
         <div className="p-5">
           <div className="text-center mb-5">
             <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -354,7 +352,7 @@ const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
               {phoneNumber || 'No phone number linked'}
             </p>
           </div>
-          
+
           <div className="space-y-2.5">
             <motion.button
               whileHover={{ scale: isDisabled ? 1 : 1.01 }}
@@ -367,19 +365,19 @@ const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
               <FaPhoneAlt className="text-base" />
               Make Phone Call
             </motion.button>
-            
+
             <motion.button
               whileHover={{ scale: isDisabled ? 1 : 1.01 }}
               whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={handleWhatsAppCall}
               disabled={isDisabled}
-               className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
                 ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
             >
               <FaWhatsapp className="text-base" />
               WhatsApp Call
             </motion.button>
-            
+
             <motion.button
               whileHover={{ scale: isDisabled ? 1 : 1.01 }}
               whileTap={{ scale: isDisabled ? 1 : 0.99 }}
@@ -408,7 +406,7 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
     if (!phoneNumber) return;
     let url = '';
     const encodedMessage = encodeURIComponent(message);
-    
+
     if (platform === 'whatsapp') {
       url = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;
       window.open(url, '_blank');
@@ -416,7 +414,7 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
       url = `sms:${phoneNumber}?body=${encodedMessage}`;
       window.open(url, '_self');
     }
-    
+
     onClose();
   };
 
@@ -449,12 +447,12 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
             </button>
           </div>
         </div>
-        
+
         <div className="p-5">
           {!phoneNumber && (
-             <div className="mb-4 bg-red-50 text-red-600 px-3 py-2 rounded text-sm text-center font-medium">
-               ⚠️ This employee has no phone number linked.
-             </div>
+            <div className="mb-4 bg-red-50 text-red-600 px-3 py-2 rounded text-sm text-center font-medium">
+              ⚠️ This employee has no phone number linked.
+            </div>
           )}
 
           <div className="mb-5">
@@ -471,20 +469,20 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
               {message.length} characters
             </div>
           </div>
-          
+
           <div className="space-y-2.5">
             <motion.button
               whileHover={{ scale: isDisabled ? 1 : 1.01 }}
               whileTap={{ scale: isDisabled ? 1 : 0.99 }}
               onClick={() => handleSendMessage('whatsapp')}
               disabled={isDisabled}
-               className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
                 ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
             >
               <FaWhatsapp className="text-base" />
               Send via WhatsApp
             </motion.button>
-            
+
             <motion.button
               whileHover={{ scale: isDisabled ? 1 : 1.01 }}
               whileTap={{ scale: isDisabled ? 1 : 0.99 }}
@@ -532,15 +530,15 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
       <div className="p-4 flex-grow">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
-            <div 
+            <div
               className="relative cursor-pointer group"
               onClick={() => onImageClick(profilePic)}
             >
               <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 shadow-sm relative">
                 {profilePic ? (
-                  <img 
-                    src={profilePic} 
-                    alt={employee.employeeName} 
+                  <img
+                    src={profilePic}
+                    alt={employee.employeeName}
                     className="w-full h-full object-cover"
                   />
                 ) : (
@@ -557,7 +555,7 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
                 )}
               </div>
             </div>
-            
+
             <div className="overflow-hidden">
               <h3 className="font-semibold text-slate-900 text-base truncate flex items-center gap-2" title={employee.employeeName}>
                 {employee.employeeName}
@@ -579,10 +577,10 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
               </div>
             </div>
           </div>
-          
+
           <div className="relative">
             {/* ✅ FIXED: REMOVED CHECK FOR PHONE NUMBER SO ICON ALWAYS SHOWS */}
-            <button 
+            <button
               onClick={toggleDropdown}
               className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 transition-colors"
             >
@@ -623,18 +621,18 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
             </AnimatePresence>
           </div>
         </div>
-        
+
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Status</span>
             <StatusBadge status={category} />
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Login Status</span>
             <LoginStatusBadge status={employee.loginStatus?.status || "--"} />
           </div>
-          
+
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Time Today</span>
             <div className="text-right">
@@ -654,14 +652,14 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
               )}
             </div>
           </div>
-          
+
           {category === 'WORKING' && (
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-500">Duration</span>
               <LiveTimer startTime={employee.punchIn} />
             </div>
           )}
-          
+
           {employee.isOnLeave && (
             <div className="bg-purple-50 rounded-md p-2.5 border border-purple-100">
               <div className="text-xs font-medium text-purple-800">{employee.leaveType}</div>
@@ -691,7 +689,7 @@ const TableView = ({ data, onImageClick, onCallClick, onMessageClick }) => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Punch In / Out
               </th>
-               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Duration / Notes
               </th>
               <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -704,23 +702,23 @@ const TableView = ({ data, onImageClick, onCallClick, onMessageClick }) => {
               <tr key={employee.employeeId || idx} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
-                      <div 
-                        className="flex-shrink-0 h-10 w-10 cursor-pointer relative"
-                        onClick={() => onImageClick(employee.profilePic)}
-                      >
-                        {employee.profilePic ? (
-                          <img className="h-10 w-10 rounded-full object-cover border border-slate-200" src={employee.profilePic} alt="" />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-medium">
-                            {(employee.employeeName || "U").charAt(0)}
-                          </div>
-                        )}
-                        {employee.isPendingResignation && (
-                          <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 border border-white rounded-full flex items-center justify-center animate-pulse shadow-sm">
-                            <span className="text-[7px] text-white font-bold">!</span>
-                          </div>
-                        )}
-                      </div>
+                    <div
+                      className="flex-shrink-0 h-10 w-10 cursor-pointer relative"
+                      onClick={() => onImageClick(employee.profilePic)}
+                    >
+                      {employee.profilePic ? (
+                        <img className="h-10 w-10 rounded-full object-cover border border-slate-200" src={employee.profilePic} alt="" />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-medium">
+                          {(employee.employeeName || "U").charAt(0)}
+                        </div>
+                      )}
+                      {employee.isPendingResignation && (
+                        <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 border border-white rounded-full flex items-center justify-center animate-pulse shadow-sm">
+                          <span className="text-[7px] text-white font-bold">!</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-slate-900 flex items-center gap-2">
                         {employee.employeeName}
@@ -757,35 +755,35 @@ const TableView = ({ data, onImageClick, onCallClick, onMessageClick }) => {
                   )}
                 </td>
                 <td className="px-6 py-4">
-                   {employee.category === 'WORKING' ? (
-                     <LiveTimer startTime={employee.punchIn} />
-                   ) : employee.isOnLeave ? (
-                     <div className="text-xs">
-                        <span className="font-medium text-purple-700 block">{employee.leaveType}</span>
-                        <span className="text-slate-500 truncate max-w-[150px] block" title={employee.reason}>"{employee.reason}"</span>
-                     </div>
-                   ) : (
-                     <span className="text-sm text-slate-400">--</span>
-                   )}
+                  {employee.category === 'WORKING' ? (
+                    <LiveTimer startTime={employee.punchIn} />
+                  ) : employee.isOnLeave ? (
+                    <div className="text-xs">
+                      <span className="font-medium text-purple-700 block">{employee.leaveType}</span>
+                      <span className="text-slate-500 truncate max-w-[150px] block" title={employee.reason}>"{employee.reason}"</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-slate-400">--</span>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {/* ✅ FIXED: REMOVED CHECK FOR PHONE NUMBER */}
-                    <div className="flex items-center justify-end gap-2">
-                       <button 
-                        onClick={() => onCallClick(employee)}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                        title="Call"
-                       >
-                         <FaPhoneAlt size={14} />
-                       </button>
-                       <button 
-                        onClick={() => onMessageClick(employee)}
-                        className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
-                        title="Message"
-                       >
-                         <FaComment size={14} />
-                       </button>
-                    </div>
+                  {/* ✅ FIXED: REMOVED CHECK FOR PHONE NUMBER */}
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => onCallClick(employee)}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                      title="Call"
+                    >
+                      <FaPhoneAlt size={14} />
+                    </button>
+                    <button
+                      onClick={() => onMessageClick(employee)}
+                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                      title="Message"
+                    >
+                      <FaComment size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -807,13 +805,13 @@ const TodayOverview = () => {
   const [shiftsMap, setShiftsMap] = useState({});
   const [employeeImages, setEmployeeImages] = useState({});
   const [loading, setLoading] = useState(false);
-  
+
   // Filters & UI State
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("card"); // 'card' or 'table'
   const [filterType, setFilterType] = useState("WORKING"); // Default "Working"
   const [departmentFilter, setDepartmentFilter] = useState("All");
-  
+
   // Modals
   const [previewImage, setPreviewImage] = useState(null);
   const [callModal, setCallModal] = useState({ isOpen: false, employee: null });
@@ -823,11 +821,11 @@ const TodayOverview = () => {
   // Optimized data fetch
   const fetchAllData = useCallback(async () => {
     if (loading) return;
-    
+
     setLoading(true);
     try {
       const today = new Date().toISOString().split("T")[0];
-      
+
       const [
         attendanceRes,
         leaveRes,
@@ -860,15 +858,14 @@ const TodayOverview = () => {
     }
   }, [loading]);
 
-  // Fetch employee details
   useEffect(() => {
     const fetchEmployeeDetails = async () => {
       if (allEmployees.length === 0) return;
-      
+
       const newImages = {};
       const newPhoneNumbers = {};
       const employeesToProcess = allEmployees.slice(0, 20);
-      
+
       await Promise.all(
         employeesToProcess.map(async (emp) => {
           const empId = emp.employeeId;
@@ -881,15 +878,59 @@ const TodayOverview = () => {
             if (res?.data?.phone) {
               newPhoneNumbers[empId] = res.data.phone;
             }
-          } catch (err) {}
+          } catch (err) { }
         })
       );
-      
+
       if (Object.keys(newImages).length > 0) setEmployeeImages(prev => ({ ...prev, ...newImages }));
       if (Object.keys(newPhoneNumbers).length > 0) setEmployeePhoneNumbers(prev => ({ ...prev, ...newPhoneNumbers }));
     };
-    
+
     if (allEmployees.length > 0) fetchEmployeeDetails();
+  }, [allEmployees]);
+
+  // Debug useEffect - check phone numbers in employee data
+  useEffect(() => {
+    if (allEmployees.length > 0) {
+      console.log("=== DEBUG: Employee Phone Numbers ===");
+      allEmployees.forEach(emp => {
+        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
+        console.log(`  emp.phone: ${emp.phone}`);
+        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
+        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
+        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
+        console.log("---");
+      });
+    }
+  }, [allEmployees]);
+
+  // Debug useEffect - Moved OUTSIDE the previous useEffect
+  useEffect(() => {
+    if (allEmployees.length > 0) {
+      console.log("=== DEBUG: Employee Phone Numbers ===");
+      allEmployees.forEach(emp => {
+        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
+        console.log(`  emp.phone: ${emp.phone}`);
+        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
+        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
+        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
+        console.log("---");
+      });
+    }
+  }, [allEmployees]);
+
+  useEffect(() => {
+    if (allEmployees.length > 0) {
+      console.log("=== DEBUG: Employee Phone Numbers ===");
+      allEmployees.forEach(emp => {
+        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
+        console.log(`  emp.phone: ${emp.phone}`);
+        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
+        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
+        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
+        console.log("---");
+      });
+    }
   }, [allEmployees]);
 
   // Initial data fetch
@@ -897,7 +938,30 @@ const TodayOverview = () => {
     fetchAllData();
   }, []);
 
-  // 1. Consolidate Raw Data
+  // In the allDailyData useMemo, add these variables at the beginning:
+
+  const attendanceWithDetails = attendanceData.map(item => {
+    const shift = shiftsMap[item.employeeId];
+    const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
+    const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
+    const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
+    const isPendingResignation = resignationData.some(r => r.employeeId === item.employeeId && r.status === "Pending");
+
+    return {
+      ...item,
+      employeeName: realName,
+      department,
+      category: !item.punchIn ? 'NOT_LOGGED_IN' : (item.punchIn && !item.punchOut ? 'WORKING' : 'COMPLETED'),
+      isOnLeave: false,
+      loginStatus,
+      profilePic: employeeImages[item.employeeId],
+      phoneNumber: employeePhoneNumbers[item.employeeId] || null,
+      isPendingResignation
+    };
+  });
+  // In the allDailyData useMemo, update to include phone directly from employee object:
+  // Update the allDailyData useMemo to check multiple phone number locations:
+
   const allDailyData = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     const empNameMap = allEmployees.reduce((acc, emp) => {
@@ -905,13 +969,46 @@ const TodayOverview = () => {
       return acc;
     }, {});
 
+    // ✅ FIX: Check multiple possible phone number locations in employee data
+    const empPhoneMap = allEmployees.reduce((acc, emp) => {
+      let phoneNumber = null;
+
+      // Check all possible locations for phone number (same as EmployeeProfile)
+      if (emp.phone) {
+        phoneNumber = emp.phone;
+      } else if (emp.phoneNumber) {
+        phoneNumber = emp.phoneNumber;
+      } else if (emp.personalDetails?.phone) {
+        phoneNumber = emp.personalDetails.phone;
+      } else if (emp.personalDetails?.phoneNumber) {
+        phoneNumber = emp.personalDetails.phoneNumber;
+      }
+
+      if (emp.employeeId && phoneNumber) {
+        acc[emp.employeeId] = phoneNumber;
+      }
+      return acc;
+    }, {});
+
+    // Define active employee IDs
+    const activeEmployeeIds = new Set(allEmployees.filter(e => e.isActive !== false).map(e => e.employeeId));
+    const presentIds = new Set(attendanceData.map(att => att.employeeId));
+    const onLeaveIds = new Set(
+      leaveData.filter(leave => {
+        if (leave.status !== 'Approved') return false;
+        return today >= leave.from && today <= leave.to;
+      }).map(l => l.employeeId)
+    );
+
     const attendanceWithDetails = attendanceData.map(item => {
       const shift = shiftsMap[item.employeeId];
       const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
       const department = allEmployees.find(e => e.employeeId === item.employeeId)?.experienceDetails?.[0]?.department || 'Unassigned';
       const loginStatus = calculateLoginStatus(item.punchIn, shift, item.loginStatus);
-      const isPendingResignation = resignationData.some(r => r.employeeId === item.employeeId && r.status === "Pending");
-      
+
+      // ✅ FIX: Check both empPhoneMap AND employeePhoneNumbers state
+      const phoneNumber = empPhoneMap[item.employeeId] || employeePhoneNumbers[item.employeeId] || null;
+
       return {
         ...item,
         employeeName: realName,
@@ -920,18 +1017,17 @@ const TodayOverview = () => {
         isOnLeave: false,
         loginStatus,
         profilePic: employeeImages[item.employeeId],
-        phoneNumber: employeePhoneNumbers[item.employeeId] || null,
-        isPendingResignation
+        phoneNumber: phoneNumber
       };
     });
-
-    const activeEmployeeIds = new Set(allEmployees.filter(e => e.isActive !== false).map(e => e.employeeId));
 
     const onLeaveToday = leaveData.filter(leave => {
       if (leave.status !== 'Approved') return false;
       return today >= leave.from && today <= leave.to;
     }).map(leave => {
       const emp = allEmployees.find(e => e.employeeId === leave.employeeId);
+      const phoneNumber = empPhoneMap[leave.employeeId] || employeePhoneNumbers[leave.employeeId] || null;
+
       return {
         employeeId: leave.employeeId,
         employeeName: empNameMap[leave.employeeId] || leave.employeeName || leave.employeeId,
@@ -944,14 +1040,34 @@ const TodayOverview = () => {
         punchOut: null,
         loginStatus: { status: "--", isLate: false },
         profilePic: employeeImages[leave.employeeId],
-        phoneNumber: employeePhoneNumbers[leave.employeeId] || null,
-        isPendingResignation: resignationData.some(r => r.employeeId === leave.employeeId && r.status === "Pending")
+        phoneNumber: phoneNumber
       };
     });
 
+    const notLoggedIn = Array.from(activeEmployeeIds)
+      .filter(id => !presentIds.has(id) && !onLeaveIds.has(id))
+      .map(id => {
+        const emp = allEmployees.find(e => e.employeeId === id);
+        const phoneNumber = empPhoneMap[id] || employeePhoneNumbers[id] || null;
+
+        return {
+          employeeId: id,
+          employeeName: empNameMap[id] || id,
+          category: 'NOT_LOGGED_IN',
+          isOnLeave: false,
+          department: emp?.experienceDetails?.[0]?.department || 'Unassigned',
+          punchIn: null,
+          punchOut: null,
+          loginStatus: { status: "--", isLate: false },
+          profilePic: employeeImages[leave.employeeId],
+          phoneNumber: employeePhoneNumbers[leave.employeeId] || null,
+          isPendingResignation: resignationData.some(r => r.employeeId === leave.employeeId && r.status === "Pending")
+        };
+      });
+
     const presentIds = new Set(attendanceData.map(att => att.employeeId));
     const onLeaveIds = new Set(onLeaveToday.map(l => l.employeeId));
-    
+
     const notLoggedIn = Array.from(activeEmployeeIds)
       .filter(id => !presentIds.has(id) && !onLeaveIds.has(id))
       .map(id => {
@@ -973,383 +1089,389 @@ const TodayOverview = () => {
 
     return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
   }, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers, resignationData]);
+  profilePic: employeeImages[id],
+    phoneNumber: phoneNumber
+};
+    });
 
-  // 2. Department Filter Data (Source for Stats)
-  const departmentFilteredData = useMemo(() => {
-    if (departmentFilter === "All") {
-      return allDailyData;
+return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
+}, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers]); // ✅ Added employeePhoneNumbers to dependencies
+
+// 2. Department Filter Data (Source for Stats)
+const departmentFilteredData = useMemo(() => {
+  if (departmentFilter === "All") {
+    return allDailyData;
+  }
+  return allDailyData.filter(item => item.department === departmentFilter);
+}, [allDailyData, departmentFilter]);
+
+// 3. Calculate Stats (Counts) based on Department Data
+const stats = useMemo(() => {
+  // This uses departmentFilteredData so counts don't go to zero when 'Late' or 'Working' is selected
+  const baseData = departmentFilteredData;
+
+  return {
+    working: baseData.filter(item => item.category === 'WORKING').length,
+    completed: baseData.filter(item => item.category === 'COMPLETED').length,
+    notLoggedIn: baseData.filter(item => item.category === 'NOT_LOGGED_IN').length,
+    onLeave: baseData.filter(item => item.category === 'ON_LEAVE').length,
+    late: baseData.filter(item => item.loginStatus?.isLate === true).length,
+    total: baseData.length
+  };
+}, [departmentFilteredData]);
+
+// 4. Final Display Data (Filtered by Dropdown Selection + Search)
+const finalDisplayData = useMemo(() => {
+  let filtered = departmentFilteredData;
+
+  // Apply Dropdown Filter
+  if (filterType !== 'ALL') {
+    if (filterType === 'LATE') {
+      filtered = filtered.filter(item => item.loginStatus?.isLate === true);
+    } else {
+      filtered = filtered.filter(item => item.category === filterType);
     }
-    return allDailyData.filter(item => item.department === departmentFilter);
-  }, [allDailyData, departmentFilter]);
+  }
 
-  // 3. Calculate Stats (Counts) based on Department Data
-  const stats = useMemo(() => {
-    // This uses departmentFilteredData so counts don't go to zero when 'Late' or 'Working' is selected
-    const baseData = departmentFilteredData;
-    
-    return {
-      working: baseData.filter(item => item.category === 'WORKING').length,
-      completed: baseData.filter(item => item.category === 'COMPLETED').length,
-      notLoggedIn: baseData.filter(item => item.category === 'NOT_LOGGED_IN').length,
-      onLeave: baseData.filter(item => item.category === 'ON_LEAVE').length,
-      late: baseData.filter(item => item.loginStatus?.isLate === true).length,
-      total: baseData.length
-    };
-  }, [departmentFilteredData]);
+  // Apply Search
+  if (searchTerm) {
+    const lowerTerm = searchTerm.toLowerCase();
+    filtered = filtered.filter(item =>
+      item.employeeName.toLowerCase().includes(lowerTerm) ||
+      item.employeeId.toLowerCase().includes(lowerTerm) ||
+      item.department.toLowerCase().includes(lowerTerm) ||
+      (item.phoneNumber && item.phoneNumber.includes(searchTerm))
+    );
+  }
 
-  // 4. Final Display Data (Filtered by Dropdown Selection + Search)
-  const finalDisplayData = useMemo(() => {
-    let filtered = departmentFilteredData;
+  return filtered;
+}, [departmentFilteredData, filterType, searchTerm]);
 
-    // Apply Dropdown Filter
-    if (filterType !== 'ALL') {
-        if (filterType === 'LATE') {
-            filtered = filtered.filter(item => item.loginStatus?.isLate === true);
-        } else {
-            filtered = filtered.filter(item => item.category === filterType);
-        }
-    }
+// Summary Metrics
+const summaryMetrics = useMemo(() => {
+  const total = departmentFilteredData.length;
+  const working = departmentFilteredData.filter(i => i.category === 'WORKING').length;
+  const completed = departmentFilteredData.filter(i => i.category === 'COMPLETED').length;
+  const late = departmentFilteredData.filter(i => i.loginStatus?.isLate === true).length;
+  const withPhone = departmentFilteredData.filter(i => i.phoneNumber).length;
 
-    // Apply Search
-    if (searchTerm) {
-      const lowerTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(item => 
-        item.employeeName.toLowerCase().includes(lowerTerm) ||
-        item.employeeId.toLowerCase().includes(lowerTerm) ||
-        item.department.toLowerCase().includes(lowerTerm) ||
-        (item.phoneNumber && item.phoneNumber.includes(searchTerm))
-      );
-    }
+  return {
+    total,
+    present: working + completed,
+    late,
+    withPhone,
+    attendanceRate: total > 0 ? Math.round(((working + completed) / total) * 100) : 0
+  };
+}, [departmentFilteredData]);
 
-    return filtered;
-  }, [departmentFilteredData, filterType, searchTerm]);
+const departments = useMemo(() => {
+  const depts = allDailyData.map(item => item.department).filter(Boolean);
+  return ['All', ...new Set(depts)];
+}, [allDailyData]);
 
-  // Summary Metrics
-  const summaryMetrics = useMemo(() => {
-    const total = departmentFilteredData.length;
-    const working = departmentFilteredData.filter(i => i.category === 'WORKING').length;
-    const completed = departmentFilteredData.filter(i => i.category === 'COMPLETED').length;
-    const late = departmentFilteredData.filter(i => i.loginStatus?.isLate === true).length;
-    const withPhone = departmentFilteredData.filter(i => i.phoneNumber).length;
-    
-    return {
-      total,
-      present: working + completed,
-      late,
-      withPhone,
-      attendanceRate: total > 0 ? Math.round(((working + completed) / total) * 100) : 0
-    };
-  }, [departmentFilteredData]);
+// Handlers
+const handleCallClick = (employee) => setCallModal({ isOpen: true, employee });
+const handleMessageClick = (employee) => setMessageModal({ isOpen: true, employee });
 
-  const departments = useMemo(() => {
-    const depts = allDailyData.map(item => item.department).filter(Boolean);
-    return ['All', ...new Set(depts)];
-  }, [allDailyData]);
+// Auto-refresh
+useEffect(() => {
+  const interval = setInterval(() => fetchAllData(), 180000); // 3 min
+  return () => clearInterval(interval);
+}, [fetchAllData]);
 
-  // Handlers
-  const handleCallClick = (employee) => setCallModal({ isOpen: true, employee });
-  const handleMessageClick = (employee) => setMessageModal({ isOpen: true, employee });
-
-  // Auto-refresh
-  useEffect(() => {
-    const interval = setInterval(() => fetchAllData(), 180000); // 3 min
-    return () => clearInterval(interval);
-  }, [fetchAllData]);
-
-  return (
-    <div className="min-h-screen ">
-      {/* Header */}
-      <div className="z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl max-w-7xl mx-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between h-auto sm:h-20 py-4 sm:py-0 gap-4 sm:gap-0">
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <div className="p-2 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg shadow">
-                <FaCalendarDay className="text-white text-xl" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-slate-900">
-                  Today's Overview
-                </h1>
-                <p className="text-sm text-slate-500 flex items-center gap-1.5">
-                  <span>{formatDateDMY(new Date())}</span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-medium">Live Updates</span>
-                </p>
-              </div>
+return (
+  <div className="min-h-screen ">
+    {/* Header */}
+    <div className="z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between h-auto sm:h-20 py-4 sm:py-0 gap-4 sm:gap-0">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="p-2 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg shadow">
+              <FaCalendarDay className="text-white text-xl" />
             </div>
-            
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
-              <div className="relative flex-grow sm:flex-grow-0">
-                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-56 text-sm shadow-sm"
-                />
-              </div>
-              
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={fetchAllData}
-                disabled={loading}
-                className={`px-3.5 py-2.5 font-medium rounded-lg transition-all text-sm flex items-center gap-1.5 whitespace-nowrap ${
-                  loading 
-                    ? 'bg-slate-300 text-slate-700 cursor-not-allowed' 
-                    : 'bg-slate-800 text-white hover:bg-slate-900'
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900">
+                Today's Overview
+              </h1>
+              <p className="text-sm text-slate-500 flex items-center gap-1.5">
+                <span>{formatDateDMY(new Date())}</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="font-medium">Live Updates</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
+            <div className="relative flex-grow sm:flex-grow-0">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-56 text-sm shadow-sm"
+              />
+            </div>
+
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={fetchAllData}
+              disabled={loading}
+              className={`px-3.5 py-2.5 font-medium rounded-lg transition-all text-sm flex items-center gap-1.5 whitespace-nowrap ${loading
+                  ? 'bg-slate-300 text-slate-700 cursor-not-allowed'
+                  : 'bg-slate-800 text-white hover:bg-slate-900'
                 }`}
-              >
-                {loading ? 'Refreshing...' : 'Refresh'}
-              </motion.button>
-            </div>
+            >
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </motion.button>
           </div>
         </div>
       </div>
+    </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Stats Grid - Counts won't reset to zero when filtering */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl p-4">
-          <StatCard
-            icon={<FaClock />}
-            title="Working"
-            value={stats.working}
-            category="WORKING"
-            isActive={filterType === 'WORKING'}
-            onClick={() => setFilterType('WORKING')}
-          />
-          <StatCard
-            icon={<FaCheckCircle />}
-            title="Completed"
-            value={stats.completed}
-            category="COMPLETED"
-            isActive={filterType === 'COMPLETED'}
-            onClick={() => setFilterType('COMPLETED')}
-          />
-          <StatCard
-            icon={<FaUserSlash />}
-            title="LOGIN REQUIRED"
-            value={stats.notLoggedIn}
-            category="NOT_LOGGED_IN"
-            isActive={filterType === 'NOT_LOGGED_IN'}
-            onClick={() => setFilterType('NOT_LOGGED_IN')}
-          />
-          <StatCard
-            icon={<FaCalendarAlt />}
-            title="On Leave"
-            value={stats.onLeave}
-            category="ON_LEAVE"
-            isActive={filterType === 'ON_LEAVE'}
-            onClick={() => setFilterType('ON_LEAVE')}
-          />
-          <StatCard
-            icon={<FaUserClock />}
-            title="Late"
-            value={stats.late}
-            category="LATE"
-            isActive={filterType === 'LATE'}
-            onClick={() => setFilterType('LATE')}
-          />
-        </div>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Stats Grid - Counts won't reset to zero when filtering */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl p-4">
+        <StatCard
+          icon={<FaClock />}
+          title="Working"
+          value={stats.working}
+          category="WORKING"
+          isActive={filterType === 'WORKING'}
+          onClick={() => setFilterType('WORKING')}
+        />
+        <StatCard
+          icon={<FaCheckCircle />}
+          title="Completed"
+          value={stats.completed}
+          category="COMPLETED"
+          isActive={filterType === 'COMPLETED'}
+          onClick={() => setFilterType('COMPLETED')}
+        />
+        <StatCard
+          icon={<FaUserSlash />}
+          title="LOGIN REQUIRED"
+          value={stats.notLoggedIn}
+          category="NOT_LOGGED_IN"
+          isActive={filterType === 'NOT_LOGGED_IN'}
+          onClick={() => setFilterType('NOT_LOGGED_IN')}
+        />
+        <StatCard
+          icon={<FaCalendarAlt />}
+          title="On Leave"
+          value={stats.onLeave}
+          category="ON_LEAVE"
+          isActive={filterType === 'ON_LEAVE'}
+          onClick={() => setFilterType('ON_LEAVE')}
+        />
+        <StatCard
+          icon={<FaUserClock />}
+          title="Late"
+          value={stats.late}
+          category="LATE"
+          isActive={filterType === 'LATE'}
+          onClick={() => setFilterType('LATE')}
+        />
+      </div>
 
-        {/* Controls Bar */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            
-            {/* Filter Group */}
-            <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-              {/* Layout Dropdown */}
-              <div className="flex items-center gap-2">
-                 <span className="text-sm font-medium text-slate-700">Layout:</span>
-                 <div className="relative">
-                    <select
-                        value={viewMode}
-                        onChange={(e) => setViewMode(e.target.value)}
-                        className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
-                    >
-                        <option value="card">Cards View</option>
-                        <option value="table">Table View</option>
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                         {viewMode === 'card' ? <FaThLarge className="text-slate-500 text-xs"/> : <FaList className="text-slate-500 text-xs"/>}
-                    </div>
-                 </div>
-              </div>
+      {/* Controls Bar */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 
-              {/* Status Filter Dropdown */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-700">Filter Status:</span>
-                <div className="relative">
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
-                    >
-                        <option value="ALL">All Employees</option>
-                        <option value="WORKING">Working</option>
-                        <option value="COMPLETED">Completed</option>
-                        <option value="NOT_LOGGED_IN">LOGIN REQUIRED</option>
-                        <option value="ON_LEAVE">On Leave</option>
-                        <option value="LATE">Late</option>
-                    </select>
-                     <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                         <FaFilter className="text-slate-500 text-xs"/>
-                    </div>
+          {/* Filter Group */}
+          <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+            {/* Layout Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">Layout:</span>
+              <div className="relative">
+                <select
+                  value={viewMode}
+                  onChange={(e) => setViewMode(e.target.value)}
+                  className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
+                >
+                  <option value="card">Cards View</option>
+                  <option value="table">Table View</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  {viewMode === 'card' ? <FaThLarge className="text-slate-500 text-xs" /> : <FaList className="text-slate-500 text-xs" />}
                 </div>
               </div>
             </div>
 
-            {/* Department Filter */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <span className="text-sm font-medium text-slate-700">Dept:</span>
-              <select
-                value={departmentFilter}
-                onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2.5"
-              >
-                {departments.map(dept => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
+            {/* Status Filter Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-slate-700">Filter Status:</span>
+              <div className="relative">
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
+                >
+                  <option value="ALL">All Employees</option>
+                  <option value="WORKING">Working</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="NOT_LOGGED_IN">LOGIN REQUIRED</option>
+                  <option value="ON_LEAVE">On Leave</option>
+                  <option value="LATE">Late</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <FaFilter className="text-slate-500 text-xs" />
+                </div>
+              </div>
             </div>
           </div>
-          
-          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
-             <span>Showing <strong>{finalDisplayData.length}</strong> results</span>
-             <span>Department Total: {departmentFilteredData.length}</span>
+
+          {/* Department Filter */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-sm font-medium text-slate-700">Dept:</span>
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2.5"
+            >
+              {departments.map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* Content Area (Card Grid or Table) */}
-        {loading && finalDisplayData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-600 text-sm">Loading employee data...</p>
+        <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
+          <span>Showing <strong>{finalDisplayData.length}</strong> results</span>
+          <span>Department Total: {departmentFilteredData.length}</span>
+        </div>
+      </div>
+
+      {/* Content Area (Card Grid or Table) */}
+      {loading && finalDisplayData.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-slate-600 text-sm">Loading employee data...</p>
+        </div>
+      ) : finalDisplayData.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="w-20 h-20 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FaCalendarDay className="text-slate-400 text-2xl" />
           </div>
-        ) : finalDisplayData.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-20 h-20 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FaCalendarDay className="text-slate-400 text-2xl" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-700 mb-2">No employees found</h3>
-            <p className="text-slate-500 text-sm">Try changing your filters</p>
+          <h3 className="text-lg font-semibold text-slate-700 mb-2">No employees found</h3>
+          <p className="text-slate-500 text-sm">Try changing your filters</p>
+        </div>
+      ) : (
+        viewMode === 'card' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {finalDisplayData.map((employee, idx) => (
+              <EmployeeCard
+                key={employee.employeeId || idx}
+                employee={employee}
+                category={employee.category}
+                onImageClick={setPreviewImage}
+                onCallClick={handleCallClick}
+                onMessageClick={handleMessageClick}
+              />
+            ))}
           </div>
         ) : (
-          viewMode === 'card' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {finalDisplayData.map((employee, idx) => (
-                <EmployeeCard
-                  key={employee.employeeId || idx}
-                  employee={employee}
-                  category={employee.category}
-                  onImageClick={setPreviewImage}
-                  onCallClick={handleCallClick}
-                  onMessageClick={handleMessageClick}
-                />
-              ))}
-            </div>
-          ) : (
-            <TableView 
-               data={finalDisplayData} 
-               onImageClick={setPreviewImage}
-               onCallClick={handleCallClick}
-               onMessageClick={handleMessageClick}
-            />
-          )
-        )}
+          <TableView
+            data={finalDisplayData}
+            onImageClick={setPreviewImage}
+            onCallClick={handleCallClick}
+            onMessageClick={handleMessageClick}
+          />
+        )
+      )}
 
-        {/* Summary Footer */}
-        <div className="mt-10 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Department Summary</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-              <div className="text-sm font-medium text-slate-500 mb-1">Attendance Rate</div>
-              <div className="text-2xl font-semibold text-slate-900">
-                {summaryMetrics.attendanceRate}%
-              </div>
-              <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full"
-                  style={{ width: `${summaryMetrics.attendanceRate}%` }}
-                ></div>
-              </div>
+      {/* Summary Footer */}
+      <div className="mt-10 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Department Summary</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+            <div className="text-sm font-medium text-slate-500 mb-1">Attendance Rate</div>
+            <div className="text-2xl font-semibold text-slate-900">
+              {summaryMetrics.attendanceRate}%
             </div>
-            
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-              <div className="text-sm font-medium text-slate-500 mb-1">Active Employees</div>
-              <div className="text-2xl font-semibold text-slate-900">{summaryMetrics.present}</div>
-              <div className="mt-1 text-xs text-slate-600">Currently engaged</div>
-            </div>
-            
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-              <div className="text-sm font-medium text-slate-500 mb-1">Contactable</div>
-              <div className="text-2xl font-semibold text-blue-700">
-                {summaryMetrics.withPhone}
-              </div>
-              <div className="mt-1 text-xs text-slate-600">Employees with phone</div>
-            </div>
-            
-            <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-              <div className="text-sm font-medium text-slate-500 mb-1">Punctuality Issues</div>
-              <div className="text-2xl font-semibold text-amber-700">{summaryMetrics.late}</div>
-              <div className="mt-1 text-xs text-slate-600">Late arrivals</div>
+            <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full"
+                style={{ width: `${summaryMetrics.attendanceRate}%` }}
+              ></div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+            <div className="text-sm font-medium text-slate-500 mb-1">Active Employees</div>
+            <div className="text-2xl font-semibold text-slate-900">{summaryMetrics.present}</div>
+            <div className="mt-1 text-xs text-slate-600">Currently engaged</div>
+          </div>
+
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+            <div className="text-sm font-medium text-slate-500 mb-1">Contactable</div>
+            <div className="text-2xl font-semibold text-blue-700">
+              {summaryMetrics.withPhone}
+            </div>
+            <div className="mt-1 text-xs text-slate-600">Employees with phone</div>
+          </div>
+
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
+            <div className="text-sm font-medium text-slate-500 mb-1">Punctuality Issues</div>
+            <div className="text-2xl font-semibold text-amber-700">{summaryMetrics.late}</div>
+            <div className="mt-1 text-xs text-slate-600">Late arrivals</div>
+          </div>
         </div>
-      </main>
+      </div>
+    </main>
 
-      {/* Modals */}
-      <AnimatePresence>
-        {callModal.isOpen && (
-          <CallModal
-            isOpen={callModal.isOpen}
-            onClose={() => setCallModal({ isOpen: false, employee: null })}
-            employee={callModal.employee}
-            phoneNumber={employeePhoneNumbers[callModal.employee?.employeeId]}
-          />
-        )}
+    {/* Modals */}
+    <AnimatePresence>
+      {callModal.isOpen && (
+        <CallModal
+          isOpen={callModal.isOpen}
+          onClose={() => setCallModal({ isOpen: false, employee: null })}
+          employee={callModal.employee}
+          phoneNumber={callModal.employee?.phoneNumber}
+        />
+      )}
 
-        {messageModal.isOpen && (
-          <MessageModal
-            isOpen={messageModal.isOpen}
-            onClose={() => setMessageModal({ isOpen: false, employee: null })}
-            employee={messageModal.employee}
-            phoneNumber={employeePhoneNumbers[messageModal.employee?.employeeId]}
-          />
-        )}
+      {messageModal.isOpen && (
+        <MessageModal
+          isOpen={messageModal.isOpen}
+          onClose={() => setMessageModal({ isOpen: false, employee: null })}
+          employee={messageModal.employee}
+          phoneNumber={messageModal.employee?.phoneNumber}
+        />
+      )}
 
-        {previewImage && (
+      {previewImage && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setPreviewImage(null)}
+        >
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
-            onClick={() => setPreviewImage(null)}
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.9 }}
+            className="relative max-w-3xl max-h-[85vh]"
+            onClick={e => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="relative max-w-3xl max-h-[85vh]"
-              onClick={e => e.stopPropagation()}
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-slate-300 p-2"
             >
-              <button
-                onClick={() => setPreviewImage(null)}
-                className="absolute -top-10 right-0 text-white hover:text-slate-300 p-2"
-              >
-                <FaTimes size={20} />
-              </button>
-              <img
-                src={previewImage}
-                alt="Profile"
-                className="rounded-lg shadow-2xl max-w-full max-h-[85vh] object-contain"
-              />
-            </motion.div>
+              <FaTimes size={20} />
+            </button>
+            <img
+              src={previewImage}
+              alt="Profile"
+              className="rounded-lg shadow-2xl max-w-full max-h-[85vh] object-contain"
+            />
           </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
 };
 
 export default TodayOverview;
