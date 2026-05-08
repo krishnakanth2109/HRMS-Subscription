@@ -1,12 +1,12 @@
 {
   "name": "hrms-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "HRMS Backend",
   "main": "app.js",
   "type": "module",
   "scripts": {
     "start": "node app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "node --watch app.js"
   },
   "keywords": [],
   "author": "",
@@ -34,5 +34,8 @@
     "stripe": "^20.2.0",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
