@@ -1,7 +1,7 @@
 {
   "name": "hrms-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "HRMS Backend",
   "main": "app.js",
   "type": "module",
   "scripts": {
@@ -35,5 +35,8 @@
     "stripe": "^20.2.0",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
