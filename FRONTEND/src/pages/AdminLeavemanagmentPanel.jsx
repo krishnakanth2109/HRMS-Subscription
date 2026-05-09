@@ -504,17 +504,30 @@ const AdminLeavePanel = () => {
   useEffect(() => {
     const fetchImages = async () => {
       if (!leaveList.length) return;
-      const ids = [...new Set(leaveList.map((l) => l.employeeId))];
-      const newImages = {};
-      for (const empId of ids) {
-        if (empId && !employeeImages[empId]) {
-          try {
-            const res = await api.get(`/api/profile/${empId}`);
-            if (res.data?.profilePhoto?.url) newImages[empId] = getSecureUrl(res.data.profilePhoto.url);
-          } catch {}
+      
+      const idsToFetch = [...new Set(leaveList.map((l) => l.employeeId))]
+        .filter((id) => id && !employeeImages[id]);
+      
+      if (idsToFetch.length === 0) return;
+
+      try {
+        const res = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
+        const newImages = {};
+        
+        if (Array.isArray(res.data)) {
+          res.data.forEach((profile) => {
+            if (profile.profilePhoto?.url) {
+              newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url);
+            }
+          });
         }
+        
+        if (Object.keys(newImages).length > 0) {
+          setEmployeeImages((prev) => ({ ...prev, ...newImages }));
+        }
+      } catch (err) {
+        console.error("Error fetching bulk profiles:", err);
       }
-      if (Object.keys(newImages).length) setEmployeeImages((prev) => ({ ...prev, ...newImages }));
     };
     fetchImages();
   }, [leaveList]);

@@ -72,9 +72,9 @@ const DynamicHRMSLandingPage = () => {
         setSignupForm({ name: "", email: "", password: "", phone: "", role: "admin", department: "" });
         setShowRegisterModal(true);
     };
-const filteredPlans = plans.filter(
-  (plan) => plan.planName?.toLowerCase() !== "owner"
-);
+    const filteredPlans = plans.filter(
+        (plan) => plan.planName?.toLowerCase() !== "owner"
+    );
     const handleCloseModal = () => {
         setShowRegisterModal(false);
         setSelectedPlan(null);
@@ -173,12 +173,12 @@ const filteredPlans = plans.filter(
             {/* Navigation */}
             <nav className={` w-full z-40 py-4 px-4 md:px-8 ${themeClasses.navBg}`}>
                 <div className="container mx-auto flex justify-between items-center">
-       
-<img
-  src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
-  alt="vwsync logo"
-  className="h-14 md:h-16 object-contain"
-/>
+
+                    <img
+                        src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+                        alt="vwsync logo"
+                        className="h-14 md:h-16 object-contain"
+                    />
 
                     {/* Desktop Navigation */}
                     <div className="hidden md:flex space-x-8 text-sm font-medium">
@@ -304,14 +304,14 @@ const filteredPlans = plans.filter(
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
                         {[
-                          
-                                                        { icon: '👥', title: 'Employee Management', desc: 'Manage employee profiles, roles, and organizational structure efficiently.', color: 'indigo' },
+
+                            { icon: '👥', title: 'Employee Management', desc: 'Manage employee profiles, roles, and organizational structure efficiently.', color: 'indigo' },
                             { icon: '⏰', title: 'Attendance Management', desc: 'Biometric integration and real-time attendance tracking.', color: 'yellow' },
                             { icon: '📊', title: 'Performance Management', desc: 'Goal tracking, reviews, and performance analytics dashboard.', color: 'purple' },
-  { icon: '🗄️', title: 'Database Management', desc: 'Secure employee data storage with real-time sync and backup.', color: 'blue' },
+                            { icon: '🗄️', title: 'Database Management', desc: 'Secure employee data storage with real-time sync and backup.', color: 'blue' },
                             { icon: '📅', title: 'Leave Management', desc: 'Apply, approve, and track employee leaves with automated workflows.', color: 'red' },
                             { icon: '🔐', title: 'Access Control', desc: 'Role-based access to ensure data security and proper authorization.', color: 'pink' },
-                                                        { icon: '💰', title: 'Payroll Management', desc: 'Automated salary processing with tax compliance and reports.', color: 'green' },        
+                            { icon: '💰', title: 'Payroll Management', desc: 'Automated salary processing with tax compliance and reports.', color: 'green' },
                             { icon: '📈', title: 'Reports & Analytics', desc: 'Generate detailed reports and insights for better decision making.', color: 'teal' }
                         ].map((feature, i) => (
                             <div key={i} className={`${themeClasses.cardBg} p-4 md:p-6 rounded-2xl ${themeClasses.cardBorder} ${themeClasses.cardHover} transition-all group shadow-sm`}>
@@ -329,22 +329,22 @@ const filteredPlans = plans.filter(
             {/* Benefits Section */}
             <section id="benefits" className={`py-16 md:py-24 px-4 md:px-8 ${themeClasses.sectionAltBg}`}>
                 <div className="container mx-auto">
-                 <div className="text-center mb-12 md:mb-16">
-  
-  <h2 className={`flex items-center justify-center gap-3 text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 ${themeClasses.text}`}>
-    Why Choose
-    <img
-      src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
-      alt="vwsync logo"
-      className="h-12 md:h-20 object-contain"
-    />
-  </h2>
+                    <div className="text-center mb-12 md:mb-16">
 
-  <p className={`${themeClasses.textSecondary} max-w-2xl mx-auto text-sm md:text-base`}>
-    Discover the advantages that make us the preferred choice for modern businesses
-  </p>
+                        <h2 className={`flex items-center justify-center gap-3 text-2xl md:text-3xl lg:text-4xl font-bold mb-2 md:mb-4 ${themeClasses.text}`}>
+                            Why Choose
+                            <img
+                                src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+                                alt="vwsync logo"
+                                className="h-12 md:h-20 object-contain"
+                            />
+                        </h2>
 
-</div>
+                        <p className={`${themeClasses.textSecondary} max-w-2xl mx-auto text-sm md:text-base`}>
+                            Discover the advantages that make us the preferred choice for modern businesses
+                        </p>
+
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-5xl mx-auto">
                         {[
@@ -458,8 +458,18 @@ const filteredPlans = plans.filter(
                                         </div>
 
                                         <ul className="space-y-2 md:space-y-3 lg:space-y-4 mb-6 md:mb-8 lg:mb-10 flex-grow">
+                                            {/* Dedicated User Limit Line */}
+                                            <li className="flex items-start text-xs md:text-sm group">
+                                                <span className="text-blue-600 mr-2 md:mr-3 font-bold text-sm md:text-lg leading-none">✓</span>
+                                                <span className={`${themeClasses.textSecondary} group-hover:${themeClasses.text} transition-colors font-bold`}>
+                                                    {plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}
+                                                </span>
+                                            </li>
+
                                             {plan.features && plan.features.length > 0 ? (
-                                                plan.features.map((feature, fIdx) => (
+                                                plan.features
+                                                .filter(feature => feature !== "/admin/users-limit")
+                                                .map((feature, fIdx) => (
                                                     <li key={fIdx} className="flex items-start text-xs md:text-sm group">
                                                         <span className="text-blue-600 mr-2 md:mr-3 font-bold text-sm md:text-lg leading-none">✓</span>
                                                         <span className={`${themeClasses.textSecondary} group-hover:${themeClasses.text} transition-colors`}>
@@ -582,13 +592,13 @@ const filteredPlans = plans.filter(
                         {/* Brand Column */}
                         <div className="lg:col-span-2">
                             <div className="flex items-center space-x-2 mb-4 md:mb-6">
-                     
+
                                 <span className={`text-lg md:text-xl lg:text-2xl font-bold tracking-tight bg-gradient-to-r ${isDarkMode ? 'from-white to-gray-300' : 'from-gray-800 to-gray-600'} bg-clip-text text-transparent`}>
-                                <img
-  src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
-  alt="vwsync logo"
-  className="h-14 md:h-16 object-contain"
-/>
+                                    <img
+                                        src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+                                        alt="vwsync logo"
+                                        className="h-14 md:h-16 object-contain"
+                                    />
                                 </span>
                             </div>
                             <p className={`${themeClasses.textMuted} text-xs md:text-sm leading-relaxed mb-4 md:mb-6 max-w-md`}>
@@ -733,36 +743,36 @@ const filteredPlans = plans.filter(
                                         </div>
                                         <div className="space-y-2 md:space-y-3 max-h-60 md:max-h-none overflow-y-auto">
                                             {plans
-  .filter((plan) => plan.planName.toLowerCase() !== "owner")
-  .map((plan) => (
-                                                <button
-                                                    key={plan._id}
-                                                    type="button"
-                                                    onClick={() => setSelectedPlan(plan)}
-                                                    className={`w-full text-left p-2 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all ${selectedPlan?._id === plan._id
-                                                        ? 'border-blue-500 bg-blue-50'
-                                                        : `${isDarkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'} hover:border-blue-300 hover:bg-blue-50`
-                                                        }`}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-1 md:gap-2">
-                                                                <span className={`${themeClasses.text} font-bold capitalize text-xs md:text-sm`}>{plan.planName}</span>
-                                                                {selectedPlan?._id === plan._id && (
-                                                                    <FaCheckCircle className="text-blue-500 text-[8px] md:text-xs flex-shrink-0" />
-                                                                )}
+                                                .filter((plan) => plan.planName.toLowerCase() !== "owner")
+                                                .map((plan) => (
+                                                    <button
+                                                        key={plan._id}
+                                                        type="button"
+                                                        onClick={() => setSelectedPlan(plan)}
+                                                        className={`w-full text-left p-2 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all ${selectedPlan?._id === plan._id
+                                                            ? 'border-blue-500 bg-blue-50'
+                                                            : `${isDarkMode ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-white'} hover:border-blue-300 hover:bg-blue-50`
+                                                            }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-1 md:gap-2">
+                                                                    <span className={`${themeClasses.text} font-bold capitalize text-xs md:text-sm`}>{plan.planName}</span>
+                                                                    {selectedPlan?._id === plan._id && (
+                                                                        <FaCheckCircle className="text-blue-500 text-[8px] md:text-xs flex-shrink-0" />
+                                                                    )}
+                                                                </div>
+                                                                <p className={`${themeClasses.textMuted} text-[8px] md:text-[10px] mt-0.5 uppercase tracking-wide font-bold`}>
+                                                                    {plan.durationDays} days access
+                                                                </p>
                                                             </div>
-                                                            <p className={`${themeClasses.textMuted} text-[8px] md:text-[10px] mt-0.5 uppercase tracking-wide font-bold`}>
-                                                                {plan.durationDays} days access
-                                                            </p>
-                                                        </div>
-                                                        <div className="text-right flex-shrink-0 ml-1 md:ml-3">
-                                                            <div className="text-blue-600 font-black text-sm md:text-lg">
-                                                                {Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}
+                                                            <div className="text-right flex-shrink-0 ml-1 md:ml-3">
+                                                                <div className="text-blue-600 font-black text-sm md:text-lg">
+                                                                    {Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                    {/* Features preview
+                                                        {/* Features preview
                                                     {plan.features && plan.features.length > 0 && (
                                                         <div className="mt-1 md:mt-2 pt-1 md:pt-2 border-t border-gray-200 space-y-0.5">
                                                             {plan.features.slice(0, 2).map((f, i) => (
@@ -775,8 +785,8 @@ const filteredPlans = plans.filter(
                                                             )}
                                                         </div>
                                                     )} */}
-                                                </button>
-                                            ))}
+                                                    </button>
+                                                ))}
                                         </div>
                                     </div>
 

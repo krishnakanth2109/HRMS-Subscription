@@ -10,8 +10,38 @@ import InvitedEmployee from "../models/Invitedemployee.js";
 import { upload } from "../config/cloudinary.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
+import Admin from "../models/adminModel.js";
+import PlanSetting from "../models/planSettingModel.js";
 
 const router = express.Router();
+
+const checkUserLimit = async (adminId) => {
+  const admin = await Admin.findById(adminId);
+  if (!admin) return { allowed: true };
+
+  let maxUsers = null;
+  const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+  
+  if (planSetting && planSetting.maxUsers) {
+      maxUsers = planSetting.maxUsers;
+  } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase().includes('free')) {
+      // Fallback for free plans if no setting exists
+      const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
+      maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+  }
+
+  if (maxUsers !== null) {
+    const currentEmployeeCount = await Employee.countDocuments({ adminId });
+    if (currentEmployeeCount >= maxUsers) {
+      return {
+        allowed: false,
+        limit: maxUsers,
+        plan: admin.plan
+      };
+    }
+  }
+  return { allowed: true };
+}
 
 // Multer memory storage for onboarding (direct-to-cloudinary buffer uploads)
 const memoryUpload = multer({ storage: multer.memoryStorage() });
@@ -135,6 +165,12 @@ router.post(
       const adminId = company.adminId;
       if (!adminId) {
         return res.status(400).json({ error: "Company has no associated admin" });
+      }
+
+      // ── 3.5 Check Plan Limits ───────────────────────────────────
+      const limitCheck = await checkUserLimit(adminId);
+      if (!limitCheck.allowed) {
+        return res.status(403).json({ error: `User limit reached for your ${limitCheck.plan} plan (Max: ${limitCheck.limit} users). Please ask your admin to upgrade the plan.` });
       }
 
       // ── 4. Verify the employee was actually invited ───────────────
@@ -338,6 +374,11 @@ router.post(
 // CREATE employee → ADMIN ONLY
 router.post("/", protect, onlyAdmin, async (req, res) => {
   try {
+    const limitCheck = await checkUserLimit(req.user._id);
+    if (!limitCheck.allowed) {
+      return res.status(403).json({ error: `User limit reached for your ${limitCheck.plan} plan (Max: ${limitCheck.limit} users). Please upgrade your plan to add more users.` });
+    }
+
     if (req.body.company) {
       const company = await Company.findOne({
         _id: req.body.company,

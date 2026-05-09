@@ -907,18 +907,36 @@ const EmployeeManagement = () => {
   useEffect(() => {
     const fetchImages = async () => {
       if (employees.length === 0) return;
-      const newImages = {};
-      for (const emp of employees) {
-        if (!employeeImages[emp.employeeId]) {
-          try {
-            const res = await api.get(`/api/profile/${emp.employeeId}`);
-            if (res.data?.profilePhoto?.url) newImages[emp.employeeId] = getSecureUrl(res.data.profilePhoto.url);
-          } catch (err) { }
+      
+      // Filter out IDs we already have images for
+      const idsToFetch = employees
+        .map((emp) => emp.employeeId)
+        .filter((id) => id && !employeeImages[id]);
+      
+      if (idsToFetch.length === 0) return;
+
+      try {
+        // Use the new bulk fetch endpoint to get all profiles in one request
+        const res = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
+        const newImages = {};
+        
+        if (Array.isArray(res.data)) {
+          res.data.forEach((profile) => {
+            if (profile.profilePhoto?.url) {
+              newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url);
+            }
+          });
         }
+        
+        if (Object.keys(newImages).length > 0) {
+          setEmployeeImages((prev) => ({ ...prev, ...newImages }));
+        }
+      } catch (err) {
+        console.error("Error fetching bulk profiles:", err);
       }
-      if (Object.keys(newImages).length > 0) setEmployeeImages((prev) => ({ ...prev, ...newImages }));
     };
-    if (employees.length > 0) fetchImages();
+
+    fetchImages();
   }, [employees]);
 
   const handleDeactivateSubmit = async ({ endDate, reason }) => {

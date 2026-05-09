@@ -14,7 +14,8 @@ import {
     getAdminProfile ,
     updateAdminProfile,
     getAllFeatures,
-    getMyPlanFeatures
+    getMyPlanFeatures,
+    changeAdminPassword
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -37,5 +38,6 @@ router.patch("/login-access/admin/:adminId", toggleAdminLogin);
 router.patch("/login-access/employees/:adminId", toggleEmployeeLoginByAdmin);
 router.get("/all-features",      protect, getAllFeatures);   
 router.get("/my-plan-features",  protect, getMyPlanFeatures);
+router.patch("/change-password/:adminId", changeAdminPassword);
 
 export default router;

@@ -5,34 +5,37 @@ import Swal from "sweetalert2";
 
 // ⭐ HARDCODED FALLBACK — includes owner-exclusive routes at the bottom
 const FALLBACK_FEATURES = [
-  { label: "Dashboard",              route: "/admin/dashboard",         description: "Main dashboard overview with key metrics" },
-  { label: "Employee Management",    route: "/employees",               description: "Add, edit and manage all employee records" },
-  { label: "Employees Attendance",   route: "/attendance",              description: "View and manage employee attendance logs" },
-  { label: "Shift Management",       route: "/admin/settings",          description: "Configure and assign employee work shifts" },
-  { label: "Location Settings",      route: "/admin/shifttype",         description: "Manage geo-fencing and location-based settings" },
-  { label: "Leave Summary",          route: "/admin/leave-summary",     description: "Analytics and summary of all employee leaves" },
-  { label: "Holiday Calendar",       route: "/admin/holiday-calendar",  description: "Manage public and company holidays" },
-  { label: "Payroll",                route: "/admin/payroll",           description: "Process and manage employee payroll" },
-  { label: "Announcements",          route: "/admin/notices",           description: "Post and manage company-wide announcements" },
-  { label: "Leave Requests",         route: "/admin/admin-Leavemanage", description: "Review and approve/reject employee leave requests" },
-  { label: "Attendance Adjustment",  route: "/admin/late-requests",     description: "Handle late login and attendance correction requests" },
-  { label: "Overtime Requests",      route: "/admin/admin-overtime",    description: "Review and manage employee overtime requests" },
-  { label: "Live Tracking",          route: "/admin/live-tracking",     description: "Monitor employee idle time in real-time" },
+  { label: "Dashboard", route: "/admin/dashboard", description: "Main dashboard overview with key metrics" },
+  { label: "Employee Management", route: "/employees", description: "Add, edit and manage all employee records" },
+  { label: "Employees Attendance", route: "/attendance", description: "View and manage employee attendance logs" },
+  { label: "Shift Management", route: "/admin/settings", description: "Configure and assign employee work shifts" },
+  { label: "Location Settings", route: "/admin/shifttype", description: "Manage geo-fencing and location-based settings" },
+  { label: "Leave Summary", route: "/admin/leave-summary", description: "Analytics and summary of all employee leaves" },
+  { label: "Holiday Calendar", route: "/admin/holiday-calendar", description: "Manage public and company holidays" },
+  { label: "Payroll", route: "/admin/payroll", description: "Process and manage employee payroll" },
+  { label: "Announcements", route: "/admin/notices", description: "Post and manage company-wide announcements" },
+  { label: "Leave Requests", route: "/admin/admin-Leavemanage", description: "Review and approve/reject employee leave requests" },
+  { label: "Attendance Adjustment", route: "/admin/late-requests", description: "Handle late login and attendance correction requests" },
+  { label: "Overtime Requests", route: "/admin/admin-overtime", description: "Review and manage employee overtime requests" },
+  { label: "Live Tracking", route: "/admin/live-tracking", description: "Monitor employee idle time in real-time" },
+
+
 
   // ✅ Owner-exclusive features — visible in fallback but only assigned to Owner plan via seed
-  { label: "Master Dashboard",       route: "/master/dashboard",        description: "Owner-only: Platform-wide overview & stats" },
-  { label: "Admin Management",       route: "/master/admins",           description: "Owner-only: View & manage all registered companies" },
-  { label: "Plan Management",        route: "/master/plans",            description: "Owner-only: Create, edit and delete subscription plans" },
-  { label: "Login Access Control",   route: "/master/login-access",     description: "Owner-only: Enable/disable admin & employee logins" },
-  { label: "System Settings",        route: "/master/settings",         description: "Owner-only: Global system configuration" },
-  { label: "Billing Overview",       route: "/master/billing",          description: "Owner-only: Subscriptions & payment overview" },
-  { label: "Platform Analytics",     route: "/master/analytics",        description: "Owner-only: Usage analytics across all tenants" },
+  { label: "Master Dashboard", route: "/master/dashboard", description: "Owner-only: Platform-wide overview & stats" },
+  { label: "Admin Management", route: "/master/admins", description: "Owner-only: View & manage all registered companies" },
+  { label: "Plan Management", route: "/master/plans", description: "Owner-only: Create, edit and delete subscription plans" },
+  { label: "Login Access Control", route: "/master/login-access", description: "Owner-only: Enable/disable admin & employee logins" },
+  { label: "System Settings", route: "/master/settings", description: "Owner-only: Global system configuration" },
+  { label: "Billing Overview", route: "/master/billing", description: "Owner-only: Subscriptions & payment overview" },
+  { label: "Platform Analytics", route: "/master/analytics", description: "Owner-only: Usage analytics across all tenants" },
 ];
 
 const PlanSettings = () => {
   const [planName, setPlanName] = useState("");
   const [price, setPrice] = useState(0);
   const [durationDays, setDurationDays] = useState(30);
+  const [maxUsers, setMaxUsers] = useState(30);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -61,7 +64,9 @@ const PlanSettings = () => {
       setFeaturesLoading(true);
       const res = await api.get("/api/admin/all-features");
       if (res.data && res.data.length > 0) {
-        setAllFeatures(res.data);
+        // Filter out Users Limit-30 from dynamic features too if it exists
+        const filtered = res.data.filter(f => f.route !== "/admin/users-limit");
+        setAllFeatures(filtered);
       } else {
         setAllFeatures(FALLBACK_FEATURES);
       }
@@ -119,6 +124,7 @@ const PlanSettings = () => {
         planName,
         price: Number(price),
         durationDays: Number(durationDays),
+        maxUsers: maxUsers === "" ? null : Number(maxUsers),
         features: selectedFeatures,
       });
 
@@ -133,6 +139,7 @@ const PlanSettings = () => {
       setPlanName("");
       setPrice(0);
       setDurationDays(30);
+      setMaxUsers(30);
       setSelectedFeatures([]);
       setIsDropdownOpen(false);
       fetchPlans();
@@ -159,6 +166,7 @@ const PlanSettings = () => {
     setPlanName(plan.planName);
     setPrice(plan.price);
     setDurationDays(plan.durationDays);
+    setMaxUsers(plan.maxUsers === null ? "" : plan.maxUsers);
     setSelectedFeatures(plan.features || []);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -226,7 +234,7 @@ const PlanSettings = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Price (INR)</label>
                 <input
@@ -242,6 +250,16 @@ const PlanSettings = () => {
                   type="number"
                   value={durationDays}
                   onChange={(e) => setDurationDays(e.target.value)}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">User Limit</label>
+                <input
+                  type="number"
+                  value={maxUsers}
+                  onChange={(e) => setMaxUsers(e.target.value)}
+                  placeholder="Unlimited"
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
                 />
               </div>
@@ -303,14 +321,12 @@ const PlanSettings = () => {
                           <div
                             key={feature.route}
                             onClick={() => toggleFeature(feature.route)}
-                            className={`flex items-center gap-3 p-3 rounded-lg border border-transparent cursor-pointer transition-all select-none ${
-                              isSelected ? "bg-purple-50 border-purple-100" : "hover:bg-gray-50"
-                            }`}
+                            className={`flex items-center gap-3 p-3 rounded-lg border border-transparent cursor-pointer transition-all select-none ${isSelected ? "bg-purple-50 border-purple-100" : "hover:bg-gray-50"
+                              }`}
                           >
                             <div
-                              className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                                isSelected ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
-                              }`}
+                              className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
+                                }`}
                             >
                               {isSelected && <FaCheck size={10} className="text-white" />}
                             </div>
@@ -334,11 +350,10 @@ const PlanSettings = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-4 mt-4 rounded-xl text-white font-bold text-sm uppercase tracking-widest shadow-lg transition-all ${
-                loading
+              className={`w-full py-4 mt-4 rounded-xl text-white font-bold text-sm uppercase tracking-widest shadow-lg transition-all ${loading
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-purple-500/30"
-              }`}
+                }`}
             >
               {loading ? "Saving..." : "Save Plan Configuration"}
             </button>
@@ -357,6 +372,12 @@ const PlanSettings = () => {
             <div className="flex items-baseline gap-1 mb-8">
               <span className="text-5xl font-black">₹{price}</span>
               <span className="text-slate-400 text-sm font-bold uppercase">/ {durationDays} Days</span>
+            </div>
+
+            <div className="mb-8">
+              <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
+                Limit: {maxUsers === "" ? "Unlimited" : `${maxUsers} Users`}
+              </span>
             </div>
 
             <div className="space-y-4">
@@ -396,11 +417,10 @@ const PlanSettings = () => {
               return (
                 <div
                   key={plan._id}
-                  className={`border p-6 rounded-2xl group transition-all relative overflow-hidden ${
-                    isOwner
+                  className={`border p-6 rounded-2xl group transition-all relative overflow-hidden ${isOwner
                       ? "border-yellow-300 bg-gradient-to-br from-yellow-50 to-amber-50 shadow-md"
                       : "border-gray-100 bg-gray-50 hover:border-purple-300 hover:shadow-lg"
-                  }`}
+                    }`}
                 >
                   {/* ✅ Owner crown badge */}
                   {isOwner && (
@@ -412,9 +432,14 @@ const PlanSettings = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="font-bold text-gray-900 text-xl">{plan.planName}</h4>
-                      <p className="text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-md mt-1 inline-block bg-purple-100 text-purple-600">
-                        {isOwner ? "Unlimited" : `${plan.durationDays} Days`}
-                      </p>
+                      <div className="flex gap-2 mt-1">
+                        <p className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md inline-block bg-purple-100 text-purple-600">
+                          {isOwner ? "Unlimited" : `${plan.durationDays} Days`}
+                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md inline-block bg-indigo-100 text-indigo-600">
+                          {plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}
+                        </p>
+                      </div>
                     </div>
 
                     {/* Edit/Delete only for non-owner plans */}

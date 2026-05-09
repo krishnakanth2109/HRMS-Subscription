@@ -472,10 +472,17 @@ const AddEmployee = () => {
       ) {
         setFieldErrors({ [err.response.data.field]: err.response.data.error });
         Swal.fire("Error", err.response.data.error, "error");
+      } else if (err.response && err.response.status === 403 && err.response.data.error) {
+        Swal.fire({
+          icon: "warning",
+          title: "User Limit Exceeded",
+          text: err.response.data.error,
+          footer: '<a href="/subscription-plans">View Premium Plans</a>'
+        });
       } else {
         Swal.fire(
           "Error",
-          err.response?.data?.message || "Error adding employee.",
+          err.response?.data?.error || err.response?.data?.message || "Error adding employee.",
           "error",
         );
       }

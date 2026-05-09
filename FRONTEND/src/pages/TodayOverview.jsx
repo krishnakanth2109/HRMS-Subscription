@@ -862,31 +862,44 @@ const TodayOverview = () => {
     const fetchEmployeeDetails = async () => {
       if (allEmployees.length === 0) return;
 
-      const newImages = {};
-      const newPhoneNumbers = {};
-      const employeesToProcess = allEmployees.slice(0, 20);
+      // Filter out IDs we already have images for
+      const idsToFetch = allEmployees
+        .map((emp) => emp.employeeId)
+        .filter((id) => id && !employeeImages[id]);
+      
+      if (idsToFetch.length === 0) return;
 
-      await Promise.all(
-        employeesToProcess.map(async (emp) => {
-          const empId = emp.employeeId;
-          if (!empId) return;
-          try {
-            const res = await api.get(`/api/profile/${empId}`);
-            if (res?.data?.profilePhoto?.url) {
-              newImages[empId] = getSecureUrl(res.data.profilePhoto.url);
+      try {
+        // Use the new bulk fetch endpoint
+        const res = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
+        const newImages = {};
+        const newPhoneNumbers = {};
+        
+        if (Array.isArray(res.data)) {
+          res.data.forEach((profile) => {
+            if (profile.employeeId) {
+              if (profile.profilePhoto?.url) {
+                newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url);
+              }
+              if (profile.phone) {
+                newPhoneNumbers[profile.employeeId] = profile.phone;
+              }
             }
-            if (res?.data?.phone) {
-              newPhoneNumbers[empId] = res.data.phone;
-            }
-          } catch (err) { }
-        })
-      );
-
-      if (Object.keys(newImages).length > 0) setEmployeeImages(prev => ({ ...prev, ...newImages }));
-      if (Object.keys(newPhoneNumbers).length > 0) setEmployeePhoneNumbers(prev => ({ ...prev, ...newPhoneNumbers }));
+          });
+        }
+        
+        if (Object.keys(newImages).length > 0) {
+          setEmployeeImages(prev => ({ ...prev, ...newImages }));
+        }
+        if (Object.keys(newPhoneNumbers).length > 0) {
+          setEmployeePhoneNumbers(prev => ({ ...prev, ...newPhoneNumbers }));
+        }
+      } catch (err) {
+        console.error("Error fetching bulk employee details:", err);
+      }
     };
 
-    if (allEmployees.length > 0) fetchEmployeeDetails();
+    fetchEmployeeDetails();
   }, [allEmployees]);
 
   // Debug useEffect - check phone numbers in employee data

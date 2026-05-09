@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
-import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests, getAllProfiles } from "../api";
+import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
 import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaExchangeAlt, FaCheck, FaHome, FaList, FaLayerGroup, FaChevronDown, FaChevronUp, FaInfoCircle, FaCoffee, FaSpinner } from "react-icons/fa";
 import { toBlob } from 'html-to-image';
 
@@ -700,15 +700,34 @@ const AdminAttendance = () => {
   useEffect(() => {
     const fetchImages = async () => {
       if (allEmployees.length === 0) return;
+      
+      const idsToFetch = allEmployees
+        .map(emp => emp.employeeId)
+        .filter(id => id && !employeeImages[id]);
+
+      if (idsToFetch.length === 0) return;
+
       try {
-        const response = await getAllProfiles();
-        const profilesList = Array.isArray(response) ? response : (response?.data || []);
+        const response = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
+        const profilesList = Array.isArray(response.data) ? response.data : [];
         const newImages = {};
-        profilesList.forEach(profile => { if (profile.employeeId && profile.profilePhoto?.url) { newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url); } });
-        setEmployeeImages(newImages);
-      } catch (err) { console.error("Failed to fetch bulk profile images", err); }
+        profilesList.forEach(profile => { 
+          if (profile.employeeId && profile.profilePhoto?.url) { 
+            newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url); 
+          } 
+        });
+        
+        if (Object.keys(newImages).length > 0) {
+          setEmployeeImages(prev => ({ ...prev, ...newImages }));
+        }
+      } catch (err) { 
+        console.error("Failed to fetch bulk profile images", err); 
+      }
     };
-    if (allEmployees.length > 0 && Object.keys(employeeImages).length === 0) { fetchImages(); }
+
+    if (allEmployees.length > 0) { 
+      fetchImages(); 
+    }
   }, [allEmployees]);
 
   // ==========================================

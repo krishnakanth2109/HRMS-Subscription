@@ -17,7 +17,8 @@ const ALL_FEATURES = [
     iconKey: "FaTachometerAlt",
     description: "Main dashboard overview with key metrics",
   },
-  {
+
+{
     label: "Employee Management",
     route: "/employees",
     iconKey: "FaUserTie",
@@ -88,7 +89,13 @@ const ALL_FEATURES = [
     route: "/admin/live-tracking",
     iconKey: "FaMapMarkerAlt",
     description: "Monitor employee idle time in real-time",
-  }
+  }, 
+  // {
+  //   label : "Users Limit",
+  //   route : "/admin/users-limit",
+  //   iconKey : "FaUsersCog",
+  //   description: "Manage and monitor the maximum number of users allowed under the current subscription plan."
+  // }
 ];
 
 const seedFeatures = async () => {

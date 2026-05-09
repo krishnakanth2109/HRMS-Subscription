@@ -345,29 +345,39 @@ const AdminNotices = () => {
         }
       });
 
-      // Iterate and fetch if not already loaded
-      uniqueEmployeeIds.forEach(async (id) => {
+      // Filter out those already loaded
+      const idsToFetch = [];
+      uniqueEmployeeIds.forEach(id => {
         const empObj = employees.find(e => e._id === id);
         if (empObj && empObj.employeeId && !employeeImages[empObj.employeeId]) {
-          try {
-            // Using logic from EmployeeProfile to fetch specific profile
-            const res = await api.get(`/api/profile/${empObj.employeeId}`);
-            if (res?.data?.profilePhoto?.url) {
-              setEmployeeImages(prev => ({
-                ...prev,
-                [empObj.employeeId]: getSecureUrl(res.data.profilePhoto.url)
-              }));
-            }
-          } catch (err) {
-            // Silent fail, just keep initials
-            console.error(`Failed to load sidebar image for ${empObj.employeeId}`);
-          }
+          idsToFetch.push(empObj.employeeId);
         }
       });
+
+      if (idsToFetch.length === 0) return;
+
+      try {
+        const res = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
+        const newImages = {};
+        
+        if (Array.isArray(res.data)) {
+          res.data.forEach((profile) => {
+            if (profile.profilePhoto?.url) {
+              newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url);
+            }
+          });
+        }
+        
+        if (Object.keys(newImages).length > 0) {
+          setEmployeeImages(prev => ({ ...prev, ...newImages }));
+        }
+      } catch (err) {
+        console.error("Failed to load sidebar images in bulk", err);
+      }
     };
 
     loadSidebarImages();
-  }, [repliesNotice, employees]);
+  }, [repliesNotice, employees, employeeImages]);
 
   useEffect(() => {
     if (messagesEndRef.current) {

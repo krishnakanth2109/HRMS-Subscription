@@ -47,7 +47,7 @@ export const registerAdmin = async (req, res) => {
     const planInfo = await PlanSetting.findOne({ planName: plan });
 
     if (!planInfo && plan !== "Free") {
-       return res.status(400).json({ message: "The selected plan is invalid or no longer exists." });
+      return res.status(400).json({ message: "The selected plan is invalid or no longer exists." });
     }
 
     const isPaid = planInfo ? planInfo.price > 0 : false;
@@ -159,7 +159,7 @@ export const loginAdmin = async (req, res) => {
 /* ==================== UPDATE DYNAMIC PLAN DAYS & PRICE ==================== */
 export const updatePlanSettings = async (req, res) => {
   try {
-    const { planName, durationDays, price, features } = req.body;
+    const { planName, durationDays, price, maxUsers, features } = req.body;
 
     // ✅ Protect owner plan from being modified via API
     const existing = await PlanSetting.findOne({ planName });
@@ -172,6 +172,7 @@ export const updatePlanSettings = async (req, res) => {
       {
         durationDays: Number(durationDays),
         price: Number(price),
+        maxUsers: maxUsers !== undefined ? Number(maxUsers) : null,
         features: features,
       },
       { upsert: true, new: true }
@@ -289,28 +290,41 @@ export const toggleEmployeeLoginByAdmin = async (req, res) => {
 /* ==================== GET LOGIN ACCESS STATUS FOR ALL ADMINS ==================== */
 export const getLoginAccessStatus = async (req, res) => {
   try {
+    const plans = await PlanSetting.find({});
+    const planMap = {};
+    plans.forEach(p => planMap[p.planName] = p);
+
     const admins = await Admin.find({})
       .select("name email plan loginEnabled planExpiresAt createdAt")
       .sort({ createdAt: -1 });
 
     const adminData = await Promise.all(
       admins.map(async (admin) => {
-        const totalEmployees = await Employee.countDocuments({ adminId: admin._id });
-        const disabledEmployees = await Employee.countDocuments({
-          adminId: admin._id,
-          loginEnabled: false,
-        });
+        const employees = await Employee.find({ adminId: admin._id }).select("name loginEnabled");
+        const totalEmployees = employees.length;
+        const disabledEmployees = employees.filter(e => e.loginEnabled === false).length;
+        const staffNames = employees.map(e => e.name);
+
+        let userLimit = null;
+        if (planMap[admin.plan] && planMap[admin.plan].maxUsers) {
+          userLimit = planMap[admin.plan].maxUsers;
+        } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase().includes('free')) {
+          // If no specific setting found for Free plan, default to 30 or whatever was intended as fallback
+          userLimit = planMap['Free']?.maxUsers || 30;
+        }
 
         return {
           id: admin._id,
           name: admin.name,
           email: admin.email,
           plan: admin.plan,
+          userLimit,
           loginEnabled: admin.loginEnabled !== false,
           planExpiresAt: admin.planExpiresAt,
           createdAt: admin.createdAt,
           totalEmployees,
           disabledEmployees,
+          staffNames,
         };
       })
     );
@@ -433,5 +447,30 @@ export const getMyPlanFeatures = async (req, res) => {
   } catch (error) {
     console.error("❌ GET MY PLAN FEATURES ERROR:", error);
     res.status(500).json({ message: "Failed to fetch plan features" });
+  }
+};
+
+/* ==================== CHANGE ADMIN PASSWORD (Master Only) ==================== */
+export const changeAdminPassword = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    admin.password = newPassword;
+    await admin.save(); // pre-save hook will hash it
+
+    res.status(200).json({ message: `Password for ${admin.name} updated successfully` });
+  } catch (error) {
+    console.error("❌ CHANGE ADMIN PASSWORD ERROR:", error);
+    res.status(500).json({ message: "Failed to change password" });
   }
 };

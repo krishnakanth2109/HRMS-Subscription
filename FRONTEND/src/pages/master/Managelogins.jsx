@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import api from "../../api"; // your configured axios instance
 import Swal from "sweetalert2";
+import { FaChevronDown, FaChevronUp, FaKey, FaEllipsisV } from "react-icons/fa";
 
 /* ──────────────────────────────────────────────
    TINY HELPERS
@@ -65,6 +66,99 @@ export default function ManageLogins() {
   const [activeFilter, setActiveFilter] = useState("all"); 
   const [planFilter, setPlanFilter] = useState("All Plans");
   const [pendingChanges, setPendingChanges] = useState({});
+  const [expandedStaff, setExpandedStaff] = useState({});
+  const [openActionMenu, setOpenActionMenu] = useState(null);
+  const actionMenuRef = useRef(null);
+
+  const toggleStaff = (adminId) => {
+    setExpandedStaff(prev => ({ ...prev, [adminId]: !prev[adminId] }));
+  };
+
+  const toggleActionMenu = (adminId) => {
+    setOpenActionMenu(prev => prev === adminId ? null : adminId);
+  };
+
+  // Close action menu on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
+        setOpenActionMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleChangePassword = async (admin) => {
+    setOpenActionMenu(null);
+    const { value: newPassword, isConfirmed } = await Swal.fire({
+      title: `Change Password`,
+      html: `
+        <p style="color:#6b7280;font-size:13px;margin-bottom:14px">Set a new password for <strong>${admin.name}</strong></p>
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
+          <input id="swal-password" type="password" placeholder="New password (min. 6 chars)" class="swal2-input" style="width:82%;margin:0;padding-right:44px" />
+          <button id="eye-pw" type="button" style="position:absolute;right:calc(9%);background:none;border:none;cursor:pointer;color:#6b7280;padding:6px;display:flex;align-items:center;border-radius:6px;transition:color 0.2s">
+            <svg id="eye-pw-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+        <div style="position:relative;display:flex;align-items:center;justify-content:center">
+          <input id="swal-confirm" type="password" placeholder="Confirm new password" class="swal2-input" style="width:82%;margin:0;padding-right:44px" />
+          <button id="eye-cf" type="button" style="position:absolute;right:calc(9%);background:none;border:none;cursor:pointer;color:#6b7280;padding:6px;display:flex;align-items:center;border-radius:6px;transition:color 0.2s">
+            <svg id="eye-cf-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </button>
+        </div>
+      `,
+      confirmButtonText: "Update Password",
+      confirmButtonColor: "#2563eb",
+      showCancelButton: true,
+      focusConfirm: false,
+      didOpen: () => {
+        const EYE_OPEN = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+        const EYE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
+        const makeToggle = (btnId, inputId) => {
+          document.getElementById(btnId).addEventListener("click", () => {
+            const input = document.getElementById(inputId);
+            const btn = document.getElementById(btnId);
+            const isHidden = input.type === "password";
+            input.type = isHidden ? "text" : "password";
+            btn.innerHTML = isHidden ? EYE_OFF : EYE_OPEN;
+            btn.style.color = isHidden ? "#2563eb" : "#6b7280";
+          });
+        };
+        makeToggle("eye-pw", "swal-password");
+        makeToggle("eye-cf", "swal-confirm");
+      },
+      preConfirm: () => {
+        const pw = document.getElementById("swal-password").value;
+        const cf = document.getElementById("swal-confirm").value;
+        if (!pw || pw.length < 6) {
+          Swal.showValidationMessage("Password must be at least 6 characters");
+          return false;
+        }
+        if (pw !== cf) {
+          Swal.showValidationMessage("Passwords do not match");
+          return false;
+        }
+        return pw;
+      }
+    });
+
+    if (!isConfirmed || !newPassword) return;
+
+    try {
+      const res = await api.patch(`/api/admin/change-password/${admin.id}`, { newPassword });
+      toast(res.data.message || "Password updated successfully", "success");
+    } catch (err) {
+      toast(err.response?.data?.message || "Failed to update password", "error");
+    }
+  };
 
   /* ── SWEET ALERT HELPERS ── */
   const toast = (message, icon = "success") => {
@@ -308,8 +402,10 @@ export default function ManageLogins() {
                         <div className="flex flex-wrap gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                           <span>Plan: <span className="text-gray-800">{admin.plan || "N/A"}</span></span>
                           <span>Expires: <span className={expired ? "text-rose-500" : "text-gray-800"}>{formatDate(admin.planExpiresAt)}</span></span>
-                          <span>Staff Total: <span className="text-gray-800">{admin.totalEmployees}</span></span>
-                        </div>
+                          <span className="flex items-center gap-1">
+                            Staff Total: <span className="text-gray-800">{admin.totalEmployees} {admin.userLimit ? `/ ${admin.userLimit}` : ''}</span>
+                          </span>
+                        </div>   
                       </div>
                     </div>
 
@@ -329,8 +425,42 @@ export default function ManageLogins() {
                       >
                         {saving[admin.id] ? "..." : "SAVE"}
                       </button>
+
+                      {/* ── ACTIONS DROPDOWN ── */}
+                      <div className="relative" ref={openActionMenu === admin.id ? actionMenuRef : null}>
+                        <button
+                          onClick={() => toggleActionMenu(admin.id)}
+                          className="ml-1 p-2 rounded-xl text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
+                          title="Actions"
+                        >
+                          <FaEllipsisV size={12} />
+                        </button>
+                        {openActionMenu === admin.id && (
+                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-xl z-20 overflow-hidden">
+                            <button
+                              onClick={() => handleChangePassword(admin)}
+                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                            >
+                              <FaKey size={11} />
+                              Change Password
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  {expandedStaff[admin.id] && admin.staffNames && admin.staffNames.length > 0 && (
+                    <div className="px-5 pb-5 pt-3 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Staff Directory</p>
+                      <div className="flex flex-wrap gap-2">
+                        {admin.staffNames.map((name, idx) => (
+                          <span key={idx} className="bg-white border border-gray-200 text-gray-700 text-[11px] px-2.5 py-1 rounded-md font-bold shadow-sm">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

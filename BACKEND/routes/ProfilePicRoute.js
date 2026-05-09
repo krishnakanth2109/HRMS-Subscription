@@ -55,8 +55,40 @@ router.get('/:employeeId', protect, async (req, res) => {
   try {
     const { employeeId } = req.params;
     const employeeProfile = await ProfilePic.findOne({ employeeId });
-    if (!employeeProfile) return res.status(404).json({ message: 'Profile not found' });
+    if (!employeeProfile) {
+      return res.status(200).json({ profilePhoto: null });
+    }
     res.status(200).json(employeeProfile);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET ALL PROFILES FOR ADMIN
+router.get('/all/profiles', protect, async (req, res) => {
+  try {
+    const adminId = req.user.role === 'admin' ? req.user._id : req.user.adminId;
+    const companyId = req.user.role === 'admin' ? null : req.user.company;
+
+    let query = { adminId };
+    if (companyId) query.companyId = companyId;
+
+    const profiles = await ProfilePic.find(query);
+    res.status(200).json(profiles);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET BULK PROFILES
+router.post('/bulk', protect, async (req, res) => {
+  try {
+    const { employeeIds } = req.body;
+    if (!employeeIds || !Array.isArray(employeeIds)) {
+      return res.status(400).json({ message: 'Invalid employeeIds' });
+    }
+    const profiles = await ProfilePic.find({ employeeId: { $in: employeeIds } });
+    res.status(200).json(profiles);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
