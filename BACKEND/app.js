@@ -73,7 +73,7 @@ import aiRoutes from "./routes/aiRoutes.js";
 import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
 
 /* ==================== DOMAIN IMPORTS ==================== */
-import { subdomainMiddleware } from "./middleware/subdomainMiddleware.js";
+import { subdomainMiddleware } from "./middleware/subdomainmiddleware.js";
 import domainRoutes from "./routes/domainRoutes.js";
 
 const app = express();
