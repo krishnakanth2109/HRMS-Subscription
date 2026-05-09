@@ -477,7 +477,14 @@ const AddEmployee = () => {
           icon: "warning",
           title: "User Limit Exceeded",
           text: err.response.data.error,
-          footer: '<a href="/subscription-plans">View Premium Plans</a>'
+          showCancelButton: true,
+          confirmButtonText: "Upgrade Plan",
+          cancelButtonText: "Close",
+          confirmButtonColor: "#9333ea", // purple-600
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/admin/profile#plans");
+          }
         });
       } else {
         Swal.fire(

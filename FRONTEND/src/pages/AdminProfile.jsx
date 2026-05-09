@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../api"; // Updated path based on your code
 import { AuthContext } from "../context/AuthContext";
 import {
@@ -13,12 +14,34 @@ const AdminProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
 
+  const featureLabels = {
+    "/admin/dashboard": "Dashboard",
+    "/employees": "Employee Management",
+    "/attendance": "Employees Attendance",
+    "/admin/settings": "Shift Management",
+    "/admin/shifttype": "Location Settings",
+    "/admin/leave-summary": "Leave Summary",
+    "/admin/holiday-calendar": "Holiday Calendar",
+    "/admin/payroll": "Payroll",
+    "/admin/notices": "Announcements",
+    "/admin/admin-Leavemanage": "Leave Requests",
+    "/admin/late-requests": "Attendance Adjustment",
+    "/admin/admin-overtime": "Overtime Requests",
+    "/admin/live-tracking": "Employee Idle Tracking",
+    "/admin/induction": "Induction",
+  };
+
   // Form State
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     department: ""
   });
+
+  // Plans State
+  const [plans, setPlans] = useState([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [upgradingPlanId, setUpgradingPlanId] = useState(null);
 
   const fetchProfile = async () => {
     try {
@@ -37,8 +60,26 @@ const AdminProfile = () => {
     }
   };
 
+  const fetchPlans = async () => {
+    try {
+      const response = await api.get("/api/admin/all-plans");
+      // Filter out 'owner' plan if necessary, similar to SubsHome
+      setPlans(response.data.filter(p => p.planName?.toLowerCase() !== "owner"));
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
+    fetchPlans();
+
+    // Reset loading state when window gets focus (e.g. returning from Stripe)
+    const handleFocus = () => setUpgradingPlanId(null);
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const handleUpdate = async (e) => {
@@ -55,6 +96,50 @@ const AdminProfile = () => {
       setUpdateLoading(false);
     }
   };
+
+  const handleUpgrade = async (plan) => {
+    if (plan.planName === profile?.plan) {
+      alert("You are already on this plan!");
+      return;
+    }
+
+    if (Number(plan.price) === 0) {
+      alert("Please contact support to switch to a free plan.");
+      return;
+    }
+
+    setUpgradingPlanId(plan._id);
+    try {
+      const res = await api.post("/api/stripe/create-checkout-session", {
+        plan: plan,
+        signupForm: {
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone,
+          department: profile.department,
+          role: profile.role
+        },
+        isUpgrade: true
+      });
+      window.location.href = res.data.url;
+    } catch (err) {
+      alert(err.response?.data?.message || "Upgrade failed. Please try again.");
+      setUpgradingPlanId(null);
+    }
+  };
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && !plansLoading && location.hash === "#plans") {
+      setTimeout(() => {
+        const element = document.getElementById("plans");
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
+    }
+  }, [loading, plansLoading, location.hash]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
@@ -227,6 +312,87 @@ const AdminProfile = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* PLANS SECTION */}
+        <div id="plans" className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-gray-900 font-bold flex items-center gap-2">
+              <FaCrown className="text-purple-500 text-sm" /> Available Plans & Upgrade
+            </h3>
+            {plansLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {plans.map((plan) => {
+              const isCurrentPlan = plan.planName === profile?.plan;
+              return (
+                <div
+                  key={plan._id}
+                  className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col ${isCurrentPlan
+                    ? "border-purple-500 bg-purple-50/50"
+                    : "border-gray-100 bg-gray-50 hover:border-purple-200"
+                    }`}
+                >
+                  {isCurrentPlan && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                      Current Plan
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h4 className="text-lg font-bold text-gray-900 capitalize">{plan.planName}</h4>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
+                        {plan.durationDays} Days
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-black text-purple-600">
+                        {Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2 mb-6 flex-grow">
+                    <li className="flex items-center gap-2 text-xs text-gray-600">
+                      <FaCheckCircle className="text-emerald-500 shrink-0" size={12} />
+                      <span>{plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}</span>
+                    </li>
+                    {plan.features?.slice(0, 3).map((feature, idx) => (
+                      <li key={idx} className="flex items-center gap-2 text-xs text-gray-600">
+                        <FaCheckCircle className="text-emerald-500 shrink-0" size={12} />
+                        <span className="truncate">{featureLabels[feature] || feature.split('/').pop().replace(/-/g, ' ')}</span>
+                      </li>
+                    ))}
+                    {plan.features?.length > 3 && (
+                      <li className="text-[10px] text-gray-400 italic ml-5">+{plan.features.length - 3} more features</li>
+                    )}
+                  </ul>
+
+                  <button
+                    onClick={() => handleUpgrade(plan)}
+                    disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) ||
+                      Number(plan.price) === 0}
+                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${isCurrentPlan
+                      ? "bg-emerald-100 text-emerald-600 cursor-default"
+                      : Number(plan.price) === 0
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                        : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"
+                      }`}
+                  >
+                    {isCurrentPlan
+                      ? "Active Now"
+                      : upgradingPlanId === plan._id
+                        ? "Processing..."
+                        : Number(plan.price) === 0
+                          ? "Default Plan"
+                          : "Upgrade Plan"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

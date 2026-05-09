@@ -32,7 +32,7 @@ const stripeWebhookHandler = async (req, res) => {
     }
 
     const metadata = session.metadata || {};
-    const { name, email, password, phone, department, role, plan } = metadata;
+    const { name, email, password, phone, department, role, plan, durationDays } = metadata;
 
     /* 🔴 HARD VALIDATION */
     if (!name || !email || !password || !plan) {
@@ -40,14 +40,34 @@ const stripeWebhookHandler = async (req, res) => {
       return res.json({ received: true });
     }
 
+    // Calculate expiration date
+    const activatedAt = new Date();
+    const expiresAt = new Date();
+    if (durationDays) {
+      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+    }
+
     try {
-      // Prevent duplicate admin
+      // 1. Check if admin already exists
       const existing = await Admin.findOne({ email });
+
       if (existing) {
-        console.log("ℹ️ Admin already exists:", email);
+        console.log("ℹ️ Admin exists, updating plan for:", email);
+        
+        // Update subscription details
+        existing.plan = plan;
+        existing.isPaid = true;
+        existing.stripeCustomerId = session.customer;
+        existing.stripeSubscriptionId = session.subscription;
+        existing.planActivatedAt = activatedAt;
+        existing.planExpiresAt = expiresAt;
+        
+        await existing.save();
+        console.log("✅ Admin plan upgraded successfully:", email);
         return res.json({ received: true });
       }
 
+      // 2. Create new admin if not exists
       await Admin.create({
         name,
         email,
@@ -61,13 +81,14 @@ const stripeWebhookHandler = async (req, res) => {
         stripeCustomerId: session.customer,
         stripeSubscriptionId: session.subscription,
 
-        // ✅ SAFE FIELD
-        planActivatedAt: new Date(),
+        // ✅ SAFE FIELDS
+        planActivatedAt: activatedAt,
+        planExpiresAt: expiresAt,
       });
 
       console.log("✅ Paid admin created successfully:", email);
     } catch (dbErr) {
-      console.error("❌ Failed to create paid admin:", dbErr);
+      console.error("❌ Failed to process paid admin:", dbErr);
     }
   }
 

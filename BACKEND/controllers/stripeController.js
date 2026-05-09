@@ -54,11 +54,13 @@ export const createCheckoutSession = async (req, res) => {
       metadata: {
         name: signupForm.name,
         email: signupForm.email,
-        password: signupForm.password,
+        password: signupForm.password || "EXISTING_USER", // Password not needed for upgrades
         phone: signupForm.phone || "",
         role: signupForm.role || "admin",
         department: signupForm.department || "",
         plan: planInfo.planName, // Use the name from DB
+        durationDays: planInfo.durationDays.toString(),
+        isUpgrade: req.body.isUpgrade ? "true" : "false",
       },
     });
 

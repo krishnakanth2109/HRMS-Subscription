@@ -468,15 +468,15 @@ const DynamicHRMSLandingPage = () => {
 
                                             {plan.features && plan.features.length > 0 ? (
                                                 plan.features
-                                                .filter(feature => feature !== "/admin/users-limit")
-                                                .map((feature, fIdx) => (
-                                                    <li key={fIdx} className="flex items-start text-xs md:text-sm group">
-                                                        <span className="text-blue-600 mr-2 md:mr-3 font-bold text-sm md:text-lg leading-none">✓</span>
-                                                        <span className={`${themeClasses.textSecondary} group-hover:${themeClasses.text} transition-colors`}>
-                                                            {featureLabels[feature] || feature}
-                                                        </span>
-                                                    </li>
-                                                ))
+                                                    .filter(feature => feature !== "/admin/users-limit")
+                                                    .map((feature, fIdx) => (
+                                                        <li key={fIdx} className="flex items-start text-xs md:text-sm group">
+                                                            <span className="text-blue-600 mr-2 md:mr-3 font-bold text-sm md:text-lg leading-none">✓</span>
+                                                            <span className={`${themeClasses.textSecondary} group-hover:${themeClasses.text} transition-colors`}>
+                                                                {featureLabels[feature] || feature}
+                                                            </span>
+                                                        </li>
+                                                    ))
                                             ) : (
                                                 <>
                                                     <li className="flex items-center text-xs md:text-sm ${themeClasses.textSecondary}">
