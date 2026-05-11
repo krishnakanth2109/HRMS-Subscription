@@ -4,6 +4,20 @@ import api from "../api";
 import API from "../api";
 import { FaTimes, FaCheckCircle, FaCrown, FaFacebookF, FaTwitter, FaLinkedinIn, FaInstagram, FaYoutube, FaHeart, FaSun, FaMoon } from "react-icons/fa";
 
+/* ─────────────────────────────────────────────────────────────────
+   Helper: dynamically load Razorpay checkout script
+   Returns a promise that resolves to true when ready.
+───────────────────────────────────────────────────────────────── */
+const loadRazorpayScript = () =>
+    new Promise((resolve) => {
+        if (window.Razorpay) return resolve(true);
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+    });
+
 const DynamicHRMSLandingPage = () => {
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
@@ -72,9 +86,11 @@ const DynamicHRMSLandingPage = () => {
         setSignupForm({ name: "", email: "", password: "", phone: "", role: "admin", department: "" });
         setShowRegisterModal(true);
     };
+
     const filteredPlans = plans.filter(
         (plan) => plan.planName?.toLowerCase() !== "owner"
     );
+
     const handleCloseModal = () => {
         setShowRegisterModal(false);
         setSelectedPlan(null);
@@ -99,7 +115,99 @@ const DynamicHRMSLandingPage = () => {
         "/admin/induction": "Induction",
     };
 
-    // --- REGISTER HANDLER (same logic as Login.jsx) ---
+    /* ─────────────────────────────────────────────────────────────────
+       RAZORPAY PAYMENT FLOW
+       1. Create order on backend
+       2. Open Razorpay popup
+       3. On success → verify payment signature on backend
+       4. Backend provisions the admin account
+    ───────────────────────────────────────────────────────────────── */
+    const handleRazorpayPayment = async (planInfo) => {
+        // Load SDK
+        const sdkReady = await loadRazorpayScript();
+        if (!sdkReady) {
+            setSignupError("Failed to load payment gateway. Please check your connection.");
+            setSignupLoading(false);
+            return;
+        }
+
+        // Step 1: Create Razorpay order on backend
+        let orderData;
+        try {
+            const res = await API.post("/api/razorpay/create-order", {
+                plan: selectedPlan,
+                signupForm,
+            });
+            orderData = res.data; // { orderId, amount, currency, keyId }
+        } catch (err) {
+            setSignupError(err.response?.data?.message || "Could not create payment order.");
+            setSignupLoading(false);
+            return;
+        }
+
+        // Step 2: Open Razorpay checkout popup
+        const options = {
+            key: orderData.keyId,
+            amount: orderData.amount,          // in paise
+            currency: orderData.currency,
+            name: "HRMS vwsync",
+            description: `${planInfo.planName} Plan — ${planInfo.durationDays} days`,
+            order_id: orderData.orderId,
+            prefill: {
+                name: signupForm.name,
+                email: signupForm.email,
+                contact: signupForm.phone,
+            },
+            theme: { color: "#3b82f6" },
+
+            // Step 3: On payment success — verify on backend
+            handler: async (paymentResponse) => {
+                try {
+                    setSignupLoading(true);
+                    await API.post("/api/razorpay/verify-payment", {
+                        razorpay_order_id: paymentResponse.razorpay_order_id,
+                        razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                        razorpay_signature: paymentResponse.razorpay_signature,
+                        signupForm,
+                        plan: selectedPlan,
+                    });
+
+                    // Navigate to success page with payment ID as reference
+                    navigate(`/payment-success?payment_id=${paymentResponse.razorpay_payment_id}`);
+                } catch (verifyErr) {
+                    setSignupError(
+                        verifyErr.response?.data?.message ||
+                        "Payment received but verification failed. Contact support with your payment ID: " +
+                        paymentResponse.razorpay_payment_id
+                    );
+                } finally {
+                    setSignupLoading(false);
+                }
+            },
+
+            modal: {
+                // User closed the popup without paying
+                ondismiss: () => {
+                    setSignupError("Payment cancelled. You can try again.");
+                    setSignupLoading(false);
+                },
+            },
+        };
+
+        const rzp = new window.Razorpay(options);
+
+        rzp.on("payment.failed", (response) => {
+            console.error("Razorpay payment failed:", response.error);
+            setSignupError(
+                response.error?.description || "Payment failed. Please try again."
+            );
+            setSignupLoading(false);
+        });
+
+        rzp.open();
+    };
+
+    // --- REGISTER HANDLER ---
     const handleAdminRegister = async (e) => {
         e.preventDefault();
         setSignupError("");
@@ -108,6 +216,7 @@ const DynamicHRMSLandingPage = () => {
         setSignupLoading(true);
 
         try {
+            // Free plan → direct registration, no payment
             if (Number(selectedPlan.price) === 0) {
                 await API.post("/api/admin/register", {
                     ...signupForm,
@@ -115,21 +224,15 @@ const DynamicHRMSLandingPage = () => {
                 });
                 setSignupSuccess(`🎉 ${selectedPlan.planName} account created! Please login.`);
                 setSignupForm({ name: "", email: "", password: "", phone: "", role: "admin", department: "" });
+                setSignupLoading(false);
                 return;
             }
 
-            // Paid plan → Stripe redirect
-            sessionStorage.setItem("hrms_payment_pending", "true");
-            const res = await API.post("/api/stripe/create-checkout-session", {
-                plan: selectedPlan,
-                signupForm,
-            });
-            window.location.href = res.data.url;
+            // Paid plan → Razorpay popup flow
+            await handleRazorpayPayment(selectedPlan);
 
         } catch (err) {
-            sessionStorage.removeItem("hrms_payment_pending");
             setSignupError(err.response?.data?.message || "Registration failed. Please try again.");
-        } finally {
             setSignupLoading(false);
         }
     };
@@ -304,7 +407,6 @@ const DynamicHRMSLandingPage = () => {
                     </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 lg:gap-8">
                         {[
-
                             { icon: '👥', title: 'Employee Management', desc: 'Manage employee profiles, roles, and organizational structure efficiently.', color: 'indigo' },
                             { icon: '⏰', title: 'Attendance Management', desc: 'Biometric integration and real-time attendance tracking.', color: 'yellow' },
                             { icon: '📊', title: 'Performance Management', desc: 'Goal tracking, reviews, and performance analytics dashboard.', color: 'purple' },
@@ -479,10 +581,10 @@ const DynamicHRMSLandingPage = () => {
                                                     ))
                                             ) : (
                                                 <>
-                                                    <li className="flex items-center text-xs md:text-sm ${themeClasses.textSecondary}">
+                                                    <li className={`flex items-center text-xs md:text-sm ${themeClasses.textSecondary}`}>
                                                         <span className="text-blue-400 mr-2 md:mr-3">✓</span> Core Access
                                                     </li>
-                                                    <li className="flex items-center text-xs md:text-sm ${themeClasses.textSecondary}">
+                                                    <li className={`flex items-center text-xs md:text-sm ${themeClasses.textSecondary}`}>
                                                         <span className="text-blue-400 mr-2 md:mr-3">✓</span> Secure Login
                                                     </li>
                                                 </>
@@ -668,8 +770,6 @@ const DynamicHRMSLandingPage = () => {
                         </div>
                     </div>
 
-
-
                     {/* Bottom Bar */}
                     <div className={`mt-6 md:mt-8 pt-6 md:pt-8 border-t ${themeClasses.border} flex flex-col md:flex-row justify-between items-center text-[8px] md:text-xs ${themeClasses.textMuted}`}>
                         <div className="flex flex-wrap items-center justify-center gap-2 mb-2 md:mb-0">
@@ -772,19 +872,6 @@ const DynamicHRMSLandingPage = () => {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        {/* Features preview
-                                                    {plan.features && plan.features.length > 0 && (
-                                                        <div className="mt-1 md:mt-2 pt-1 md:pt-2 border-t border-gray-200 space-y-0.5">
-                                                            {plan.features.slice(0, 2).map((f, i) => (
-                                                                <p key={i} className={`${themeClasses.textMuted} text-[8px] md:text-[10px] flex items-center gap-1`}>
-                                                                    <span className="text-blue-500">✓</span> {f.length > 20 ? f.substring(0, 20) + '...' : f}
-                                                                </p>
-                                                            ))}
-                                                            {plan.features.length > 2 && (
-                                                                <p className={`${themeClasses.textMuted} text-[8px] md:text-[10px]`}>+{plan.features.length - 2} more</p>
-                                                            )}
-                                                        </div>
-                                                    )} */}
                                                     </button>
                                                 ))}
                                         </div>
@@ -901,7 +988,7 @@ const DynamicHRMSLandingPage = () => {
                                             </button>
 
                                             <p className={`text-center text-[8px] md:text-[10px] ${themeClasses.textMuted} uppercase tracking-wider pt-0.5 md:pt-1`}>
-                                                {Number(selectedPlan?.price) > 0 ? "Secured by Stripe · No free trials" : "No credit card required"}
+                                                {Number(selectedPlan?.price) > 0 ? "Secured by Razorpay · 100% Safe & Encrypted" : "No credit card required"}
                                             </p>
                                         </form>
 

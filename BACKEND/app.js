@@ -19,12 +19,9 @@ const allowedOrigins = [
   "https://www.vwsync.com"
 ];
 
-// ✅ FIX: Accept any *.vwsync.com subdomain for CORS
-// Without this, browser will block API calls from zero7.vwsync.com → api.vwsync.com
 const isAllowedOrigin = (origin) => {
-  if (!origin) return true; // allow non-browser (curl, Postman, server-to-server)
+  if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
-  // Allow any subdomain of vwsync.com
   if (/^https?:\/\/[a-z0-9-]+\.vwsync\.com$/.test(origin)) return true;
   return false;
 };
@@ -62,9 +59,9 @@ import offerResponseRoutes from "./routes/offerResponseRoutes.js";
 import inductionRoutes from "./routes/inductionRoutes.js";
 import resignationRoutes from "./routes/resignationRoutes.js";
 
-/* ==================== 🔹 STRIPE IMPORTS ==================== */
-import stripeRoutes from "./routes/stripeRoutes.js";
-import stripeWebhookHandler from "./controllers/stripeWebhookController.js";
+/* ==================== 🔹 RAZORPAY IMPORT ==================== */
+import razorpayRoutes from "./routes/razorpayRoutes.js";
+
 import masterRoutes from "./routes/masterRoutes.js";
 import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
@@ -79,11 +76,9 @@ import domainRoutes from "./routes/domainRoutes.js";
 const app = express();
 const server = http.createServer(app);
 
-// Trust proxy required for Render deployments to get correct IPs
 app.set("trust proxy", 1);
 
 /* ==================== ✅ SUBDOMAIN MIDDLEWARE (before CORS) ==================== */
-// Must be first so req.subdomain / req.company are set before any route handler
 app.use(subdomainMiddleware);
 
 /* ==================== ✅ CORS MIDDLEWARE ==================== */
@@ -104,15 +99,9 @@ app.use(
 );
 app.options("*", cors());
 
-/* ==================== 🔥 STRIPE WEBHOOK ==================== */
-// MUST be before express.json()
-app.post(
-  "/api/stripe/webhook",
-  express.raw({ type: "application/json" }),
-  stripeWebhookHandler
-);
-
 /* ==================== BODY PARSERS ==================== */
+// NOTE: Unlike Stripe, Razorpay webhook uses standard JSON body — no raw bytes needed.
+// express.json() is sufficient for everything including the Razorpay webhook.
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -121,7 +110,7 @@ const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: isAllowedOrigin, // ✅ use same function so socket.io also allows subdomains
+    origin: isAllowedOrigin,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -218,16 +207,15 @@ app.use("/api/mail", mailRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
-app.use("/api/payroll", payrollcandidatesRoutes);
 app.use("/api/doc-verification", documentVerificationRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/induction", inductionRoutes);
-
-/* ==================== 🔹 STRIPE + OTHER ROUTES ==================== */
 app.use("/api/resignations", resignationRoutes);
-app.use("/api/doc-verification", documentVerificationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
-app.use("/api/stripe", stripeRoutes);
+
+/* ==================== 🔹 RAZORPAY ROUTES ==================== */
+app.use("/api/razorpay", razorpayRoutes);
+
 app.use("/api/master", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
 

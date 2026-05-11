@@ -8,6 +8,20 @@ import {
   FaClock, FaCreditCard, FaEdit, FaSave, FaTimes
 } from "react-icons/fa";
 
+/* ─────────────────────────────────────────────────────────────────
+   Helper: dynamically load Razorpay checkout script
+   Returns a promise that resolves to true when ready.
+───────────────────────────────────────────────────────────────── */
+const loadRazorpayScript = () =>
+  new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
 const AdminProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,8 +90,8 @@ const AdminProfile = () => {
     fetchProfile();
     fetchPlans();
 
-    // Reset loading state when window gets focus (e.g. returning from Stripe)
-    const handleFocus = () => setUpgradingPlanId(null);
+    // Reset loading state when window gets focus (backup safety for edge cases)
+    const handleFocus = () => setUpgradingPlanId((prev) => prev !== null ? null : prev);
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
@@ -97,6 +111,9 @@ const AdminProfile = () => {
     }
   };
 
+  /* ─────────────────────────────────────────────────────────────────
+     RAZORPAY UPGRADE FLOW
+  ───────────────────────────────────────────────────────────────── */
   const handleUpgrade = async (plan) => {
     if (plan.planName === profile?.plan) {
       alert("You are already on this plan!");
@@ -109,8 +126,17 @@ const AdminProfile = () => {
     }
 
     setUpgradingPlanId(plan._id);
+
     try {
-      const res = await api.post("/api/stripe/create-checkout-session", {
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady) {
+        alert("Failed to load payment gateway. Please check your connection.");
+        setUpgradingPlanId(null);
+        return;
+      }
+
+      // 1. Create Razorpay order on backend
+      const res = await api.post("/api/razorpay/create-order", {
         plan: plan,
         signupForm: {
           name: profile.name,
@@ -121,7 +147,65 @@ const AdminProfile = () => {
         },
         isUpgrade: true
       });
-      window.location.href = res.data.url;
+      
+      const orderData = res.data; // { orderId, amount, currency, keyId }
+
+      // 2. Open Razorpay checkout popup
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount, // in paise
+        currency: orderData.currency,
+        name: "HRMS vwsync",
+        description: `Upgrade to ${plan.planName} Plan`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: profile.name,
+          email: profile.email,
+          contact: profile.phone,
+        },
+        theme: { color: "#9333ea" }, // Matches the purple-600 theme of this page
+
+        // 3. On payment success — verify on backend
+        handler: async (paymentResponse) => {
+          try {
+            await api.post("/api/razorpay/verify-payment", {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature,
+              plan: plan,
+              isUpgrade: true
+            });
+
+            alert("Plan upgraded successfully!");
+            await fetchProfile(); // Refresh data to show new plan & dates
+          } catch (verifyErr) {
+            alert(
+              verifyErr.response?.data?.message ||
+              "Payment received but verification failed. Please contact support."
+            );
+          } finally {
+            setUpgradingPlanId(null);
+          }
+        },
+
+        modal: {
+          // User closed the popup without paying
+          ondismiss: () => {
+            setUpgradingPlanId(null);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      rzp.on("payment.failed", (response) => {
+        console.error("Razorpay payment failed:", response.error);
+        alert(response.error?.description || "Payment failed. Please try again.");
+        setUpgradingPlanId(null);
+      });
+
+      rzp.open();
+
     } catch (err) {
       alert(err.response?.data?.message || "Upgrade failed. Please try again.");
       setUpgradingPlanId(null);
