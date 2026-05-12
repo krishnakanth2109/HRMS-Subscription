@@ -1253,6 +1253,7 @@ const EmployeeManagement = () => {
                   <th className="p-4 text-left">Employee</th>
                   <th className="p-4 text-left hidden md:table-cell">Role</th>
                   <th className="p-4 text-left hidden lg:table-cell">Dept</th>
+                  <th className="p-4 text-left hidden xl:table-cell">Company</th>
                   <th className="p-4 text-left hidden xl:table-cell">Email</th>
                   <th className="p-4 text-center">Actions</th>
                 </tr>
