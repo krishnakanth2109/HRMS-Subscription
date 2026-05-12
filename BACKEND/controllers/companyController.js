@@ -124,20 +124,15 @@ export const updateCompany = async (req, res) => {
 
     // Check if name or prefix already exists for another company
     if (name || prefix) {
-      const existingCompany = await Company.findOne({
-        _id: { $ne: id },
-        $or: []
-      });
-      
-      if (name) {
-        existingCompany.$or.push({ name: name.trim() });
-      }
-      if (prefix) {
-        existingCompany.$or.push({ prefix: prefix.toUpperCase().trim() });
-      }
-      
-      if (existingCompany.$or.length > 0) {
-        const duplicate = await Company.findOne(existingCompany);
+      const orQuery = [];
+      if (name) orQuery.push({ name: name.trim() });
+      if (prefix) orQuery.push({ prefix: prefix.toUpperCase().trim() });
+
+      if (orQuery.length > 0) {
+        const duplicate = await Company.findOne({
+          _id: { $ne: id },
+          $or: orQuery
+        });
         if (duplicate) {
           return res.status(400).json({ success: false, message: "Company Name or Prefix already taken by another company." });
         }
@@ -154,16 +149,12 @@ export const updateCompany = async (req, res) => {
     if (website !== undefined) updateData.website = website;
     if (registrationNumber !== undefined) updateData.registrationNumber = registrationNumber;
     
-    // Update officeLocation fields
-    if (address !== undefined || city !== undefined || state !== undefined || 
-        zipCode !== undefined || country !== undefined) {
-      updateData.officeLocation = {};
-      if (address !== undefined) updateData.officeLocation.address = address;
-      if (city !== undefined) updateData.officeLocation.city = city;
-      if (state !== undefined) updateData.officeLocation.state = state;
-      if (zipCode !== undefined) updateData.officeLocation.zipCode = zipCode;
-      if (country !== undefined) updateData.officeLocation.country = country;
-    }
+    // Update officeLocation fields using dot notation to prevent overwriting other nested fields
+    if (address !== undefined) updateData["officeLocation.address"] = address;
+    if (city !== undefined) updateData["officeLocation.city"] = city;
+    if (state !== undefined) updateData["officeLocation.state"] = state;
+    if (zipCode !== undefined) updateData["officeLocation.zipCode"] = zipCode;
+    if (country !== undefined) updateData["officeLocation.country"] = country;
     
     // Ensure Admin owns it
     const company = await Company.findOneAndUpdate(

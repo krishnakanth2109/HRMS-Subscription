@@ -163,7 +163,7 @@ const DocVerifyInvite = () => {
   const handleSendSingle = async (e) => {
     e.preventDefault();
     if (!selectedCompany) return alert('Please select a company first');
-    
+
     // Check if email already sent
     const alreadySent = await checkEmailAlreadySent(singleData.email);
     if (alreadySent) {
@@ -176,7 +176,7 @@ const DocVerifyInvite = () => {
       });
       return;
     }
-    
+
     setSending(true);
     try {
       // Backend saves to DB, fires email in background (fire-and-forget — same as offerLetterRoutes)
@@ -191,7 +191,7 @@ const DocVerifyInvite = () => {
 
       setSingleData({ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' });
       fetchHistory(selectedCompany);
-      
+
       Swal.fire({
         icon: 'success',
         title: 'Sent Successfully!',
@@ -215,18 +215,18 @@ const DocVerifyInvite = () => {
     if (!selectedCompany) return alert('Please select a company first');
     const validRows = bulkRows.filter(r => r.email && r.email.includes('@'));
     if (!validRows.length) return alert('Add at least one valid email');
-    
+
     // Check for already sent emails in bulk
     const emailsToCheck = validRows.map(row => row.email);
     const alreadySentEmails = [];
-    
+
     for (const email of emailsToCheck) {
       const alreadySent = await checkEmailAlreadySent(email);
       if (alreadySent) {
         alreadySentEmails.push(email);
       }
     }
-    
+
     if (alreadySentEmails.length > 0) {
       Swal.fire({
         icon: 'warning',
@@ -248,10 +248,10 @@ const DocVerifyInvite = () => {
       });
       return;
     }
-    
+
     await sendBulkInvites(validRows);
   };
-  
+
   const sendBulkInvites = async (rowsToSend) => {
     if (rowsToSend.length === 0) {
       Swal.fire({
@@ -262,7 +262,7 @@ const DocVerifyInvite = () => {
       });
       return;
     }
-    
+
     setSending(true);
     try {
       // Backend saves all invites to DB and fires all emails in background (fire-and-forget)
@@ -277,7 +277,7 @@ const DocVerifyInvite = () => {
 
       setBulkRows([{ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' }]);
       fetchHistory(selectedCompany);
-      
+
       Swal.fire({
         icon: 'success',
         title: 'Sent Successfully!',
@@ -306,7 +306,7 @@ const DocVerifyInvite = () => {
       cancelButtonColor: '#7c3aed',
       confirmButtonText: 'Yes, delete it!'
     });
-    
+
     if (result.isConfirmed) {
       try {
         await api.delete(`/api/doc-verification/${id}`);
@@ -462,14 +462,14 @@ const DocVerifyInvite = () => {
                       onChange={e => setSingleData({ ...singleData, email: e.target.value })}
                     />
                   </div>
-                  <div>
+                  {/* <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">First Name *</label>
                     <input required placeholder="John"
                       className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
                       value={singleData.name}
                       onChange={e => setSingleData({ ...singleData, name: e.target.value })}
                     />
-                  </div>
+                  </div> */}
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Full Name *</label>
                     <input required placeholder="John Michael Doe"
@@ -530,10 +530,10 @@ const DocVerifyInvite = () => {
                         <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Email</label>
                         <input placeholder="email@company.com" className="w-full p-2 text-sm border rounded-lg outline-none focus:ring-1 ring-violet-500" value={row.email} onChange={e => updateBulkRow(idx, 'email', e.target.value)} />
                       </div>
-                      <div className="flex-1 min-w-[100px]">
+                      {/* <div className="flex-1 min-w-[100px]">
                         <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Name</label>
                         <input placeholder="Name" className="w-full p-2 text-sm border rounded-lg outline-none" value={row.name} onChange={e => updateBulkRow(idx, 'name', e.target.value)} />
-                      </div>
+                      </div> */}
                       <div className="flex-1 min-w-[140px]">
                         <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Full Name</label>
                         <input placeholder="Full Name" className="w-full p-2 text-sm border rounded-lg outline-none" value={row.fullName} onChange={e => updateBulkRow(idx, 'fullName', e.target.value)} />

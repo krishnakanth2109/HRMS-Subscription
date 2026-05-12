@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import api from "../api"; // Updated path based on your code
-import { AuthContext } from "../context/AuthContext";
+import api, { getAllCompanies } from "../api";
 import {
   FaUser, FaEnvelope, FaPhone, FaBuilding,
   FaCrown, FaCalendarAlt, FaCheckCircle, FaTimesCircle,
-  FaClock, FaCreditCard, FaEdit, FaSave, FaTimes
+  FaClock, FaCreditCard, FaEdit, FaSave, FaTimes,
+  FaMapMarkerAlt, FaGlobeAsia, FaFingerprint, FaLayerGroup,
+  FaDotCircle, FaWifi, FaCity, FaFlag, FaHashtag, FaChevronDown
 } from "react-icons/fa";
+import { MdRadar, MdLocationOn } from "react-icons/md";
 
 /* ─────────────────────────────────────────────────────────────────
    Helper: dynamically load Razorpay checkout script
@@ -55,6 +57,11 @@ const AdminProfile = () => {
   // Plans State
   const [plans, setPlans] = useState([]);
   const [plansLoading, setPlansLoading] = useState(true);
+
+  // Companies State
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
+  const [companiesLoading, setCompaniesLoading] = useState(true);
   const [upgradingPlanId, setUpgradingPlanId] = useState(null);
 
   const fetchProfile = async () => {
@@ -77,7 +84,6 @@ const AdminProfile = () => {
   const fetchPlans = async () => {
     try {
       const response = await api.get("/api/admin/all-plans");
-      // Filter out 'owner' plan if necessary, similar to SubsHome
       setPlans(response.data.filter(p => p.planName?.toLowerCase() !== "owner"));
     } catch (error) {
       console.error("Error fetching plans:", error);
@@ -86,11 +92,24 @@ const AdminProfile = () => {
     }
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const res = await getAllCompanies();
+      const list = Array.isArray(res) ? res : res.data || [];
+      setCompanies(list);
+      if (list.length > 0) setSelectedCompanyId(list[0]._id);
+    } catch (err) {
+      console.error("Error fetching companies:", err);
+    } finally {
+      setCompaniesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
     fetchPlans();
+    fetchCompanies();
 
-    // Reset loading state when window gets focus (backup safety for edge cases)
     const handleFocus = () => setUpgradingPlanId((prev) => prev !== null ? null : prev);
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
@@ -399,46 +418,107 @@ const AdminProfile = () => {
           </div>
         </div>
 
-        {/* PLANS SECTION */}
+        {/* COMPANY SELECTOR SECTION */}
+        <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-gray-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+            <h3 className="text-gray-900 font-bold flex items-center gap-2">
+              <FaBuilding className="text-purple-500 text-sm" /> Company Details
+            </h3>
+            {companiesLoading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600" />
+            ) : companies.length === 0 ? (
+              <span className="text-sm text-gray-400 italic">No companies added yet</span>
+            ) : (
+              <div className="relative w-full sm:w-64">
+                <select
+                  value={selectedCompanyId}
+                  onChange={(e) => setSelectedCompanyId(e.target.value)}
+                  className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-800 font-semibold text-sm px-4 py-2.5 pr-9 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 transition-all cursor-pointer"
+                >
+                  {companies.map((c) => (
+                    <option key={c._id} value={c._id}>{c.name} ({c.prefix})</option>
+                  ))}
+                </select>
+                <FaChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+              </div>
+            )}
+          </div>
+
+          {(() => {
+            const co = companies.find(c => c._id === selectedCompanyId);
+            if (!co) return (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <FaBuilding size={36} className="mb-3 opacity-25" />
+                <p className="font-semibold">No company selected</p>
+                <p className="text-xs mt-1">Add a company from Employee Management</p>
+              </div>
+            );
+            const Row = ({ label, value }) => (
+              <div className="flex items-start py-2 border-b border-gray-200 last:border-0">
+                <span className="w-32 shrink-0 text-[10px] font-black text-gray-500 uppercase tracking-widest pt-0.5 leading-none">{label}</span>
+                <span className="text-gray-900 font-bold flex-1 text-[13px] leading-snug">{value || <span className="text-gray-400 font-normal italic">Not set</span>}</span>
+              </div>
+            );
+            return (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Identity</p>
+                    <Row label="Name" value={co.name} />
+                    <Row label="Prefix" value={co.prefix} />
+                    <Row label="Employees" value={co.employeeCount?.toString() || "0"} />
+                    <Row label="Created" value={co.createdAt ? new Date(co.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null} />
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Contact</p>
+                    <Row label="Email" value={co.email} />
+                    <Row label="Phone" value={co.phone} />
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Registration</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                    <div>
+                      <Row label="Registration / GST" value={co.registrationNumber} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* PLANS SECTION — last */}
         <div id="plans" className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-gray-900 font-bold flex items-center gap-2">
-              <FaCrown className="text-purple-500 text-sm" /> Available Plans & Upgrade
+              <FaCrown className="text-purple-500 text-sm" /> Available Plans &amp; Upgrade
             </h3>
             {plansLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>}
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {plans.map((plan) => {
               const isCurrentPlan = plan.planName === profile?.plan;
               return (
                 <div
                   key={plan._id}
-                  className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col ${isCurrentPlan
-                    ? "border-purple-500 bg-purple-50/50"
-                    : "border-gray-100 bg-gray-50 hover:border-purple-200"
-                    }`}
+                  className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col ${ isCurrentPlan ? "border-purple-500 bg-purple-50/50" : "border-gray-100 bg-gray-50 hover:border-purple-200" }`}
                 >
                   {isCurrentPlan && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
                       Current Plan
                     </div>
                   )}
-
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="text-lg font-bold text-gray-900 capitalize">{plan.planName}</h4>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
-                        {plan.durationDays} Days
-                      </p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{plan.durationDays} Days</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-black text-purple-600">
-                        {Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}
-                      </p>
+                      <p className="text-xl font-black text-purple-600">{Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}</p>
                     </div>
                   </div>
-
                   <ul className="space-y-2 mb-6 flex-grow">
                     <li className="flex items-center gap-2 text-xs text-gray-600">
                       <FaCheckCircle className="text-emerald-500 shrink-0" size={12} />
@@ -454,31 +534,51 @@ const AdminProfile = () => {
                       <li className="text-[10px] text-gray-400 italic ml-5">+{plan.features.length - 3} more features</li>
                     )}
                   </ul>
-
                   <button
                     onClick={() => handleUpgrade(plan)}
-                    disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) ||
-                      Number(plan.price) === 0}
-                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${isCurrentPlan
-                      ? "bg-emerald-100 text-emerald-600 cursor-default"
-                      : Number(plan.price) === 0
-                        ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                        : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"
-                      }`}
+                    disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) || Number(plan.price) === 0}
+                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${ isCurrentPlan ? "bg-emerald-100 text-emerald-600 cursor-default" : Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100" }`}
                   >
-                    {isCurrentPlan
-                      ? "Active Now"
-                      : upgradingPlanId === plan._id
-                        ? "Processing..."
-                        : Number(plan.price) === 0
-                          ? "Default Plan"
-                          : "Upgrade Plan"}
+                    {isCurrentPlan ? "Active Now" : upgradingPlanId === plan._id ? "Processing..." : Number(plan.price) === 0 ? "Default Plan" : "Upgrade Plan"}
                   </button>
                 </div>
               );
             })}
           </div>
         </div>
+
+      </div>
+    </div>
+  );
+};
+
+// ─── Color map for CompanyDetailCard ───────────────────────────────────────────
+const colorMap = {
+  purple: { bg: "bg-purple-50", icon: "text-purple-500", badge: "text-purple-700 bg-purple-50 border-purple-100" },
+  indigo: { bg: "bg-indigo-50", icon: "text-indigo-500", badge: "text-indigo-700 bg-indigo-50 border-indigo-100" },
+  blue:   { bg: "bg-blue-50",   icon: "text-blue-500",   badge: "text-blue-700 bg-blue-50 border-blue-100"     },
+  teal:   { bg: "bg-teal-50",   icon: "text-teal-500",   badge: "text-teal-700 bg-teal-50 border-teal-100"     },
+  emerald:{ bg: "bg-emerald-50",icon: "text-emerald-500",badge: "text-emerald-700 bg-emerald-50 border-emerald-100" },
+  rose:   { bg: "bg-rose-50",   icon: "text-rose-500",   badge: "text-rose-700 bg-rose-50 border-rose-100"     },
+  sky:    { bg: "bg-sky-50",    icon: "text-sky-500",    badge: "text-sky-700 bg-sky-50 border-sky-100"        },
+  amber:  { bg: "bg-amber-50",  icon: "text-amber-500",  badge: "text-amber-700 bg-amber-50 border-amber-100"  },
+  violet: { bg: "bg-violet-50", icon: "text-violet-500", badge: "text-violet-700 bg-violet-50 border-violet-100" },
+  orange: { bg: "bg-orange-50", icon: "text-orange-500", badge: "text-orange-700 bg-orange-50 border-orange-100" },
+  fuchsia:{ bg: "bg-fuchsia-50",icon: "text-fuchsia-500",badge: "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-100" },
+  red:    { bg: "bg-red-50",    icon: "text-red-500",    badge: "text-red-700 bg-red-50 border-red-100"        },
+  slate:  { bg: "bg-slate-50",  icon: "text-slate-500",  badge: "text-slate-700 bg-slate-50 border-slate-200"  },
+};
+
+const CompanyDetailCard = ({ icon, label, value, color = "purple", compact = false }) => {
+  const c = colorMap[color] || colorMap.purple;
+  return (
+    <div className={`flex items-start gap-3 ${compact ? "p-4" : "p-5"} bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 group`}>
+      <div className={`shrink-0 w-9 h-9 rounded-xl ${c.bg} flex items-center justify-center ${c.icon} text-sm transition-transform group-hover:scale-110`}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.18em] leading-none mb-1.5">{label}</p>
+        <p className="text-gray-800 font-bold text-sm truncate leading-snug">{value}</p>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from "react";
 
 import {
   FaUser,
@@ -26,6 +26,7 @@ import api, {
   getAllShifts,
   getLeaveRequests,
   getHolidays,
+  getAllCompanies,
 } from "../api";
 
 // ==========================================
@@ -187,7 +188,7 @@ const SmartSubmenu = ({ onClose, onNavigate }) => {
       </button>
       <button
         onClick={() => { onNavigate("/admin/doc-verify-portal"); onClose(); }}
-        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
+        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-xl"
       >
         <FaSearch className="text-violet-500" /> View & Verify Docs
       </button>
@@ -282,6 +283,9 @@ const EmployeeRow = ({
       </td>
       <td className="p-4 align-middle text-left">
         <span className="text-sm font-bold text-gray-900">{currentDepartment}</span>
+      </td>
+      <td className="p-4 align-middle text-left">
+        <span className="text-sm font-bold text-gray-900">{emp.companyName || "N/A"}</span>
       </td>
       <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold">
         <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">
@@ -378,6 +382,7 @@ const InactiveEmployeeRow = ({
       </td>
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
+      <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{emp.companyName || "N/A"}</span></td>
       <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800">
         <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
       </td>
@@ -849,6 +854,10 @@ const EmployeeManagement = () => {
   const [selectedDept, setSelectedDept] = useState("All");
   const [selectedRole, setSelectedRole] = useState("All");
   const [selectedEmploymentType, setSelectedEmploymentType] = useState("All");
+  const [selectedCompany, setSelectedCompany] = useState("All");
+  const [companies, setCompanies] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [deactivateModalOpen, setDeactivateModalOpen] = useState(false);
   const [reactivateModalOpen, setReactivateModalOpen] = useState(false);
@@ -889,12 +898,14 @@ const EmployeeManagement = () => {
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empRes, resignationRes] = await Promise.all([
+      const [empRes, resignationRes, companiesRes] = await Promise.all([
         getEmployees(),
-        api.get("/api/resignations/admin/all")
+        api.get("/api/resignations/admin/all"),
+        getAllCompanies()
       ]);
       setEmployees(empRes);
       setAllResignations(resignationRes.data || []);
+      setCompanies(Array.isArray(companiesRes) ? companiesRes : companiesRes.data || []);
     } catch (err) {
       console.error("Error fetching data:", err);
     } finally {
@@ -905,21 +916,25 @@ const EmployeeManagement = () => {
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDept, selectedRole, selectedEmploymentType, selectedCompany]);
+
+  useEffect(() => {
     const fetchImages = async () => {
       if (employees.length === 0) return;
-      
+
       // Filter out IDs we already have images for
       const idsToFetch = employees
         .map((emp) => emp.employeeId)
         .filter((id) => id && !employeeImages[id]);
-      
+
       if (idsToFetch.length === 0) return;
 
       try {
         // Use the new bulk fetch endpoint to get all profiles in one request
         const res = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
         const newImages = {};
-        
+
         if (Array.isArray(res.data)) {
           res.data.forEach((profile) => {
             if (profile.profilePhoto?.url) {
@@ -927,7 +942,7 @@ const EmployeeManagement = () => {
             }
           });
         }
-        
+
         if (Object.keys(newImages).length > 0) {
           setEmployeeImages((prev) => ({ ...prev, ...newImages }));
         }
@@ -992,14 +1007,25 @@ const EmployeeManagement = () => {
         matchesSearch &&
         (selectedDept === "All" || currentDepartment === selectedDept) &&
         (selectedRole === "All" || currentRole === selectedRole) &&
-        (selectedEmploymentType === "All" || currentEmploymentType === selectedEmploymentType)
+        (selectedEmploymentType === "All" || currentEmploymentType === selectedEmploymentType) &&
+        (selectedCompany === "All" || emp.company === selectedCompany)
       );
     });
     return {
       activeEmployees: filtered.filter((emp) => emp.isActive !== false),
       inactiveEmployees: filtered.filter((emp) => emp.isActive === false),
     };
-  }, [employees, searchQuery, selectedDept, selectedRole, selectedEmploymentType]);
+  }, [employees, searchQuery, selectedDept, selectedRole, selectedEmploymentType, selectedCompany]);
+
+  const { paginatedEmployees, totalPages } = useMemo(() => {
+    const combined = [...activeEmployees, ...inactiveEmployees];
+    const pages = Math.ceil(combined.length / itemsPerPage);
+    const start = (currentPage - 1) * itemsPerPage;
+    return {
+      paginatedEmployees: combined.slice(start, start + itemsPerPage),
+      totalPages: pages
+    };
+  }, [activeEmployees, inactiveEmployees, currentPage]);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center py-12">
@@ -1136,23 +1162,27 @@ const EmployeeManagement = () => {
         </div>
 
 
-        <div className="flex flex-col md:flex-row gap-4 mb-10 px-8">
+        <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-10 px-8">
           <input
             type="text"
             placeholder="Search employees..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-1/4 border bg-white border-gray-200 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="flex-1 min-w-[200px] border bg-white border-gray-200 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
-          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+          <select value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+            <option value="All">All Companies</option>
+            {companies.map((company) => <option key={company._id} value={company._id}>{company.name}</option>)}
+          </select>
+          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
             <option value="All">All Departments</option>
             {departmentSet.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
           </select>
-          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full md:w-1/4 bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
             <option value="All">All Roles</option>
             {roleSet.map((role) => <option key={role} value={role}>{role}</option>)}
           </select>
-          <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+          <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
             <option value="All">All Employment Types</option>
             {employmentTypeSet.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
@@ -1167,32 +1197,55 @@ const EmployeeManagement = () => {
                   <th className="p-4 text-left">Name</th>
                   <th className="p-4 text-left">Role</th>
                   <th className="p-4 text-left">Department</th>
+                  <th className="p-4 text-left">Company</th>
                   <th className="p-4 text-left">Email</th>
                   <th className="p-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
-                  <tr><td colSpan="6" className="p-8 text-center text-gray-500 font-medium text-lg">Loading employees data...</td></tr>
-                ) : activeEmployees.length > 0 || inactiveEmployees.length > 0 ? (
+                  <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-medium text-lg">Loading employees data...</td></tr>
+                ) : paginatedEmployees.length > 0 ? (
                   <>
-                    {activeEmployees.map((emp, idx) => (
-                      <EmployeeRow key={emp.employeeId} emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} resignations={allResignations} />
-                    ))}
-                    {activeEmployees.length > 0 && inactiveEmployees.length > 0 && (
-                      <tr>
-                        <td colSpan="6" className="p-2 text-center font-bold text-white text-lg tracking-widest uppercase bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
-                          Inactive Employees
-                        </td>
-                      </tr>
-                    )}
-                    {inactiveEmployees.map((emp) => (
-                      <InactiveEmployeeRow key={emp.employeeId} emp={emp} navigate={navigate} onReactivateClick={openReactivateModal} onViewDetailsClick={openViewDetailsModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} />
-                    ))}
+                    {paginatedEmployees.map((emp, idx) => {
+                      const isFirstInactive = emp.isActive === false && (idx === 0 ? (activeEmployees.length > 0 && currentPage === Math.ceil(activeEmployees.length / itemsPerPage) + (activeEmployees.length % itemsPerPage === 0 ? 1 : 0) || (activeEmployees.length > 0 && paginatedEmployees[0].isActive === false)) : paginatedEmployees[idx - 1].isActive !== false);
+                      
+                      // Simplified separator logic: show if this is the first inactive employee in the combined filtered list
+                      // or if it's the first item on the page and it's inactive while there are active employees.
+                      const showSeparator = emp.isActive === false && (
+                        (idx > 0 && paginatedEmployees[idx-1].isActive !== false) || 
+                        (idx === 0 && currentPage > 1 && activeEmployees.length > (currentPage - 1) * itemsPerPage) ||
+                        (idx === 0 && activeEmployees.length > 0 && activeEmployees.length <= (currentPage - 1) * itemsPerPage && !paginatedEmployees.some((e, i) => i < idx && e.isActive === false))
+                      );
+
+                      // Actually, let's use a simpler approach for the separator:
+                      // We can pre-calculate the index of the first inactive employee in the combined list.
+                      const combinedList = [...activeEmployees, ...inactiveEmployees];
+                      const firstInactiveIdx = combinedList.findIndex(e => e.isActive === false);
+                      const globalIdx = (currentPage - 1) * itemsPerPage + idx;
+                      const isFirstInactiveGlobal = firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
+
+                      return (
+                        <Fragment key={emp.employeeId}>
+                          {isFirstInactiveGlobal && (
+                            <tr>
+                              <td colSpan="7" className="p-2 text-center font-bold text-white text-lg tracking-widest uppercase bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
+                                Inactive Employees
+                              </td>
+                            </tr>
+                          )}
+                          {emp.isActive !== false ? (
+                            <EmployeeRow emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} resignations={allResignations} />
+                          ) : (
+                            <InactiveEmployeeRow emp={emp} navigate={navigate} onReactivateClick={openReactivateModal} onViewDetailsClick={openViewDetailsModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} />
+                          )}
+                        </Fragment>
+                      );
+                    })}
                   </>
                 ) : (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 text-gray-400 font-medium">
+                    <td colSpan="7" className="p-8 text-center bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 text-gray-400 font-medium">
                       No employees found matching criteria.
                     </td>
                   </tr>
@@ -1202,47 +1255,81 @@ const EmployeeManagement = () => {
           </div>
         </div>
 
-{/* MODALS */ }
+        {/* MODALS */}
         <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
         <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
         <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
         <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setOverviewModalOpen(false)} />
 
-{
-  previewImage && (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
-      <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"><FaTimes size={30} /></button>
-      <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
-    </div>
-  )
-}
+        {
+          previewImage && (
+            <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+              <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"><FaTimes size={30} /></button>
+              <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+            </div>
+          )
+        }
 
-{/* HR Flow Process Image Modal Popup - SCROLL FIX APPLIED */ }
-{
-  hrFlowImageOpen && (
-    <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
-      <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-4 border-b shrink-0">
-          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-            <FaInfoCircle className="text-indigo-600" /> HR Flow Process
-          </h3>
-          <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
-            <FaTimes size={20} />
-          </button>
-        </div>
+        {/* HR Flow Process Image Modal Popup - SCROLL FIX APPLIED */}
+        {
+          hrFlowImageOpen && (
+            <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
+              <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b shrink-0">
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <FaInfoCircle className="text-indigo-600" /> HR Flow Process
+                  </h3>
+                  <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
+                    <FaTimes size={20} />
+                  </button>
+                </div>
 
-        {/* Fixed flex/scroll area: using block context inside an overflow-y-auto container instead of items-center */}
-        <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
-          <img
-            src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png"
-            alt="HR Flow Process Image Not Found"
-            className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm"
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
+                {/* Fixed flex/scroll area: using block context inside an overflow-y-auto container instead of items-center */}
+                <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
+                  <img
+                    src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png"
+                    alt="HR Flow Process Image Not Found"
+                    className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm"
+                  />
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-8 gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
+            >
+              Previous
+            </button>
+            <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${
+                    currentPage === i + 1
+                      ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
+                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
+            >
+              Next
+            </button>
+          </div>
+        )}
 
       </div >
     </div >

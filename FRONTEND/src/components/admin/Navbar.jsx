@@ -219,9 +219,8 @@ const Navbar = ({ currentTheme, onThemeChange }) => {
                       <div
                         key={n._id}
                         onClick={() => markAsRead(n._id)}
-                        className={`px-4 py-3 border-b cursor-pointer hover:bg-gray-50 transition flex items-start gap-3 ${
-                          !n.isRead ? "bg-blue-50" : ""
-                        }`}
+                        className={`px-4 py-3 border-b cursor-pointer hover:bg-gray-50 transition flex items-start gap-3 ${!n.isRead ? "bg-blue-50" : ""
+                          }`}
                       >
                         <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${!n.isRead ? "bg-blue-500" : "bg-gray-300"}`} />
                         <div className="flex-1 min-w-0">
@@ -287,7 +286,7 @@ const Navbar = ({ currentTheme, onThemeChange }) => {
 
             {showMenu && (
               <div
-                className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-56 z-50 text-base animate-fade-in"
+                className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-56 z-50 text-base animate-fade-in overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div
