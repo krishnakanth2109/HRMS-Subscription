@@ -291,13 +291,12 @@ const EmployeeRow = ({
       <td className="p-4 align-middle text-left">
         <span className="text-sm font-bold text-gray-900">{emp.companyName || "N/A"}</span>
       </td>
-      <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold">
-        <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold hidden xl:table-cell truncate max-w-[200px]">
-          <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">
-            {emp.email}
-          </a>
-        </td>
-        <td className="p-4 align-middle text-center">
+      <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold hidden xl:table-cell truncate max-w-[200px]">
+        <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">
+          {emp.email}
+        </a>
+      </td>
+      <td className="p-4 align-middle text-center">
           <div className="inline-block text-left" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -391,13 +390,10 @@ const InactiveEmployeeRow = ({
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{emp.companyName || "N/A"}</span></td>
-      <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800">
-        <td className="p-4 align-middle text-left hidden md:table-cell"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
-        <td className="p-4 align-middle text-left hidden lg:table-cell"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
-        <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800 hidden xl:table-cell truncate max-w-[200px]">
-          <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
-        </td>
-        <td className="p-4 align-middle text-center">
+      <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800 hidden xl:table-cell truncate max-w-[200px]">
+        <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
+      </td>
+      <td className="p-4 align-middle text-center">
           <div className="relative inline-block text-left" ref={menuRef}>
             <button
               onClick={(e) => {
@@ -1193,209 +1189,206 @@ const EmployeeManagement = () => {
               </div>
             </div>
           </div>
+        </        {/* Filters Section */}
+        <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-10 px-4 sm:px-8">
+          <div className="relative flex-1 min-w-[200px]">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search employees..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full border bg-white border-gray-200 pl-10 pr-4 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            />
+          </div>
+          <select
+            value={selectedCompany}
+            onChange={(e) => setSelectedCompany(e.target.value)}
+            className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm"
+          >
+            <option value="All">All Companies</option>
+            {companies.map((company) => (
+              <option key={company._id} value={company._id}>{company.name}</option>
+            ))}
+          </select>
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+            className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm"
+          >
+            <option value="All">All Departments</option>
+            {departmentSet.map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+          <select
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm"
+          >
+            <option value="All">All Roles</option>
+            {roleSet.map((role) => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+          <select
+            value={selectedEmploymentType}
+            onChange={(e) => setSelectedEmploymentType(e.target.value)}
+            className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm"
+          >
+            <option value="All">All Types</option>
+            {employmentTypeSet.map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
         </div>
 
+        {/* Table Section */}
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 relative z-10 overflow-hidden mx-4 sm:px-0">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-slate-800 border-b border-slate-700">
+                <tr className="text-white uppercase text-[10px] sm:text-xs font-semibold tracking-wider">
+                  <th className="p-4 text-left pl-6 hidden sm:table-cell">ID</th>
+                  <th className="p-4 text-left">Employee</th>
+                  <th className="p-4 text-left hidden md:table-cell">Role</th>
+                  <th className="p-4 text-left hidden lg:table-cell">Dept</th>
+                  <th className="p-4 text-left hidden xl:table-cell">Email</th>
+                  <th className="p-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" className="p-8 text-center text-gray-500 font-medium text-lg">
+                      Loading employees data...
+                    </td>
+                  </tr>
+                ) : paginatedEmployees.length > 0 ? (
+                  paginatedEmployees.map((emp, idx) => {
+                    const combinedList = [...activeEmployees, ...inactiveEmployees];
+                    const firstInactiveIdx = combinedList.findIndex(e => e.isActive === false);
+                    const globalIdx = (currentPage - 1) * itemsPerPage + idx;
+                    const isFirstInactiveGlobal = firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
 
-        <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-10 px-8">
-          <input
-            type="text"
-            placeholder="Search employees..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 min-w-[200px] border bg-white border-gray-200 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-          <select value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
-            <option value="All">All Companies</option>
-            {companies.map((company) => <option key={company._id} value={company._id}>{company.name}</option>)}
-          </select>
-          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
-            <option value="All">All Departments</option>
-            {departmentSet.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
-          </select>
-          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
-            <option value="All">All Roles</option>
-            {roleSet.map((role) => <option key={role} value={role}>{role}</option>)}
-          </select>
-          <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
-            <option value="All">All Employment Types</option>
-            <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-10 px-4 sm:px-8">
-              <div className="relative w-full md:w-1/4">
-                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full border bg-white border-gray-200 pl-10 pr-4 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    return (
+                      <Fragment key={emp.employeeId}>
+                        {isFirstInactiveGlobal && (
+                          <tr>
+                            <td colSpan="6" className="p-3 text-center font-bold text-white text-sm tracking-widest uppercase bg-slate-700 border-b border-slate-600">
+                              Inactive Employees
+                            </td>
+                          </tr>
+                        )}
+                        {emp.isActive !== false ? (
+                          <EmployeeRow
+                            emp={emp}
+                            idx={idx}
+                            navigate={navigate}
+                            onDeactivateClick={openDeactivateModal}
+                            onOverviewClick={openOverviewModal}
+                            profilePic={employeeImages[emp.employeeId]}
+                            onImageClick={setPreviewImage}
+                            resignations={allResignations}
+                          />
+                        ) : (
+                          <InactiveEmployeeRow
+                            emp={emp}
+                            navigate={navigate}
+                            onReactivateClick={openReactivateModal}
+                            onViewDetailsClick={openViewDetailsModal}
+                            onOverviewClick={openOverviewModal}
+                            profilePic={employeeImages[emp.employeeId]}
+                            onImageClick={setPreviewImage}
+                          />
+                        )}
+                      </Fragment>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="6" className="p-8 text-center text-gray-400 font-medium">
+                      No employees found matching criteria.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Pagination UI */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center mt-8 gap-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
+            >
+              Previous
+            </button>
+            <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${
+                    currentPage === i + 1
+                      ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
+                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
+            >
+              Next
+            </button>
+          </div>
+        )}
+
+        {/* MODALS */}
+        <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
+        <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
+        <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
+        <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
+
+        {previewImage && (
+          <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+            <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"><FaTimes size={30} /></button>
+            <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          </div>
+        )}
+
+        {hrFlowImageOpen && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
+            <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center p-4 border-b shrink-0">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FaInfoCircle className="text-indigo-600" /> HR Flow Process
+                </h3>
+                <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
+                  <FaTimes size={20} />
+                </button>
+              </div>
+              <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
+                <img
+                  src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png"
+                  alt="HR Flow Process"
+                  className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm"
                 />
               </div>
-              <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
-                <option value="All">All Departments</option>
-                {departmentSet.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
-              </select>
-              <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full md:w-1/4 bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
-                <option value="All">All Roles</option>
-                {roleSet.map((role) => <option key={role} value={role}>{role}</option>)}
-              </select>
-              <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
-                <option value="All">All Types</option>
-                {employmentTypeSet.map((type) => <option key={type} value={type}>{type}</option>)}
-              </select>
             </div>
-
-            <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 relative z-10 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full rounded-2xl">
-                  <thead className="bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
-                    <tr className="text-white uppercase text-sm font-semibold tracking-wide">
-                      <th className="p-4 text-left pl-6">ID</th>
-                      <th className="p-4 text-left">Name</th>
-                      <th className="p-4 text-left">Role</th>
-                      <th className="p-4 text-left">Department</th>
-                      <th className="p-4 text-left">Company</th>
-                      <th className="p-4 text-left">Email</th>
-                      <table className="min-w-full">
-                        <thead className="bg-slate-800 border-b border-slate-700">
-                          <tr className="text-white uppercase text-[10px] sm:text-xs font-semibold tracking-wider">
-                            <th className="p-4 text-left pl-6 hidden sm:table-cell">ID</th>
-                            <th className="p-4 text-left">Employee</th>
-                            <th className="p-4 text-left hidden md:table-cell">Role</th>
-                            <th className="p-4 text-left hidden lg:table-cell">Dept</th>
-                            <th className="p-4 text-left hidden xl:table-cell">Email</th>
-                            <th className="p-4 text-center">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {loading ? (
-                            <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-medium text-lg">Loading employees data...</td></tr>
-                          ) : paginatedEmployees.length > 0 ? (
-                            <>
-                              {paginatedEmployees.map((emp, idx) => {
-                                const isFirstInactive = emp.isActive === false && (idx === 0 ? (activeEmployees.length > 0 && currentPage === Math.ceil(activeEmployees.length / itemsPerPage) + (activeEmployees.length % itemsPerPage === 0 ? 1 : 0) || (activeEmployees.length > 0 && paginatedEmployees[0].isActive === false)) : paginatedEmployees[idx - 1].isActive !== false);
-
-                                // Simplified separator logic: show if this is the first inactive employee in the combined filtered list
-                                // or if it's the first item on the page and it's inactive while there are active employees.
-                                const showSeparator = emp.isActive === false && (
-                                  (idx > 0 && paginatedEmployees[idx - 1].isActive !== false) ||
-                                  (idx === 0 && currentPage > 1 && activeEmployees.length > (currentPage - 1) * itemsPerPage) ||
-                                  (idx === 0 && activeEmployees.length > 0 && activeEmployees.length <= (currentPage - 1) * itemsPerPage && !paginatedEmployees.some((e, i) => i < idx && e.isActive === false))
-                                );
-
-                                // Actually, let's use a simpler approach for the separator:
-                                // We can pre-calculate the index of the first inactive employee in the combined list.
-                                const combinedList = [...activeEmployees, ...inactiveEmployees];
-                                const firstInactiveIdx = combinedList.findIndex(e => e.isActive === false);
-                                const globalIdx = (currentPage - 1) * itemsPerPage + idx;
-                                const isFirstInactiveGlobal = firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
-
-                                return (
-                                  <Fragment key={emp.employeeId}>
-                                    {isFirstInactiveGlobal && (
-                                      <tr>
-                                        <td colSpan="7" className="p-2 text-center font-bold text-white text-lg tracking-widest uppercase bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
-                                          Inactive Employees
-                                        </td>
-                                      </tr>
-                                    )}
-                                    {emp.isActive !== false ? (
-                                      <EmployeeRow emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} resignations={allResignations} />
-                                    ) : (
-                                      <InactiveEmployeeRow emp={emp} navigate={navigate} onReactivateClick={openReactivateModal} onViewDetailsClick={openViewDetailsModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} />
-                                    )}
-                                  </Fragment>
-                                );
-                              })}
-                            </>
-                          ) : (
-                            <tr>
-                              <td colSpan="7" className="p-8 text-center bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 text-gray-400 font-medium">
-                                No employees found matching criteria.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* MODALS */}
-                  <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
-                  <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
-                  <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
-                  <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setOverviewModalOpen(false)} />
-
-                  {
-                    previewImage && (
-                      <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
-                        <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"><FaTimes size={30} /></button>
-                        <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
-                      </div>
-                    )
-                  }
-
-                  {/* HR Flow Process Image Modal Popup - SCROLL FIX APPLIED */}
-                  {
-                    hrFlowImageOpen && (
-                      <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
-                        <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex justify-between items-center p-4 border-b shrink-0">
-                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                              <FaInfoCircle className="text-indigo-600" /> HR Flow Process
-                            </h3>
-                            <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
-                              <FaTimes size={20} />
-                            </button>
-                          </div>
-
-                          {/* Fixed flex/scroll area: using block context inside an overflow-y-auto container instead of items-center */}
-                          <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
-                            <img
-                              src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png"
-                              alt="HR Flow Process Image Not Found"
-                              className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  }
-
-                  {totalPages > 1 && (
-                    <div className="flex justify-center items-center mt-8 gap-2">
-                      <button
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
-                      >
-                        Previous
-                      </button>
-                      <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
-                        {[...Array(totalPages)].map((_, i) => (
-                          <button
-                            key={i + 1}
-                            onClick={() => setCurrentPage(i + 1)}
-                            className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${currentPage === i + 1
-                                ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
-                                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                              }`}
-                          >
-                            {i + 1}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  )}
-
-              </div >
-            </div >
-            );
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
-            export default EmployeeManagement;
+export default EmployeeManagement;

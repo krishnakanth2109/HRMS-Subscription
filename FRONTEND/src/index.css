@@ -196,10 +196,10 @@
 .dark .bg-pink-500,
 .dark .bg-pink-500 *,
 .dark [class*="bg-gradient-to"] *,
-.dark .bg-[#10B981],
-.dark .bg-[#10B981] *,
-.dark .bg-[#EF4444],
-.dark .bg-[#EF4444] * {
+.dark .bg-\[\#10B981\],
+.dark .bg-\[\#10B981\] *,
+.dark .bg-\[\#EF4444\],
+.dark .bg-\[\#EF4444\] * {
   color: #ffffff !important;
 }
 
@@ -278,21 +278,22 @@
 /* Efficient Hover Overflow Fix (Radius Alignment) */
 .dark .absolute.right-0.mt-2.w-72,
 .dark .absolute.top-0.w-64 {
-  overflow: visible !important; /* Allow submenus */
+  overflow: visible !important;
+  /* Allow submenus */
 }
 
-.dark .absolute.right-0.mt-2.w-72 > *:first-child,
-.dark .absolute.right-0.mt-2.w-72 > *:first-child button,
-.dark .absolute.top-0.w-64 > *:first-child,
-.dark .absolute.top-0.w-64 > *:first-child button {
+.dark .absolute.right-0.mt-2.w-72>*:first-child,
+.dark .absolute.right-0.mt-2.w-72>*:first-child button,
+.dark .absolute.top-0.w-64>*:first-child,
+.dark .absolute.top-0.w-64>*:first-child button {
   border-top-left-radius: 0.75rem !important;
   border-top-right-radius: 0.75rem !important;
 }
 
-.dark .absolute.right-0.mt-2.w-72 > *:last-child,
-.dark .absolute.right-0.mt-2.w-72 > *:last-child button,
-.dark .absolute.top-0.w-64 > *:last-child,
-.dark .absolute.top-0.w-64 > *:last-child button {
+.dark .absolute.right-0.mt-2.w-72>*:last-child,
+.dark .absolute.right-0.mt-2.w-72>*:last-child button,
+.dark .absolute.top-0.w-64>*:last-child,
+.dark .absolute.top-0.w-64>*:last-child button {
   border-bottom-left-radius: 0.75rem !important;
   border-bottom-right-radius: 0.75rem !important;
 }
