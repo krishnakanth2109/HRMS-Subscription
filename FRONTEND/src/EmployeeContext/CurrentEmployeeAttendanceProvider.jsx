@@ -1,9 +1,7 @@
 // ✅ CurrentEmployeeAttendanceProvider.jsx (FINAL CLEAN VERSION)
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { CurrentEmployeeAttendanceContext } from "./CurrentEmployeeAttendanceContext";
-
-const API = "http://localhost:5000";
+import { getAttendanceForEmployee, getOvertimeForEmployee } from "../api";
 
 const CurrentEmployeeAttendanceProvider = ({ children }) => {
   // ✅ Logged user
@@ -61,10 +59,11 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
     console.log("✅ Fetching attendance for:", employeeId);
 
     try {
-      const res = await axios.get(`${API}/attendance/${employeeId}`);
+      const data = await getAttendanceForEmployee(employeeId);
+      const attendanceData = Array.isArray(data) ? data : (data.data || []);
 
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        const formatted = res.data.map((rec, index) => ({
+      if (attendanceData.length > 0) {
+        const formatted = attendanceData.map((rec, index) => ({
           id: rec._id || index + 1,
           employeeId: rec.employeeId,
           name: rec.name || "Employee",
@@ -102,8 +101,8 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
     }
 
     try {
-      const res = await axios.get(`${API}/permissions/${employeeId}`);
-      setPermissionRequests(res.data.length ? res.data : []);
+      const data = [];
+      setPermissionRequests(Array.isArray(data) && data.length ? data : []);
     } catch (err) {
       console.error("❌ Permission fetch failed:", err);
       setPermissionRequests([]);
@@ -118,8 +117,8 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
     }
 
     try {
-      const res = await axios.get(`${API}/overtime/${employeeId}`);
-      setOvertimeRequests(res.data.length ? res.data : []);
+      const data = await getOvertimeForEmployee(employeeId);
+      setOvertimeRequests(Array.isArray(data) && data.length ? data : []);
     } catch (err) {
       console.error("❌ Overtime fetch failed:", err);
       setOvertimeRequests([]);

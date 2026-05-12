@@ -125,7 +125,6 @@ const AdminDashboard = () => {
   const [allLeaves, setAllLeaves] = useState([]);
   const [allResignations, setAllResignations] = useState([]);
   const [employeeWorkModes, setEmployeeWorkModes] = useState({});
-  const [loadingData, setLoadingData] = useState(true);
 
   // --- Graph State ---
   const [viewMode, setViewMode] = useState("week"); // 'week' or 'month'
@@ -152,7 +151,6 @@ const AdminDashboard = () => {
 
   // ── Fetch General Dashboard Data ──────────────────────────────────────────
   const fetchDashboardData = useCallback(async () => {
-    setLoadingData(true);
     try {
       const today = new Date().toISOString().split("T")[0];
 
@@ -178,17 +176,17 @@ const AdminDashboard = () => {
           });
           setEmployeeWorkModes(modeMap);
         }
-      } catch (_) { }
+      } catch (err) {
+        console.warn("AdminDashboard work mode fetch skipped:", err?.message || err);
+      }
     } catch (err) {
       console.error("AdminDashboard fetchDashboardData error:", err);
-    } finally {
-      setLoadingData(false);
     }
   }, []);
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
   // ── Derived Data: Active Employees ───────────────────────────────────────
   const activeEmployees = useMemo(
@@ -705,15 +703,15 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
-x
+
             {/* Chart Area */}
-            <div className="h-[250px] w-full">
+            <div className="h-[250px] min-h-[250px] w-full min-w-0 overflow-hidden">
               {loadingGraph ? (
                 <div className="flex items-center justify-center h-full text-white opacity-50 text-sm">Loading Data...</div>
               ) : weeklyChartData.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-white opacity-50 text-sm">No data available</div>
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={250} minWidth={300} minHeight={250}>
                   <BarChart data={weeklyChartData} barGap={4}>
                     <defs>
                       <linearGradient id="pGrad" x1="0" y1="0" x2="0" y2="1">
@@ -781,8 +779,8 @@ x
             <h3 className="text-[#2B3674] font-bold text-lg mb-4">
               Employee Distribution
             </h3>
-            <div className="flex justify-center h-[180px] relative">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="flex justify-center h-[180px] min-h-[180px] w-full min-w-0 overflow-hidden relative">
+              <ResponsiveContainer width="100%" height={180} minWidth={240} minHeight={180}>
                 <PieChart>
                   <Pie
                     data={departmentData}

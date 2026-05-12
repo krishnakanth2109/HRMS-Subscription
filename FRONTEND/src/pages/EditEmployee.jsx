@@ -20,12 +20,12 @@ const EditEmployee = () => {
   const [error, setError] = useState("");
 
   // ── Password change state ────────────────────────────────────────────────
-  const [newPassword, setNewPassword]                 = useState("");
-  const [confirmPassword, setConfirmPassword]         = useState("");
-  const [showNewPassword, setShowNewPassword]         = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordError, setPasswordError]             = useState("");
-  const [passwordLoading, setPasswordLoading]         = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // ── Fetch employee on mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -37,21 +37,21 @@ const EditEmployee = () => {
 
         setEmployee(emp);
         setFormData({
-          employeeId:            emp.employeeId            || "",
-          name:                  emp.name                  || "",
-          email:                 emp.email                 || "",
-          phone:                 emp.phone                 || "",
-          address:               emp.address               || "",
-          emergency:             emp.emergency             || "",
-          personalDetails:       emp.personalDetails       || {},
-          bankDetails:           emp.bankDetails           || {},
-          experienceDetails:     emp.experienceDetails     || [],
-          currentDepartment:     emp.currentDepartment     || currentExp.department     || "",
-          currentRole:           emp.currentRole           || currentExp.role           || "",
-          currentSalary:         emp.currentSalary         || currentExp.salary         || "",
+          employeeId: emp.employeeId || "",
+          name: emp.name || "",
+          email: emp.email || "",
+          phone: emp.phone || "",
+          address: emp.address || "",
+          emergency: emp.emergency || "",
+          personalDetails: emp.personalDetails || {},
+          bankDetails: emp.bankDetails || {},
+          experienceDetails: emp.experienceDetails || [],
+          currentDepartment: emp.currentDepartment || currentExp.department || "",
+          currentRole: emp.currentRole || currentExp.role || "",
+          currentSalary: emp.currentSalary || currentExp.salary || "",
           currentEmploymentType: currentExp.employmentType || "Full-Time",
-          joiningDate:           emp.joiningDate           || currentExp.joiningDate    || "",
-          experienceLetterUrl:   currentExp.experienceLetterUrl || "",
+          joiningDate: emp.joiningDate || currentExp.joiningDate || "",
+          experienceLetterUrl: currentExp.experienceLetterUrl || "",
         });
       } catch (err) {
         console.error("Failed to fetch employee:", err);
@@ -88,23 +88,30 @@ const EditEmployee = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const normalizedEmail = formData.email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setSnackbar("Email address is required");
+      return;
+    }
+
     const payload = {
       ...employee,
       ...formData,
-      employeeId:        formData.employeeId,
+      employeeId: formData.employeeId,
+      email: normalizedEmail,
       currentDepartment: formData.currentDepartment,
-      currentRole:       formData.currentRole,
-      currentSalary:     formData.currentSalary,
-      joiningDate:       formData.joiningDate,
+      currentRole: formData.currentRole,
+      currentSalary: formData.currentSalary,
+      joiningDate: formData.joiningDate,
       experienceDetails: formData.experienceDetails.map(exp => {
         if (exp.lastWorkingDate === "Present") {
           return {
             ...exp,
-            department:          formData.currentDepartment,
-            role:                formData.currentRole,
-            salary:              formData.currentSalary,
-            joiningDate:         formData.joiningDate,
-            employmentType:      formData.currentEmploymentType,
+            department: formData.currentDepartment,
+            role: formData.currentRole,
+            salary: formData.currentSalary,
+            joiningDate: formData.joiningDate,
+            employmentType: formData.currentEmploymentType,
             experienceLetterUrl: formData.experienceLetterUrl,
           };
         }
@@ -113,7 +120,12 @@ const EditEmployee = () => {
     };
 
     try {
-      await updateEmployeeById(id, payload);
+      const updatedEmployee = await updateEmployeeById(id, payload);
+      setEmployee(updatedEmployee);
+      setFormData(prev => ({
+        ...prev,
+        email: updatedEmployee?.email || normalizedEmail,
+      }));
       setSnackbar("✅ Employee updated successfully");
       setTimeout(() => navigate(-1), 1500);
     } catch (err) {
@@ -159,12 +171,12 @@ const EditEmployee = () => {
   // ── Password strength helper ─────────────────────────────────────────────
   const pwStrength =
     newPassword.length === 0 ? null :
-    newPassword.length < 6  ? "weak" :
-    newPassword.length < 10 ? "fair" : "strong";
+      newPassword.length < 6 ? "weak" :
+        newPassword.length < 10 ? "fair" : "strong";
 
   const strengthColor = { weak: "bg-red-400", fair: "bg-yellow-400", strong: "bg-green-500" };
   const strengthLabel = { weak: "Too short", fair: "Fair", strong: "Strong" };
-  const strengthText  = { weak: "text-red-500", fair: "text-yellow-600", strong: "text-green-600" };
+  const strengthText = { weak: "text-red-500", fair: "text-yellow-600", strong: "text-green-600" };
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
@@ -211,9 +223,11 @@ const EditEmployee = () => {
               icon={<FaEnvelope className="text-blue-500" />}
               name="email"
               type="email"
-              label="Email Address"
+              label="Office Email Address"
               value={formData.email}
               onChange={handleChange}
+              placeholder="name@company.com"
+              required
             />
             <InputField
               icon={<FaPhone className="text-blue-500" />}
@@ -397,13 +411,12 @@ const EditEmployee = () => {
                   {[1, 2, 3, 4].map(i => (
                     <div
                       key={i}
-                      className={`h-1.5 w-10 rounded-full transition-all ${
-                        (pwStrength === "weak"   && i <= 1) ||
-                        (pwStrength === "fair"   && i <= 2) ||
-                        (pwStrength === "strong" && i <= 4)
+                      className={`h-1.5 w-10 rounded-full transition-all ${(pwStrength === "weak" && i <= 1) ||
+                          (pwStrength === "fair" && i <= 2) ||
+                          (pwStrength === "strong" && i <= 4)
                           ? strengthColor[pwStrength]
                           : "bg-gray-200"
-                      }`}
+                        }`}
                     />
                   ))}
                 </div>
@@ -415,9 +428,8 @@ const EditEmployee = () => {
 
             {/* Match indicator */}
             {confirmPassword.length > 0 && (
-              <p className={`text-xs font-semibold ml-1 ${
-                newPassword === confirmPassword ? "text-green-600" : "text-red-500"
-              }`}>
+              <p className={`text-xs font-semibold ml-1 ${newPassword === confirmPassword ? "text-green-600" : "text-red-500"
+                }`}>
                 {newPassword === confirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}
               </p>
             )}
@@ -455,9 +467,8 @@ const EditEmployee = () => {
 
         {/* Global snackbar toast */}
         {snackbar && (
-          <div className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-white shadow-2xl font-semibold flex items-center gap-2 animate-bounce ${
-            snackbar.includes("✅") ? "bg-green-600" : "bg-red-600"
-          }`}>
+          <div className={`fixed bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-white shadow-2xl font-semibold flex items-center gap-2 animate-bounce ${snackbar.includes("✅") ? "bg-green-600" : "bg-red-600"
+            }`}>
             <span>{snackbar}</span>
           </div>
         )}
