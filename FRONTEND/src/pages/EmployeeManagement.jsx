@@ -1189,7 +1189,7 @@ const EmployeeManagement = () => {
               </div>
             </div>
           </div>
-        </        {/* Filters Section */}
+        </div>        {/* Filters Section */}
         <div className="flex flex-col md:flex-row flex-wrap gap-4 mb-10 px-4 sm:px-8">
           <div className="relative flex-1 min-w-[200px]">
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
