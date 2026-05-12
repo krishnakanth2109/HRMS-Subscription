@@ -445,15 +445,9 @@ const EmployeeLeavemanagement = () => {
   const fetchLeavePolicies = useCallback(async () => {
     if (dataLoadedRef.current.policy) return;
     try {
-      const token = sessionStorage.getItem("token") || sessionStorage.getItem("token");
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const API_BASE = "http://localhost:5000/api/leaves/balance";
-      const res = await fetch(API_BASE, { headers });
+      const { data } = await api.get("/api/leaves/balance");
       
-      if (res.ok) {
-        const data = await res.json();
+      if (data) {
         // API now returns { balance, sandwichLeaveEnabled, unplannedAbsenceToLOP, carryForwardEnabled }
         // Handle both the new shape and the old bare-array shape for backwards compatibility
         if (Array.isArray(data)) {
@@ -550,14 +544,7 @@ const EmployeeLeavemanagement = () => {
 
       // Fallback to API if function fails
       if (!leavesData.length) {
-        const API_BASE = "http://localhost:5000/api/leaves";
-        const url = new URL(API_BASE, window.location.origin);
-        url.searchParams.set("employeeId", empId);
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error("Failed to fetch leave list");
-        
-        const data = await res.json();
+        const { data } = await api.get(`/api/leaves/${empId}`);
         leavesData = data || [];
       }
 
@@ -1117,16 +1104,7 @@ const EmployeeLeavemanagement = () => {
       }
 
       if (!applied) {
-        const API_BASE = "http://localhost:5000/api/leaves";
-        const res = await fetch(API_BASE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          throw new Error(txt || "Submit failed");
-        }
+        await api.post("/api/leaves/apply", payload);
       }
 
       playRequestSound();
@@ -1209,12 +1187,7 @@ const EmployeeLeavemanagement = () => {
         }
       }
       if (!canceled) {
-        const API_BASE = "http://localhost:5000/api/leaves";
-        let res = await fetch(`${API_BASE}/${leaveId}`, { method: "DELETE" });
-        if (!res.ok) {
-          res = await fetch(`${API_BASE}/${leaveId}/cancel`, { method: "POST" });
-          if (!res.ok) throw new Error("Cancel failed");
-        }
+        await api.delete(`/api/leaves/cancel/${leaveId}`);
       }
       await fetchAllData();
       

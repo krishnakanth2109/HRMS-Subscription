@@ -1542,6 +1542,18 @@ router.get("/all", protect, onlyAdmin, async (req, res) => {
 /**
  * Get Specific Employee Record (scoped — admin sees own employees, employee sees own)
  */
+router.get("/my-corrections", protect, async (req, res) => {
+  try {
+    const requests = await AttendanceRequest.find({
+      employeeId: req.user.employeeId
+    }).sort({ requestedAt: -1 });
+
+    res.json({ success: true, data: requests });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
 router.get('/:employeeId', async (req, res) => {
   try {
     const requestedId = req.params.employeeId;
@@ -2127,18 +2139,6 @@ router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => 
  * Employee: Get Own Correction Requests
  * GET /api/attendance/my-corrections
  */
-router.get("/my-corrections", protect, async (req, res) => {
-  try {
-    const requests = await AttendanceRequest.find({
-      employeeId: req.user.employeeId
-    }).sort({ requestedAt: -1 });
-
-    res.json({ success: true, data: requests });
-  } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-});
-
 export default router;
 
 // --- END OF FILE EmployeeattendanceRoutes.js ---

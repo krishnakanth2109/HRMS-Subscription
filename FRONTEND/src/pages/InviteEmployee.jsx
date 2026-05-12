@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Send, Plus, X, Trash2, RefreshCw, Briefcase, Mail, Building2, UserPlus, History, Banknote,
-  CheckCircle, Clock, FileText, Upload, Download, File, Paperclip, Eye, ExternalLink
+  CheckCircle, Clock, FileText, Upload, Download, File, Paperclip
 } from 'lucide-react';
 import { getAllCompanies, getEmployees } from '../api';
 import api from '../api';
@@ -43,18 +43,19 @@ HR Team
 [COMPANY]`);
 
   const [singleData, setSingleData] = useState({ email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' });
-  const [bulkRows, setBulkRows] = useState([{ email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' }]);
+  const [bulkRows, setBulkRows] = useState([{ email: '', name: '', role: '', department: 'IT', employmentType: '' }]);
   const [sending, setSending] = useState(false);
   const [sentHistory, setSentHistory] = useState([]);
   const [acceptedCandidates, setAcceptedCandidates] = useState([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [bulkCandidateIds, setBulkCandidateIds] = useState([]);
   const [existingEmployees, setExistingEmployees] = useState([]);
   const [loadingExistingEmployees, setLoadingExistingEmployees] = useState(false);
   const [selectedExistingEmployee, setSelectedExistingEmployee] = useState('');
 
   useEffect(() => {
     const init = async () => {
-      const loadedCompanies = await fetchCompanies();
+      await fetchCompanies();
       fetchAcceptedCandidates();
     };
     init();
@@ -65,11 +66,13 @@ useEffect(() => {
     fetchCompanyDocuments();
     fetchHistory(selectedCompany, companies);
     fetchExistingEmployees(selectedCompany);
+    setBulkCandidateIds([]);
   } else {
     setDocuments([]);
     setSentHistory([]); // ❌ clear logs if no company selected
     setExistingEmployees([]);
     setSelectedExistingEmployee('');
+    setBulkCandidateIds([]);
   }
 }, [selectedCompany]);
 
@@ -155,6 +158,46 @@ useEffect(() => {
     if (cand.companyId) {
       setSelectedCompany(cand.companyId);
     }
+  };
+
+  const getCandidateCompanyId = (candidate) =>
+    candidate.companyId?._id || candidate.companyId || candidate.company?._id || candidate.company || "";
+
+  const toInviteRow = (candidate) => ({
+    email: candidate.email || '',
+    name: candidate.name || '',
+    role: candidate.designation || '',
+    department: (candidate.department === 'IT' || candidate.department === 'NON-IT') ? candidate.department : 'IT',
+    employmentType: candidate.employment_type || ''
+  });
+
+  const bulkCandidateOptions = acceptedCandidates.filter(candidate => {
+    const candidateCompanyId = getCandidateCompanyId(candidate)?.toString();
+    return !selectedCompany || !candidateCompanyId || candidateCompanyId === selectedCompany.toString();
+  });
+
+  const syncBulkRowsFromCandidates = (candidateIds) => {
+    setBulkCandidateIds(candidateIds);
+    const selectedRows = candidateIds
+      .map(candidateId => acceptedCandidates.find(candidate => candidate._id === candidateId))
+      .filter(Boolean)
+      .map(toInviteRow);
+
+    setBulkRows(selectedRows.length ? selectedRows : [{ email: '', name: '', role: '', department: 'IT', employmentType: '' }]);
+    setBulkSelectedDocuments({});
+  };
+
+  const toggleBulkCandidate = (candidateId) => {
+    const nextIds = bulkCandidateIds.includes(candidateId)
+      ? bulkCandidateIds.filter(id => id !== candidateId)
+      : [...bulkCandidateIds, candidateId];
+    syncBulkRowsFromCandidates(nextIds);
+  };
+
+  const toggleAllBulkCandidates = () => {
+    const allIds = bulkCandidateOptions.map(candidate => candidate._id);
+    const allSelected = allIds.length > 0 && allIds.every(id => bulkCandidateIds.includes(id));
+    syncBulkRowsFromCandidates(allSelected ? [] : allIds);
   };
 
   const fetchExistingEmployees = async (companyId) => {
@@ -266,12 +309,6 @@ useEffect(() => {
     }
   };
 
-  const handleViewDocument = (fileUrl) => {
-    if (!fileUrl) return;
-    const win = window.open(fileUrl, '_blank');
-    if (win) win.focus();
-  };
-
   const handleDownloadDocument = (fileUrl, fileName) => {
     if (!fileUrl) return;
 
@@ -377,8 +414,9 @@ useEffect(() => {
           formLink: formLink
         });
       }
-      setBulkRows([{ email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' }]);
+      setBulkRows([{ email: '', name: '', role: '', department: 'IT', employmentType: '' }]);
       setBulkSelectedDocuments({});
+      setBulkCandidateIds([]);
       fetchHistory(selectedCompany || null, companies); // ✅ Refresh scoped to current view
       alert("Bulk emails sent!");
     } catch (error) {
@@ -394,16 +432,34 @@ useEffect(() => {
       await api.delete(`/api/invited-employees/${id}`);
       setSentHistory(prev => prev.filter(item => item._id !== id));
     } catch (error) {
+      console.error("Delete invitation failed:", error);
       alert("Delete failed");
     }
   };
 
-  const addBulkRow = () => setBulkRows([...bulkRows, { email: '', name: '', role: '', department: 'IT', employmentType: '', salary: '' }]);
+  const addBulkRow = () => setBulkRows([...bulkRows, { email: '', name: '', role: '', department: 'IT', employmentType: '' }]);
   const updateBulkRow = (index, field, value) => {
     const updated = [...bulkRows];
     updated[index][field] = value;
     setBulkRows(updated);
   };
+  const removeBulkRow = (index) => {
+    setBulkRows(bulkRows.filter((_, i) => i !== index));
+    setBulkCandidateIds(bulkCandidateIds.filter((_, i) => i !== index));
+    setBulkSelectedDocuments(prev => {
+      const next = {};
+      Object.entries(prev).forEach(([rowIndex, docIds]) => {
+        const numericIndex = Number(rowIndex);
+        if (numericIndex < index) next[numericIndex] = docIds;
+        if (numericIndex > index) next[numericIndex - 1] = docIds;
+      });
+      return next;
+    });
+  };
+
+  const allBulkCandidatesSelected =
+    bulkCandidateOptions.length > 0 &&
+    bulkCandidateOptions.every(candidate => bulkCandidateIds.includes(candidate._id));
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-800">
@@ -753,6 +809,59 @@ useEffect(() => {
 
             {activeTab === 'bulk' && (
               <div className="space-y-4">
+                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-emerald-800 flex items-center gap-2">
+                        <CheckCircle size={16} /> Accepted Candidates
+                      </h4>
+                      <p className="text-xs text-emerald-700 mt-1">
+                        Select candidates to auto-fill the bulk invite rows.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleAllBulkCandidates}
+                      disabled={!selectedCompany || loadingCandidates || bulkCandidateOptions.length === 0}
+                      className="px-4 py-2 bg-white border border-emerald-300 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {allBulkCandidatesSelected ? "Clear All" : "Select All"}
+                    </button>
+                  </div>
+
+                  {!selectedCompany ? (
+                    <p className="text-xs text-emerald-700 bg-white/70 border border-emerald-100 rounded-lg p-3">
+                      Select a company first to load accepted candidates for bulk invite.
+                    </p>
+                  ) : loadingCandidates ? (
+                    <div className="flex items-center gap-2 text-sm text-emerald-700">
+                      <RefreshCw className="animate-spin" size={16} /> Loading accepted candidates...
+                    </div>
+                  ) : bulkCandidateOptions.length === 0 ? (
+                    <p className="text-xs text-emerald-700 bg-white/70 border border-emerald-100 rounded-lg p-3">
+                      No accepted candidates available for this company.
+                    </p>
+                  ) : (
+                    <div className="max-h-56 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-2 pr-1">
+                      {bulkCandidateOptions.map(candidate => (
+                        <label key={candidate._id} className="flex items-start gap-3 p-3 bg-white border border-emerald-100 rounded-lg hover:border-emerald-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={bulkCandidateIds.includes(candidate._id)}
+                            onChange={() => toggleBulkCandidate(candidate._id)}
+                            className="mt-1 w-4 h-4 text-emerald-600 rounded"
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold text-slate-800 truncate">{candidate.name || candidate.email}</span>
+                            <span className="block text-xs text-slate-500 truncate">{candidate.email}</span>
+                            <span className="block text-[10px] text-emerald-700 font-bold uppercase mt-1">{candidate.designation || "Accepted Candidate"}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-3">
                   {bulkRows.map((row, idx) => (
                     <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
@@ -785,30 +894,7 @@ useEffect(() => {
                             <option value="Contract">CON</option>
                           </select>
                         </div>
-                        {row.employmentType && (
-                          <div className="w-20">
-                            <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Sal</label>
-                            <input
-                              type="number"
-                              placeholder="Amt"
-                              min="0"
-                              value={row.salary}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (value >= 0) {
-                                  updateBulkRow(idx, 'salary', value);
-                                }
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === '-' || e.key === 'e') {
-                                  e.preventDefault();
-                                }
-                              }}
-                              className="w-full p-2 text-sm border rounded-lg focus:ring-1 ring-blue-500 outline-none"
-                            />
-                          </div>
-                        )}
-                        <button onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))} className="mb-1 p-2 text-slate-300 hover:text-red-500 transition-colors">
+                        <button onClick={() => removeBulkRow(idx)} className="mb-1 p-2 text-slate-300 hover:text-red-500 transition-colors">
                           <X size={18} />
                         </button>
                       </div>
