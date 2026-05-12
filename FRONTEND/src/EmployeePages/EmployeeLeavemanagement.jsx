@@ -195,7 +195,7 @@ const EmployeeLeavemanagement = () => {
 
   // Load user from storage
   useEffect(() => {
-    const saved = sessionStorage.getItem("hrmsUser") || localStorage.getItem("hrmsUser");
+    const saved = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
     if (saved) {
       setUser(JSON.parse(saved));
     }
@@ -445,7 +445,7 @@ const EmployeeLeavemanagement = () => {
   const fetchLeavePolicies = useCallback(async () => {
     if (dataLoadedRef.current.policy) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const token = sessionStorage.getItem("token") || sessionStorage.getItem("token");
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 

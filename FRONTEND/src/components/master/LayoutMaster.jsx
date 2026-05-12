@@ -19,7 +19,7 @@ const LayoutMaster = () => {
 
   const handleLogout = (e) => {
     e.preventDefault(); // Prevent default link behavior
-    localStorage.removeItem("masterToken"); // Clear the specific token
+    sessionStorage.removeItem("masterToken"); // Clear the specific token
     sessionStorage.clear(); // Optional: Clear session storage too
     navigate("/master", { replace: true }); // Redirect and prevent back button
   };

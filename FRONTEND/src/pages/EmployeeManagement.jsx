@@ -241,8 +241,8 @@ const EmployeeRow = ({
   const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${emp.email}&su=${mailSubject}&body=${mailBody}`;
 
   return (
-    <tr className={`border-t transition duration-150 hover:bg-blue-50 relative`}>
-      <td className="p-4 align-middle text-left font-mono font-semibold text-blue-700 text-sm pl-6">
+    <tr className={`border-t transition duration-150 hover:bg-blue-50 relative group`}>
+      <td className="p-4 align-middle text-left font-mono font-semibold text-blue-700 text-sm pl-6 hidden sm:table-cell">
         {emp.employeeId}
       </td>
       <td className="p-4 align-middle text-left">
@@ -262,28 +262,32 @@ const EmployeeRow = ({
               </div>
             )}
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span
               onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
-              className="font-bold text-gray-900 cursor-pointer hover:text-blue-700 hover:underline text-sm flex items-center gap-2"
+              className="font-bold text-gray-900 cursor-pointer hover:text-blue-700 hover:underline text-sm flex items-center gap-2 truncate"
             >
               {emp.name}
               {isPendingResignation && (
-                <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter">
+                <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter shrink-0">
                   Resigning
                 </span>
               )}
             </span>
+            {/* Show Role/ID on mobile under name */}
+            <span className="text-[10px] text-gray-500 font-medium sm:hidden truncate">
+              {emp.employeeId} • {currentRole}
+            </span>
           </div>
         </div>
       </td>
-      <td className="p-4 align-middle text-left">
+      <td className="p-4 align-middle text-left hidden md:table-cell">
         <span className="text-sm font-bold text-gray-900">{currentRole}</span>
       </td>
-      <td className="p-4 align-middle text-left">
+      <td className="p-4 align-middle text-left hidden lg:table-cell">
         <span className="text-sm font-bold text-gray-900">{currentDepartment}</span>
       </td>
-      <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold">
+      <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold hidden xl:table-cell truncate max-w-[200px]">
         <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">
           {emp.email}
         </a>
@@ -355,7 +359,7 @@ const InactiveEmployeeRow = ({
 
   return (
     <tr className="border-t transition duration-150 bg-gray-100 opacity-60 hover:opacity-100 hover:bg-gray-200">
-      <td className="p-4 align-middle text-left pl-6 font-mono font-semibold text-gray-500 text-sm">{emp.employeeId}</td>
+      <td className="p-4 align-middle text-left pl-6 font-mono font-semibold text-gray-500 text-sm hidden sm:table-cell">{emp.employeeId}</td>
       <td className="p-4 align-middle text-left">
         <div className="flex items-center gap-3">
           <div
@@ -368,17 +372,20 @@ const InactiveEmployeeRow = ({
               emp.name?.split(" ").map((n) => n[0]).join("")
             )}
           </div>
-          <div className="flex flex-col">
-            <span onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="font-semibold text-gray-600 cursor-pointer hover:text-blue-700 hover:underline text-sm">
+          <div className="flex flex-col min-w-0">
+            <span onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="font-semibold text-gray-600 cursor-pointer hover:text-blue-700 hover:underline text-sm truncate">
               {emp.name}
             </span>
-            <span className="text-[10px] text-red-600 font-extrabold uppercase tracking-wide">Deactivated</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-red-600 font-extrabold uppercase tracking-wide">Deactivated</span>
+              <span className="text-[10px] text-gray-400 font-medium sm:hidden">• {emp.employeeId}</span>
+            </div>
           </div>
         </div>
       </td>
-      <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
-      <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
-      <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800">
+      <td className="p-4 align-middle text-left hidden md:table-cell"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
+      <td className="p-4 align-middle text-left hidden lg:table-cell"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
+      <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800 hidden xl:table-cell truncate max-w-[200px]">
         <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
       </td>
       <td className="p-4 align-middle text-center">
@@ -438,6 +445,13 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   useEffect(() => { if (open) { setEndDate(""); setReason(""); setError(""); } }, [open]);
+
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    if (open) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -448,23 +462,24 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-2">Deactivate Employee</h3>
         <p className="mb-4 text-gray-600">Deactivating <b>{employee.name}</b>.</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full mt-1" required />
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Effective Date</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Reason
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
+              Reason for Deactivation
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-              className="border border-gray-300 px-3 py-2 rounded w-full mt-1"
+              className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none"
+              placeholder="Please provide a reason..."
               rows={3}
               maxLength={1000}
               required
@@ -474,16 +489,16 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
                 type="button"
                 onClick={handleOptimize}
                 disabled={isOptimizing || !reason.trim()}
-                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-medium"
+                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
               >
-                {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
+                {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
               </button>
             </div>
           </div>
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-          <div className="flex gap-2 justify-end mt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded bg-red-600 text-white">Deactivate</button>
+          {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
+          <div className="flex gap-3 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-md transition-colors">Deactivate</button>
           </div>
         </form>
       </div>
@@ -521,6 +536,12 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
     }
   }, [open]);
 
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    if (open) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -530,23 +551,24 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-2">Reactivate Employee</h3>
         <p className="mb-4 text-gray-600">Reactivating <b>{employee.name}</b>.</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full mt-1" required />
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Reactivation Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Reason
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
+              Reason for Reactivation
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-              className="border border-gray-300 px-3 py-2 rounded w-full mt-1"
+              className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Reason for reactivation..."
               rows={3}
               maxLength={1000}
               required
@@ -556,16 +578,16 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
                 type="button"
                 onClick={handleOptimize}
                 disabled={isOptimizing || !reason.trim()}
-                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-medium"
+                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
               >
-                {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
+                {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
               </button>
             </div>
           </div>
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-          <div className="flex gap-2 justify-end mt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded bg-green-600 text-white">Reactivate</button>
+          {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
+          <div className="flex gap-3 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 shadow-md transition-colors">Reactivate</button>
           </div>
         </form>
       </div>
@@ -574,10 +596,16 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
 }
 
 function DeactivationDetailsModal({ open, employee, onClose }) {
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    if (open) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
   if (!open || !employee) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 bg-gradient-to-r from-red-600 to-red-500 text-white flex justify-between items-center">
           <div>
             <h3 className="text-xl font-semibold tracking-wide">Deactivation Details</h3>
@@ -701,8 +729,8 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-2 sm:p-4 cursor-pointer" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[95vh] md:h-[90vh] flex flex-col overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 flex justify-between items-center text-white shrink-0">
           <div>
             <h2 className="text-2xl font-bold tracking-wide flex items-center gap-3">
@@ -731,14 +759,14 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-[10px] sm:text-xs font-bold">
                   <tr>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Punch In</th>
-                    <th className="px-4 py-3 text-left">Punch Out</th>
-                    <th className="px-4 py-3 text-left">Assigned Hrs</th>
-                    <th className="px-4 py-3 text-left">Duration</th>
-                    <th className="px-4 py-3 text-left">Worked Status</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Date</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Punch In</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden sm:table-cell">Punch Out</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden md:table-cell">Assigned</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Duration</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden lg:table-cell">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -748,19 +776,19 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
                     <tr><td colSpan="6" className="p-8 text-center text-slate-500">No records found for this period.</td></tr>
                   ) : (
                     attendanceData.map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition">
-                        <td className="px-4 py-3 font-medium text-slate-700">{new Date(row.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-green-700 font-semibold">
+                      <tr key={i} className="hover:bg-slate-50 transition text-xs sm:text-sm">
+                        <td className="px-3 sm:px-4 py-3 font-medium text-slate-700">{new Date(row.date).toLocaleDateString()}</td>
+                        <td className="px-3 sm:px-4 py-3 text-green-700 font-semibold">
                           {row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-slate-400">--</span>}
-                          {row.isLate && <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] rounded">LATE</span>}
+                          {row.isLate && <span className="ml-1 sm:ml-2 px-1 py-0.5 bg-red-100 text-red-600 text-[8px] sm:text-[10px] rounded">LATE</span>}
                         </td>
-                        <td className="px-4 py-3 text-red-700 font-semibold">
+                        <td className="px-3 sm:px-4 py-3 text-red-700 font-semibold hidden sm:table-cell">
                           {row.punchOut ? new Date(row.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-slate-400">--</span>}
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-600">{formatDecimalHours(row.shiftDuration)}</td>
-                        <td className="px-4 py-3 font-mono text-slate-600">{row.displayTime || "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${row.workedStatus === "Full Day" ? "bg-green-100 text-green-700" : row.workedStatus.includes("Absent") ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                        <td className="px-3 sm:px-4 py-3 font-medium text-slate-600 hidden md:table-cell">{formatDecimalHours(row.shiftDuration)}</td>
+                        <td className="px-3 sm:px-4 py-3 font-mono text-slate-600">{row.displayTime || "-"}</td>
+                        <td className="px-3 sm:px-4 py-3 hidden lg:table-cell">
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold ${row.workedStatus === "Full Day" ? "bg-green-100 text-green-700" : row.workedStatus.includes("Absent") ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
                             {row.workedStatus}
                           </span>
                         </td>
@@ -797,13 +825,13 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-[10px] sm:text-xs font-bold">
                   <tr>
-                    <th className="px-4 py-3 text-left">Applied Date</th>
-                    <th className="px-4 py-3 text-left">Period</th>
-                    <th className="px-4 py-3 text-left">Type</th>
-                    <th className="px-4 py-3 text-left">Reason</th>
-                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Applied</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Period</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden sm:table-cell">Type</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden md:table-cell">Reason</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -813,13 +841,15 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
                     <tr><td colSpan="5" className="p-8 text-center text-slate-500">No leave records found.</td></tr>
                   ) : (
                     leaveData.map((l, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition">
-                        <td className="px-4 py-3 text-slate-600">{new Date(l.requestDate || l.createdAt).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{new Date(l.from).toLocaleDateString()} <span className="text-slate-400">→</span> {new Date(l.to).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-slate-700">{l.leaveType}</td>
-                        <td className="px-4 py-3 text-slate-500 truncate max-w-xs">{l.reason || "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${l.status === "Approved" ? "bg-green-100 text-green-700" : l.status === "Rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                      <tr key={i} className="hover:bg-slate-50 transition text-xs sm:text-sm">
+                        <td className="px-3 sm:px-4 py-3 text-slate-600">{new Date(l.requestDate || l.createdAt).toLocaleDateString()}</td>
+                        <td className="px-3 sm:px-4 py-3 font-medium text-slate-800">
+                          {new Date(l.from).toLocaleDateString()} <span className="text-slate-400">→</span> <span className="block sm:inline">{new Date(l.to).toLocaleDateString()}</span>
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 text-slate-700 hidden sm:table-cell">{l.leaveType}</td>
+                        <td className="px-3 sm:px-4 py-3 text-slate-500 truncate max-w-[100px] sm:max-w-xs hidden md:table-cell">{l.reason || "-"}</td>
+                        <td className="px-3 sm:px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold ${l.status === "Approved" ? "bg-green-100 text-green-700" : l.status === "Rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
                             {l.status}
                           </span>
                         </td>
@@ -1002,40 +1032,40 @@ const EmployeeManagement = () => {
   }, [employees, searchQuery, selectedDept, selectedRole, selectedEmploymentType]);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center py-12">
-      <div className="w-full max-w-[95%] xl:max-w-7xl mx-auto">
+    <div className="min-h-screen w-full flex flex-col items-center py-6 md:py-12">
+      <div className="w-full max-w-[98%] xl:max-w-7xl mx-auto px-2 sm:px-4">
 
         {/* relative z-[20] keeps header above table (z-10) so dropdown never goes under */}
-        <div className="relative z-15 flex flex-col bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 md:flex-row justify-between items-center mb-8 gap-4 px-8 py-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
-            <div className="flex gap-3 mt-3">
-              <button onClick={handleDownloadActive} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm text-sm font-semibold flex items-center gap-2">
-                <FaDownload /> Active List
+        <div className="relative z-15 flex flex-col bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 md:flex-row justify-between items-center mb-6 md:mb-8 gap-4 px-4 sm:px-8 py-6">
+          <div className="text-center md:text-left w-full md:w-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
+            <div className="flex justify-center md:justify-start gap-2 sm:gap-3 mt-3">
+              <button onClick={handleDownloadActive} className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
+                <FaDownload /> <span className="hidden xs:inline">Active</span> List
               </button>
-              <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-sm font-semibold flex items-center gap-2">
-                <FaDownload /> Inactive List
+              <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
+                <FaDownload /> <span className="hidden xs:inline">Inactive</span> List
               </button>
             </div>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
-            <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-3 flex-wrap justify-center md:justify-end w-full md:w-auto">
+            <div className="flex flex-col items-center md:items-end gap-1 w-full md:w-auto">
 
               {/* HR Flow Process Info Link Button */}
               <button
                 onClick={() => setHrFlowImageOpen(true)}
-                className="text-sm text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 font-medium transition-colors cursor-pointer mr-1"
+                className="text-xs md:text-sm text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 font-medium transition-colors cursor-pointer mr-1"
                 title="View HR Flow Process"
               >
                 <FaInfoCircle /> View HR Flow Process
               </button>
 
               {/* HR Activities Dropdown */}
-              <div className="relative" ref={hrDropdownRef}>
+              <div className="relative w-full md:w-auto" ref={hrDropdownRef}>
                 <button
                   onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105 relative"
+                  className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center justify-center gap-2 transition-all duration-200 transform hover:scale-[1.02] md:hover:scale-105 relative text-sm sm:text-base"
                 >
                   <FaClipboardList /> HR Activities
                   {allResignations.filter(r => r.status === "Pending").length > 0 && (
@@ -1047,7 +1077,7 @@ const EmployeeManagement = () => {
                 </button>
 
                 {hrActivitiesOpen && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
+                  <div className="absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-full md:w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
                     {/* Document Verification with smart positioned nested submenu */}
                     <div className="relative">
                       <button
@@ -1136,38 +1166,41 @@ const EmployeeManagement = () => {
         </div>
 
 
-        <div className="flex flex-col md:flex-row gap-4 mb-10 px-8">
-          <input
-            type="text"
-            placeholder="Search employees..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-1/4 border bg-white border-gray-200 px-4 py-2.5 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+        <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-10 px-4 sm:px-8">
+          <div className="relative w-full md:w-1/4">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full border bg-white border-gray-200 pl-10 pr-4 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+            />
+          </div>
+          <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
             <option value="All">All Departments</option>
             {departmentSet.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
           </select>
-          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full md:w-1/4 bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
+          <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full md:w-1/4 bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
             <option value="All">All Roles</option>
             {roleSet.map((role) => <option key={role} value={role}>{role}</option>)}
           </select>
-          <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
-            <option value="All">All Employment Types</option>
+          <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
+            <option value="All">All Types</option>
             {employmentTypeSet.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>
 
-        <div className="bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-300 relative z-10 overflow-visible">
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 relative z-10 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full rounded-2xl">
-              <thead className="bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
-                <tr className="text-white uppercase text-sm font-semibold tracking-wide">
-                  <th className="p-4 text-left pl-6">ID</th>
-                  <th className="p-4 text-left">Name</th>
-                  <th className="p-4 text-left">Role</th>
-                  <th className="p-4 text-left">Department</th>
-                  <th className="p-4 text-left">Email</th>
+            <table className="min-w-full">
+              <thead className="bg-slate-800 border-b border-slate-700">
+                <tr className="text-white uppercase text-[10px] sm:text-xs font-semibold tracking-wider">
+                  <th className="p-4 text-left pl-6 hidden sm:table-cell">ID</th>
+                  <th className="p-4 text-left">Employee</th>
+                  <th className="p-4 text-left hidden md:table-cell">Role</th>
+                  <th className="p-4 text-left hidden lg:table-cell">Dept</th>
+                  <th className="p-4 text-left hidden xl:table-cell">Email</th>
                   <th className="p-4 text-center">Actions</th>
                 </tr>
               </thead>

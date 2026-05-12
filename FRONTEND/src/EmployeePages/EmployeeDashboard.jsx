@@ -453,7 +453,7 @@ const EmployeeDashboard = () => {
     } catch (err) { console.error("Attendance fetch error:", err); }
   }, []);
 
-  // ✅ UPDATED: Fetch request status from Backend (No localStorage)
+  // ✅ UPDATED: Fetch request status from backend
   useEffect(() => {
     if (attendance.length > 0) {
       const yesterday = new Date();
@@ -899,7 +899,7 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // ✅ UPDATED: Request Submit Validation with State Update (No localStorage)
+  // ✅ UPDATED: Request submit validation with state update
   const handleRequestSubmit = async (e) => {
     e.preventDefault();
     if (!reqData.time || !reqData.reason) {
@@ -935,7 +935,7 @@ const EmployeeDashboard = () => {
       await api.post('/api/punchoutreq/create', payload);
       Swal.fire("Success", "Request sent successfully! Once approved, your record will be updated.", "success");
 
-      // Update state to Pending instantly (no localStorage)
+      // Update state to Pending instantly
       setMissedPunchRequestStatus("Pending");
 
       setShowReqModal(false);

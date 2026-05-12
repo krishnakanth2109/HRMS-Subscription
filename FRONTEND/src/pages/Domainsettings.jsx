@@ -6,9 +6,9 @@ const BASE_DOMAIN = "vwsync.com";
 
 /* ─── FIX: Try all common token keys your app might use ─── */
 const getToken = () =>
-  localStorage.getItem("adminToken") ||
-  localStorage.getItem("token") ||
-  localStorage.getItem("authToken") ||
+  sessionStorage.getItem("adminToken") ||
+  sessionStorage.getItem("token") ||
+  sessionStorage.getItem("authToken") ||
   sessionStorage.getItem("adminToken") ||
   sessionStorage.getItem("token") ||
   "";

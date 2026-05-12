@@ -14,7 +14,6 @@ const domainSchema = new mongoose.Schema(
     subdomain: {
       type: String,
       required: [true, "Subdomain is required"],
-      unique: true,
       lowercase: true,
       trim: true,
       match: [
@@ -28,7 +27,6 @@ const domainSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",
       required: true,
-      unique: true, // One domain per admin
     },
 
     /* ==================== STATUS ==================== */

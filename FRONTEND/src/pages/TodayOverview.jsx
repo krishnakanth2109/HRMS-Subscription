@@ -902,49 +902,7 @@ const TodayOverview = () => {
     fetchEmployeeDetails();
   }, [allEmployees]);
 
-  // Debug useEffect - check phone numbers in employee data
-  useEffect(() => {
-    if (allEmployees.length > 0) {
-      console.log("=== DEBUG: Employee Phone Numbers ===");
-      allEmployees.forEach(emp => {
-        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
-        console.log(`  emp.phone: ${emp.phone}`);
-        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
-        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
-        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
-        console.log("---");
-      });
-    }
-  }, [allEmployees]);
-
-  // Debug useEffect - Moved OUTSIDE the previous useEffect
-  useEffect(() => {
-    if (allEmployees.length > 0) {
-      console.log("=== DEBUG: Employee Phone Numbers ===");
-      allEmployees.forEach(emp => {
-        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
-        console.log(`  emp.phone: ${emp.phone}`);
-        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
-        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
-        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
-        console.log("---");
-      });
-    }
-  }, [allEmployees]);
-
-  useEffect(() => {
-    if (allEmployees.length > 0) {
-      console.log("=== DEBUG: Employee Phone Numbers ===");
-      allEmployees.forEach(emp => {
-        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
-        console.log(`  emp.phone: ${emp.phone}`);
-        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
-        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
-        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
-        console.log("---");
-      });
-    }
-  }, [allEmployees]);
+  
 
   // Initial data fetch
   useEffect(() => {

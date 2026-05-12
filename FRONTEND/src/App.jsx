@@ -120,8 +120,8 @@ const PublicRoute = ({ children }) => {
   }
 
   // 2. Check Regular User (Admin/Employee)
-  const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-  const userStr = localStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+  const token = sessionStorage.getItem("token") || sessionStorage.getItem("token");
+  const userStr = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
 
   if (token && userStr) {
     try {

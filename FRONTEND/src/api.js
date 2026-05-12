@@ -34,7 +34,7 @@ api.interceptors.request.use(
 
     // 3. If still not found, try finding it inside the user object (Legacy support)
     if (!token) {
-      const savedUser = sessionStorage.getItem("hrmsUser") || localStorage.getItem("hrmsUser");
+      const savedUser = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
@@ -62,7 +62,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // Read logged user to determine role
-    const rawUser = localStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+    const rawUser = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;

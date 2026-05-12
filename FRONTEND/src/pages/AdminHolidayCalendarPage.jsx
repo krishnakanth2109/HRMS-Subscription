@@ -74,7 +74,6 @@ const AdminHolidayCalendarPage = () => {
       const allEmployees = await getEmployees();
 
       // ✅ LOG DATA: Open browser console (F12) to see if 'status' and 'dob' exist correctly
-      console.log("Fetched Employees:", allEmployees);
 
       const result = allEmployees
         .filter((emp) => {
@@ -126,22 +125,22 @@ const AdminHolidayCalendarPage = () => {
     setLoading(true);
     try {
       if (!holidayData.name.trim()) {
-  Swal.fire("Validation Error", "Holiday name is required", "warning");
-  setLoading(false);
-  return;
-}
+        Swal.fire("Validation Error", "Holiday name is required", "warning");
+        setLoading(false);
+        return;
+      }
 
-if (!holidayData.startDate) {
-  Swal.fire("Validation Error", "Start date is required", "warning");
-  setLoading(false);
-  return;
-}
+      if (!holidayData.startDate) {
+        Swal.fire("Validation Error", "Start date is required", "warning");
+        setLoading(false);
+        return;
+      }
 
-if (holidayData.endDate && holidayData.endDate < holidayData.startDate) {
-  Swal.fire("Validation Error", "End date cannot be before start date", "warning");
-  setLoading(false);
-  return;
-}
+      if (holidayData.endDate && holidayData.endDate < holidayData.startDate) {
+        Swal.fire("Validation Error", "End date cannot be before start date", "warning");
+        setLoading(false);
+        return;
+      }
       const payload = { ...holidayData, endDate: holidayData.endDate || holidayData.startDate };
       if (isEditing) {
         await updateHoliday(editId, payload);
@@ -153,19 +152,19 @@ if (holidayData.endDate && holidayData.endDate < holidayData.startDate) {
       fetchHolidays();
       handleCloseModal();
     } catch (error) {
-  console.error("Holiday Error:", error);
+      console.error("Holiday Error:", error);
 
-  const errorMessage =
-    error?.response?.data?.message ||   // backend error message
-    error?.message ||                   // JS error
-    "Something went wrong";
+      const errorMessage =
+        error?.response?.data?.message ||   // backend error message
+        error?.message ||                   // JS error
+        "Something went wrong";
 
-  Swal.fire({
-    icon: "error",
-    title: "Validation Error",
-    text: errorMessage
-  });
-}finally {
+      Swal.fire({
+        icon: "error",
+        title: "Validation Error",
+        text: errorMessage
+      });
+    } finally {
       setLoading(false);
     }
   };
