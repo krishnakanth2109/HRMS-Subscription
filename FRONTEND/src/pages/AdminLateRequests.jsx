@@ -26,7 +26,7 @@ const AdminLateRequests = () => {
   // --- Full Day Requests State ---
   const [fullDayRequests, setFullDayRequests] = useState([]);
   const [fullDayLoading, setFullDayLoading] = useState(false);
-  
+
   // --- Attendance Correction Requests State ---
   const [correctionRequests, setCorrectionRequests] = useState([]);
   const [correctionLoading, setCorrectionLoading] = useState(false);
@@ -135,13 +135,13 @@ const AdminLateRequests = () => {
       const allRecords = data.data || [];
       const limitData = [];
       const batchSize = 5;
-      
+
       // Process in batches for better performance
       for (let i = 0; i < allRecords.length; i += batchSize) {
         const batch = allRecords.slice(i, i + batchSize);
         const batchPromises = batch.map(async (empRecord) => {
           if (!empRecord.employeeId) return null;
-          
+
           try {
             // Use cached data if available
             const existingLimit = employeeLimits.find(emp => emp.employeeId === empRecord.employeeId);
@@ -152,7 +152,7 @@ const AdminLateRequests = () => {
             const limitResponse = await api.get(`/api/attendance/request-limit/${empRecord.employeeId}`);
             const currentMonth = new Date().toISOString().slice(0, 7);
             const monthData = limitResponse.data.monthlyRequestLimits?.[currentMonth] || { limit: 5, used: 0 };
-            
+
             return {
               employeeId: empRecord.employeeId,
               employeeName: empRecord.employeeName,
@@ -296,7 +296,7 @@ const AdminLateRequests = () => {
   const filteredEmployeeLimits = useMemo(() => {
     if (!filterText) return employeeLimits;
     const lowerFilter = filterText.toLowerCase();
-    return employeeLimits.filter(emp => 
+    return employeeLimits.filter(emp =>
       emp.employeeName.toLowerCase().includes(lowerFilter) ||
       emp.employeeId.includes(lowerFilter)
     );
@@ -326,7 +326,7 @@ const AdminLateRequests = () => {
   // ✅ NEW: Open Limit Setting Modal (From Code 2)
   const openLimitModal = async (req) => {
     const employeeLimit = employeeLimits.find(emp => emp.employeeId === req.employeeId);
-    
+
     if (employeeLimit) {
       setLimitSettings({
         employeeId: req.employeeId,
@@ -341,7 +341,7 @@ const AdminLateRequests = () => {
         const { data } = await api.get(`/api/attendance/request-limit/${req.employeeId}`);
         const currentMonth = new Date().toISOString().slice(0, 7);
         const monthData = data.monthlyRequestLimits?.[currentMonth] || { limit: 5, used: 0 };
-        
+
         setLimitSettings({
           employeeId: req.employeeId,
           employeeName: req.employeeName,
@@ -381,9 +381,9 @@ const AdminLateRequests = () => {
 
       Swal.fire("Success!", `Request limit updated to ${limitSettings.newLimit} for ${limitSettings.employeeName}`, "success");
       setShowLimitModal(false);
-      
-      setEmployeeLimits(prev => 
-        prev.map(emp => 
+
+      setEmployeeLimits(prev =>
+        prev.map(emp =>
           emp.employeeId === limitSettings.employeeId
             ? { ...emp, currentLimit: limitSettings.newLimit, remaining: limitSettings.newLimit - emp.currentUsed }
             : emp
@@ -487,12 +487,12 @@ const AdminLateRequests = () => {
     try {
       const results = [];
       const errors = [];
-      
+
       for (const employeeId of selectedEmployees) {
         try {
           const employee = employeeLimits.find(emp => emp.employeeId === employeeId);
           if (!employee) continue;
-          
+
           if (bulkLimitValue < employee.currentUsed) {
             errors.push({
               employeeId,
@@ -501,12 +501,12 @@ const AdminLateRequests = () => {
             });
             continue;
           }
-          
+
           await api.post("/api/attendance/set-request-limit", {
             employeeId,
             limit: bulkLimitValue
           });
-          
+
           results.push({ employeeId, employeeName: employee.employeeName, success: true });
         } catch (err) {
           const employee = employeeLimits.find(emp => emp.employeeId === employeeId);
@@ -524,7 +524,7 @@ const AdminLateRequests = () => {
           errorMessage += `${index + 1}. ${err.employeeName} (${err.employeeId}): ${err.error}\n`;
         });
         if (errors.length > 5) errorMessage += `\n... and ${errors.length - 5} more`;
-        
+
         Swal.fire({
           icon: 'warning',
           title: 'Partial Success',
@@ -540,12 +540,12 @@ const AdminLateRequests = () => {
       } else {
         Swal.fire("Success!", `Updated limits to ${bulkLimitValue} for ${selectedEmployees.length} employee(s)`, "success");
       }
-      
+
       setShowBulkLimitModal(false);
       setSelectedEmployees([]);
       setSelectAll(false);
       fetchEmployeeLimits(false);
-      
+
     } catch (err) {
       Swal.fire("Error", "Failed to update limits. Please check individually.", "error");
     }
@@ -568,7 +568,7 @@ const AdminLateRequests = () => {
         confirmButtonColor: "#d33",
         showLoaderOnConfirm: true,
       });
-      if (text === undefined) return; 
+      if (text === undefined) return;
       if (!text) {
         Swal.fire("Required", "Please provide a reason for rejection", "warning");
         return;
@@ -609,8 +609,8 @@ const AdminLateRequests = () => {
 
       // ✅ Update employee limits cache if rejected (restores their limit count)
       if (action === "REJECTED") {
-        setEmployeeLimits(prev => 
-          prev.map(emp => 
+        setEmployeeLimits(prev =>
+          prev.map(emp =>
             emp.employeeId === reqItem.employeeId && emp.currentUsed > 0
               ? { ...emp, currentUsed: emp.currentUsed - 1, remaining: emp.remaining + 1 }
               : emp
@@ -636,83 +636,67 @@ const AdminLateRequests = () => {
 
   return (
     <div className="p-6 min-h-screen font-sans">
-      <div className="flex flex-col border-gray-300 p-4 rounded-2xl bg-white md:flex-row md:justify-between md:items-center mb-6 gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+      <div className="flex flex-col border-gray-300 p-4 rounded-2xl bg-white lg:flex-row lg:justify-between lg:items-center mb-6 gap-4">
+        <div className="flex-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
             <FaUserClock className="text-orange-600" /> Attendance Requests
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
             Manage late correction, status adjustments, and full day requests.
           </p>
         </div>
-        
-        <div className="flex gap-2">
-          <button 
-            onClick={() => { setRequestType("PENDING"); fetchRequests(); }} 
-            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium relative ${
-              requestType === "PENDING" 
-                ? "bg-orange-600 text-white" 
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-            }`}
+
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => { setRequestType("PENDING"); fetchRequests(); }}
+            className={`flex-1 sm:flex-none text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl transition shadow-sm font-black uppercase tracking-wider relative border-2 ${requestType === "PENDING"
+                ? "bg-orange-600 text-white border-orange-600"
+                : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
+              }`}
           >
-            Pending Approvals
+            ontime
             {requests.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm animate-bounce">
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
                 {requests.length}
               </span>
             )}
           </button>
-          <button 
-            onClick={() => { setRequestType("LIMITS"); fetchEmployeeLimits(); }} 
-            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium flex items-center gap-2 ${
-              requestType === "LIMITS" 
-                ? "bg-purple-600 text-white" 
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-            }`}
+          <button
+            onClick={() => { setRequestType("CORRECTIONS"); fetchCorrectionRequests(); }}
+            className={`flex-1 sm:flex-none text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl transition shadow-sm font-black uppercase tracking-wider relative border-2 ${requestType === "CORRECTIONS"
+                ? "bg-blue-600 text-white border-blue-600"
+                : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
+              }`}
           >
-            <FaUsers /> Manage Limits
-          </button>
-          {/* <button 
-            onClick={() => { setRequestType("FULL_DAY"); fetchFullDayRequests(); }} 
-            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium flex items-center gap-2 ${
-              requestType === "FULL_DAY" 
-                ? "bg-teal-600 text-white" 
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <FaStarHalfAlt /> Full Day Requests
-          </button> */}
-          <button 
-            onClick={() => { setRequestType("CORRECTIONS"); fetchCorrectionRequests(); }} 
-            className={`text-sm px-4 py-2 rounded-lg transition shadow-sm font-medium flex items-center gap-2 relative ${
-              requestType === "CORRECTIONS" 
-                ? "bg-blue-600 text-white" 
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <FaEdit /> Attendance Corrections
+            Corrections
             {correctionRequests.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm animate-bounce">
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
                 {correctionRequests.length}
               </span>
             )}
           </button>
-          
-          {requestType === "PENDING" && (
-            <button
-              onClick={() => { setLoading(true); fetchRequests(); }}
-              className="text-sm bg-white border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-100 transition shadow-sm font-medium"
-            >
-              Refresh List
-            </button>
-          )}
+          <button
+            onClick={() => { setRequestType("LIMITS"); fetchEmployeeLimits(); }}
+            className={`flex-1 sm:flex-none text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl transition shadow-sm font-black uppercase tracking-wider border-2 ${requestType === "LIMITS"
+                ? "bg-purple-600 text-white border-purple-600"
+                : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
+              }`}
+          >
+            Limits
+          </button>
+
+          <button
+            onClick={() => {
+              if (requestType === "PENDING") fetchRequests();
+              else if (requestType === "CORRECTIONS") fetchCorrectionRequests();
+              else if (requestType === "LIMITS") fetchEmployeeLimits();
+            }}
+            className="flex items-center justify-center w-9 h-9 bg-white border border-gray-200 text-gray-400 rounded-xl hover:bg-gray-50 transition shadow-sm"
+            title="Refresh"
+          >
+            <FaCog className={loading || correctionLoading || loadingLimits ? "animate-spin" : ""} />
+          </button>
         </div>
-        {/* <button 
-            onClick={() => { setLoading(true); fetchRequests(); }} 
-            className="text-sm  px-4 py-2 rounded-lg bg-gray-200 border-gray-500 hover:bg-gray-600 transition shadow-sm font-medium"
-        >
-            Refresh List
-        </button> */}
       </div>
 
       {/* Search Bar + Bulk Actions */}
@@ -727,16 +711,15 @@ const AdminLateRequests = () => {
             onChange={(e) => setFilterText(e.target.value)}
           />
         </div>
-        
+
         {requestType === "LIMITS" && (
           <button
             onClick={() => setShowBulkLimitModal(true)}
             disabled={selectedEmployees.length === 0}
-            className={`px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm transition ${
-              selectedEmployees.length > 0 
-                ? "bg-purple-600 text-white hover:bg-purple-700" 
+            className={`px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm transition ${selectedEmployees.length > 0
+                ? "bg-purple-600 text-white hover:bg-purple-700"
                 : "bg-gray-200 text-gray-400 cursor-not-allowed"
-            }`}
+              }`}
           >
             <FaCog /> Bulk Edit ({selectedEmployees.length})
           </button>
@@ -760,71 +743,133 @@ const AdminLateRequests = () => {
             <p className="text-gray-400 mt-1">No pending attendance correction requests found.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase font-bold tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Employee</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Requested Change</th>
-                  <th className="px-6 py-4">Requested Times</th>
-                  <th className="px-6 py-4">Reason</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {correctionRequests
-                  .filter(req => {
-                    if (!filterText) return true;
-                    const lf = filterText.toLowerCase();
-                    return req.employeeName?.toLowerCase().includes(lf) || req.employeeId?.includes(lf);
-                  })
-                  .map((req) => (
-                  <tr key={req._id} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-bold text-gray-800">{req.employeeName}</div>
-                      <div className="text-xs text-gray-500 font-mono">{req.employeeId}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-700 font-medium">{new Date(req.date).toLocaleDateString()}</div>
-                      <div className="text-[10px] text-gray-400">{new Date(req.date).toLocaleDateString(undefined, { weekday: 'long' })}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-bold">{req.currentStatus}</span>
-                        <FaArrowRight size={10} className="text-gray-400" />
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[10px] font-bold">{req.requestedStatus}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-[11px] space-y-0.5">
-                        <div className="flex gap-2">
-                          <span className="text-gray-400 w-12 italic">Punch In:</span>
-                          <span className="font-bold text-gray-700">{req.requestedPunchIn || '--'}</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <span className="text-gray-400 w-12 italic">Punch Out:</span>
-                          <span className="font-bold text-gray-700">{req.requestedPunchOut || '--'}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="max-w-xs text-xs text-gray-600 line-clamp-2" title={req.reason}>
-                        {req.reason}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button 
-                        onClick={() => openReviewModal(req)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md shadow-blue-100 transition flex items-center gap-2 mx-auto"
-                      >
-                        <FaEdit /> Review
-                      </button>
-                    </td>
+          <div className="space-y-4">
+            {/* Desktop Table */}
+            <div className="hidden lg:block overflow-x-auto bg-white rounded-xl shadow-sm border border-gray-200">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 text-[10px] uppercase font-black tracking-widest border-b border-gray-100">
+                  <tr>
+                    <th className="px-6 py-4">Employee</th>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Requested Change</th>
+                    <th className="px-6 py-4">Requested Times</th>
+                    <th className="px-6 py-4">Reason</th>
+                    <th className="px-6 py-4 text-center">Actions</th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {correctionRequests
+                    .filter(req => {
+                      if (!filterText) return true;
+                      const lf = filterText.toLowerCase();
+                      return req.employeeName?.toLowerCase().includes(lf) || req.employeeId?.includes(lf);
+                    })
+                    .map((req) => (
+                      <tr key={req._id} className="hover:bg-blue-50/30 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="font-bold text-gray-800">{req.employeeName}</div>
+                          <div className="text-[10px] text-gray-400 font-mono font-bold">{req.employeeId}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-gray-700 font-bold">{new Date(req.date).toLocaleDateString("en-GB")}</div>
+                          <div className="text-[10px] text-gray-400 font-bold uppercase">{new Date(req.date).toLocaleDateString(undefined, { weekday: 'short' })}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-md text-[10px] font-black uppercase tracking-tighter">{req.currentStatus}</span>
+                            <FaArrowRight size={10} className="text-gray-300" />
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-md text-[10px] font-black uppercase tracking-tighter">{req.requestedStatus}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-[11px] space-y-0.5">
+                            <div className="flex gap-2">
+                              <span className="text-gray-400 w-12 font-bold uppercase text-[9px]">Punch In:</span>
+                              <span className="font-bold text-gray-700">{req.requestedPunchIn || '--'}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <span className="text-gray-400 w-12 font-bold uppercase text-[9px]">Punch Out:</span>
+                              <span className="font-bold text-gray-700">{req.requestedPunchOut || '--'}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="max-w-xs text-xs text-gray-500 font-medium italic line-clamp-2" title={req.reason}>
+                            "{req.reason}"
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => openReviewModal(req)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-100 transition flex items-center gap-2 mx-auto active:scale-95"
+                          >
+                            <FaEdit /> Review
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="lg:hidden grid gap-4">
+              {correctionRequests
+                .filter(req => {
+                  if (!filterText) return true;
+                  const lf = filterText.toLowerCase();
+                  return req.employeeName?.toLowerCase().includes(lf) || req.employeeId?.includes(lf);
+                })
+                .map((req) => (
+                  <div key={req._id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-black text-gray-800 text-sm">{req.employeeName}</h4>
+                        <p className="text-[10px] text-gray-400 font-mono font-bold tracking-widest">{req.employeeId}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</p>
+                        <p className="text-xs font-black text-blue-600">{new Date(req.date).toLocaleDateString("en-GB")}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between bg-gray-50/80 p-3 rounded-xl border border-gray-100">
+                      <div className="text-center">
+                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-widest">From</p>
+                        <span className="px-2 py-0.5 bg-gray-200 text-gray-600 rounded-md text-[9px] font-black uppercase">{req.currentStatus}</span>
+                      </div>
+                      <FaArrowRight className="text-gray-300" />
+                      <div className="text-center">
+                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1 tracking-widest">To</p>
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded-md text-[9px] font-black uppercase">{req.requestedStatus}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-white p-2.5 rounded-xl border border-gray-100">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Punch In</p>
+                        <p className="text-xs font-black text-gray-700">{req.requestedPunchIn || '--'}</p>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-xl border border-gray-100">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Punch Out</p>
+                        <p className="text-xs font-black text-gray-700">{req.requestedPunchOut || '--'}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-blue-50/30 rounded-xl border border-blue-50">
+                      <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest mb-1">Reason</p>
+                      <p className="text-xs text-gray-600 font-medium italic">"{req.reason}"</p>
+                    </div>
+
+                    <button
+                      onClick={() => openReviewModal(req)}
+                      className="w-full bg-blue-600 text-white py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-blue-100 flex items-center justify-center gap-2 active:scale-95 transition"
+                    >
+                      <FaEdit /> Review Correction
+                    </button>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+            </div>
           </div>
         )
       ) : requestType === "FULL_DAY" ? (
@@ -851,78 +896,78 @@ const AdminLateRequests = () => {
                 return req.employeeName?.toLowerCase().includes(lf) || req.employeeId?.includes(lf);
               })
               .map((req) => (
-              <div key={`${req.employeeId}-${req.date}`} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 flex flex-col group">
-                {/* Card Header */}
-                <div className="p-4 bg-gradient-to-r from-teal-50 to-white border-b border-gray-100 flex justify-between items-start">
-                  <div>
-                    <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">{req.employeeName}</h3>
-                    <span className="text-[11px] font-bold text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-                      {req.employeeId}
-                    </span>
+                <div key={`${req.employeeId}-${req.date}`} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 flex flex-col group">
+                  {/* Card Header */}
+                  <div className="p-4 bg-gradient-to-r from-teal-50 to-white border-b border-gray-100 flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-gray-800 text-lg group-hover:text-teal-600 transition-colors">{req.employeeName}</h3>
+                      <span className="text-[11px] font-bold text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                        {req.employeeId}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                      <FaCalendarDay />
+                      {new Date(req.date).toLocaleDateString("en-GB")}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
-                    <FaCalendarDay />
-                    {new Date(req.date).toLocaleDateString("en-GB")}
-                  </div>
-                </div>
 
-                {/* Card Body */}
-                <div className="p-5 flex-1 space-y-4">
-                  {/* Status Change Visual */}
-                  <div className="flex items-center justify-between bg-teal-50/50 p-3 rounded-xl border border-teal-100">
-                    <div className="text-center">
-                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Current</p>
-                      <p className="text-yellow-600 font-bold text-lg bg-yellow-50 px-2 rounded">
-                        Half Day
+                  {/* Card Body */}
+                  <div className="p-5 flex-1 space-y-4">
+                    {/* Status Change Visual */}
+                    <div className="flex items-center justify-between bg-teal-50/50 p-3 rounded-xl border border-teal-100">
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Current</p>
+                        <p className="text-yellow-600 font-bold text-lg bg-yellow-50 px-2 rounded">
+                          Half Day
+                        </p>
+                      </div>
+                      <div className="text-teal-300 text-xl font-light">➜</div>
+                      <div className="text-center">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Requested</p>
+                        <p className="text-green-600 font-bold text-xl bg-green-50 px-2 rounded">
+                          Full Day
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Work Hours Info */}
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Worked Hours</p>
+                        <p className="font-mono font-bold text-gray-700">{req.displayTime || '--'}</p>
+                      </div>
+                      <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase">Requested On</p>
+                        <p className="font-mono font-bold text-gray-700 text-xs">{req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : '--'}</p>
+                      </div>
+                    </div>
+
+                    {/* Reason Block */}
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Reason provided</p>
+                      <p className="text-sm text-gray-700 italic leading-relaxed">
+                        "{req.reason}"
                       </p>
                     </div>
-                    <div className="text-teal-300 text-xl font-light">➜</div>
-                    <div className="text-center">
-                      <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Requested</p>
-                      <p className="text-green-600 font-bold text-xl bg-green-50 px-2 rounded">
-                        Full Day
-                      </p>
-                    </div>
                   </div>
 
-                  {/* Work Hours Info */}
-                  <div className="flex items-center gap-4 text-sm">
-                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Worked Hours</p>
-                      <p className="font-mono font-bold text-gray-700">{req.displayTime || '--'}</p>
-                    </div>
-                    <div className="bg-gray-50 px-3 py-2 rounded-lg border border-gray-100 flex-1">
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Requested On</p>
-                      <p className="font-mono font-bold text-gray-700 text-xs">{req.requestedAt ? new Date(req.requestedAt).toLocaleDateString() : '--'}</p>
-                    </div>
-                  </div>
-
-                  {/* Reason Block */}
-                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Reason provided</p>
-                    <p className="text-sm text-gray-700 italic leading-relaxed">
-                      "{req.reason}"
-                    </p>
+                  {/* Actions Footer */}
+                  <div className="p-3 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+                    <button
+                      onClick={() => handleFullDayAction(req, "REJECTED")}
+                      className="flex-1 flex items-center justify-center gap-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 py-2.5 rounded-lg font-bold transition text-xs shadow-sm"
+                    >
+                      <FaTimes /> Reject
+                    </button>
+                    <button
+                      onClick={() => handleFullDayAction(req, "APPROVED")}
+                      className="flex-1 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 py-2.5 rounded-lg font-bold transition text-xs shadow-md shadow-teal-200"
+                    >
+                      <FaCheck /> Approve Full Day
+                    </button>
                   </div>
                 </div>
-
-                {/* Actions Footer */}
-                <div className="p-3 bg-gray-50/50 border-t border-gray-100 flex gap-3">
-                  <button
-                    onClick={() => handleFullDayAction(req, "REJECTED")}
-                    className="flex-1 flex items-center justify-center gap-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 py-2.5 rounded-lg font-bold transition text-xs shadow-sm"
-                  >
-                    <FaTimes /> Reject
-                  </button>
-                  <button
-                    onClick={() => handleFullDayAction(req, "APPROVED")}
-                    className="flex-1 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 py-2.5 rounded-lg font-bold transition text-xs shadow-md shadow-teal-200"
-                  >
-                    <FaCheck /> Approve Full Day
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         )
       ) : requestType === "LIMITS" ? (
@@ -945,7 +990,7 @@ const AdminLateRequests = () => {
               <span className="text-sm text-gray-600 cursor-pointer" onClick={handleSelectAll}>Select All</span>
             </div>
           </div>
-          
+
           {loadingLimits ? (
             <div className="p-8 text-center flex flex-col items-center">
               <div className="animate-spin rounded-full h-10 w-10 border-4 border-gray-200 border-t-purple-600"></div>
@@ -956,74 +1001,133 @@ const AdminLateRequests = () => {
               No employee limits found.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="p-4 text-left font-medium text-gray-500 uppercase tracking-wider w-12"></th>
-                    <th className="p-4 text-left font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                    <th className="p-4 text-left font-medium text-gray-500 uppercase tracking-wider">Current Limit</th>
-                    <th className="p-4 text-left font-medium text-gray-500 uppercase tracking-wider">Used</th>
-                    <th className="p-4 text-left font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
-                    <th className="p-4 text-left font-medium text-gray-500 uppercase tracking-wider">Usage</th>
-                    <th className="p-4 text-right font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredEmployeeLimits.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-gray-50 transition-colors">
-                      <td className="p-4">
+            <div className="space-y-4">
+              {/* Desktop Limits Table */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-[10px] uppercase font-black tracking-widest border-b border-gray-200">
+                    <tr>
+                      <th className="p-4 text-left font-bold text-gray-500 uppercase tracking-wider w-12"></th>
+                      <th className="p-4 text-left font-bold text-gray-500 uppercase tracking-wider">Employee</th>
+                      <th className="p-4 text-left font-bold text-gray-500 uppercase tracking-wider text-center">Current Limit</th>
+                      <th className="p-4 text-left font-bold text-gray-500 uppercase tracking-wider text-center">Used</th>
+                      <th className="p-4 text-left font-bold text-gray-500 uppercase tracking-wider text-center">Remaining</th>
+                      <th className="p-4 text-left font-bold text-gray-500 uppercase tracking-wider">Usage Progress</th>
+                      <th className="p-4 text-right font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredEmployeeLimits.map((emp) => (
+                      <tr key={emp.employeeId} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedEmployees.includes(emp.employeeId)}
+                            onChange={() => handleSelectEmployee(emp.employeeId)}
+                            className="h-5 w-5 text-purple-600 rounded-lg focus:ring-purple-500 cursor-pointer border-gray-300"
+                          />
+                        </td>
+                        <td className="p-4">
+                          <div>
+                            <p className="font-black text-gray-800">{emp.employeeName}</p>
+                            <p className="text-[10px] text-gray-400 font-mono font-bold tracking-widest">{emp.employeeId}</p>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className="font-black text-purple-700 bg-purple-50 px-2.5 py-1 rounded-md border border-purple-100">{emp.currentLimit}</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`font-black ${emp.currentUsed > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                            {emp.currentUsed}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`font-black ${emp.remaining > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            {emp.remaining}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <div className="w-40">
+                            <div className="w-full bg-gray-100 rounded-full h-2 shadow-inner border border-gray-100">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${emp.currentUsed / emp.currentLimit > 0.8 ? 'bg-red-500' : emp.currentUsed / emp.currentLimit > 0.5 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                                style={{ width: `${Math.min((emp.currentUsed / emp.currentLimit) * 100, 100)}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-2 font-bold uppercase tracking-widest">
+                              {Math.round((emp.currentUsed / emp.currentLimit) * 100)}% used
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => openLimitModal(emp)}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 text-[10px] bg-white text-purple-700 hover:bg-purple-600 hover:text-white rounded-xl border-2 border-purple-100 transition font-black uppercase tracking-widest shadow-sm active:scale-95"
+                          >
+                            <FaEdit /> Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Limits Cards */}
+              <div className="lg:hidden grid gap-4">
+                {filteredEmployeeLimits.map((emp) => (
+                  <div key={emp.employeeId} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-start gap-3">
                         <input
                           type="checkbox"
                           checked={selectedEmployees.includes(emp.employeeId)}
                           onChange={() => handleSelectEmployee(emp.employeeId)}
-                          className="h-4 w-4 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                          className="h-5 w-5 text-purple-600 rounded-lg border-gray-300 mt-1"
                         />
-                      </td>
-                      <td className="p-4">
                         <div>
-                          <p className="font-bold text-gray-900">{emp.employeeName}</p>
-                          <p className="text-xs text-gray-500 font-mono mt-0.5">{emp.employeeId}</p>
+                          <h4 className="font-black text-gray-800 text-sm">{emp.employeeName}</h4>
+                          <p className="text-[10px] text-gray-400 font-mono font-bold tracking-widest">{emp.employeeId}</p>
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded">{emp.currentLimit}</span>
-                      </td>
-                      <td className="p-4">
-                        <span className={`font-bold ${emp.currentUsed > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
-                          {emp.currentUsed}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className={`font-bold ${emp.remaining > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {emp.remaining}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <div className="w-32">
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
-                              className={`h-2 rounded-full ${emp.currentUsed / emp.currentLimit > 0.8 ? 'bg-red-500' : emp.currentUsed / emp.currentLimit > 0.5 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                              style={{ width: `${Math.min((emp.currentUsed / emp.currentLimit) * 100, 100)}%` }}
-                            ></div>
-                          </div>
-                          <p className="text-[11px] text-gray-500 mt-1.5 font-medium">
-                            {Math.round((emp.currentUsed / emp.currentLimit) * 100)}% used
-                          </p>
-                        </div>
-                      </td>
-                      <td className="p-4 text-right">
-                        <button
-                          onClick={() => openLimitModal(emp)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white text-purple-700 hover:bg-purple-50 rounded-lg border border-purple-200 transition font-bold"
-                        >
-                          <FaEdit /> Edit Limit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                      <button
+                        onClick={() => openLimitModal(emp)}
+                        className="p-2 bg-purple-50 text-purple-600 rounded-xl border border-purple-100 active:scale-95 transition"
+                      >
+                        <FaEdit size={14} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 text-center">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Limit</p>
+                        <p className="text-xs font-black text-purple-700">{emp.currentLimit}</p>
+                      </div>
+                      <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 text-center">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Used</p>
+                        <p className="text-xs font-black text-orange-600">{emp.currentUsed}</p>
+                      </div>
+                      <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100 text-center">
+                        <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Left</p>
+                        <p className="text-xs font-black text-green-600">{emp.remaining}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-[9px] font-black text-gray-400 uppercase tracking-widest">
+                        <span>Usage</span>
+                        <span>{Math.round((emp.currentUsed / emp.currentLimit) * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2.5 border border-gray-100 shadow-inner">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${emp.currentUsed / emp.currentLimit > 0.8 ? 'bg-red-500' : emp.currentUsed / emp.currentLimit > 0.5 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                          style={{ width: `${Math.min((emp.currentUsed / emp.currentLimit) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1046,26 +1150,25 @@ const AdminLateRequests = () => {
         /* --- ORIGINAL: GRID VIEW --- */
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {filteredRequests.map((req, idx) => (
-            <div key={`${req.employeeId}-${req.date}`} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 flex flex-col group">
+            <div key={`${req.employeeId}-${req.date}`} className="bg-white rounded-2xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 flex flex-col group overflow-hidden">
 
               {/* Card Header */}
-              <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex justify-between items-start">
+              <div className="p-4 bg-gradient-to-r from-orange-50 to-white border-b border-gray-100 flex justify-between items-start">
                 <div>
-                  <h3 className="font-bold text-gray-800 text-lg group-hover:text-orange-600 transition-colors">{req.employeeName}</h3>
-                  <span className="text-[11px] font-bold text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                  <h3 className="font-black text-gray-800 text-lg group-hover:text-orange-600 transition-colors leading-tight">{req.employeeName}</h3>
+                  <p className="text-[10px] font-black text-gray-400 font-mono tracking-widest mt-1">
                     {req.employeeId}
-                  </span>
+                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-100 uppercase tracking-wider">
                     <FaCalendarDay />
                     {new Date(req.date).toLocaleDateString("en-GB")}
                   </div>
-                  {/* Quick Limit Edit Button Included inside Card */}
+                  {/* Quick Limit Edit Button */}
                   <button
                     onClick={() => openLimitModal(req)}
-                    className="flex items-center gap-1 text-[10px] text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-1 rounded border border-purple-200 transition font-bold"
-                    title="Edit Monthly Limit"
+                    className="flex items-center gap-1.5 text-[9px] text-purple-600 hover:bg-purple-600 hover:text-white bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100 transition font-black uppercase tracking-widest active:scale-95 shadow-sm"
                   >
                     <FaEdit /> Limit
                   </button>
@@ -1076,29 +1179,31 @@ const AdminLateRequests = () => {
               <div className="p-5 flex-1 space-y-4">
 
                 {/* Time Comparison Block */}
-                <div className="flex items-center justify-between bg-orange-50/50 p-3 rounded-xl border border-orange-100">
+                <div className="flex items-center justify-between bg-orange-50/50 p-3.5 rounded-xl border border-orange-100 relative">
                   <div className="text-center">
-                    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Was</p>
-                    <p className="text-red-500 font-mono font-bold text-lg line-through decoration-2 opacity-70">
+                    <p className="text-[9px] font-black text-gray-400 uppercase mb-1.5 tracking-widest">Original</p>
+                    <p className="text-red-400 font-mono font-black text-lg line-through decoration-2 opacity-60">
                       {req.currentPunchIn
                         ? new Date(req.currentPunchIn).toLocaleTimeString("en-IN", {
                           timeZone: "Asia/Kolkata",
                           hour: "2-digit",
-                          minute: "2-digit"
+                          minute: "2-digit",
+                          hour12: true
                         })
                         : "--:--"
                       }
                     </p>
                   </div>
-                  <div className="text-orange-300 text-xl font-light">➜</div>
-
+                  <div className="bg-white p-1.5 rounded-full border border-orange-100 shadow-sm z-10">
+                    <FaArrowRight className="text-orange-300" size={12} />
+                  </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-wider">Change To</p>
-                    <p className="text-green-600 font-mono font-bold text-xl bg-green-50 px-2 rounded">
+                    <p className="text-[9px] font-black text-gray-400 uppercase mb-1.5 tracking-widest">Requested</p>
+                    <p className="text-green-600 font-mono font-black text-xl bg-green-50 px-3 py-1 rounded-lg border border-green-100">
                       {new Date(req.requestedTime).toLocaleTimeString("en-IN", {
                         hour: "2-digit",
                         minute: "2-digit",
-                        hour12: true, 
+                        hour12: true,
                         timeZone: "Asia/Kolkata"
                       })}
                     </p>
@@ -1106,25 +1211,25 @@ const AdminLateRequests = () => {
                 </div>
 
                 {/* Reason Block */}
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Reason provided</p>
-                  <p className="text-sm text-gray-700 italic leading-relaxed">
+                <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-100">
+                  <p className="text-[9px] font-black text-gray-400 uppercase mb-1.5 tracking-widest">Reason for Late</p>
+                  <p className="text-xs text-gray-700 font-medium italic leading-relaxed">
                     "{req.reason}"
                   </p>
                 </div>
               </div>
 
               {/* Actions Footer */}
-              <div className="p-3 bg-gray-50/50 border-t border-gray-100 flex gap-3">
+              <div className="p-3.5 bg-gray-50 border-t border-gray-100 flex gap-3">
                 <button
                   onClick={() => handleAction(req, "REJECTED")}
-                  className="flex-1 flex items-center justify-center gap-2 bg-white text-red-600 border border-red-200 hover:bg-red-50 py-2.5 rounded-lg font-bold transition text-xs shadow-sm"
+                  className="flex-1 flex items-center justify-center gap-2 bg-white text-red-600 border-2 border-red-100 hover:bg-red-50 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition active:scale-95 shadow-sm"
                 >
                   <FaTimes /> Reject
                 </button>
                 <button
                   onClick={() => handleAction(req, "APPROVED")}
-                  className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700 py-2.5 rounded-lg font-bold transition text-xs shadow-md shadow-green-200"
+                  className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] transition active:scale-95 shadow-lg shadow-green-100"
                 >
                   <FaCheck /> Approve
                 </button>
@@ -1144,7 +1249,7 @@ const AdminLateRequests = () => {
                 <FaEdit className="text-purple-600" />
                 Edit Request Limit
               </h3>
-              <button 
+              <button
                 onClick={() => setShowLimitModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
               >
@@ -1175,7 +1280,7 @@ const AdminLateRequests = () => {
               </div>
               <div className="mt-4">
                 <div className="w-full bg-purple-200 rounded-full h-2">
-                  <div 
+                  <div
                     className="bg-purple-600 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${Math.min((limitSettings.currentUsed / limitSettings.currentLimit) * 100, 100)}%` }}
                   ></div>
@@ -1195,7 +1300,7 @@ const AdminLateRequests = () => {
                 min={limitSettings.currentUsed}
                 max="100"
                 value={limitSettings.newLimit}
-                onChange={(e) => setLimitSettings({...limitSettings, newLimit: parseInt(e.target.value) || 0})}
+                onChange={(e) => setLimitSettings({ ...limitSettings, newLimit: parseInt(e.target.value) || 0 })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-purple-500 outline-none text-lg font-bold text-center transition"
               />
               <p className="text-xs text-gray-500 mt-2 text-center">
@@ -1230,7 +1335,7 @@ const AdminLateRequests = () => {
                 <FaUsers className="text-purple-600" />
                 Bulk Update Limits
               </h3>
-              <button 
+              <button
                 onClick={() => setShowBulkLimitModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
               >
@@ -1341,12 +1446,12 @@ const AdminLateRequests = () => {
               {/* Right Column: Admin Decision */}
               <div className="space-y-5">
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Admin Decision</h4>
-                
+
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-gray-500 uppercase">Final Status</label>
-                  <select 
+                  <select
                     value={reviewData.finalStatus}
-                    onChange={(e) => setReviewData({...reviewData, finalStatus: e.target.value})}
+                    onChange={(e) => setReviewData({ ...reviewData, finalStatus: e.target.value })}
                     className="w-full p-3 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition"
                   >
                     <option value="Full Day">Full Day</option>
@@ -1359,19 +1464,19 @@ const AdminLateRequests = () => {
                   <div className="grid grid-cols-2 gap-4 animate-fade-in">
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-gray-500 uppercase">Adjust Punch In</label>
-                      <input 
-                        type="time" 
+                      <input
+                        type="time"
                         value={reviewData.finalPunchIn}
-                        onChange={(e) => setReviewData({...reviewData, finalPunchIn: e.target.value})}
+                        onChange={(e) => setReviewData({ ...reviewData, finalPunchIn: e.target.value })}
                         className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-gray-500 uppercase">Adjust Punch Out</label>
-                      <input 
-                        type="time" 
+                      <input
+                        type="time"
                         value={reviewData.finalPunchOut}
-                        onChange={(e) => setReviewData({...reviewData, finalPunchOut: e.target.value})}
+                        onChange={(e) => setReviewData({ ...reviewData, finalPunchOut: e.target.value })}
                         className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
                       />
                     </div>
@@ -1380,10 +1485,10 @@ const AdminLateRequests = () => {
 
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-gray-500 uppercase">Admin Comment (Optional for Approve)</label>
-                  <textarea 
+                  <textarea
                     rows="3"
                     value={reviewData.adminComment}
-                    onChange={(e) => setReviewData({...reviewData, adminComment: e.target.value})}
+                    onChange={(e) => setReviewData({ ...reviewData, adminComment: e.target.value })}
                     placeholder={reviewData.adminComment ? "" : "Add notes or reason for rejection..."}
                     className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition resize-none"
                   ></textarea>
@@ -1400,14 +1505,14 @@ const AdminLateRequests = () => {
 
             {/* Footer */}
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4">
-              <button 
+              <button
                 onClick={() => handleCorrectionAction(false)}
                 disabled={isProcessing}
                 className="flex-1 py-3 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <FaTimes /> Reject
               </button>
-              <button 
+              <button
                 onClick={() => handleCorrectionAction(true)}
                 disabled={isProcessing}
                 className="flex-[2] py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition shadow-lg shadow-green-200 flex items-center justify-center gap-2 disabled:opacity-50"

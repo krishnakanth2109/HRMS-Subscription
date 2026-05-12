@@ -473,15 +473,23 @@ const AdminProfile = () => {
                     <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Contact</p>
                     <Row label="Email" value={co.email} />
                     <Row label="Phone" value={co.phone} />
+                    <Row label="Website" value={co.website} />
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Registration</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                    <div>
-                      <Row label="Registration / GST" value={co.registrationNumber} />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Location</p>
+                    <Row label="Address" value={co.officeLocation?.address} />
+                    <Row label="City" value={co.officeLocation?.city} />
+                    <Row label="State" value={co.officeLocation?.state} />
+                    <Row label="Zip Code" value={co.officeLocation?.zipCode} />
+                    <Row label="Country" value={co.officeLocation?.country} />
+                  </div>
+                  <div className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-[10px] font-black text-purple-600 uppercase tracking-[0.18em] mb-1 pl-2 border-l-2 border-purple-400">Registration</p>
+                    <Row label="Registration / GST" value={co.registrationNumber} />
+                    <Row label="Description" value={co.description} />
                   </div>
                 </div>
               </div>

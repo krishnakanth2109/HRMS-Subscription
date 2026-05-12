@@ -288,7 +288,7 @@ const EmployeeRow = ({
       <td className="p-4 align-middle text-left hidden lg:table-cell">
         <span className="text-sm font-bold text-gray-900">{currentDepartment}</span>
       </td>
-      <td className="p-4 align-middle text-left">
+      <td className="p-4 align-middle text-left hidden xl:table-cell">
         <span className="text-sm font-bold text-gray-900">{emp.companyName || "N/A"}</span>
       </td>
       <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold hidden xl:table-cell truncate max-w-[200px]">
@@ -297,36 +297,36 @@ const EmployeeRow = ({
         </a>
       </td>
       <td className="p-4 align-middle text-center">
-          <div className="inline-block text-left" ref={menuRef}>
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm transition-all"
-            >
-              Actions
-              <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </button>
-            {isMenuOpen && (
-              <div className="fixed right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border ring-1 ring-black ring-opacity-5 overflow-hidden origin-top-right">
-                <div className="py-1">
-                  <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
-                    <FaUser className="text-blue-500" /> Profile
-                  </button>
-                  <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-3 transition-colors">
-                    <FaClipboardList className="text-teal-500" /> Overview
-                  </button>
-                  <button onClick={() => { navigate(`/employees/edit/${emp.employeeId}`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors">
-                    <FaEdit className="text-green-500" /> Edit
-                  </button>
-                  <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-colors">
-                    <FaTrash className="text-orange-500" /> Deactivate
-                  </button>
-                </div>
+        <div className="inline-block text-left" ref={menuRef}>
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm transition-all"
+          >
+            Actions
+            <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          {isMenuOpen && (
+            <div className="fixed right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border ring-1 ring-black ring-opacity-5 overflow-hidden origin-top-right">
+              <div className="py-1">
+                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
+                  <FaUser className="text-blue-500" /> Profile
+                </button>
+                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-3 transition-colors">
+                  <FaClipboardList className="text-teal-500" /> Overview
+                </button>
+                <button onClick={() => { navigate(`/employees/edit/${emp.employeeId}`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors">
+                  <FaEdit className="text-green-500" /> Edit
+                </button>
+                <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-colors">
+                  <FaTrash className="text-orange-500" /> Deactivate
+                </button>
               </div>
-            )}
-          </div>
-        </td>
+            </div>
+          )}
+        </div>
+      </td>
     </tr>
   );
 };
@@ -387,39 +387,39 @@ const InactiveEmployeeRow = ({
           </div>
         </div>
       </td>
-      <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
-      <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
-      <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{emp.companyName || "N/A"}</span></td>
+      <td className="p-4 align-middle text-left hidden md:table-cell"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
+      <td className="p-4 align-middle text-left hidden lg:table-cell"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
+      <td className="p-4 align-middle text-left hidden xl:table-cell"><span className="text-sm font-semibold text-gray-700">{emp.companyName || "N/A"}</span></td>
       <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800 hidden xl:table-cell truncate max-w-[200px]">
         <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
       </td>
       <td className="p-4 align-middle text-center">
-          <div className="relative inline-block text-left" ref={menuRef}>
-            <button
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.right - 180 });
-                setIsMenuOpen(!isMenuOpen);
-              }}
-              className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm"
-            >
-              Actions
-              <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-              </svg>
-            </button>
-            {isMenuOpen && (
-              <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }} className="w-48 bg-white rounded-lg shadow-xl border">
-                <div className="py-1">
-                  <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3"><FaUser /> Profile</button>
-                  <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 flex items-center gap-3"><FaClipboardList /> Overview</button>
-                  <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center gap-3"><FaEye /> Deactivation Details</button>
-                  <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-3"><FaRedo /> Reactivate</button>
-                </div>
+        <div className="relative inline-block text-left" ref={menuRef}>
+          <button
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.right - 180 });
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm"
+          >
+            Actions
+            <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          {isMenuOpen && (
+            <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }} className="w-48 bg-white rounded-lg shadow-xl border">
+              <div className="py-1">
+                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3"><FaUser /> Profile</button>
+                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 flex items-center gap-3"><FaClipboardList /> Overview</button>
+                <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center gap-3"><FaEye /> Deactivation Details</button>
+                <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-3"><FaRedo /> Reactivate</button>
               </div>
-            )}
-          </div>
-        </td>
+            </div>
+          )}
+        </div>
+      </td>
     </tr>
   );
 };
@@ -1067,10 +1067,10 @@ const EmployeeManagement = () => {
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
             <div className="flex justify-center md:justify-start gap-2 sm:gap-3 mt-3">
               <button onClick={handleDownloadActive} className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
-                <FaDownload /> <span className="hidden xs:inline">Active</span> List
+                <FaDownload /> <span className="hidden xs:inline">Active</span> Active List
               </button>
               <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
-                <FaDownload /> <span className="hidden xs:inline">Inactive</span> List
+                <FaDownload /> <span className="hidden xs:inline">Inactive</span> Inactive List
               </button>
             </div>
           </div>
@@ -1261,7 +1261,7 @@ const EmployeeManagement = () => {
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-gray-500 font-medium text-lg">
+                    <td colSpan="7" className="p-8 text-center text-gray-500 font-medium text-lg">
                       Loading employees data...
                     </td>
                   </tr>
@@ -1276,7 +1276,7 @@ const EmployeeManagement = () => {
                       <Fragment key={emp.employeeId}>
                         {isFirstInactiveGlobal && (
                           <tr>
-                            <td colSpan="6" className="p-3 text-center font-bold text-white text-sm tracking-widest uppercase bg-slate-700 border-b border-slate-600">
+                            <td colSpan="7" className="p-3 text-center font-bold text-white text-sm tracking-widest uppercase bg-slate-700 border-b border-slate-600">
                               Inactive Employees
                             </td>
                           </tr>
@@ -1308,7 +1308,7 @@ const EmployeeManagement = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="6" className="p-8 text-center text-gray-400 font-medium">
+                    <td colSpan="7" className="p-8 text-center text-gray-400 font-medium">
                       No employees found matching criteria.
                     </td>
                   </tr>
@@ -1333,11 +1333,10 @@ const EmployeeManagement = () => {
                 <button
                   key={i + 1}
                   onClick={() => setCurrentPage(i + 1)}
-                  className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${
-                    currentPage === i + 1
+                  className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${currentPage === i + 1
                       ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
                       : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   {i + 1}
                 </button>
@@ -1357,7 +1356,7 @@ const EmployeeManagement = () => {
         <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
         <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
         <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
-        <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
+        <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setOverviewModalOpen(false)} />
 
         {previewImage && (
           <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>

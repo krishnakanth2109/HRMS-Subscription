@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { saveAs } from "file-saver";
-import { 
-  FaSearch, FaFileDownload, FaEye, FaTimes, 
+import {
+  FaSearch, FaFileDownload, FaEye, FaTimes,
   FaCalendarAlt, FaFilter, FaUserTie, FaExclamationTriangle
 } from "react-icons/fa";
-import { 
-  getLeaveRequests, 
-  getEmployees, 
-  getHolidays, 
-  getAttendanceByDateRange, 
-  getAllShifts            
+import {
+  getLeaveRequests,
+  getEmployees,
+  getHolidays,
+  getAttendanceByDateRange,
+  getAllShifts
 } from "../api";
 
 // --- HELPER FUNCTIONS ---
@@ -26,7 +26,7 @@ const formatDate = (dateInput) => {
   if (!dateInput) return "";
   const d = new Date(dateInput);
   if (isNaN(d.getTime())) return "";
-  
+
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -67,7 +67,7 @@ const formatDisplayDate = (dateStr) => {
   });
 };
 
-const MONTH_OPTIONS =[
+const MONTH_OPTIONS = [
   { value: "01", label: "January" },
   { value: "02", label: "February" },
   { value: "03", label: "March" },
@@ -85,28 +85,28 @@ const MONTH_OPTIONS =[
 const AdminLeaveSummary = () => {
   const [allRequests, setAllRequests] = useState([]);
   const [employeesMap, setEmployeesMap] = useState(new Map());
-  const[holidays, setHolidays] = useState([]);
-  
+  const [holidays, setHolidays] = useState([]);
+
   // NEW: Separated Year and Month state
-  const[selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const[showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [employeeLeaveHistory, setEmployeeLeaveHistory] = useState([]);
 
   // Attendance & Shifts
   const [rawAttendance, setRawAttendance] = useState([]);
-  const[shiftsMap, setShiftsMap] = useState({});
+  const [shiftsMap, setShiftsMap] = useState({});
 
   const fetchHolidays = async () => {
     try {
       const data = await getHolidays();
-      setHolidays(data ||[]);
+      setHolidays(data || []);
     } catch (err) {
       console.error("Error fetching holidays:", err);
     }
@@ -118,10 +118,10 @@ const AdminLeaveSummary = () => {
         setIsLoading(true);
         const year = new Date().getFullYear();
         // Fetch long range to ensure we have all past available data
-        const startOfYear = `${year - 10}-01-01`; 
+        const startOfYear = `${year - 10}-01-01`;
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const[leaves, employees, attendanceData, shiftsData] = await Promise.all([
+        const [leaves, employees, attendanceData, shiftsData] = await Promise.all([
           getLeaveRequests(),
           getEmployees(),
           getAttendanceByDateRange(startOfYear, todayStr),
@@ -129,10 +129,10 @@ const AdminLeaveSummary = () => {
         ]);
 
         setAllRequests(leaves);
-        setRawAttendance(Array.isArray(attendanceData) ? attendanceData :[]);
+        setRawAttendance(Array.isArray(attendanceData) ? attendanceData : []);
 
         const activeEmployees = employees.filter(emp => emp.isActive !== false);
-        
+
         const empMap = new Map(
           activeEmployees.map((emp) => [emp.employeeId, emp.name])
         );
@@ -140,13 +140,13 @@ const AdminLeaveSummary = () => {
 
         const sMap = {};
         if (Array.isArray(shiftsData)) {
-            shiftsData.forEach(shift => {
-                if (shift.employeeId) sMap[shift.employeeId] = shift;
-            });
+          shiftsData.forEach(shift => {
+            if (shift.employeeId) sMap[shift.employeeId] = shift;
+          });
         } else if (shiftsData?.data) {
-             shiftsData.data.forEach(shift => {
-                if (shift.employeeId) sMap[shift.employeeId] = shift;
-            });
+          shiftsData.data.forEach(shift => {
+            if (shift.employeeId) sMap[shift.employeeId] = shift;
+          });
         }
         setShiftsMap(sMap);
 
@@ -159,22 +159,22 @@ const AdminLeaveSummary = () => {
     };
 
     fetchAllData();
-  },[]);
+  }, []);
 
   // Dynamically calculate which years actually have data
   const availableYears = useMemo(() => {
     const years = new Set();
     years.add(new Date().getFullYear()); // Always ensure current year is an option
-    
+
     allRequests.forEach(req => {
       if (req.from) years.add(new Date(req.from).getFullYear());
       if (req.to) years.add(new Date(req.to).getFullYear());
     });
-    
+
     rawAttendance.forEach(att => {
       if (att.date) years.add(new Date(att.date).getFullYear());
     });
-    
+
     return Array.from(years).sort((a, b) => b - a); // Sort descending
   }, [allRequests, rawAttendance]);
 
@@ -183,7 +183,7 @@ const AdminLeaveSummary = () => {
       allRequests.map((req) => ({
         ...req,
         employeeName: employeesMap.get(req.employeeId) || "Unknown",
-      })),[allRequests, employeesMap]
+      })), [allRequests, employeesMap]
   );
 
   // --- CORE SANDWICH LOGIC ---
@@ -195,7 +195,7 @@ const AdminLeaveSummary = () => {
     );
 
     if (activeLeaves.length === 0 && holidays.length === 0) {
-      return { count: 0, days: 0, details:[] };
+      return { count: 0, days: 0, details: [] };
     }
 
     const bookedMap = new Map();
@@ -211,7 +211,7 @@ const AdminLeaveSummary = () => {
 
     let sandwichCount = 0;
     let sandwichDays = 0;
-    const sandwichDetails =[];
+    const sandwichDetails = [];
 
     holidays.forEach((holiday) => {
       const hStartStr = formatDate(holiday.startDate);
@@ -221,7 +221,7 @@ const AdminLeaveSummary = () => {
 
       const hStart = new Date(hStartStr);
       const hEnd = new Date(hEndStr);
-      
+
       const dayBeforeStr = formatDate(addDays(hStart, -1));
       const dayAfterStr = formatDate(addDays(hEnd, 1));
 
@@ -244,7 +244,7 @@ const AdminLeaveSummary = () => {
       const d = new Date(dateStr);
       if (!isDateInFilter(dateStr, yearFilter, monthFilter)) continue;
 
-      if (d.getDay() === 6) { 
+      if (d.getDay() === 6) {
         const mondayStr = formatDate(addDays(d, 2));
         if (bookedMap.get(mondayStr) === true) {
           sandwichCount++;
@@ -262,8 +262,8 @@ const AdminLeaveSummary = () => {
   // --- STATS CALCULATION (Per Employee) ---
   const employeeStats = useMemo(() => {
     const uniqueEmployees = Array.from(employeesMap.entries());
-    const today = new Date(); 
-    today.setHours(0,0,0,0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     return uniqueEmployees.map(([empId, empName]) => {
       const employeeLeaves = enrichedRequests.filter(
@@ -271,7 +271,7 @@ const AdminLeaveSummary = () => {
       );
 
       const absents = [];
-      const shift = shiftsMap[empId] || { weeklyOffDays: [0] }; 
+      const shift = shiftsMap[empId] || { weeklyOffDays: [0] };
       const weeklyOffs = shift.weeklyOffDays || [0];
 
       const employeePunches = new Set(
@@ -283,68 +283,68 @@ const AdminLeaveSummary = () => {
       let loopStart, loopEnd;
 
       if (selectedYear === "All") {
-          const minYear = availableYears.length > 0 ? Math.min(...availableYears) : new Date().getFullYear();
-          loopStart = new Date(minYear, 0, 1);
-          loopEnd = new Date(); 
+        const minYear = availableYears.length > 0 ? Math.min(...availableYears) : new Date().getFullYear();
+        loopStart = new Date(minYear, 0, 1);
+        loopEnd = new Date();
       } else if (selectedMonth === "All") {
-          const y = parseInt(selectedYear);
-          loopStart = new Date(y, 0, 1);
-          loopEnd = new Date(y, 11, 31);
-          if (loopEnd > today) loopEnd = new Date();
+        const y = parseInt(selectedYear);
+        loopStart = new Date(y, 0, 1);
+        loopEnd = new Date(y, 11, 31);
+        if (loopEnd > today) loopEnd = new Date();
       } else {
-          const y = parseInt(selectedYear);
-          const m = parseInt(selectedMonth);
-          loopStart = new Date(y, m - 1, 1);
-          loopEnd = new Date(y, m, 0); 
-          if (loopEnd > today) loopEnd = new Date(); 
+        const y = parseInt(selectedYear);
+        const m = parseInt(selectedMonth);
+        loopStart = new Date(y, m - 1, 1);
+        loopEnd = new Date(y, m, 0);
+        if (loopEnd > today) loopEnd = new Date();
       }
 
       const appliedLeaveDates = new Set();
       employeeLeaves.forEach(l => {
-          if(l.status === 'Approved' || l.status === 'Pending') {
-              let c = new Date(l.from);
-              const e = new Date(l.to);
-              while(c <= e) {
-                  appliedLeaveDates.add(formatDate(c));
-                  c = addDays(c, 1);
-              }
+        if (l.status === 'Approved' || l.status === 'Pending') {
+          let c = new Date(l.from);
+          const e = new Date(l.to);
+          while (c <= e) {
+            appliedLeaveDates.add(formatDate(c));
+            c = addDays(c, 1);
           }
+        }
       });
 
       for (let d = new Date(loopStart); d <= loopEnd; d.setDate(d.getDate() + 1)) {
-          const dateStr = formatDate(d); 
-          const dayOfWeek = d.getDay();
+        const dateStr = formatDate(d);
+        const dayOfWeek = d.getDay();
 
-          const isHol = holidays.some(h => {
-             const startStr = formatDate(h.startDate);
-             const endStr = formatDate(h.endDate || h.startDate);
-             return dateStr >= startStr && dateStr <= endStr;
-          });
+        const isHol = holidays.some(h => {
+          const startStr = formatDate(h.startDate);
+          const endStr = formatDate(h.endDate || h.startDate);
+          return dateStr >= startStr && dateStr <= endStr;
+        });
 
-          if (isHol) continue; 
-          if (weeklyOffs.includes(dayOfWeek)) continue; 
-          if (employeePunches.has(dateStr)) continue; 
-          if (appliedLeaveDates.has(dateStr)) continue; 
+        if (isHol) continue;
+        if (weeklyOffs.includes(dayOfWeek)) continue;
+        if (employeePunches.has(dateStr)) continue;
+        if (appliedLeaveDates.has(dateStr)) continue;
 
-          absents.push({
-              _id: `absent-${empId}-${dateStr}`,
-              from: dateStr,
-              to: dateStr,
-              status: "Approved", 
-              leaveType: "Absent (System)",
-              reason: "Not Logged In",
-              isAbsentRecord: true
-          });
+        absents.push({
+          _id: `absent-${empId}-${dateStr}`,
+          from: dateStr,
+          to: dateStr,
+          status: "Approved",
+          leaveType: "Absent (System)",
+          reason: "Not Logged In",
+          isAbsentRecord: true
+        });
       }
 
       const approvedLeavesOnly = employeeLeaves.filter(
         (leave) => leave.status === "Approved"
       );
-      
+
       const leavesInMonth = approvedLeavesOnly.filter(
-          (leave) =>
-            isDateInFilter(leave.from, selectedYear, selectedMonth) ||
-            isDateInFilter(leave.to, selectedYear, selectedMonth)
+        (leave) =>
+          isDateInFilter(leave.from, selectedYear, selectedMonth) ||
+          isDateInFilter(leave.to, selectedYear, selectedMonth)
       );
 
       const normalLeaveDays = leavesInMonth.reduce(
@@ -353,16 +353,16 @@ const AdminLeaveSummary = () => {
       );
 
       const absentDaysCount = absents.length;
-      
-      const sandwichData = calculateSandwichData([...approvedLeavesOnly, ...absents], 
-        selectedYear, 
+
+      const sandwichData = calculateSandwichData([...approvedLeavesOnly, ...absents],
+        selectedYear,
         selectedMonth
       );
 
       const totalConsumed = normalLeaveDays + absentDaysCount + sandwichData.days;
-      
+
       // Basic credit logic, customize as needed
-      const monthlyCredit = (selectedMonth === "All" && selectedYear !== "All") ? 12 : 1; 
+      const monthlyCredit = (selectedMonth === "All" && selectedYear !== "All") ? 12 : 1;
       const pendingLeaves = Math.max(0, monthlyCredit - totalConsumed);
       const extraLeaves = Math.max(0, totalConsumed - monthlyCredit);
 
@@ -371,20 +371,20 @@ const AdminLeaveSummary = () => {
         employeeName: empName,
         pendingLeaves,
         totalLeaveDays: totalConsumed,
-        normalLeaveDays, 
-        absentDays: absentDaysCount, 
+        normalLeaveDays,
+        absentDays: absentDaysCount,
         extraLeaves,
         sandwichLeavesCount: sandwichData.count,
         sandwichLeavesDays: sandwichData.days,
         sandwichDetails: sandwichData.details,
         rawLeaves: employeeLeaves,
-        rawAbsents: absents 
+        rawAbsents: absents
       };
     });
-  },[enrichedRequests, employeesMap, selectedYear, selectedMonth, holidays, rawAttendance, shiftsMap, availableYears]);
+  }, [enrichedRequests, employeesMap, selectedYear, selectedMonth, holidays, rawAttendance, shiftsMap, availableYears]);
 
   const filteredEmployeeStats = useMemo(() => {
-    let filtered =[...employeeStats];
+    let filtered = [...employeeStats];
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -421,28 +421,28 @@ const AdminLeaveSummary = () => {
   };
 
   const exportEmployeeStatsCSV = () => {
-    const headers =[
+    const headers = [
       "Employee ID",
       "Employee Name",
       "Pending Leaves",
       "Total Leave Days",
       "Applied Leaves",
-      "Absent Days", 
+      "Absent Days",
       "Extra Leaves (LOP)",
       "Sandwich Count",
       "Sandwich Days",
     ];
-    const rows = filteredEmployeeStats.map((emp) =>[
-        emp.employeeId,
-        `"${emp.employeeName}"`,
-        emp.pendingLeaves,
-        emp.totalLeaveDays,
-        emp.normalLeaveDays,
-        emp.absentDays,
-        emp.extraLeaves,
-        emp.sandwichLeavesCount,
-        emp.sandwichLeavesDays,
-      ].join(",")
+    const rows = filteredEmployeeStats.map((emp) => [
+      emp.employeeId,
+      `"${emp.employeeName}"`,
+      emp.pendingLeaves,
+      emp.totalLeaveDays,
+      emp.normalLeaveDays,
+      emp.absentDays,
+      emp.extraLeaves,
+      emp.sandwichLeavesCount,
+      emp.sandwichLeavesDays,
+    ].join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
     saveAs(
@@ -453,15 +453,15 @@ const AdminLeaveSummary = () => {
 
   const handleViewDetails = (employeeId) => {
     const empStats = employeeStats.find((emp) => emp.employeeId === employeeId);
-    if(!empStats) return;
+    if (!empStats) return;
 
     const leaves = empStats.rawLeaves.filter(
-        (req) =>
-          isDateInFilter(req.from, selectedYear, selectedMonth) ||
-          isDateInFilter(req.to, selectedYear, selectedMonth)
+      (req) =>
+        isDateInFilter(req.from, selectedYear, selectedMonth) ||
+        isDateInFilter(req.to, selectedYear, selectedMonth)
     );
-    
-    const mergedHistory =[...leaves, ...empStats.rawAbsents].sort(
+
+    const mergedHistory = [...leaves, ...empStats.rawAbsents].sort(
       (a, b) =>
         new Date(b.from) - new Date(a.from)
     );
@@ -487,7 +487,7 @@ const AdminLeaveSummary = () => {
   return (
     <div className="p-4 md:p-8 min-h-screen font-sans relative">
       <div className="max-w-7xl mx-auto space-y-8">
-        
+
         {/* Page Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -600,8 +600,9 @@ const AdminLeaveSummary = () => {
           transition={{ delay: 0.2 }}
           className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white"
         >
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="min-w-full text-sm text-left whitespace-nowrap">
+          {/* DESKTOP TABLE */}
+          <div className="hidden md:block overflow-x-auto custom-scrollbar">
+            <table className="min-w-full text-sm text-left">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[11px] font-bold tracking-wider sticky top-0 z-20 shadow-sm">
                 <tr>
                   <th onClick={() => handleSort("employeeId")} className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition w-20">ID</th>
@@ -625,13 +626,13 @@ const AdminLeaveSummary = () => {
                         transition={{ delay: index * 0.01 }}
                         className="hover:bg-gray-50 transition-colors duration-150"
                       >
-                        <td className="px-6 py-4 text-xs font-mono text-gray-500">{emp.employeeId}</td>
+                        <td className="px-6 py-4 text-xs font-mono text-gray-500 whitespace-nowrap">{emp.employeeId}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold text-xs border border-blue-100">
+                            <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-600 font-bold text-xs border border-blue-100">
                               {emp.employeeName.charAt(0)}
                             </div>
-                            <span className="font-bold text-gray-800">{emp.employeeName}</span>
+                            <span className="font-bold text-gray-800 break-words line-clamp-2">{emp.employeeName}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -640,11 +641,11 @@ const AdminLeaveSummary = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center min-w-[120px]">
                             <span className="inline-flex items-center justify-center px-3 py-1 rounded-md bg-green-50 text-green-700 font-bold text-xs shadow-sm border border-green-100">
                               {emp.totalLeaveDays}
                             </span>
-                            <span className="text-[9px] text-gray-400 mt-1 uppercase font-semibold">
+                            <span className="text-[9px] text-gray-400 mt-1 uppercase font-semibold whitespace-nowrap">
                               {emp.normalLeaveDays} App + {emp.absentDays} Abs + {emp.sandwichLeavesDays} SW
                             </span>
                           </div>
@@ -662,8 +663,7 @@ const AdminLeaveSummary = () => {
                         <td className="px-6 py-4 text-center">
                           <button
                             onClick={() => handleViewDetails(emp.employeeId)}
-                            className="bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 font-bold px-3 py-1.5 rounded-lg transition duration-200 text-xs flex items-center gap-1.5 mx-auto shadow-sm tooltip-container"
-                            title="View detailed history"
+                            className="bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 font-bold px-3 py-1.5 rounded-lg transition duration-200 text-xs flex items-center gap-1.5 mx-auto shadow-sm"
                           >
                             <FaEye size={12} /> Details
                           </button>
@@ -674,8 +674,8 @@ const AdminLeaveSummary = () => {
                     <tr>
                       <td colSpan={7} className="px-6 py-16 text-center">
                         <div className="flex flex-col items-center justify-center text-gray-400">
-                           <FaUserTie size={32} className="mb-3 opacity-20" />
-                           <p className="text-sm font-semibold text-gray-500">No employee records found matching your criteria.</p>
+                          <FaUserTie size={32} className="mb-3 opacity-20" />
+                          <p className="text-sm font-semibold text-gray-500">No records found.</p>
                         </div>
                       </td>
                     </tr>
@@ -683,6 +683,61 @@ const AdminLeaveSummary = () => {
                 </AnimatePresence>
               </tbody>
             </table>
+          </div>
+
+          {/* MOBILE LIST VIEW */}
+          <div className="block md:hidden divide-y divide-gray-100">
+            {filteredEmployeeStats.length > 0 ? (
+              filteredEmployeeStats.map((emp) => (
+                <div key={emp.employeeId} className="p-4 bg-white flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs border border-blue-100">
+                        {emp.employeeName.charAt(0)}
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-800 text-sm leading-tight">{emp.employeeName}</h4>
+                        <p className="text-[10px] text-gray-400 font-mono">{emp.employeeId}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleViewDetails(emp.employeeId)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg font-bold text-[10px] border border-blue-100 active:scale-95 transition"
+                    >
+                      <FaEye size={12} /> Details
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-gray-50/50 px-3 py-2 rounded-xl border border-gray-100">
+                    <div className="text-center">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Pen</p>
+                      <p className="text-xs font-black text-blue-600">{emp.pendingLeaves}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Con</p>
+                      <p className="text-xs font-black text-green-600">{emp.totalLeaveDays}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">LOP</p>
+                      <p className="text-xs font-black text-orange-600">{emp.extraLeaves}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">SW</p>
+                      <p className="text-xs font-black text-purple-600">{emp.sandwichLeavesDays}</p>
+                    </div>
+                    <div className="h-6 w-[1px] bg-gray-200 mx-1"></div>
+                    <div className="text-right">
+                      <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Abs</p>
+                      <p className="text-xs font-black text-red-600">{emp.absentDays}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="p-12 text-center text-gray-400">
+                <p className="text-sm font-semibold">No records found matching criteria.</p>
+              </div>
+            )}
           </div>
 
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -699,8 +754,8 @@ const AdminLeaveSummary = () => {
                 <span><strong className="text-gray-800">Total:</strong> Applied + Absent + Sandwich</span>
               </div>
               <div className="flex items-center gap-1.5">
-                 <span className="w-2.5 h-2.5 bg-orange-500 rounded-sm"></span>
-                 <span><strong className="text-gray-800">Absent:</strong> Unplanned missing punch</span>
+                <span className="w-2.5 h-2.5 bg-orange-500 rounded-sm"></span>
+                <span><strong className="text-gray-800">Absent:</strong> Unplanned missing punch</span>
               </div>
             </div>
           </div>
@@ -727,7 +782,7 @@ const AdminLeaveSummary = () => {
                 <div className="px-6 py-5 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl border border-blue-100">
-                       {selectedEmployee.employeeName.charAt(0)}
+                      {selectedEmployee.employeeName.charAt(0)}
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-gray-800">{selectedEmployee.employeeName}</h3>
@@ -743,117 +798,115 @@ const AdminLeaveSummary = () => {
                 </div>
 
                 {/* Modal Stats Row */}
-                <div className="bg-gray-50/80 px-6 py-5 border-b border-gray-200 grid grid-cols-5 gap-3 shrink-0">
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 text-center shadow-sm">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Pending</p>
-                    <p className="text-xl font-black text-blue-600">{selectedEmployee.pendingLeaves}</p>
+                <div className="bg-slate-50/80 px-2 sm:px-6 py-3 border-b border-slate-200 grid grid-cols-5 gap-1.5 sm:gap-3 shrink-0">
+                  <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 text-center shadow-sm">
+                    <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Pending</p>
+                    <p className="text-sm sm:text-lg font-black text-blue-600">{selectedEmployee.pendingLeaves}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 text-center shadow-sm">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Consumed</p>
-                    <p className="text-xl font-black text-green-600">{selectedEmployee.totalLeaveDays}</p>
+                  <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 text-center shadow-sm">
+                    <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Consumed</p>
+                    <p className="text-sm sm:text-lg font-black text-green-600">{selectedEmployee.totalLeaveDays}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 text-center shadow-sm">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Extra (LOP)</p>
-                    <p className="text-xl font-black text-orange-600">{selectedEmployee.extraLeaves}</p>
+                  <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 text-center shadow-sm">
+                    <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">LOP</p>
+                    <p className="text-sm sm:text-lg font-black text-orange-600">{selectedEmployee.extraLeaves}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 text-center shadow-sm">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Absents</p>
-                    <p className="text-xl font-black text-red-600">{selectedEmployee.absentDays}</p>
+                  <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 text-center shadow-sm">
+                    <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Absents</p>
+                    <p className="text-sm sm:text-lg font-black text-red-600">{selectedEmployee.absentDays}</p>
                   </div>
-                  <div className="bg-white p-3 rounded-xl border border-gray-200 text-center shadow-sm">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Sandwich</p>
-                    <p className="text-xl font-black text-purple-600">{selectedEmployee.sandwichLeavesDays}</p>
+                  <div className="bg-white p-1.5 sm:p-2 rounded-lg border border-slate-200 text-center shadow-sm">
+                    <p className="text-[8px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Sandwich</p>
+                    <p className="text-sm sm:text-lg font-black text-purple-600">{selectedEmployee.sandwichLeavesDays}</p>
                   </div>
                 </div>
 
                 {/* Modal Content Scrollable Area */}
                 <div className="flex-1 overflow-y-auto p-6 bg-white custom-scrollbar">
-                   {selectedEmployee.sandwichDetails && selectedEmployee.sandwichDetails.length > 0 && (
-                      <div className="mb-6 bg-orange-50 border border-orange-200 p-4 rounded-xl shadow-sm">
-                        <div className="flex items-start gap-3">
-                          <FaExclamationTriangle className="text-orange-500 mt-0.5" size={16} />
-                          <div className="flex-1">
-                            <p className="font-bold text-orange-800 text-sm mb-1.5">
-                              Sandwich Leaves Detected
-                            </p>
-                            <ul className="space-y-1">
-                              {selectedEmployee.sandwichDetails.map((reason, idx) => (
-                                <li key={idx} className="text-xs font-medium text-orange-700">
-                                  • {reason}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                  {selectedEmployee.sandwichDetails && selectedEmployee.sandwichDetails.length > 0 && (
+                    <div className="mb-6 bg-orange-50 border border-orange-200 p-4 rounded-xl shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <FaExclamationTriangle className="text-orange-500 mt-0.5" size={16} />
+                        <div className="flex-1">
+                          <p className="font-bold text-orange-800 text-sm mb-1.5">
+                            Sandwich Leaves Detected
+                          </p>
+                          <ul className="space-y-1">
+                            {selectedEmployee.sandwichDetails.map((reason, idx) => (
+                              <li key={idx} className="text-xs font-medium text-orange-700">
+                                • {reason}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
 
                   {employeeLeaveHistory.length > 0 ? (
                     <div className="space-y-3">
                       <h4 className="font-bold text-sm text-gray-800 mb-3 border-b border-gray-100 pb-2">Leave & Absent Records</h4>
                       {employeeLeaveHistory.map((leave, index) => {
-                          const isAbsentRecord = leave.isAbsentRecord;
-                          return (
-                            <div
-                              key={leave._id || index}
-                              className={`border p-4 rounded-xl transition hover:shadow-md ${
-                                  isAbsentRecord ? "bg-red-50/50 border-red-100" : "bg-white border-gray-200"
+                        const isAbsentRecord = leave.isAbsentRecord;
+                        return (
+                          <div
+                            key={leave._id || index}
+                            className={`border p-4 rounded-xl transition hover:shadow-md ${isAbsentRecord ? "bg-red-50/50 border-red-100" : "bg-white border-gray-200"
                               }`}
-                            >
-                              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-bold text-gray-800">
-                                    {formatDisplayDate(leave.from)}
-                                    {leave.from !== leave.to && (
-                                        <>
-                                          <span className="mx-2 text-gray-400 text-xs">to</span>
-                                          {formatDisplayDate(leave.to)}
-                                        </>
-                                    )}
-                                  </span>
-                                </div>
-                                {isAbsentRecord ? (
-                                    <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider bg-red-100 text-red-800 border border-red-200 shadow-sm">
-                                        ABSENT (No Punch)
-                                    </span>
-                                ) : (
-                                    <span
-                                      className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm border ${
-                                        leave.status === "Approved"
-                                          ? "bg-green-50 text-green-700 border-green-200"
-                                          : leave.status === "Rejected"
-                                          ? "bg-red-50 text-red-700 border-red-200"
-                                          : leave.status === "Pending"
-                                          ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                          : "bg-gray-50 text-gray-700 border-gray-200"
-                                      }`}
-                                    >
-                                      {leave.status}
-                                    </span>
-                                )}
+                          >
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-gray-800">
+                                  {formatDisplayDate(leave.from)}
+                                  {leave.from !== leave.to && (
+                                    <>
+                                      <span className="mx-2 text-gray-400 text-xs">to</span>
+                                      {formatDisplayDate(leave.to)}
+                                    </>
+                                  )}
+                                </span>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Type:</span>
-                                  <span className="font-bold text-gray-700">{leave.leaveType || "Absent"}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px]">
-                                    {isAbsentRecord ? "Detected:" : "Applied:"}
-                                  </span>
-                                  <span className="font-medium text-gray-700">
-                                    {formatDisplayDate(leave.requestDate || leave.createdAt || leave.from)}
-                                  </span>
-                                </div>
-                                <div className="md:col-span-2 bg-white/60 p-2 rounded border border-gray-100 mt-1">
-                                  <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px] block mb-0.5">Reason:</span>
-                                  <span className="text-gray-700 italic font-medium">
-                                    "{leave.reason || "System marked as absent due to missing punch"}"
-                                  </span>
-                                </div>
+                              {isAbsentRecord ? (
+                                <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider bg-red-100 text-red-800 border border-red-200 shadow-sm">
+                                  ABSENT (No Punch)
+                                </span>
+                              ) : (
+                                <span
+                                  className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-wider shadow-sm border ${leave.status === "Approved"
+                                    ? "bg-green-50 text-green-700 border-green-200"
+                                    : leave.status === "Rejected"
+                                      ? "bg-red-50 text-red-700 border-red-200"
+                                      : leave.status === "Pending"
+                                        ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                        : "bg-gray-50 text-gray-700 border-gray-200"
+                                    }`}
+                                >
+                                  {leave.status}
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px]">Type:</span>
+                                <span className="font-bold text-gray-700">{leave.leaveType || "Absent"}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px]">
+                                  {isAbsentRecord ? "Detected:" : "Applied:"}
+                                </span>
+                                <span className="font-medium text-gray-700">
+                                  {formatDisplayDate(leave.requestDate || leave.createdAt || leave.from)}
+                                </span>
+                              </div>
+                              <div className="md:col-span-2 bg-white/60 p-2 rounded border border-gray-100 mt-1">
+                                <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px] block mb-0.5">Reason:</span>
+                                <span className="text-gray-700 italic font-medium">
+                                  "{leave.reason || "System marked as absent due to missing punch"}"
+                                </span>
                               </div>
                             </div>
-                          );
+                          </div>
+                        );
                       })}
                     </div>
                   ) : (
@@ -862,7 +915,7 @@ const AdminLeaveSummary = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Modal Footer */}
                 <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end shrink-0">
                   <button

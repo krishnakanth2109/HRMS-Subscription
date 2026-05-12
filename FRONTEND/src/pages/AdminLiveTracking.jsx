@@ -596,117 +596,145 @@ const AdminLiveTracking = () => {
                 </div>
             )}
 
-            {/* Data Grid */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-md">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50 border-b border-gray-200 text-gray-700">
-                                <th className="p-4 font-semibold w-1/5">Employee</th>
-                                <th className="p-4 font-semibold w-1/6">Status</th>
-                                <th className="p-4 font-semibold w-1/6">Date</th>
-                                <th className="p-4 font-semibold w-1/6">Total Idle Time</th>
-                                <th className="p-4 font-semibold w-1/6">Last Heartbeat</th>
-                                <th className="p-4 font-semibold w-1/6 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {loading && liveData.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-12">
-                                        <div className="flex flex-col items-center justify-center text-gray-400">
-                                            <FaSyncAlt className="animate-spin text-2xl mb-3 text-indigo-500" />
-                                            <span className="text-sm font-medium">Loading data...</span>
-                                        </div>
-                                    </td>
+            {/* Data Grid */}            <div className="space-y-4">
+                {/* Desktop Table */}
+                <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden shadow-md">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200 text-gray-700">
+                                    <th className="p-4 font-semibold w-1/5">Employee</th>
+                                    <th className="p-4 font-semibold w-1/6">Status</th>
+                                    <th className="p-4 font-semibold w-1/6">Date</th>
+                                    <th className="p-4 font-semibold w-1/6">Total Idle Time</th>
+                                    <th className="p-4 font-semibold w-1/6">Last Heartbeat</th>
+                                    <th className="p-4 font-semibold w-1/6 text-center">Actions</th>
                                 </tr>
-                            ) : liveData.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" className="text-center py-12">
-                                        <div className="flex flex-col items-center justify-center text-gray-400">
-                                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                                <FaRegClock className="text-xl text-gray-400" />
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {loading && liveData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" className="text-center py-12">
+                                            <div className="flex flex-col items-center justify-center text-gray-400">
+                                                <FaSyncAlt className="animate-spin text-2xl mb-3 text-indigo-500" />
+                                                <span className="text-sm font-medium">Loading data...</span>
                                             </div>
-                                            <span className="text-sm font-medium text-gray-500 mb-1">No data available</span>
-                                            <span className="text-xs text-gray-400">No live tracking data available for today yet. Make sure desktop trackers are running.</span>
+                                        </td>
+                                    </tr>
+                                ) : liveData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" className="text-center py-12 text-gray-400">
+                                            No active tracking data available
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    liveData.map((record) => {
+                                        const statusInfo = getStatusInfo(record);
+                                        const employeeName = employeesMap[record.employeeId] || "Unknown";
+                                        return (
+                                            <tr key={record._id} className="group hover:bg-gray-50/80 transition-colors">
+                                                <td className="px-4 py-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-gray-900">{employeeName}</span>
+                                                        <span className="text-xs text-gray-400 font-mono">{record.employeeId}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${statusInfo.bg} ${statusInfo.color} border ${statusInfo.border}`}>
+                                                        <FaCircle className="text-[8px]" />
+                                                        {statusInfo.text}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm text-gray-500">{record.date}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200">
+                                                        {getRowIdleTime(record)}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                        <FaClock className="text-gray-400 text-xs" />
+                                                        {formatTime(record.lastPing)}
+                                                        {record.currentIdleScreenshot && statusInfo.text === 'Idle' && (
+                                                            <a
+                                                                href={record.currentIdleScreenshot}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="ml-1 flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold hover:bg-amber-200 transition-colors"
+                                                                onClick={e => e.stopPropagation()}
+                                                            >
+                                                                <FaCamera className="text-[10px]" /> Live Shot
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => handleViewReport(record)}
+                                                        className="px-4 py-2 bg-white text-indigo-600 border border-indigo-200 rounded-lg text-sm font-semibold flex items-center gap-2 ml-auto shadow-sm transition-all hover:bg-indigo-50"
+                                                    >
+                                                        <FaSearch className="text-indigo-500 text-sm" />
+                                                        Details
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Mobile Cards */}
+                <div className="lg:hidden grid gap-4">
+                    {liveData.length === 0 ? (
+                        <div className="bg-white p-8 text-center rounded-xl border border-gray-200 text-gray-400">
+                            No active tracking
+                        </div>
+                    ) : (
+                        liveData.map((record) => {
+                            const statusInfo = getStatusInfo(record);
+                            const employeeName = employeesMap[record.employeeId] || "Unknown";
+                            return (
+                                <div key={record._id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-bold text-gray-900">{employeeName}</h4>
+                                            <p className="text-xs text-gray-400 font-mono">{record.employeeId}</p>
                                         </div>
-                                    </td>
-                                </tr>
-                            ) : (
-                                liveData.map((record) => {
-                                    const statusInfo = getStatusInfo(record);
-                                    const employeeName = employeesMap[record.employeeId] || "Unknown";
-                                    return (
-                                        <tr key={record._id} className="group hover:bg-gray-50/80 transition-colors">
-                                            <td className="px-4 py-3">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-gray-900">{employeeName}</span>
-                                                    <span className="text-xs text-gray-400 font-mono">{record.employeeId}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${statusInfo.bg} ${statusInfo.color} border ${statusInfo.border}`}>
-                                                    <FaCircle className="text-[8px]" />
-                                                    {statusInfo.text}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-sm text-gray-500">{record.date}</span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-sm font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-lg border border-amber-200">
-                                                    {getRowIdleTime(record)}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                    <FaClock className="text-gray-400 text-xs" />
-                                                    {formatTime(record.lastPing)}
-                                                    {/* Live screenshot indicator for IDLE employees */}
-                                                    {record.currentIdleScreenshot && statusInfo.text === 'Idle' && (
-                                                        <a
-                                                            href={record.currentIdleScreenshot}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            title="View live idle screenshot"
-                                                            className="ml-1 flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold hover:bg-amber-200 transition-colors"
-                                                            onClick={e => e.stopPropagation()}
-                                                        >
-                                                            <FaCamera className="text-[10px]" /> Live Shot
-                                                        </a>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <button
-                                                    onClick={() => handleViewReport(record)}
-                                                    className="
-             px-4 py-2 
-             bg-white 
-             text-indigo-600 
-             border border-indigo-200 
-             rounded-lg 
-             text-sm font-semibold 
-             flex items-center gap-2 ml-auto
-             shadow-sm 
-             transition-all duration-200 
-             hover:bg-indigo-50 
-             hover:border-indigo-300 
-             hover:shadow-md 
-             hover:-translate-y-0.5"
-                                                >
-                                                    <FaSearch className="text-indigo-500 text-sm" />
-                                                    Details
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${statusInfo.bg} ${statusInfo.color} border ${statusInfo.border}`}>
+                                            <FaCircle className="text-[8px]" />
+                                            {statusInfo.text}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Total Idle</p>
+                                            <p className="text-xs font-bold text-amber-700">{getRowIdleTime(record)}</p>
+                                        </div>
+                                        <div className="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">Sync</p>
+                                            <p className="text-xs text-gray-700">{formatTime(record.lastPing)}</p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => handleViewReport(record)}
+                                        className="w-full bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-bold shadow-md shadow-indigo-100"
+                                    >
+                                        Details Analysis
+                                    </button>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             </div>
+
 
             {/* Lightbox */}
             {lightboxUrl && (
@@ -800,18 +828,18 @@ const AdminLiveTracking = () => {
                                     reportData && (
                                         <>
                                             {/* Quick Analytics Cards */}
-                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                                                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex flex-col shadow-sm">
                                                     <span className="text-emerald-700 text-xs font-bold mb-1 uppercase tracking-wider">Exact Working Time</span>
-                                                    <span className="text-3xl font-bold text-emerald-600">{formatDuration(reportData.workedSeconds)}</span>
+                                                    <span className="text-3xl font-bold text-emerald-600 leading-none">{formatDuration(reportData.workedSeconds)}</span>
                                                 </div>
                                                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 flex flex-col shadow-sm">
                                                     <span className="text-amber-700 text-xs font-bold mb-1 uppercase tracking-wider">Exact Idle Time</span>
-                                                    <span className="text-3xl font-bold text-amber-600">{formatDuration(reportData.idleSeconds)}</span>
+                                                    <span className="text-3xl font-bold text-amber-600 leading-none">{formatDuration(reportData.idleSeconds)}</span>
                                                 </div>
                                                 <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col shadow-sm">
                                                     <span className="text-slate-500 text-xs font-bold mb-1 uppercase tracking-wider">Yesterday's Idle</span>
-                                                    <span className="text-3xl font-bold text-slate-700">{formatDuration(yesterdayIdle)}</span>
+                                                    <span className="text-3xl font-bold text-slate-700 leading-none">{formatDuration(yesterdayIdle)}</span>
                                                 </div>
                                                 <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col items-center justify-center shadow-sm">
                                                     <button
@@ -923,7 +951,7 @@ const AdminLiveTracking = () => {
                                                                     y: {
                                                                         beginAtZero: true,
                                                                         ticks: { color: '#94a3b8' },
-                                                                        grid: { color: 'rgba(226, 232, 240, 0.5)' },
+                                                                        grid: { color: 'rgba(226, 232, 240, 0.5)', drawBorder: false },
                                                                         title: { display: true, text: 'Hours', color: '#64748b' }
                                                                     }
                                                                 }
@@ -936,6 +964,7 @@ const AdminLiveTracking = () => {
                                                     )}
                                                 </div>
                                             </div>
+
                                         </>
                                     )
                                 )

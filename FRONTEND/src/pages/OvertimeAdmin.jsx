@@ -169,70 +169,131 @@ const OvertimeAdmin = () => {
                     {/* --- END OF NEW FILTERS UI --- */}
 
                     {/* --- TABLE (with enhanced UI) --- */}
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-indigo-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-indigo-800 uppercase tracking-wider">Employee ID</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-indigo-800 uppercase tracking-wider">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-indigo-800 uppercase tracking-wider">Date</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-indigo-800 uppercase tracking-wider">Type</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-indigo-800 uppercase tracking-wider">Status</th>
-                                    <th className="px-6 py-3 text-center text-xs font-bold text-indigo-800 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredOvertimeList.length > 0 ? (
-                                    filteredOvertimeList.map((ot) => (
-                                        <tr key={ot._id} className="hover:bg-gray-50 transition-colors duration-200">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{ot.employeeId}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{ot.employeeName}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{ot.date}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{ot.type}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${ot.status === "APPROVED" ? "bg-green-100 text-green-700"
-                                                        : ot.status === "REJECTED" ? "bg-red-100 text-red-700"
-                                                            : "bg-yellow-100 text-yellow-800"
+                    <div className="space-y-4">
+                        {/* Desktop Table */}
+                        <div className="hidden lg:block overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-indigo-50/50">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left text-[10px] font-black text-indigo-800 uppercase tracking-widest">Employee</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-black text-indigo-800 uppercase tracking-widest">Date</th>
+                                        <th className="px-6 py-4 text-left text-[10px] font-black text-indigo-800 uppercase tracking-widest">Type</th>
+                                        <th className="px-6 py-4 text-center text-[10px] font-black text-indigo-800 uppercase tracking-widest">Status</th>
+                                        <th className="px-6 py-4 text-right text-[10px] font-black text-indigo-800 uppercase tracking-widest">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                    {filteredOvertimeList.length > 0 ? (
+                                        filteredOvertimeList.map((ot) => (
+                                            <tr key={ot._id} className="hover:bg-indigo-50/30 transition-colors duration-200">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="font-black text-gray-800 text-sm">{ot.employeeName}</div>
+                                                    <div className="text-[10px] text-gray-400 font-mono font-bold tracking-widest uppercase">{ot.employeeId}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-black text-gray-700">{ot.date}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-500">{ot.type}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                    <span className={`px-3 py-1 inline-flex text-[10px] font-black uppercase tracking-widest rounded-lg border-2 ${
+                                                        ot.status === "APPROVED" ? "bg-green-50 text-green-700 border-green-100"
+                                                            : ot.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-100"
+                                                                : "bg-yellow-50 text-yellow-700 border-yellow-100"
                                                     }`}>
-                                                    {ot.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                                <div className="flex gap-2 justify-center">
-                                                    {ot.status === 'PENDING' ? (
-                                                        <>
-                                                            <button
-                                                                disabled={updatingId === ot._id}
-                                                                onClick={() => updateStatus(ot._id, "APPROVED")}
-                                                                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                                                            >
-                                                                Approve
-                                                            </button>
-                                                            <button
-                                                                disabled={updatingId === ot._id}
-                                                                onClick={() => updateStatus(ot._id, "REJECTED")}
-                                                                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                                                            >
-                                                                Reject
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <span className="text-gray-400 italic">No actions available</span>
-                                                    )}
-                                                </div>
+                                                        {ot.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                    <div className="flex gap-2 justify-end">
+                                                        {ot.status === 'PENDING' ? (
+                                                            <>
+                                                                <button
+                                                                    disabled={updatingId === ot._id}
+                                                                    onClick={() => updateStatus(ot._id, "APPROVED")}
+                                                                    className="bg-green-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition active:scale-95 shadow-lg shadow-green-100"
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    disabled={updatingId === ot._id}
+                                                                    onClick={() => updateStatus(ot._id, "REJECTED")}
+                                                                    className="bg-white text-red-600 border-2 border-red-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition active:scale-95"
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest italic">Processed</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={5} className="text-center py-20 text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                                No Overtime Requests Found
                                             </td>
                                         </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={6} className="text-center py-10 text-gray-500">
-                                            <p className="font-semibold text-lg">No Overtime Requests Found</p>
-                                            <p className="text-sm">Try adjusting your filters or check back later.</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Mobile Cards */}
+                        <div className="lg:hidden grid gap-4">
+                            {filteredOvertimeList.length > 0 ? (
+                                filteredOvertimeList.map((ot) => (
+                                    <div key={ot._id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-4">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <h4 className="font-black text-gray-800 text-sm">{ot.employeeName}</h4>
+                                                <p className="text-[10px] text-gray-400 font-mono font-bold tracking-widest">{ot.employeeId}</p>
+                                            </div>
+                                            <span className={`px-2 py-1 text-[9px] font-black uppercase tracking-widest rounded-lg border ${
+                                                ot.status === "APPROVED" ? "bg-green-50 text-green-700 border-green-100"
+                                                    : ot.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-100"
+                                                        : "bg-yellow-50 text-yellow-700 border-yellow-100"
+                                            }`}>
+                                                {ot.status}
+                                            </span>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Date</p>
+                                                <p className="text-xs font-black text-gray-700">{ot.date}</p>
+                                            </div>
+                                            <div className="bg-gray-50/80 p-2.5 rounded-xl border border-gray-100">
+                                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Type</p>
+                                                <p className="text-xs font-black text-indigo-600">{ot.type}</p>
+                                            </div>
+                                        </div>
+
+                                        {ot.status === 'PENDING' && (
+                                            <div className="flex gap-3 pt-2">
+                                                <button
+                                                    disabled={updatingId === ot._id}
+                                                    onClick={() => updateStatus(ot._id, "REJECTED")}
+                                                    className="flex-1 bg-white text-red-600 border-2 border-red-100 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition active:scale-95"
+                                                >
+                                                    Reject
+                                                </button>
+                                                <button
+                                                    disabled={updatingId === ot._id}
+                                                    onClick={() => updateStatus(ot._id, "APPROVED")}
+                                                    className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition active:scale-95 shadow-lg shadow-green-100"
+                                                >
+                                                    Approve
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-10 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400 font-bold uppercase tracking-widest text-[10px]">
+                                    No requests found
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

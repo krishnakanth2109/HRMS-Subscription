@@ -222,9 +222,9 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
         ) : (
           <div className="overflow-y-auto flex-1 px-6 py-5 space-y-3">
 
-            {/* Column headers */}
+            {/* Column headers (Hidden on mobile) */}
             {rows.length > 0 && (
-              <div className="grid grid-cols-[1fr_130px_80px_32px] gap-3 px-1">
+              <div className="hidden sm:grid grid-cols-[1fr_130px_80px_32px] gap-3 px-1">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Leave Type Name</span>
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center">Paid Days / Year</span>
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center">Used</span>
@@ -239,62 +239,80 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
               const isExhausted = row.paidDaysLimit > 0 && row.usedPaidDays >= row.paidDaysLimit;
 
               return (
-                <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                  <div className="grid grid-cols-[1fr_130px_80px_32px] gap-3 items-center mb-2">
+                <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 relative group">
+                  {/* Delete button (Mobile: Top Right) */}
+                  <button
+                    type="button"
+                    onClick={() => removeRow(idx)}
+                    className="sm:hidden absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-slate-300 hover:bg-red-50 hover:text-red-500 border border-slate-100 transition"
+                    title="Remove this leave type"
+                  >
+                    <FaTrash size={10} />
+                  </button>
 
+                  <div className="flex flex-col sm:grid sm:grid-cols-[1fr_130px_80px_32px] gap-3 sm:items-center">
                     {/* Leave type name input */}
-                    <input
-                      type="text"
-                      placeholder="e.g. Casual Leave"
-                      value={row.leaveType}
-                      onChange={(e) => updateRow(idx, "leaveType", e.target.value)}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400 placeholder:font-normal placeholder:text-slate-300"
-                    />
+                    <div>
+                      <label className="sm:hidden text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Leave Type Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Casual Leave"
+                        value={row.leaveType}
+                        onChange={(e) => updateRow(idx, "leaveType", e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400 placeholder:font-normal placeholder:text-slate-300 transition-all"
+                      />
+                    </div>
 
                     {/* Paid days stepper */}
-                    <div className="flex items-center gap-1 justify-center">
-                      <button
-                        type="button"
-                        onClick={() => changeDays(idx, -1)}
-                        className="w-7 h-7 rounded-md bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold flex items-center justify-center transition text-base"
-                      >−</button>
-                      <input
-                        type="number"
-                        min="0"
-                        value={row.paidDaysLimit}
-                        onChange={(e) => updateRow(idx, "paidDaysLimit", Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-14 text-center border border-slate-200 rounded-lg py-1.5 text-sm font-bold text-slate-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => changeDays(idx, 1)}
-                        className="w-7 h-7 rounded-md bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 font-bold flex items-center justify-center transition text-base"
-                      >+</button>
+                    <div className="flex flex-col sm:items-center gap-1.5">
+                      <label className="sm:hidden text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5 block">Paid Days / Year</label>
+                      <div className="flex items-center gap-1 justify-center sm:justify-start">
+                        <button
+                          type="button"
+                          onClick={() => changeDays(idx, -1)}
+                          className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 font-black flex items-center justify-center transition active:scale-90"
+                        >−</button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.paidDaysLimit}
+                          onChange={(e) => updateRow(idx, "paidDaysLimit", Math.max(0, parseInt(e.target.value) || 0))}
+                          className="w-14 text-center border border-slate-200 rounded-lg py-1.5 text-sm font-black text-slate-800 bg-white outline-none focus:ring-2 focus:ring-indigo-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => changeDays(idx, 1)}
+                          className="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 font-black flex items-center justify-center transition active:scale-90"
+                        >+</button>
+                      </div>
                     </div>
 
                     {/* Used days + reset */}
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-sm font-bold" style={{ color: isExhausted ? "#ef4444" : "#64748b" }}>
-                        {row.usedPaidDays}
-                      </span>
-                      {row.usedPaidDays > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleReset(row.leaveType)}
-                          disabled={resetting === row.leaveType}
-                          className="text-[9px] font-bold text-red-400 hover:text-red-600 transition flex items-center gap-0.5"
-                          title="Reset used days"
-                        >
-                          <FaUndo size={7} /> {resetting === row.leaveType ? "…" : "reset"}
-                        </button>
-                      )}
+                    <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 pt-2 sm:pt-0 border-t sm:border-0 border-slate-100 mt-1 sm:mt-0">
+                      <label className="sm:hidden text-[10px] font-black text-slate-400 uppercase tracking-widest">Used Days</label>
+                      <div className="flex flex-col items-center sm:items-center">
+                        <span className="text-sm sm:text-base font-black" style={{ color: isExhausted ? "#ef4444" : "#6366f1" }}>
+                          {row.usedPaidDays}
+                        </span>
+                        {row.usedPaidDays > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleReset(row.leaveType)}
+                            disabled={resetting === row.leaveType}
+                            className="text-[9px] font-black text-red-500 hover:text-red-700 transition flex items-center gap-1 uppercase tracking-tighter"
+                            title="Reset used days"
+                          >
+                            <FaUndo size={7} /> {resetting === row.leaveType ? "…" : "reset"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Delete row */}
+                    {/* Delete row (Desktop only) */}
                     <button
                       type="button"
                       onClick={() => removeRow(idx)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:bg-red-50 hover:text-red-500 border border-transparent hover:border-red-200 transition"
+                      className="hidden sm:flex w-8 h-8 rounded-lg items-center justify-center text-slate-300 hover:bg-red-50 hover:text-red-500 border border-transparent hover:border-red-200 transition"
                       title="Remove this leave type"
                     >
                       <FaTrash size={11} />
@@ -303,25 +321,25 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
 
                   {/* Progress bar — only shown when limit > 0 and type has a name */}
                   {row.paidDaysLimit > 0 && row.leaveType.trim() && (
-                    <div className="mt-1">
+                    <div className="mt-3">
                       <div className="w-full h-1.5 rounded-full bg-white border border-slate-200 overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all duration-500"
+                          className="h-full rounded-full transition-all duration-700"
                           style={{
                             width: `${pct}%`,
                             background: pct >= 100 ? "#ef4444" : pct >= 70 ? "#f59e0b" : c.from,
                           }}
                         />
                       </div>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {row.usedPaidDays} used · {Math.max(0, row.paidDaysLimit - row.usedPaidDays)} remaining
-                        {isExhausted && <span className="text-red-500 font-bold ml-1">— Unpaid kicks in</span>}
+                      <p className="text-[10px] text-slate-400 mt-1.5 font-medium flex justify-between">
+                        <span>{row.usedPaidDays} used · {Math.max(0, row.paidDaysLimit - row.usedPaidDays)} remaining</span>
+                        {isExhausted && <span className="text-red-500 font-black uppercase tracking-tighter">Unpaid kicks in</span>}
                       </p>
                     </div>
                   )}
 
                   {row.paidDaysLimit === 0 && row.leaveType.trim() && (
-                    <p className="text-[10px] text-slate-400 italic mt-1">0 days limit — all leaves of this type will be Unpaid.</p>
+                    <p className="text-[10px] text-slate-400 italic mt-2 bg-white/40 p-1.5 rounded-lg border border-slate-100">0 days limit — all leaves of this type will be <strong className="text-slate-500">Unpaid</strong>.</p>
                   )}
                 </div>
               );
@@ -685,48 +703,49 @@ const AdminLeavePanel = () => {
       )}
 
       {/* HEADER */}
-      <div className="bg-white/60 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 flex flex-col lg:flex-row justify-between items-stretch lg:items-center mb-6 sm:mb-8 gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Leave Management</h2>
-          <p className="text-slate-500 mt-1 text-sm">Oversee and manage employee leave requests efficiently.</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Leave Management</h2>
+          <p className="text-slate-500 mt-1 text-xs sm:text-sm font-medium">Oversee and manage employee leave requests efficiently.</p>
         </div>
         <button
           onClick={() => setShowPolicyModal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-colors"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs sm:text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95"
         >
-          <FaCog size={13} /> Leave Policy
+          <FaCog size={13} className="animate-spin-slow" /> 
+          <span className="uppercase tracking-widest">Leave Policy</span>
         </button>
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6">
         {[
           { icon: <FaUsers size={14} />, value: totalEmployeesCount, label: "Total Employees", color: "blue"   },
           { icon: <FaClock size={14} />, value: pendingRequests.length, label: "Pending",       color: "orange" },
           { icon: <FaCheck size={14} />, value: approvedCount,          label: "Approved",      color: "green"  },
           { icon: <FaTimes size={14} />, value: rejectedCount,          label: "Rejected",      color: "red"    },
         ].map(({ icon, value, label, color }) => (
-          <div key={label} className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-100 border-b-4 border-b-${color}-500`}>
+          <div key={label} className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 border-b-4 border-b-${color}-500 transition-transform hover:-translate-y-1`}>
             <div className={`w-8 h-8 rounded-full bg-${color}-50 flex items-center justify-center text-${color}-500 mb-2`}>{icon}</div>
-            <div className="text-3xl font-bold text-slate-800">{value}</div>
-            <div className="text-sm font-semibold text-slate-500">{label}</div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-800">{value}</div>
+            <div className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mt-1">{label}</div>
           </div>
         ))}
       </div>
 
       {/* FILTERS */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-8 flex flex-col lg:flex-row gap-4 items-center justify-between z-20 relative">
-        <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-100 mb-6 sm:mb-8 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between z-20 relative">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-3 items-center w-full lg:w-auto">
+          <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-600">
             <FaFilter className="text-indigo-500" />
-            <span className="font-semibold text-sm">Filters:</span>
+            <span className="font-black text-[10px] uppercase tracking-widest">Filters</span>
           </div>
-          <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-          <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer">
+          <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+          <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer transition-all">
             <option value="All">All Departments</option>
             {allDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer">
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer transition-all">
             <option value="All">All Status</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
@@ -736,53 +755,53 @@ const AdminLeavePanel = () => {
         </div>
         <div className="relative w-full lg:w-80">
           <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input type="text" placeholder="Search Name or ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner" />
+          <input type="text" placeholder="Search Name or ID..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner" />
         </div>
       </div>
 
       {/* PENDING REQUESTS */}
-      <div className="border border-slate-200 rounded-2xl bg-white mb-10 overflow-hidden shadow-sm">
-        <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/30">
-          <h3 className="text-xl font-bold text-slate-800">Pending Requests</h3>
-          <span className="bg-amber-100 text-amber-700 font-bold px-3 py-1 rounded-full text-xs">{pendingRequests.length} Pending</span>
+      <div className="border border-slate-200 rounded-2xl bg-white mb-8 sm:mb-10 overflow-hidden shadow-sm">
+        <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/30">
+          <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tight">Pending Requests</h3>
+          <span className="bg-amber-100 text-amber-700 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-widest">{pendingRequests.length} Pending</span>
         </div>
         <div className="flex flex-col">
           {pendingRequests.length === 0 ? (
-            <div className="p-10 text-center text-slate-500 font-medium">No pending leave requests found.</div>
+            <div className="p-10 text-center text-slate-500 font-medium italic bg-slate-50/20">No pending leave requests found.</div>
           ) : pendingRequests.map((lv) => (
-            <div key={lv._id} className="p-6 border-b border-slate-100 last:border-0 flex flex-col xl:flex-row justify-between xl:items-center gap-6 hover:bg-slate-50/80 transition duration-150">
-              <div className="flex gap-4 items-start w-full">
-                <div className="w-12 h-12 rounded-full shrink-0 border border-slate-200 overflow-hidden bg-white flex items-center justify-center font-bold text-slate-700">
+            <div key={lv._id} className="p-4 sm:p-6 border-b border-slate-100 last:border-0 flex flex-col xl:flex-row justify-between xl:items-center gap-6 hover:bg-slate-50/80 transition duration-150">
+              <div className="flex flex-col sm:flex-row gap-4 items-start w-full">
+                <div className="w-12 h-12 rounded-full shrink-0 border-2 border-white shadow-md overflow-hidden bg-white flex items-center justify-center font-black text-slate-700">
                   {employeeImages[lv.employeeId] ? <img src={employeeImages[lv.employeeId]} alt="" className="w-full h-full object-cover" /> : getInitials(lv.employeeName)}
                 </div>
-                <div className="flex flex-col w-full">
-                  <div className="flex flex-wrap items-center gap-1 mb-3">
-                    <span className="font-bold text-slate-800 text-base">{lv.employeeName}</span>
-                    <span className="text-xs text-slate-400 font-medium ml-1">{lv.department}</span>
+                <div className="flex flex-col w-full min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="font-black text-slate-800 text-base sm:text-lg tracking-tight">{lv.employeeName}</span>
+                    <span className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest px-2 py-0.5 bg-slate-100 rounded-lg">{lv.department}</span>
                     <LeaveTypeBadge type={lv.leaveType} />
                     {lv.leavecategory && (
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ml-1 ${lv.leavecategory === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${lv.leavecategory === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                         {lv.leavecategory}
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-3 gap-8 mb-4 max-w-sm">
-                    <div><span className="text-xs text-slate-400 mb-1 block">Start Date</span><span className="text-sm font-semibold text-slate-700">{formatDateShort(lv.from)}</span></div>
-                    <div><span className="text-xs text-slate-400 mb-1 block">End Date</span><span className="text-sm font-semibold text-slate-700">{formatDateShort(lv.to)}</span></div>
-                    <div><span className="text-xs text-slate-400 mb-1 block">Duration</span><span className="text-sm font-semibold text-slate-700">{getDayCount(lv.from, lv.to)} Day{getDayCount(lv.from, lv.to) > 1 ? "s" : ""}</span></div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-8 mb-4 max-w-lg">
+                    <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Start Date</span><span className="text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">{formatDateShort(lv.from)}</span></div>
+                    <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">End Date</span><span className="text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">{formatDateShort(lv.to)}</span></div>
+                    <div className="col-span-2 sm:col-span-1"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Duration</span><span className="text-xs sm:text-sm font-bold text-slate-700 bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg border border-indigo-100">{getDayCount(lv.from, lv.to)} Day{getDayCount(lv.from, lv.to) > 1 ? "s" : ""}</span></div>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-2 w-full xl:max-w-md">
-                    <span className="text-xs text-slate-400 block mb-1">Reason</span>
-                    <span className="text-sm text-slate-700 font-medium">{lv.reason}</span>
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-2 w-full xl:max-w-md shadow-inner">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Reason for Leave</span>
+                    <span className="text-xs sm:text-sm text-slate-700 font-bold italic line-clamp-2">"{lv.reason}"</span>
                   </div>
-                  <span className="text-xs text-slate-400 font-medium flex items-center gap-1 mt-1">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter flex items-center gap-1 mt-1">
                     <FaClock size={10} /> Applied on {formatDateTime(lv.createdAt || lv.appliedDate)}
                   </span>
                 </div>
               </div>
-              <div className="flex gap-3 shrink-0">
-                <button onClick={() => handleAction(lv._id, "approve")} className="flex items-center gap-2 px-5 py-2.5 bg-[#10B981] hover:bg-[#059669] text-white rounded-lg font-bold text-sm shadow-sm transition-colors"><FaCheck /> Approve</button>
-                <button onClick={() => handleAction(lv._id, "reject")}  className="flex items-center gap-2 px-5 py-2.5 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-lg font-bold text-sm shadow-sm transition-colors"><FaTimes /> Reject</button>
+              <div className="flex flex-row xl:flex-col gap-3 shrink-0">
+                <button onClick={() => handleAction(lv._id, "approve")} className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest"><FaCheck /> Approve</button>
+                <button onClick={() => handleAction(lv._id, "reject")}  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest"><FaTimes /> Reject</button>
               </div>
             </div>
           ))}
@@ -790,49 +809,49 @@ const AdminLeavePanel = () => {
       </div>
 
       {/* RECENT DECISIONS */}
-      <div className="border border-slate-200 rounded-2xl bg-white p-6 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold text-slate-800">Recent Decisions</h3>
-          <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">{recentDecisions.length} Processed</span>
+      <div className="border border-slate-200 rounded-2xl bg-white p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+          <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tight">Recent Decisions</h3>
+          <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100 uppercase tracking-widest">{recentDecisions.length} Processed</span>
         </div>
         <div className="flex flex-col divide-y divide-slate-100 border-t border-slate-100">
           {recentDecisions.length === 0 ? (
-            <div className="py-10 text-center text-slate-500 font-medium">No recent decisions found.</div>
+            <div className="py-10 text-center text-slate-500 font-medium italic">No recent decisions found.</div>
           ) : recentDecisions.map((lv) => {
             const isOpen = openDropdownId === lv._id;
             return (
-              <div key={lv._id} className="py-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:bg-slate-50/50 transition duration-150 px-2 rounded-lg -mx-2">
-                <div className="flex gap-4 items-center w-full">
-                  <div className="w-10 h-10 rounded-full shrink-0 border border-slate-200 overflow-hidden bg-white flex items-center justify-center font-bold text-slate-700">
+              <div key={lv._id} className="py-5 flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:bg-slate-50/50 transition duration-150 px-2 rounded-xl -mx-2">
+                <div className="flex gap-3 sm:gap-4 items-center w-full min-w-0">
+                  <div className="w-10 h-10 rounded-full shrink-0 border border-slate-200 overflow-hidden bg-white flex items-center justify-center font-black text-slate-700">
                     {employeeImages[lv.employeeId] ? <img src={employeeImages[lv.employeeId]} alt="" className="w-full h-full object-cover" /> : getInitials(lv.employeeName)}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-1 mb-1">
-                      <span className="font-bold text-slate-800">{lv.employeeName}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-black text-slate-800 text-sm sm:text-base truncate">{lv.employeeName}</span>
                       <LeaveTypeBadge type={lv.leaveType} />
                       {lv.leavecategory && (
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${lv.leavecategory === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${lv.leavecategory === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                           {lv.leavecategory}
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs font-medium text-slate-400">
-                      <span>{formatDateShort(lv.from)} - {formatDateShort(lv.to)} ({getDayCount(lv.from, lv.to)} days)</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-[10px] sm:text-xs font-bold text-slate-400">
+                      <span className="bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">{formatDateShort(lv.from)} - {formatDateShort(lv.to)} ({getDayCount(lv.from, lv.to)} d)</span>
                       <span className="hidden sm:inline-block w-1 h-1 rounded-full bg-slate-300" />
-                      <span className="truncate max-w-[200px]">Reason: {lv.reason}</span>
+                      <span className="truncate italic">Reason: {lv.reason}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 relative shrink-0">
+                <div className="flex items-center justify-between sm:justify-end gap-3 relative shrink-0">
                   <DecisionBadge status={lv.status} />
-                  <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(isOpen ? null : lv._id); }} className={`p-2 rounded-md border ${isOpen ? "bg-indigo-50 border-indigo-200 text-indigo-600" : "bg-white border-slate-200 text-slate-400"}`}>
-                    <FaChevronDown size={12} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                  <button onClick={(e) => { e.stopPropagation(); setOpenDropdownId(isOpen ? null : lv._id); }} className={`p-2 rounded-xl border transition-all ${isOpen ? "bg-indigo-50 border-indigo-200 text-indigo-600 shadow-inner" : "bg-white border-slate-200 text-slate-400 hover:border-slate-300"}`}>
+                    <FaChevronDown size={12} className={`transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
                   </button>
                   {isOpen && (
-                    <div className="absolute right-0 top-10 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-40 overflow-hidden">
-                      <div className="p-1.5 space-y-1">
-                        <button onClick={() => handleAction(lv._id, "approve")} className="w-full text-left px-3 py-2 text-xs font-bold text-emerald-600 hover:bg-emerald-50 rounded-lg flex items-center gap-2"><FaCheck size={12} /> Mark Approved</button>
-                        <button onClick={() => handleAction(lv._id, "reject")}  className="w-full text-left px-3 py-2 text-xs font-bold text-rose-600   hover:bg-rose-50   rounded-lg flex items-center gap-2"><FaTimes size={12} /> Mark Rejected</button>
+                    <div className="absolute right-0 top-11 w-44 bg-white rounded-2xl shadow-2xl border border-slate-100 z-40 overflow-hidden animate-fadeIn">
+                      <div className="p-2 space-y-1">
+                        <button onClick={() => handleAction(lv._id, "approve")} className="w-full text-left px-4 py-2.5 text-xs font-black text-emerald-600 hover:bg-emerald-50 rounded-xl flex items-center gap-2 transition-colors uppercase tracking-widest"><FaCheck size={12} /> Approve</button>
+                        <button onClick={() => handleAction(lv._id, "reject")}  className="w-full text-left px-4 py-2.5 text-xs font-black text-rose-600   hover:bg-rose-50   rounded-xl flex items-center gap-2 transition-colors uppercase tracking-widest"><FaTimes size={12} /> Reject</button>
                       </div>
                     </div>
                   )}

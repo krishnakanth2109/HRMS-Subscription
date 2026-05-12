@@ -855,58 +855,96 @@ const ExceptionsModal = ({ isOpen, onClose, employees }) => {
             </div>
           ) : (
             <div className="h-full overflow-y-auto rounded-2xl shadow-lg border border-gray-200 relative z-10 bg-white">
-              <table className="min-w-full text-sm text-left whitespace-nowrap">
-                <thead className="bg-gray-50 text-gray-500 uppercase font-bold text-[11px] tracking-wider border-b border-gray-200 sticky top-0 z-20">
-                  <tr>
-                    <th className="px-6 py-4">Employee</th>
-                    <th className="px-6 py-4 text-center">Rule Type</th>
-                    <th className="px-6 py-4 text-center">Specific Details</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {exceptions.map((emp) => (
-                    <tr key={emp.employeeId} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold text-xs border border-gray-200">
-                            {emp.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-800">{emp.name}</div>
-                            <div className="text-xs text-gray-500 font-mono mt-0.5">{emp.employeeId}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span
-                          className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold ${
-                            emp.ruleType === "Temporary"
-                              ? "bg-blue-50 text-blue-700 border border-blue-100"
-                              : emp.ruleType === "Recurring"
-                                ? "bg-purple-50 text-purple-700 border border-purple-100"
-                                : "bg-orange-50 text-orange-700 border border-orange-100"
-                          }`}
-                        >
-                          {emp.ruleType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center text-xs font-semibold text-gray-700">
-                        {emp.ruleType === "Permanent" && <span>{emp.config.permanentMode}</span>}
-                        {emp.ruleType === "Temporary" && (
-                          <span>
-                            {emp.config.temporary.mode} until {emp.config.temporary.toDate?.split("T")[0]}
-                          </span>
-                        )}
-                        {emp.ruleType === "Recurring" && (
-                          <span>
-                            {emp.config.recurring.mode} on {emp.config.recurring.days.length} days
-                          </span>
-                        )}
-                      </td>
+              {/* DESKTOP TABLE */}
+              <div className="hidden md:block">
+                <table className="min-w-full text-sm text-left">
+                  <thead className="bg-gray-50 text-gray-500 uppercase font-bold text-[11px] tracking-wider border-b border-gray-200 sticky top-0 z-20">
+                    <tr>
+                      <th className="px-6 py-4">Employee</th>
+                      <th className="px-6 py-4 text-center">Rule Type</th>
+                      <th className="px-6 py-4 text-center">Specific Details</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {exceptions.map((emp) => (
+                      <tr key={emp.employeeId} className="hover:bg-gray-50 transition">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold text-xs border border-gray-200">
+                              {emp.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="break-words font-bold text-gray-800">{emp.name}</div>
+                              <div className="text-xs text-gray-500 font-mono mt-0.5 break-all">{emp.employeeId}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold ${
+                              emp.ruleType === "Temporary"
+                                ? "bg-blue-50 text-blue-700 border border-blue-100"
+                                : emp.ruleType === "Recurring"
+                                  ? "bg-purple-50 text-purple-700 border border-purple-100"
+                                  : "bg-orange-50 text-orange-700 border border-orange-100"
+                            }`}
+                          >
+                            {emp.ruleType}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center text-xs font-semibold text-gray-700 whitespace-normal break-words">
+                          {emp.ruleType === "Permanent" && <span>{emp.config.permanentMode}</span>}
+                          {emp.ruleType === "Temporary" && (
+                            <span>
+                              {emp.config.temporary.mode} until {emp.config.temporary.toDate?.split("T")[0]}
+                            </span>
+                          )}
+                          {emp.ruleType === "Recurring" && (
+                            <span>
+                              {emp.config.recurring.mode} on {emp.config.recurring.days.length} days
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* MOBILE CARDS */}
+              <div className="block md:hidden divide-y divide-gray-100">
+                 {exceptions.map((emp) => (
+                   <div key={emp.employeeId} className="p-4 bg-white">
+                      <div className="flex items-center gap-3 mb-3">
+                         <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 font-bold text-xs border border-gray-200">
+                           {emp.name.charAt(0)}
+                         </div>
+                         <div>
+                            <h4 className="font-bold text-gray-800 text-sm">{emp.name}</h4>
+                            <p className="text-[10px] text-gray-500 font-mono">{emp.employeeId}</p>
+                         </div>
+                      </div>
+                      <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                         <div>
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Rule Type</p>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              emp.ruleType === "Temporary" ? "text-blue-600" : emp.ruleType === "Recurring" ? "text-purple-600" : "text-orange-600"
+                            }`}>
+                              {emp.ruleType}
+                            </span>
+                         </div>
+                         <div className="text-right">
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Details</p>
+                            <p className="text-[10px] font-bold text-gray-700">
+                              {emp.ruleType === "Permanent" && emp.config.permanentMode}
+                              {emp.ruleType === "Temporary" && `${emp.config.temporary.mode} until ${emp.config.temporary.toDate?.split("T")[0]}`}
+                              {emp.ruleType === "Recurring" && `${emp.config.recurring.mode} (${emp.config.recurring.days.length} days)`}
+                            </p>
+                         </div>
+                      </div>
+                   </div>
+                 ))}
+              </div>
             </div>
           )}
         </div>
@@ -1502,41 +1540,38 @@ const AdminLocationSettings = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3 w-full md:w-auto">
                 <button
                   onClick={() => setShowRequestsModal(true)}
-                  className="relative bg-blue-600 text-white border border-blue-600 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 transition text-sm shadow-md"
+                  className="relative flex-1 sm:flex-none justify-center bg-blue-600 text-white border border-blue-600 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition text-sm shadow-md shadow-blue-100 active:scale-95"
                 >
                   <FaEnvelopeOpenText />
                   <span>Requests</span>
 
                   {pendingCount > 0 && (
-                    <>
-                      <span className="absolute -top-2 -right-2 inline-flex h-5 w-5 rounded-full bg-red-500 opacity-75 animate-ping"></span>
-                      <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-white">
-                        {pendingCount > 9 ? "9+" : pendingCount}
-                      </span>
-                    </>
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                      {pendingCount > 9 ? "9+" : pendingCount}
+                    </span>
                   )}
                 </button>
 
                 <button
                   onClick={() => setShowExceptionsModal(true)}
-                  className="bg-orange-50 text-orange-600 border border-orange-200 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-orange-100 transition text-sm"
+                  className="flex-1 sm:flex-none justify-center bg-orange-50 text-orange-600 border border-orange-200 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-orange-100 transition text-sm active:scale-95"
                 >
-                  <FaListAlt /> View Exceptions
+                  <FaListAlt /> Exceptions
                 </button>
                 <button
                   onClick={() => setShowCategoryModal(true)}
-                  className="bg-blue-600 text-white px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-blue-700 shadow-sm transition transform active:scale-95 text-sm"
+                  className="flex-1 sm:flex-none justify-center bg-gray-900 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-black shadow-md transition transform active:scale-95 text-sm"
                 >
-                  <FaPlus /> Create Category
+                  <FaPlus /> Category
                 </button>
                 <button
                   onClick={handleResetAll}
-                  className="bg-white text-red-500 border border-red-100 px-3 py-2 rounded-lg font-semibold flex items-center gap-2 hover:bg-red-50 hover:border-red-200 transition text-sm"
+                  className="flex-1 sm:flex-none justify-center bg-white text-red-500 border border-red-100 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-red-50 hover:border-red-200 transition text-sm active:scale-95"
                 >
-                  <FaUndo /> Reset All
+                  <FaUndo /> Reset
                 </button>
               </div>
             </div>
@@ -1592,90 +1627,151 @@ const AdminLocationSettings = () => {
              ) : (
                 /* The Employee Table (From Code 1) */
                 <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-                  <table className="min-w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[11px] font-bold tracking-wider">
-                      <tr>
-                        <th className="px-6 py-4 w-12 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={displayEmployees.length > 0 && displayEmployees.every(e => selectedEmployees.includes(e.employeeId))} 
-                            onChange={() => toggleSelectAll(displayEmployees)} 
-                            className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer border-gray-300" 
-                          />
-                        </th>
-                        <th className="px-6 py-4">Employee</th>
-                        <th className="px-6 py-4 text-center">Category</th>
-                        <th className="px-6 py-4 text-center">Current Mode</th>
-                        <th className="px-6 py-4 text-center">Rule Status</th>
-                        <th className="px-6 py-4 text-center">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
-                      {displayEmployees.map(employee => {
-                        const isActiveWFO = employee.currentEffectiveMode === "WFO";
-                        const modeClass = isActiveWFO ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-green-50 text-green-700 border-green-100";
-                        
-                        let ruleIcon = null;
-                        let ruleText = "Following Global";
-                        if (employee.ruleType === "Permanent") { ruleText = "Permanent Override"; ruleIcon = <FaSave className="text-orange-500"/>; } 
-                        else if (employee.ruleType === "Temporary") { ruleText = `Temporary (until ${employee.config.temporary?.toDate?.split("T")[0]})`; ruleIcon = <FaCalendarAlt className="text-blue-500"/>; } 
-                        else if (employee.ruleType === "Recurring") { ruleText = "Weekly Schedule"; ruleIcon = <FaClock className="text-purple-500"/>; }
+                  {/* DESKTOP TABLE */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="min-w-full text-sm text-left">
+                      <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[11px] font-bold tracking-wider">
+                        <tr>
+                          <th className="px-6 py-4 w-12 text-center">
+                            <input 
+                              type="checkbox" 
+                              checked={displayEmployees.length > 0 && displayEmployees.every(e => selectedEmployees.includes(e.employeeId))} 
+                              onChange={() => toggleSelectAll(displayEmployees)} 
+                              className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 cursor-pointer border-gray-300" 
+                            />
+                          </th>
+                          <th className="px-6 py-4">Employee</th>
+                          <th className="px-6 py-4 text-center">Category</th>
+                          <th className="px-6 py-4 text-center">Current Mode</th>
+                          <th className="px-6 py-4 text-center">Rule Status</th>
+                          <th className="px-6 py-4 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {displayEmployees.map(employee => {
+                          const isActiveWFO = employee.currentEffectiveMode === "WFO";
+                          const modeClass = isActiveWFO ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-green-50 text-green-700 border-green-100";
+                          
+                          let ruleIcon = null;
+                          let ruleText = "Following Global";
+                          if (employee.ruleType === "Permanent") { ruleText = "Permanent Override"; ruleIcon = <FaSave className="text-orange-500"/>; } 
+                          else if (employee.ruleType === "Temporary") { ruleText = `Temp (${employee.config.temporary?.toDate?.split("T")[0]})`; ruleIcon = <FaCalendarAlt className="text-blue-500"/>; } 
+                          else if (employee.ruleType === "Recurring") { ruleText = "Weekly Schedule"; ruleIcon = <FaClock className="text-purple-500"/>; }
 
-                        const isSelected = selectedEmployees.includes(employee.employeeId);
+                          const isSelected = selectedEmployees.includes(employee.employeeId);
 
-                        return (
-                          <tr key={employee.employeeId} className={`transition-colors duration-150 ${isSelected ? "bg-purple-50/40" : "hover:bg-gray-50"}`}>
-                            <td className="px-6 py-4 text-center">
-                              <input 
-                                type="checkbox" 
-                                checked={isSelected} 
-                                onChange={() => toggleSelection(employee.employeeId)} 
-                                className="w-4 h-4 text-purple-600 rounded cursor-pointer focus:ring-purple-500 border-gray-300" 
-                              />
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700 border border-gray-300 font-bold text-sm shadow-sm">
-                                  {employee.name.charAt(0)}
+                          return (
+                            <tr key={employee.employeeId} className={`transition-colors duration-150 ${isSelected ? "bg-purple-50/40" : "hover:bg-gray-50"}`}>
+                              <td className="px-6 py-4 text-center">
+                                <input 
+                                  type="checkbox" 
+                                  checked={isSelected} 
+                                  onChange={() => toggleSelection(employee.employeeId)} 
+                                  className="w-4 h-4 text-purple-600 rounded cursor-pointer focus:ring-purple-500 border-gray-300" 
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 text-gray-700 border border-gray-300 font-bold text-sm shadow-sm">
+                                    {employee.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-gray-800 break-words leading-tight">{employee.name}</h4>
+                                    <p className="text-xs font-mono text-gray-500 mt-0.5 break-all">{employee.employeeId} • {employee.department}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <h4 className="font-bold text-gray-800">{employee.name}</h4>
-                                  <p className="text-xs font-mono text-gray-500 mt-0.5">{employee.employeeId} • {employee.department}</p>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-gray-200">
+                                  {employee.category}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold shadow-sm border ${modeClass}`}>
+                                  {employee.currentEffectiveMode}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-gray-600">
+                                  {ruleIcon} {ruleText}
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-gray-200">
-                                {employee.category}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-center">
-                              <span className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold shadow-sm border ${modeClass}`}>
-                                {employee.currentEffectiveMode}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center justify-center gap-2 text-[11px] font-semibold text-gray-600">
-                                {ruleIcon} {ruleText}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center justify-center gap-3">
-                                {activeCategory !== "All" && activeCategory !== "Uncategorized" && (
-                                  <button onClick={() => handleRemoveFromCategory(employee)} className="p-2 text-gray-400 hover:text-red-600 bg-white border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition shadow-sm tooltip-container" title="Remove from Category">
-                                    <FaUserMinus size={14} />
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center justify-center gap-3">
+                                  {activeCategory !== "All" && activeCategory !== "Uncategorized" && (
+                                    <button onClick={() => handleRemoveFromCategory(employee)} className="p-2 text-gray-400 hover:text-red-600 bg-white border border-gray-200 rounded-xl hover:bg-red-50 hover:border-red-200 transition shadow-sm" title="Remove from Category">
+                                      <FaUserMinus size={14} />
+                                    </button>
+                                  )}
+                                  <button onClick={() => handleOpenScheduleModal(employee)} className="p-2 text-gray-500 hover:text-blue-600 bg-white border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition shadow-sm" title="Manage Schedule">
+                                    <FaEdit size={14} />
                                   </button>
-                                )}
-                                <button onClick={() => handleOpenScheduleModal(employee)} className="p-2 text-gray-500 hover:text-blue-600 bg-white border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition shadow-sm tooltip-container" title="Manage Schedule">
-                                  <FaEdit size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE CARDS */}
+                  <div className="block md:hidden divide-y divide-gray-100">
+                    {displayEmployees.map(employee => {
+                       const isActiveWFO = employee.currentEffectiveMode === "WFO";
+                       const modeClass = isActiveWFO ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-green-50 text-green-700 border-green-100";
+                       const isSelected = selectedEmployees.includes(employee.employeeId);
+                       
+                       let ruleText = "Global";
+                       if (employee.ruleType === "Permanent") ruleText = "Permanent";
+                       else if (employee.ruleType === "Temporary") ruleText = "Temporary";
+                       else if (employee.ruleType === "Recurring") ruleText = "Weekly";
+
+                       return (
+                         <div key={employee.employeeId} className={`p-4 ${isSelected ? "bg-purple-50/40" : "bg-white"}`}>
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                               <div className="flex items-center gap-3">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={isSelected} 
+                                    onChange={() => toggleSelection(employee.employeeId)} 
+                                    className="w-5 h-5 text-purple-600 rounded border-gray-300" 
+                                  />
+                                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center font-bold text-gray-600 border border-gray-200">
+                                    {employee.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-gray-800 leading-tight">{employee.name}</h4>
+                                    <p className="text-[10px] text-gray-500 font-mono">{employee.employeeId}</p>
+                                  </div>
+                               </div>
+                               <div className="flex flex-col items-end gap-1">
+                                  <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold border ${modeClass}`}>
+                                    {employee.currentEffectiveMode}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 font-medium">{ruleText}</span>
+                               </div>
+                            </div>
+                            
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
+                               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 px-2 py-1 rounded">
+                                 {employee.category}
+                               </span>
+                               <div className="flex gap-2">
+                                  {activeCategory !== "All" && activeCategory !== "Uncategorized" && (
+                                    <button onClick={() => handleRemoveFromCategory(employee)} className="p-2 text-red-500 bg-red-50 rounded-lg border border-red-100 transition">
+                                      <FaUserMinus size={14} />
+                                    </button>
+                                  )}
+                                  <button onClick={() => handleOpenScheduleModal(employee)} className="p-2 text-blue-600 bg-blue-50 rounded-lg border border-blue-100 transition">
+                                    <FaEdit size={14} />
+                                  </button>
+                               </div>
+                            </div>
+                         </div>
+                       )
+                    })}
+                  </div>
                 </div>
              )}
           </div>

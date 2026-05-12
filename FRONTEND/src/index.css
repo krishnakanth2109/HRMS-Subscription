@@ -148,7 +148,7 @@
 .dark input,
 .dark select,
 .dark textarea {
-  background-color: #0f172a !important;
+  /* background-color: #0f172a !important; */
   color: #f8fafc !important;
   border-color: #475569 !important;
 }
