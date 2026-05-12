@@ -14,7 +14,7 @@ import {
   disableDomain,
   enableDomain,
   checkSubdomainAvailability,
-} from "../controllers/domainController.js";
+} from "../controllers/Domaincontroller.js";
 
 const router = express.Router();
 
