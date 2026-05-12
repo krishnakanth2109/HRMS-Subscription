@@ -23,7 +23,7 @@ const DynamicHRMSLandingPage = () => {
     const navigate = useNavigate();
     const [scrollProgress, setScrollProgress] = useState(0);
     const [isDarkMode, setIsDarkMode] = useState(() => {
-        const savedTheme = localStorage.getItem('theme');
+        const savedTheme = sessionStorage.getItem('theme');
         return savedTheme ? savedTheme === 'dark' : true; // default to dark
     });
 
@@ -47,7 +47,7 @@ const DynamicHRMSLandingPage = () => {
     });
 
     useEffect(() => {
-        localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+        sessionStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
     }, [isDarkMode]);
 
     const toggleTheme = () => {

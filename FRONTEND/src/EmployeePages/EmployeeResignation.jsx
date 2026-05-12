@@ -475,7 +475,7 @@ const EmployeeResignation = () => {
   const handleLogout = () => {
     if (logout) logout();
     else {
-      localStorage.clear();
+      sessionStorage.clear();
       sessionStorage.clear();
       window.location.href = "/login";
     }

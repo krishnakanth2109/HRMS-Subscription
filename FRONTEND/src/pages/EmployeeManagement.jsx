@@ -242,8 +242,8 @@ const EmployeeRow = ({
   const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${emp.email}&su=${mailSubject}&body=${mailBody}`;
 
   return (
-    <tr className={`border-t transition duration-150 hover:bg-blue-50 relative`}>
-      <td className="p-4 align-middle text-left font-mono font-semibold text-blue-700 text-sm pl-6">
+    <tr className={`border-t transition duration-150 hover:bg-blue-50 relative group`}>
+      <td className="p-4 align-middle text-left font-mono font-semibold text-blue-700 text-sm pl-6 hidden sm:table-cell">
         {emp.employeeId}
       </td>
       <td className="p-4 align-middle text-left">
@@ -263,66 +263,71 @@ const EmployeeRow = ({
               </div>
             )}
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span
               onClick={() => navigate(`/employee/${emp.employeeId}/profile`)}
-              className="font-bold text-gray-900 cursor-pointer hover:text-blue-700 hover:underline text-sm flex items-center gap-2"
+              className="font-bold text-gray-900 cursor-pointer hover:text-blue-700 hover:underline text-sm flex items-center gap-2 truncate"
             >
               {emp.name}
               {isPendingResignation && (
-                <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter">
+                <span className="text-[8px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter shrink-0">
                   Resigning
                 </span>
               )}
             </span>
+            {/* Show Role/ID on mobile under name */}
+            <span className="text-[10px] text-gray-500 font-medium sm:hidden truncate">
+              {emp.employeeId} • {currentRole}
+            </span>
           </div>
         </div>
       </td>
-      <td className="p-4 align-middle text-left">
+      <td className="p-4 align-middle text-left hidden md:table-cell">
         <span className="text-sm font-bold text-gray-900">{currentRole}</span>
       </td>
-      <td className="p-4 align-middle text-left">
+      <td className="p-4 align-middle text-left hidden lg:table-cell">
         <span className="text-sm font-bold text-gray-900">{currentDepartment}</span>
       </td>
       <td className="p-4 align-middle text-left">
         <span className="text-sm font-bold text-gray-900">{emp.companyName || "N/A"}</span>
       </td>
       <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold">
-        <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">
-          {emp.email}
-        </a>
-      </td>
-      <td className="p-4 align-middle text-center">
-        <div className="inline-block text-left" ref={menuRef}>
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm transition-all"
-          >
-            Actions
-            <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          </button>
-          {isMenuOpen && (
-            <div className="fixed right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border ring-1 ring-black ring-opacity-5 overflow-hidden origin-top-right">
-              <div className="py-1">
-                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
-                  <FaUser className="text-blue-500" /> Profile
-                </button>
-                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-3 transition-colors">
-                  <FaClipboardList className="text-teal-500" /> Overview
-                </button>
-                <button onClick={() => { navigate(`/employees/edit/${emp.employeeId}`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors">
-                  <FaEdit className="text-green-500" /> Edit
-                </button>
-                <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-colors">
-                  <FaTrash className="text-orange-500" /> Deactivate
-                </button>
+        <td className="p-4 align-middle text-left text-gray-900 text-sm font-semibold hidden xl:table-cell truncate max-w-[200px]">
+          <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">
+            {emp.email}
+          </a>
+        </td>
+        <td className="p-4 align-middle text-center">
+          <div className="inline-block text-left" ref={menuRef}>
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm transition-all"
+            >
+              Actions
+              <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            {isMenuOpen && (
+              <div className="fixed right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border ring-1 ring-black ring-opacity-5 overflow-hidden origin-top-right">
+                <div className="py-1">
+                  <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
+                    <FaUser className="text-blue-500" /> Profile
+                  </button>
+                  <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-3 transition-colors">
+                    <FaClipboardList className="text-teal-500" /> Overview
+                  </button>
+                  <button onClick={() => { navigate(`/employees/edit/${emp.employeeId}`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors">
+                    <FaEdit className="text-green-500" /> Edit
+                  </button>
+                  <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-colors">
+                    <FaTrash className="text-orange-500" /> Deactivate
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </td>
+            )}
+          </div>
+        </td>
     </tr>
   );
 };
@@ -359,7 +364,7 @@ const InactiveEmployeeRow = ({
 
   return (
     <tr className="border-t transition duration-150 bg-gray-100 opacity-60 hover:opacity-100 hover:bg-gray-200">
-      <td className="p-4 align-middle text-left pl-6 font-mono font-semibold text-gray-500 text-sm">{emp.employeeId}</td>
+      <td className="p-4 align-middle text-left pl-6 font-mono font-semibold text-gray-500 text-sm hidden sm:table-cell">{emp.employeeId}</td>
       <td className="p-4 align-middle text-left">
         <div className="flex items-center gap-3">
           <div
@@ -372,11 +377,14 @@ const InactiveEmployeeRow = ({
               emp.name?.split(" ").map((n) => n[0]).join("")
             )}
           </div>
-          <div className="flex flex-col">
-            <span onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="font-semibold text-gray-600 cursor-pointer hover:text-blue-700 hover:underline text-sm">
+          <div className="flex flex-col min-w-0">
+            <span onClick={() => navigate(`/employee/${emp.employeeId}/profile`)} className="font-semibold text-gray-600 cursor-pointer hover:text-blue-700 hover:underline text-sm truncate">
               {emp.name}
             </span>
-            <span className="text-[10px] text-red-600 font-extrabold uppercase tracking-wide">Deactivated</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-red-600 font-extrabold uppercase tracking-wide">Deactivated</span>
+              <span className="text-[10px] text-gray-400 font-medium sm:hidden">• {emp.employeeId}</span>
+            </div>
           </div>
         </div>
       </td>
@@ -384,35 +392,38 @@ const InactiveEmployeeRow = ({
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
       <td className="p-4 align-middle text-left"><span className="text-sm font-semibold text-gray-700">{emp.companyName || "N/A"}</span></td>
       <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800">
-        <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
-      </td>
-      <td className="p-4 align-middle text-center">
-        <div className="relative inline-block text-left" ref={menuRef}>
-          <button
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.right - 180 });
-              setIsMenuOpen(!isMenuOpen);
-            }}
-            className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm"
-          >
-            Actions
-            <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
-          </button>
-          {isMenuOpen && (
-            <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }} className="w-48 bg-white rounded-lg shadow-xl border">
-              <div className="py-1">
-                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3"><FaUser /> Profile</button>
-                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 flex items-center gap-3"><FaClipboardList /> Overview</button>
-                <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center gap-3"><FaEye /> Deactivation Details</button>
-                <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-3"><FaRedo /> Reactivate</button>
+        <td className="p-4 align-middle text-left hidden md:table-cell"><span className="text-sm font-semibold text-gray-700">{currentRole}</span></td>
+        <td className="p-4 align-middle text-left hidden lg:table-cell"><span className="text-sm font-semibold text-gray-700">{currentDepartment}</span></td>
+        <td className="p-4 align-middle text-left text-gray-700 text-sm font-semibold line-through decoration-red-800 hidden xl:table-cell truncate max-w-[200px]">
+          <a href={gmailComposeUrl} target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 hover:underline">{emp.email}</a>
+        </td>
+        <td className="p-4 align-middle text-center">
+          <div className="relative inline-block text-left" ref={menuRef}>
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.right - 180 });
+                setIsMenuOpen(!isMenuOpen);
+              }}
+              className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm"
+            >
+              Actions
+              <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            {isMenuOpen && (
+              <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }} className="w-48 bg-white rounded-lg shadow-xl border">
+                <div className="py-1">
+                  <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3"><FaUser /> Profile</button>
+                  <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 flex items-center gap-3"><FaClipboardList /> Overview</button>
+                  <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center gap-3"><FaEye /> Deactivation Details</button>
+                  <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-3"><FaRedo /> Reactivate</button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      </td>
+            )}
+          </div>
+        </td>
     </tr>
   );
 };
@@ -443,6 +454,13 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   useEffect(() => { if (open) { setEndDate(""); setReason(""); setError(""); } }, [open]);
+
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    if (open) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -453,23 +471,24 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-2">Deactivate Employee</h3>
         <p className="mb-4 text-gray-600">Deactivating <b>{employee.name}</b>.</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full mt-1" required />
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Effective Date</label>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Reason
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
+              Reason for Deactivation
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-              className="border border-gray-300 px-3 py-2 rounded w-full mt-1"
+              className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none"
+              placeholder="Please provide a reason..."
               rows={3}
               maxLength={1000}
               required
@@ -479,16 +498,16 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
                 type="button"
                 onClick={handleOptimize}
                 disabled={isOptimizing || !reason.trim()}
-                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-medium"
+                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
               >
-                {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
+                {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
               </button>
             </div>
           </div>
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-          <div className="flex gap-2 justify-end mt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded bg-red-600 text-white">Deactivate</button>
+          {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
+          <div className="flex gap-3 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-md transition-colors">Deactivate</button>
           </div>
         </form>
       </div>
@@ -526,6 +545,12 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
     }
   }, [open]);
 
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    if (open) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -535,23 +560,24 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-2">Reactivate Employee</h3>
         <p className="mb-4 text-gray-600">Reactivating <b>{employee.name}</b>.</p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-gray-300 px-3 py-2 rounded w-full mt-1" required />
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Reactivation Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none" required />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Reason
+            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
+              Reason for Reactivation
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-              className="border border-gray-300 px-3 py-2 rounded w-full mt-1"
+              className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none"
+              placeholder="Reason for reactivation..."
               rows={3}
               maxLength={1000}
               required
@@ -561,16 +587,16 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
                 type="button"
                 onClick={handleOptimize}
                 disabled={isOptimizing || !reason.trim()}
-                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-medium"
+                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
               >
-                {isOptimizing ? "Optimizing..." : "Prompt Optimization"}
+                {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
               </button>
             </div>
           </div>
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-          <div className="flex gap-2 justify-end mt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded bg-gray-200">Cancel</button>
-            <button type="submit" className="px-4 py-2 rounded bg-green-600 text-white">Reactivate</button>
+          {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
+          <div className="flex gap-3 justify-end mt-4">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+            <button type="submit" className="px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 shadow-md transition-colors">Reactivate</button>
           </div>
         </form>
       </div>
@@ -579,10 +605,16 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
 }
 
 function DeactivationDetailsModal({ open, employee, onClose }) {
+  useEffect(() => {
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    if (open) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
   if (!open || !employee) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 bg-gradient-to-r from-red-600 to-red-500 text-white flex justify-between items-center">
           <div>
             <h3 className="text-xl font-semibold tracking-wide">Deactivation Details</h3>
@@ -706,8 +738,8 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-2 sm:p-4 cursor-pointer" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[95vh] md:h-[90vh] flex flex-col overflow-hidden cursor-default" onClick={(e) => e.stopPropagation()}>
         <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-5 flex justify-between items-center text-white shrink-0">
           <div>
             <h2 className="text-2xl font-bold tracking-wide flex items-center gap-3">
@@ -736,14 +768,14 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-[10px] sm:text-xs font-bold">
                   <tr>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-left">Punch In</th>
-                    <th className="px-4 py-3 text-left">Punch Out</th>
-                    <th className="px-4 py-3 text-left">Assigned Hrs</th>
-                    <th className="px-4 py-3 text-left">Duration</th>
-                    <th className="px-4 py-3 text-left">Worked Status</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Date</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Punch In</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden sm:table-cell">Punch Out</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden md:table-cell">Assigned</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Duration</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden lg:table-cell">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -753,19 +785,19 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
                     <tr><td colSpan="6" className="p-8 text-center text-slate-500">No records found for this period.</td></tr>
                   ) : (
                     attendanceData.map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition">
-                        <td className="px-4 py-3 font-medium text-slate-700">{new Date(row.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-green-700 font-semibold">
+                      <tr key={i} className="hover:bg-slate-50 transition text-xs sm:text-sm">
+                        <td className="px-3 sm:px-4 py-3 font-medium text-slate-700">{new Date(row.date).toLocaleDateString()}</td>
+                        <td className="px-3 sm:px-4 py-3 text-green-700 font-semibold">
                           {row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-slate-400">--</span>}
-                          {row.isLate && <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] rounded">LATE</span>}
+                          {row.isLate && <span className="ml-1 sm:ml-2 px-1 py-0.5 bg-red-100 text-red-600 text-[8px] sm:text-[10px] rounded">LATE</span>}
                         </td>
-                        <td className="px-4 py-3 text-red-700 font-semibold">
+                        <td className="px-3 sm:px-4 py-3 text-red-700 font-semibold hidden sm:table-cell">
                           {row.punchOut ? new Date(row.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-slate-400">--</span>}
                         </td>
-                        <td className="px-4 py-3 font-medium text-slate-600">{formatDecimalHours(row.shiftDuration)}</td>
-                        <td className="px-4 py-3 font-mono text-slate-600">{row.displayTime || "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${row.workedStatus === "Full Day" ? "bg-green-100 text-green-700" : row.workedStatus.includes("Absent") ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                        <td className="px-3 sm:px-4 py-3 font-medium text-slate-600 hidden md:table-cell">{formatDecimalHours(row.shiftDuration)}</td>
+                        <td className="px-3 sm:px-4 py-3 font-mono text-slate-600">{row.displayTime || "-"}</td>
+                        <td className="px-3 sm:px-4 py-3 hidden lg:table-cell">
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold ${row.workedStatus === "Full Day" ? "bg-green-100 text-green-700" : row.workedStatus.includes("Absent") ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
                             {row.workedStatus}
                           </span>
                         </td>
@@ -802,13 +834,13 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
             </div>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-slate-100 text-slate-600 uppercase text-xs font-bold">
+                <thead className="bg-slate-100 text-slate-600 uppercase text-[10px] sm:text-xs font-bold">
                   <tr>
-                    <th className="px-4 py-3 text-left">Applied Date</th>
-                    <th className="px-4 py-3 text-left">Period</th>
-                    <th className="px-4 py-3 text-left">Type</th>
-                    <th className="px-4 py-3 text-left">Reason</th>
-                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Applied</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Period</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden sm:table-cell">Type</th>
+                    <th className="px-3 sm:px-4 py-3 text-left hidden md:table-cell">Reason</th>
+                    <th className="px-3 sm:px-4 py-3 text-left">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -818,13 +850,15 @@ function EmployeeOverviewModal({ open, employee, onClose }) {
                     <tr><td colSpan="5" className="p-8 text-center text-slate-500">No leave records found.</td></tr>
                   ) : (
                     leaveData.map((l, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition">
-                        <td className="px-4 py-3 text-slate-600">{new Date(l.requestDate || l.createdAt).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 font-medium text-slate-800">{new Date(l.from).toLocaleDateString()} <span className="text-slate-400">→</span> {new Date(l.to).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-slate-700">{l.leaveType}</td>
-                        <td className="px-4 py-3 text-slate-500 truncate max-w-xs">{l.reason || "-"}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${l.status === "Approved" ? "bg-green-100 text-green-700" : l.status === "Rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                      <tr key={i} className="hover:bg-slate-50 transition text-xs sm:text-sm">
+                        <td className="px-3 sm:px-4 py-3 text-slate-600">{new Date(l.requestDate || l.createdAt).toLocaleDateString()}</td>
+                        <td className="px-3 sm:px-4 py-3 font-medium text-slate-800">
+                          {new Date(l.from).toLocaleDateString()} <span className="text-slate-400">→</span> <span className="block sm:inline">{new Date(l.to).toLocaleDateString()}</span>
+                        </td>
+                        <td className="px-3 sm:px-4 py-3 text-slate-700 hidden sm:table-cell">{l.leaveType}</td>
+                        <td className="px-3 sm:px-4 py-3 text-slate-500 truncate max-w-[100px] sm:max-w-xs hidden md:table-cell">{l.reason || "-"}</td>
+                        <td className="px-3 sm:px-4 py-3">
+                          <span className={`px-2 py-1 rounded text-[10px] font-bold ${l.status === "Approved" ? "bg-green-100 text-green-700" : l.status === "Rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
                             {l.status}
                           </span>
                         </td>
@@ -1028,40 +1062,40 @@ const EmployeeManagement = () => {
   }, [activeEmployees, inactiveEmployees, currentPage]);
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center py-12">
-      <div className="w-full max-w-[95%] xl:max-w-7xl mx-auto">
+    <div className="min-h-screen w-full flex flex-col items-center py-6 md:py-12">
+      <div className="w-full max-w-[98%] xl:max-w-7xl mx-auto px-2 sm:px-4">
 
         {/* relative z-[20] keeps header above table (z-10) so dropdown never goes under */}
-        <div className="relative z-15 flex flex-col bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 md:flex-row justify-between items-center mb-8 gap-4 px-8 py-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
-            <div className="flex gap-3 mt-3">
-              <button onClick={handleDownloadActive} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm text-sm font-semibold flex items-center gap-2">
-                <FaDownload /> Active List
+        <div className="relative z-15 flex flex-col bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 md:flex-row justify-between items-center mb-6 md:mb-8 gap-4 px-4 sm:px-8 py-6">
+          <div className="text-center md:text-left w-full md:w-auto">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight">Employee Management</h2>
+            <div className="flex justify-center md:justify-start gap-2 sm:gap-3 mt-3">
+              <button onClick={handleDownloadActive} className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
+                <FaDownload /> <span className="hidden xs:inline">Active</span> List
               </button>
-              <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-sm font-semibold flex items-center gap-2">
-                <FaDownload /> Inactive List
+              <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
+                <FaDownload /> <span className="hidden xs:inline">Inactive</span> List
               </button>
             </div>
           </div>
 
-          <div className="flex gap-3 flex-wrap">
-            <div className="flex flex-col items-end gap-1">
+          <div className="flex gap-3 flex-wrap justify-center md:justify-end w-full md:w-auto">
+            <div className="flex flex-col items-center md:items-end gap-1 w-full md:w-auto">
 
               {/* HR Flow Process Info Link Button */}
               <button
                 onClick={() => setHrFlowImageOpen(true)}
-                className="text-sm text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 font-medium transition-colors cursor-pointer mr-1"
+                className="text-xs md:text-sm text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1 font-medium transition-colors cursor-pointer mr-1"
                 title="View HR Flow Process"
               >
                 <FaInfoCircle /> View HR Flow Process
               </button>
 
               {/* HR Activities Dropdown */}
-              <div className="relative" ref={hrDropdownRef}>
+              <div className="relative w-full md:w-auto" ref={hrDropdownRef}>
                 <button
                   onClick={() => { setHrActivitiesOpen(!hrActivitiesOpen); setDocVerifyOpen(false); }}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center gap-2 transition-all duration-200 transform hover:scale-105 relative"
+                  className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center justify-center gap-2 transition-all duration-200 transform hover:scale-[1.02] md:hover:scale-105 relative text-sm sm:text-base"
                 >
                   <FaClipboardList /> HR Activities
                   {allResignations.filter(r => r.status === "Pending").length > 0 && (
@@ -1073,7 +1107,7 @@ const EmployeeManagement = () => {
                 </button>
 
                 {hrActivitiesOpen && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
+                  <div className="absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-full md:w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
                     {/* Document Verification with smart positioned nested submenu */}
                     <div className="relative">
                       <button
@@ -1184,156 +1218,184 @@ const EmployeeManagement = () => {
           </select>
           <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-1.0 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700">
             <option value="All">All Employment Types</option>
-            {employmentTypeSet.map((type) => <option key={type} value={type}>{type}</option>)}
-          </select>
-        </div>
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-6 md:mb-10 px-4 sm:px-8">
+              <div className="relative w-full md:w-1/4">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full border bg-white border-gray-200 pl-10 pr-4 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                />
+              </div>
+              <select value={selectedDept} onChange={(e) => setSelectedDept(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
+                <option value="All">All Departments</option>
+                {departmentSet.map((dept) => <option key={dept} value={dept}>{dept}</option>)}
+              </select>
+              <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="w-full md:w-1/4 bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
+                <option value="All">All Roles</option>
+                {roleSet.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+              <select value={selectedEmploymentType} onChange={(e) => setSelectedEmploymentType(e.target.value)} className="w-full bg-white md:w-1/4 border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm">
+                <option value="All">All Types</option>
+                {employmentTypeSet.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </div>
 
-        <div className="bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-300 relative z-10 overflow-visible">
-          <div className="overflow-x-auto">
-            <table className="min-w-full rounded-2xl">
-              <thead className="bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
-                <tr className="text-white uppercase text-sm font-semibold tracking-wide">
-                  <th className="p-4 text-left pl-6">ID</th>
-                  <th className="p-4 text-left">Name</th>
-                  <th className="p-4 text-left">Role</th>
-                  <th className="p-4 text-left">Department</th>
-                  <th className="p-4 text-left">Company</th>
-                  <th className="p-4 text-left">Email</th>
-                  <th className="p-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-medium text-lg">Loading employees data...</td></tr>
-                ) : paginatedEmployees.length > 0 ? (
-                  <>
-                    {paginatedEmployees.map((emp, idx) => {
-                      const isFirstInactive = emp.isActive === false && (idx === 0 ? (activeEmployees.length > 0 && currentPage === Math.ceil(activeEmployees.length / itemsPerPage) + (activeEmployees.length % itemsPerPage === 0 ? 1 : 0) || (activeEmployees.length > 0 && paginatedEmployees[0].isActive === false)) : paginatedEmployees[idx - 1].isActive !== false);
-                      
-                      // Simplified separator logic: show if this is the first inactive employee in the combined filtered list
-                      // or if it's the first item on the page and it's inactive while there are active employees.
-                      const showSeparator = emp.isActive === false && (
-                        (idx > 0 && paginatedEmployees[idx-1].isActive !== false) || 
-                        (idx === 0 && currentPage > 1 && activeEmployees.length > (currentPage - 1) * itemsPerPage) ||
-                        (idx === 0 && activeEmployees.length > 0 && activeEmployees.length <= (currentPage - 1) * itemsPerPage && !paginatedEmployees.some((e, i) => i < idx && e.isActive === false))
-                      );
+            <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 relative z-10 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full rounded-2xl">
+                  <thead className="bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
+                    <tr className="text-white uppercase text-sm font-semibold tracking-wide">
+                      <th className="p-4 text-left pl-6">ID</th>
+                      <th className="p-4 text-left">Name</th>
+                      <th className="p-4 text-left">Role</th>
+                      <th className="p-4 text-left">Department</th>
+                      <th className="p-4 text-left">Company</th>
+                      <th className="p-4 text-left">Email</th>
+                      <table className="min-w-full">
+                        <thead className="bg-slate-800 border-b border-slate-700">
+                          <tr className="text-white uppercase text-[10px] sm:text-xs font-semibold tracking-wider">
+                            <th className="p-4 text-left pl-6 hidden sm:table-cell">ID</th>
+                            <th className="p-4 text-left">Employee</th>
+                            <th className="p-4 text-left hidden md:table-cell">Role</th>
+                            <th className="p-4 text-left hidden lg:table-cell">Dept</th>
+                            <th className="p-4 text-left hidden xl:table-cell">Email</th>
+                            <th className="p-4 text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {loading ? (
+                            <tr><td colSpan="7" className="p-8 text-center text-gray-500 font-medium text-lg">Loading employees data...</td></tr>
+                          ) : paginatedEmployees.length > 0 ? (
+                            <>
+                              {paginatedEmployees.map((emp, idx) => {
+                                const isFirstInactive = emp.isActive === false && (idx === 0 ? (activeEmployees.length > 0 && currentPage === Math.ceil(activeEmployees.length / itemsPerPage) + (activeEmployees.length % itemsPerPage === 0 ? 1 : 0) || (activeEmployees.length > 0 && paginatedEmployees[0].isActive === false)) : paginatedEmployees[idx - 1].isActive !== false);
 
-                      // Actually, let's use a simpler approach for the separator:
-                      // We can pre-calculate the index of the first inactive employee in the combined list.
-                      const combinedList = [...activeEmployees, ...inactiveEmployees];
-                      const firstInactiveIdx = combinedList.findIndex(e => e.isActive === false);
-                      const globalIdx = (currentPage - 1) * itemsPerPage + idx;
-                      const isFirstInactiveGlobal = firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
+                                // Simplified separator logic: show if this is the first inactive employee in the combined filtered list
+                                // or if it's the first item on the page and it's inactive while there are active employees.
+                                const showSeparator = emp.isActive === false && (
+                                  (idx > 0 && paginatedEmployees[idx - 1].isActive !== false) ||
+                                  (idx === 0 && currentPage > 1 && activeEmployees.length > (currentPage - 1) * itemsPerPage) ||
+                                  (idx === 0 && activeEmployees.length > 0 && activeEmployees.length <= (currentPage - 1) * itemsPerPage && !paginatedEmployees.some((e, i) => i < idx && e.isActive === false))
+                                );
 
-                      return (
-                        <Fragment key={emp.employeeId}>
-                          {isFirstInactiveGlobal && (
+                                // Actually, let's use a simpler approach for the separator:
+                                // We can pre-calculate the index of the first inactive employee in the combined list.
+                                const combinedList = [...activeEmployees, ...inactiveEmployees];
+                                const firstInactiveIdx = combinedList.findIndex(e => e.isActive === false);
+                                const globalIdx = (currentPage - 1) * itemsPerPage + idx;
+                                const isFirstInactiveGlobal = firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
+
+                                return (
+                                  <Fragment key={emp.employeeId}>
+                                    {isFirstInactiveGlobal && (
+                                      <tr>
+                                        <td colSpan="7" className="p-2 text-center font-bold text-white text-lg tracking-widest uppercase bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
+                                          Inactive Employees
+                                        </td>
+                                      </tr>
+                                    )}
+                                    {emp.isActive !== false ? (
+                                      <EmployeeRow emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} resignations={allResignations} />
+                                    ) : (
+                                      <InactiveEmployeeRow emp={emp} navigate={navigate} onReactivateClick={openReactivateModal} onViewDetailsClick={openViewDetailsModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} />
+                                    )}
+                                  </Fragment>
+                                );
+                              })}
+                            </>
+                          ) : (
                             <tr>
-                              <td colSpan="7" className="p-2 text-center font-bold text-white text-lg tracking-widest uppercase bg-gradient-to-r from-slate-800 to-slate-700 border-b rounded-lg border-slate-600">
-                                Inactive Employees
+                              <td colSpan="7" className="p-8 text-center bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 text-gray-400 font-medium">
+                                No employees found matching criteria.
                               </td>
                             </tr>
                           )}
-                          {emp.isActive !== false ? (
-                            <EmployeeRow emp={emp} idx={idx} navigate={navigate} onDeactivateClick={openDeactivateModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} resignations={allResignations} />
-                          ) : (
-                            <InactiveEmployeeRow emp={emp} navigate={navigate} onReactivateClick={openReactivateModal} onViewDetailsClick={openViewDetailsModal} onOverviewClick={openOverviewModal} profilePic={employeeImages[emp.employeeId]} onImageClick={setPreviewImage} />
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="p-8 text-center bg-white/20 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 text-gray-400 font-medium">
-                      No employees found matching criteria.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
 
-        {/* MODALS */}
-        <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
-        <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
-        <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
-        <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setOverviewModalOpen(false)} />
+                  {/* MODALS */}
+                  <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />
+                  <ReactivateModal open={reactivateModalOpen} employee={selectedEmployee} onClose={() => setReactivateModalOpen(false)} onSubmit={handleReactivateSubmit} />
+                  <DeactivationDetailsModal open={viewDetailsModalOpen} employee={selectedEmployee} onClose={() => setViewDetailsModalOpen(false)} />
+                  <EmployeeOverviewModal open={overviewModalOpen} employee={selectedEmployee} onClose={() => setOverviewModalOpen(false)} />
 
-        {
-          previewImage && (
-            <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
-              <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"><FaTimes size={30} /></button>
-              <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
-            </div>
-          )
-        }
+                  {
+                    previewImage && (
+                      <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
+                        <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2"><FaTimes size={30} /></button>
+                        <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[90vh] rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+                      </div>
+                    )
+                  }
 
-        {/* HR Flow Process Image Modal Popup - SCROLL FIX APPLIED */}
-        {
-          hrFlowImageOpen && (
-            <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
-              <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b shrink-0">
-                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaInfoCircle className="text-indigo-600" /> HR Flow Process
-                  </h3>
-                  <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
-                    <FaTimes size={20} />
-                  </button>
-                </div>
+                  {/* HR Flow Process Image Modal Popup - SCROLL FIX APPLIED */}
+                  {
+                    hrFlowImageOpen && (
+                      <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 sm:p-6" onClick={() => setHrFlowImageOpen(false)}>
+                        <div className="relative w-full max-w-5xl max-h-[95vh] bg-white rounded-xl shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex justify-between items-center p-4 border-b shrink-0">
+                            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                              <FaInfoCircle className="text-indigo-600" /> HR Flow Process
+                            </h3>
+                            <button onClick={() => setHrFlowImageOpen(false)} className="text-gray-500 hover:bg-gray-100 p-2 rounded-full transition-colors">
+                              <FaTimes size={20} />
+                            </button>
+                          </div>
 
-                {/* Fixed flex/scroll area: using block context inside an overflow-y-auto container instead of items-center */}
-                <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
-                  <img
-                    src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png"
-                    alt="HR Flow Process Image Not Found"
-                    className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm"
-                  />
-                </div>
-              </div>
-            </div>
-          )
-        }
+                          {/* Fixed flex/scroll area: using block context inside an overflow-y-auto container instead of items-center */}
+                          <div className="p-4 overflow-y-auto bg-gray-50 rounded-b-xl flex-1 text-center">
+                            <img
+                              src="https://www.image2url.com/r2/default/images/1776774956564-99ccf970-8216-415e-b08a-90b2e1a709cb.png"
+                              alt="HR Flow Process Image Not Found"
+                              className="block w-full max-w-4xl mx-auto h-auto rounded-lg shadow-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  }
 
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center mt-8 gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
-            >
-              Previous
-            </button>
-            <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${
-                    currentPage === i + 1
-                      ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
-                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
-            >
-              Next
-            </button>
-          </div>
-        )}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center mt-8 gap-2">
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                      >
+                        Previous
+                      </button>
+                      <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
+                        {[...Array(totalPages)].map((_, i) => (
+                          <button
+                            key={i + 1}
+                            onClick={() => setCurrentPage(i + 1)}
+                            className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${currentPage === i + 1
+                                ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
+                                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                              }`}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
 
-      </div >
-    </div >
-  );
+              </div >
+            </div >
+            );
 };
 
-export default EmployeeManagement;
+            export default EmployeeManagement;

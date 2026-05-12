@@ -28,9 +28,9 @@ const documentVerificationSchema = new mongoose.Schema(
     },
 
     // Invitation meta
-    invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    invitedBy: { type: mongoose.Schema.Types.ObjectId },
     invitedAt: { type: Date, default: Date.now },
-    token: { type: String, unique: true }, // unique link token
+    token: { type: String }, // unique link token
 
     // Status
     status: {
@@ -51,6 +51,6 @@ const documentVerificationSchema = new mongoose.Schema(
 
 documentVerificationSchema.index({ email: 1 });
 documentVerificationSchema.index({ company: 1 });
-documentVerificationSchema.index({ token: 1 });
+documentVerificationSchema.index({ token: 1 }, { unique: true });
 
 export default mongoose.model("DocumentVerification", documentVerificationSchema);

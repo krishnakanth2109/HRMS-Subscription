@@ -24,14 +24,14 @@ const RequestPunchOut = () => {
     if (authUser) {
       setCurrentUser(authUser);
     } else {
-      // Fallback: Try localStorage if context is empty (e.g., on hard refresh)
-      const storedUser = localStorage.getItem('user'); // Ensure key matches your login logic
+      // Fallback: Try sessionStorage if context is empty (e.g., on hard refresh)
+      const storedUser = sessionStorage.getItem('user'); // Ensure key matches your login logic
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
           setCurrentUser(parsedUser);
         } catch (e) {
-          console.error("Error parsing user from local storage", e);
+          console.error("Error parsing user from session storage", e);
         }
       }
     }

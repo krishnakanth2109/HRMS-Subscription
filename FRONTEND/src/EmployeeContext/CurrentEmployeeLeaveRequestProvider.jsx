@@ -32,6 +32,17 @@ const getStatusOptions = () => ["All", "Pending", "Approved", "Rejected"];
 const getLeaveTypeOptions = () => ["Sick Leave", "Casual Leave", "Emergency Leave"];
 
 const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
+  const loggedUser = useMemo(() => {
+    try {
+      return JSON.parse(
+        sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser") || "null"
+      );
+    } catch {
+      return null;
+    }
+  }, []);
+  const employeeId = loggedUser?.employeeId;
+
   // --- aggregated leaveRequests (keep this as-is; do not change the shape) ---
   const [leaveRequests, setLeaveRequests] = useState([
     {
@@ -91,9 +102,11 @@ const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
 
   // ✅ fetch aggregated leaves on mount (unchanged behavior)
   useEffect(() => {
+    if (!employeeId) return;
+
     const fetchLeaves = async () => {
       try {
-        const response = await fetch("/api/leaves/EMP101"); // Replace with real API
+        const response = await fetch(`http://localhost:5000/api/leaves/${employeeId}`); // Replace with real API
         if (!response.ok) throw new Error("Failed to fetch");
         const data = await response.json();
         setLeaveRequests(data); // backend aggregated data replaces dummy aggregated data
@@ -104,7 +117,7 @@ const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
     };
 
     fetchLeaves();
-  }, []);
+  }, [employeeId]);
 
   const monthOptions = useMemo(() => getMonthOptions(leaveRequests), [leaveRequests]);
   const statusOptions = useMemo(() => getStatusOptions(), []);

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { CurrentEmployeeContext } from "./CurrentEmployeeContext";
 
 export const CurrentEmployeeProvider = ({ children }) => {
-  const employeeId = localStorage.getItem("employeeId");
+  const employeeId = sessionStorage.getItem("employeeId");
 
   const [currentEmployee, setCurrentEmployee] = useState({
     personal: {},

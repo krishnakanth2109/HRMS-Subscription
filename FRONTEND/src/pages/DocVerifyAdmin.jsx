@@ -239,8 +239,8 @@ const DocVerifyAdmin = () => {
                 <button onClick={() => setPreviewUrl(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X size={20} /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex items-center justify-center">
-              <img src={previewUrl} alt="Document Preview" className="max-w-full mx-auto rounded-xl shadow-lg border border-slate-200" />
+            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex justify-center">
+              <img src={previewUrl} alt="Document Preview" className="max-w-full max-h-full object-contain mx-auto rounded-xl shadow-lg border border-slate-200" />
             </div>
           </div>
         </div>

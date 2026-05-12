@@ -218,7 +218,7 @@ useEffect(() => {
   loadData();
   
   // ─── IMPROVED USER EXTRACTION ───
-  const rawUser = sessionStorage.getItem("hrmsUser") || localStorage.getItem("hrmsUser");
+  const rawUser = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
   if (rawUser) {
     try {
       const parsed = JSON.parse(rawUser);

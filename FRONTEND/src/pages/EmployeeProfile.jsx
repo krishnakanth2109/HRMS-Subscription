@@ -71,7 +71,8 @@ const EmployeeProfile = () => {
           setOnboardingData(response.data.data);
         }
       } catch (error) {
-        console.error("Failed to fetch onboarding details:", error);
+          console.error("Failed to fetch onboarding details:", error.response?.data?.message);
+          
       } finally {
         setFetchingDetails(false);
       }

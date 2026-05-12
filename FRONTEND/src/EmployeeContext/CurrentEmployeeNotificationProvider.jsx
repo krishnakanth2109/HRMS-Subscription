@@ -104,6 +104,8 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
 
   // ─── SOCKET CONNECTION — ✅ FEATURE 2: Real-time with authentication ──────
   useEffect(() => {
+    if (!loggedUser?._id) return;
+
     const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
@@ -222,12 +224,21 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
 
   // ─── Initial load ─────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!loggedUser?._id) {
+      setNotifications([]);
+      setNotices([]);
+      setUnreadNotifications(0);
+      setUnreadNotices(0);
+      setLoading(false);
+      return;
+    }
+
     (async () => {
       await loadNotifications();
       await loadNotices();
       setLoading(false);
     })();
-  }, []);
+  }, [loggedUser, loadNotifications, loadNotices]);
 
   return (
     <CurrentEmployeeNotificationContext.Provider

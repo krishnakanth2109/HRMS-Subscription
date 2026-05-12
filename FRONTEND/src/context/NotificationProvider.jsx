@@ -37,6 +37,15 @@ export const NotificationProvider = ({ children }) => {
 
   // ─── Fetch notifications from backend ──────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
+    const token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+    const user = getCurrentUser();
+
+    if (!token || !user) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       const data = await getNotifications();
       setNotifications(data);
@@ -55,6 +64,9 @@ export const NotificationProvider = ({ children }) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
+    const user = getCurrentUser();
+    if (!user?._id) return;
+
     const socket = io(SOCKET_URL, {
       transports: ["websocket", "polling"],
     });

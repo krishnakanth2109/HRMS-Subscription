@@ -127,6 +127,15 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
         fetchRules();
     }, []);
 
+    // ── Handle Escape Key ─────────────────────────────────────
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [onClose]);
+
     // ── Calculate salary breakdown using payroll rules ──────────
     const calculateFromRules = useCallback((ctcAnnual, rules) => {
         if (!rules || !ctcAnnual || ctcAnnual <= 0) return {};
@@ -371,17 +380,22 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
     }
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'var(--modal-overlay)',
-            backdropFilter: 'blur(10px)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            zIndex: 2000
-        }}>
+        <div
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'var(--modal-overlay)',
+                backdropFilter: 'blur(10px)',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                zIndex: 2000,
+                cursor: 'pointer'
+            }}
+        >
             <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 className="modal-content"
+                onClick={(e) => e.stopPropagation()}
                 style={{
                     background: 'var(--card-bg)',
                     width: '1000px',
@@ -391,7 +405,8 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                     border: '1px solid var(--border-color)',
                     boxShadow: 'var(--card-shadow)',
                     padding: '3rem',
-                    borderRadius: '32px'
+                    borderRadius: '32px',
+                    cursor: 'default'
                 }}
             >
                 {/* Header */}
@@ -487,7 +502,7 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                         </h3>
                         <div className="form-grid-12">
                             <div style={{ gridColumn: 'span 6' }}>
-                                <InputGroup label="Designation" name="designation" placeholder="e.g. Senior Principal" value={formData.designation} onChange={handleChange} error={errors.designation} required  />
+                                <InputGroup label="Designation" name="designation" placeholder="e.g. Senior Principal" value={formData.designation} onChange={handleChange} error={errors.designation} required />
                             </div>
                             <div style={{ gridColumn: 'span 6' }}>
                                 <InputGroup label="Department" name="department" placeholder="e.g. Cloud Operations" value={formData.department} onChange={handleChange} error={errors.department} required disabled={isViewOnly} />
@@ -530,25 +545,25 @@ const AddEmployeeModal = ({ onClose, onSave, initialData, isViewOnly }) => {
                             )}
 
                             <div className="form-grid-2">
-             <InputGroup
-  label="Annual CTC (₹)"
-  name="ctc"
-  type="number"
-  min="0"
-  value={formData.ctc}
-  onChange={handleChange}
-  disabled={isViewOnly}
-/>
+                                <InputGroup
+                                    label="Annual CTC (₹)"
+                                    name="ctc"
+                                    type="number"
+                                    min="0"
+                                    value={formData.ctc}
+                                    onChange={handleChange}
+                                    disabled={isViewOnly}
+                                />
 
-<InputGroup
-  label="Basic Salary (Monthly) (₹)"
-  name="basic_salary"
-  type="number"
-  min="0"
-  value={formData.basic_salary}
-  onChange={handleChange}
-  disabled={isViewOnly}
-/>
+                                <InputGroup
+                                    label="Basic Salary (Monthly) (₹)"
+                                    name="basic_salary"
+                                    type="number"
+                                    min="0"
+                                    value={formData.basic_salary}
+                                    onChange={handleChange}
+                                    disabled={isViewOnly}
+                                />
                             </div>
 
                             <div className="form-grid-2" style={{ marginTop: '1.5rem' }}>

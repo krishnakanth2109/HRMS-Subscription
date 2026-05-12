@@ -172,8 +172,8 @@ const ConnectWithEmployee = () => {
     if (!currentUserId) return;
 
     const token =
-      localStorage.getItem("token") ||
-      localStorage.getItem("authToken") ||
+      sessionStorage.getItem("token") ||
+      sessionStorage.getItem("authToken") ||
       sessionStorage.getItem("token") || "";
 
     const socket = io(SOCKET_URL, {

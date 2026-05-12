@@ -12,6 +12,15 @@ const BulkSendModal = ({ selectedCount, onClose, onStart }) => {
     const [companies, setCompanies] = useState([]);
     const [availableTemplates, setAvailableTemplates] = useState([]);
 
+    // ── Handle Escape Key ─────────────────────────────────────
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [onClose]);
+
     useEffect(() => {
         const load = async () => {
             try {
@@ -31,7 +40,7 @@ const BulkSendModal = ({ selectedCount, onClose, onStart }) => {
     // Sync template when company name changes (Auto-select template)
     useEffect(() => {
         if (!companyName || availableTemplates.length === 0) return;
-        const matched = availableTemplates.find(t => 
+        const matched = availableTemplates.find(t =>
             t.companyName?.toLowerCase() === companyName.toLowerCase() ||
             t.name?.toLowerCase().includes(companyName.toLowerCase())
         );
@@ -39,16 +48,21 @@ const BulkSendModal = ({ selectedCount, onClose, onStart }) => {
     }, [companyName, availableTemplates]);
 
     return (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'var(--modal-overlay)',
-            backdropFilter: 'blur(5px)',
-            display: 'flex', justifyContent: 'center', alignItems: 'center',
-            zIndex: 3000
-        }}>
+        <div
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+            style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                background: 'var(--modal-overlay)',
+                backdropFilter: 'blur(5px)',
+                display: 'flex', justifyContent: 'center', alignItems: 'center',
+                zIndex: 3000,
+                cursor: 'pointer'
+            }}
+        >
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
+                onClick={(e) => e.stopPropagation()}
                 style={{
                     background: 'var(--card-bg)',
                     padding: '2.5rem',
@@ -56,7 +70,8 @@ const BulkSendModal = ({ selectedCount, onClose, onStart }) => {
                     width: '500px',
                     maxWidth: '90vw',
                     border: '1px solid var(--border-color)',
-                    boxShadow: 'var(--card-shadow)'
+                    boxShadow: 'var(--card-shadow)',
+                    cursor: 'default'
                 }}
             >
                 <h2 style={{ marginTop: 0, fontSize: '1.8rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>

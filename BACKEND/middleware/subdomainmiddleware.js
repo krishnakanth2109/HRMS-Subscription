@@ -1,5 +1,5 @@
 // --- START OF FILE middleware/subdomainMiddleware.js ---
-import Domain from "../models/Domainmodel.js";
+import Domain from "../models/domainModel.js";
 
 const BASE_DOMAIN = process.env.BASE_DOMAIN || "vwsync.com";
 
