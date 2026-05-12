@@ -71,7 +71,7 @@ import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
 
 /* ==================== DOMAIN IMPORTS ==================== */
 import { subdomainMiddleware } from "./middleware/subdomainmiddleware.js";
-import domainRoutes from "./routes/domainRoutes.js";
+import domainRoutes from "./routes/Domainroutes.js";
 
 const app = express();
 const server = http.createServer(app);
