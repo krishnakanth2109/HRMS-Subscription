@@ -162,45 +162,52 @@ const SmartSubmenu = ({ onClose, onNavigate }) => {
   const [position, setPosition] = useState({ left: true }); // true = open on right, false = open on left
 
   useEffect(() => {
-    if (submenuRef.current) {
-      const rect = submenuRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-
-      // Check if submenu would go off-screen to the right
-      if (rect.right > viewportWidth) {
-        setPosition({ left: false }); // Open to the left instead
-      } else {
-        setPosition({ left: true }); // Open to the right
+    const checkPosition = () => {
+      if (submenuRef.current && window.innerWidth >= 768) {
+        const rect = submenuRef.current.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        if (rect.right > viewportWidth) {
+          setPosition({ left: false });
+        } else {
+          setPosition({ left: true });
+        }
       }
-    }
+    };
+
+    checkPosition();
+    window.addEventListener('resize', checkPosition);
+    return () => window.removeEventListener('resize', checkPosition);
   }, []);
 
   return (
     <div
       ref={submenuRef}
-      className={`absolute top-0 ${position.left ? 'left-full ml-1' : 'right-full mr-1'} w-64 bg-white rounded-xl shadow-2xl border border-slate-100 z-[10000]`}
+      className={`
+        md:absolute md:top-0 ${position.left ? 'md:left-full md:ml-1' : 'md:right-full md:mr-1'} md:w-64 md:bg-white md:rounded-xl md:shadow-2xl md:border md:border-slate-100
+        relative w-full bg-slate-50 border-y border-slate-200 md:border-y-0
+        z-[10000] overflow-hidden
+      `}
     >
-      <button
-        onClick={() => { onNavigate("/admin/doc-verify-invite"); onClose(); }}
-        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100 rounded-t-xl"
-      >
-        <FaEnvelope className="text-violet-500" /> Send Invitations
-      </button>
-      <button
-        onClick={() => { onNavigate("/admin/doc-verify-portal"); onClose(); }}
-        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-xl"
-      >
-        <FaSearch className="text-violet-500" /> View & Verify Docs
-      </button>
-      <button
-        onClick={() => { onNavigate("/admin/hr-checklist"); onClose(); }}
-        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-violet-50 hover:text-violet-700 font-semibold flex items-center gap-3 transition-colors duration-150 rounded-b-xl"
-      >
-        <FaClipboardCheck className="text-violet-500" /> HR Checklist
-      </button>
-
-
-
+      <div className="flex flex-col">
+        <button
+          onClick={() => { onNavigate("/admin/doc-verify-invite"); onClose(); }}
+          className="w-full text-left px-8 md:px-5 py-3.5 text-xs md:text-sm text-slate-700 hover:bg-violet-100 md:hover:bg-violet-50 hover:text-violet-700 font-bold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
+        >
+          <FaEnvelope className="text-violet-500 text-xs md:text-base" /> Send Invitations
+        </button>
+        <button
+          onClick={() => { onNavigate("/admin/doc-verify-portal"); onClose(); }}
+          className="w-full text-left px-8 md:px-5 py-3.5 text-xs md:text-sm text-slate-700 hover:bg-violet-100 md:hover:bg-violet-50 hover:text-violet-700 font-bold flex items-center gap-3 transition-colors duration-150 border-b border-slate-100"
+        >
+          <FaSearch className="text-violet-500 text-xs md:text-base" /> View & Verify Docs
+        </button>
+        <button
+          onClick={() => { onNavigate("/admin/hr-checklist"); onClose(); }}
+          className="w-full text-left px-8 md:px-5 py-3.5 text-xs md:text-sm text-slate-700 hover:bg-violet-100 md:hover:bg-violet-50 hover:text-violet-700 font-bold flex items-center gap-3 transition-colors duration-150"
+        >
+          <FaClipboardCheck className="text-violet-500 text-xs md:text-base" /> HR Checklist
+        </button>
+      </div>
     </div>
   );
 };
@@ -1103,7 +1110,7 @@ const EmployeeManagement = () => {
                 </button>
 
                 {hrActivitiesOpen && (
-                  <div className="absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-full md:w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-visible">
+                  <div className="absolute right-0 md:right-0 left-0 md:left-auto mt-2 w-full md:w-72 bg-white rounded-xl shadow-2xl border border-slate-100 z-[9999] overflow-y-auto md:overflow-visible max-h-[80vh] md:max-h-none">
                     {/* Document Verification with smart positioned nested submenu */}
                     <div className="relative">
                       <button

@@ -887,51 +887,55 @@ const AdminDashboard = () => {
                   recentLeaves.map((item, idx) => (
                     <div
                       key={item._id || idx}
-                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-[18px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default gap-4"
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full ${pickColor(item.name)} text-white font-bold flex items-center justify-center text-xs`}
+                          className={`w-10 h-10 rounded-full ${pickColor(item.name)} text-white font-bold flex items-center justify-center text-xs shrink-0`}
                         >
                           {getInitials(item.name)}
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-[#2B3674]">
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-[#2B3674] truncate">
                             {item.name}{" "}
                             <span className="text-[10px] text-gray-400 font-normal">
                               ({item.role})
                             </span>
                           </h4>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-[11px] text-gray-500 mt-0.5 font-medium">
                             {item.dateLabel}
                           </p>
                         </div>
                       </div>
+                      
                       {/* Actions or Status Badge */}
-                      <div className="flex gap-3">
+                      <div className="flex items-center justify-end gap-3 sm:ml-auto">
                         {item.status === "Pending" ? (
-                          <>
+                          <div className="flex gap-2 w-full sm:w-auto">
                             <button
                               onClick={() => handleApprove(item._id)}
-                              className="w-8 h-8 rounded-[8px] bg-[#E6F9F3] text-[#05CD99] flex items-center justify-center hover:bg-green-200 transition"
+                              className="flex-1 sm:flex-none h-9 sm:w-9 sm:h-9 rounded-xl bg-[#E6F9F3] text-[#05CD99] flex items-center justify-center hover:bg-green-100 transition shadow-sm active:scale-95"
                               title="Approve"
                             >
-                              <FaCheck size={12} />
+                              <FaCheck size={14} className="sm:text-xs" />
+                              <span className="sm:hidden ml-2 font-bold text-xs uppercase tracking-wider">Approve</span>
                             </button>
                             <button
                               onClick={() => handleReject(item._id)}
-                              className="w-8 h-8 rounded-[8px] bg-[#FEEFEE] text-[#EE5D50] flex items-center justify-center hover:bg-red-200 transition"
+                              className="flex-1 sm:flex-none h-9 sm:w-9 sm:h-9 rounded-xl bg-[#FEEFEE] text-[#EE5D50] flex items-center justify-center hover:bg-red-100 transition shadow-sm active:scale-95"
                               title="Reject"
                             >
-                              <FaTimes size={12} />
+                              <FaTimes size={14} className="sm:text-xs" />
+                              <span className="sm:hidden ml-2 font-bold text-xs uppercase tracking-wider">Reject</span>
                             </button>
-                          </>
+                          </div>
                         ) : (
                           <span
-                            className={`text-xs font-bold px-3 py-1 rounded-full ${item.status === "Approved"
+                            className={`text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full ${
+                              item.status === "Approved"
                                 ? "bg-[#E6F9F3] text-[#05CD99]"
                                 : "bg-[#FEEFEE] text-[#EE5D50]"
-                              }`}
+                            }`}
                           >
                             {item.status}
                           </span>
@@ -966,22 +970,22 @@ const AdminDashboard = () => {
                   onLeaveTodayList.map((item, idx) => (
                     <div
                       key={item.employeeId + idx}
-                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-[18px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default gap-3"
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full ${pickColor(item.name)} text-white font-bold flex items-center justify-center text-xs`}
+                          className={`w-10 h-10 rounded-full ${pickColor(item.name)} text-white font-bold flex items-center justify-center text-xs shrink-0`}
                         >
                           {getInitials(item.name)}
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-[#2B3674]">
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-[#2B3674] truncate">
                             {item.name}{" "}
                             <span className="text-[10px] text-gray-400 font-normal">
                               ({item.role})
                             </span>
                           </h4>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-[11px] text-gray-500 mt-0.5 font-medium">
                             {item.leaveType}, {formatLeaveDate(item.from)}
                           </p>
                         </div>
@@ -1015,22 +1019,22 @@ const AdminDashboard = () => {
                   remoteWorkers.map((item, idx) => (
                     <div
                       key={item.employeeId + idx}
-                      className="flex items-center justify-between p-3 rounded-[14px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-[18px] bg-[#F9FAFD] border border-gray-100 hover:shadow-sm transition-all duration-200 cursor-default gap-3"
                     >
                       <div className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full ${pickColor(item.name)} text-white font-bold flex items-center justify-center text-xs`}
+                          className={`w-10 h-10 rounded-full ${pickColor(item.name)} text-white font-bold flex items-center justify-center text-xs shrink-0`}
                         >
                           {getInitials(item.name)}
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-[#2B3674]">
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-[#2B3674] truncate">
                             {item.name}{" "}
                             <span className="text-[10px] text-gray-400 font-normal">
                               ({item.role})
                             </span>
                           </h4>
-                          <p className="text-xs text-gray-500 mt-0.5">
+                          <p className="text-[11px] text-gray-500 mt-0.5 font-medium">
                             Work From Home
                           </p>
                         </div>
