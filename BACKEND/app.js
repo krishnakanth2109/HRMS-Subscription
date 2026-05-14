@@ -16,7 +16,8 @@ const allowedOrigins = [
   "https://hrms-vaz.netlify.app",
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://www.vwsync.com"
+  "https://www.vwsync.com",
+  "https://vwsync.com"
 ];
 
 const isAllowedOrigin = (origin) => {
