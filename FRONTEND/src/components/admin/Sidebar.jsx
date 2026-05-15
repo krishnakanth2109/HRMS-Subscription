@@ -26,6 +26,7 @@ import {
   FaReceipt,
   FaFileSignature,
   FaUserMinus,
+  FaUserShield,
 } from "react-icons/fa";
 
 import { io } from "socket.io-client";
@@ -57,6 +58,7 @@ const ALL_NAV_LINKS = [
   { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Requests", icon: <FaUserCheck />, isLateRequests: true },
   { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: <FaBusinessTime />, isOvertime: true },
   { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: <FaMapMarkedAlt />, isLiveTracking: true },
+  { to: "/admin/setup-face", route: "/admin/setup-face", label: "Settings", icon: <FaUserShield />, alwaysAllowed: true },
   // { to: "/admin/induction", route: "/admin/induction", label: "Induction", icon: <FaConnectdevelop /> },
 
   // ✅ ownerOnly: true → completely hidden from all regular admins (no lock, no disabled state)
@@ -135,8 +137,8 @@ const Sidebar = () => {
     if (!allowedRoutes || isOwnerPlan) return visibleLinks;
 
     return [...visibleLinks].sort((a, b) => {
-      const aAllowed = allowedRoutes.includes(a.route);
-      const bAllowed = allowedRoutes.includes(b.route);
+      const aAllowed = a.alwaysAllowed || allowedRoutes.includes(a.route);
+      const bAllowed = b.alwaysAllowed || allowedRoutes.includes(b.route);
       if (aAllowed && !bAllowed) return -1;
       if (!aAllowed && bAllowed) return 1;
       return 0;
@@ -491,7 +493,7 @@ const Sidebar = () => {
           ) : (
             sortedNavLinks.map((link, index) => {
               // Owner → all links allowed; others → check against their plan's allowedRoutes
-              const isAllowed = isOwnerPlan || allowedRoutes.includes(link.route);
+              const isAllowed = isOwnerPlan || link.alwaysAllowed || allowedRoutes.includes(link.route);
 
               if (link.children) {
                 const isOpen = activeMenu === link.label;

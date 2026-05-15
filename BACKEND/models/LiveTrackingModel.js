@@ -14,6 +14,17 @@ const idleSegmentSchema = new mongoose.Schema(
 );
 
 // ---------------------------------------------------
+// Schema for an individual WORKING screenshot
+// ---------------------------------------------------
+const workingScreenshotSchema = new mongoose.Schema(
+    {
+        screenshotUrl: { type: String, required: true },
+        capturedAt: { type: Date, required: true }
+    },
+    { _id: false }
+);
+
+// ---------------------------------------------------
 // Sub-object schema for each date's logged data
 // ---------------------------------------------------
 const dailyLiveSchema = new mongoose.Schema(
@@ -21,11 +32,13 @@ const dailyLiveSchema = new mongoose.Schema(
         currentStatus: { type: String, enum: ["WORKING", "IDLE", "OFFLINE"], default: "OFFLINE" },
         lastPing: { type: Date },
         idleSince: { type: Date, default: null },
+        activeWindow: { type: String, default: null },
         idleTimeline: { type: [idleSegmentSchema], default: [] },
         trackedWorkSeconds: { type: Number, default: 0 },
         trackedIdleSeconds: { type: Number, default: 0 },
         currentIdleScreenshot: { type: String, default: null },  // Live screenshot URL (cleared on WORKING)
-        screenshotCapturedAt: { type: Date, default: null }
+        screenshotCapturedAt: { type: Date, default: null },
+        workingScreenshots: { type: [workingScreenshotSchema], default: [] }
     },
     { _id: false, timestamps: true }
 );

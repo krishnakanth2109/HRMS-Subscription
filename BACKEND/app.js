@@ -8,24 +8,6 @@ import http from "http";
 import path from "path";
 import { Server } from "socket.io";
 
-/* ==================== ✅ ALLOWED ORIGINS ==================== */
-const allowedOrigins = [
-  "https://hrms-subscription-kill.onrender.com",
-  "http://vwsync.com",
-  "https://vwsync.com",
-  "https://hrms-vaz.netlify.app",
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://www.vwsync.com"
-];
-
-const isAllowedOrigin = (origin) => {
-  if (!origin) return true;
-  if (allowedOrigins.includes(origin)) return true;
-  if (/^https?:\/\/[a-z0-9-]+\.vwsync\.com$/.test(origin)) return true;
-  return false;
-};
-
 /* ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
@@ -58,10 +40,13 @@ import offerLetterRoutes from "./routes/offerLetterRoutes.js";
 import offerResponseRoutes from "./routes/offerResponseRoutes.js";
 import inductionRoutes from "./routes/inductionRoutes.js";
 import resignationRoutes from "./routes/resignationRoutes.js";
+import workRoutes from "./routes/workRoutes.js";
+import webauthnRoutes from "./routes/webauthnRoutes.js";
+import faceAuthRoutes from "./routes/faceAuthRoutes.js";
+const { employeeWorkRoutes, adminWorkRoutes } = workRoutes;
 
 /* ==================== 🔹 RAZORPAY IMPORT ==================== */
 import razorpayRoutes from "./routes/razorpayRoutes.js";
-
 import masterRoutes from "./routes/masterRoutes.js";
 import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
@@ -78,30 +63,72 @@ const server = http.createServer(app);
 
 app.set("trust proxy", 1);
 
-/* ==================== ✅ SUBDOMAIN MIDDLEWARE (before CORS) ==================== */
+/* ==================== ✅ FORCE WWW REDIRECT ==================== */
+app.use((req, res, next) => {
+  if (req.hostname === "vwsync.com") {
+    return res.redirect(301, "https://www.vwsync.com" + req.originalUrl);
+  }
+  next();
+});
+
+/* ==================== ✅ ALLOWED ORIGINS ==================== */
+const allowedOrigins = [
+  "https://vwsync.com",
+  "https://www.vwsync.com",
+  "http://vwsync.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://hrms-vaz.netlify.app",
+  "https://hrms-subscription-kill.onrender.com",
+];
+
+/* ==================== ✅ ORIGIN CHECK ==================== */
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  // allow all subdomains
+  if (/^https?:\/\/([a-z0-9-]+\.)?vwsync\.com$/i.test(origin)) {
+    return true;
+  }
+
+  return false;
+};
+
+/* ==================== ✅ SUBDOMAIN MIDDLEWARE ==================== */
 app.use(subdomainMiddleware);
 
-/* ==================== ✅ CORS MIDDLEWARE ==================== */
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (isAllowedOrigin(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`⚠️ CORS Blocked: ${origin}`);
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
-app.options("*", cors());
+/* ==================== ✅ CORS ==================== */
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      console.warn("❌ Blocked by CORS:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+  ],
+
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
+/* ==================== ✅ IMPORTANT PREFLIGHT FIX ==================== */
+app.options("*", cors(corsOptions));
 
 /* ==================== BODY PARSERS ==================== */
-// NOTE: Unlike Stripe, Razorpay webhook uses standard JSON body — no raw bytes needed.
-// express.json() is sufficient for everything including the Razorpay webhook.
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -110,10 +137,18 @@ const userSocketMap = new Map();
 
 const io = new Server(server, {
   cors: {
-    origin: isAllowedOrigin,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Socket CORS Error"));
+      }
+    },
+
     methods: ["GET", "POST"],
     credentials: true,
   },
+
   transports: ["polling", "websocket"],
   pingTimeout: 60000,
 });
@@ -121,17 +156,25 @@ const io = new Server(server, {
 app.set("io", io);
 app.set("userSocketMap", userSocketMap);
 
+/* ==================== SOCKET CONNECTION ==================== */
 io.on("connection", (socket) => {
+  console.log("✅ Socket Connected:", socket.id);
+
   socket.on("register", (userId) => {
-    if (userId) userSocketMap.set(userId.toString(), socket.id);
+    if (userId) {
+      userSocketMap.set(userId.toString(), socket.id);
+    }
   });
 
   socket.on("authenticate", (userId) => {
     if (!userId) return;
+
     socket.join(`user_${userId.toString()}`);
   });
 
   socket.on("disconnect", () => {
+    console.log("❌ Socket Disconnected:", socket.id);
+
     for (const [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
         userSocketMap.delete(userId);
@@ -144,14 +187,17 @@ io.on("connection", (socket) => {
 /* ==================== SECURITY HEADERS ==================== */
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
+
   if (!req.originalUrl.includes("/proxy-doc")) {
     res.setHeader("X-Frame-Options", "DENY");
   }
+
   res.setHeader("X-XSS-Protection", "1; mode=block");
+
   next();
 });
 
-/* ==================== 🛠️ DATABASE CONNECTION ==================== */
+/* ==================== DATABASE ==================== */
 mongoose.set("strictQuery", false);
 
 mongoose
@@ -159,24 +205,29 @@ mongoose
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   })
-  .then(() => console.log("✅ Database Connected Successfully"))
+  .then(() => {
+    console.log("✅ MongoDB Connected");
+  })
   .catch((err) => {
-    console.error("❌ MONGODB CONNECTION FATAL ERROR ❌");
-    console.error("Did you whitelist 0.0.0.0/0 in MongoDB Atlas?");
-    console.error(err.message);
+    console.error("❌ MongoDB Error:", err.message);
   });
 
 mongoose.connection.on("disconnected", () => {
   console.log("⚠️ MongoDB Disconnected");
 });
 
-/* ==================== ROUTES ==================== */
-app.get("/health", (req, res) =>
-  res.status(200).json({ status: "OK", dbState: mongoose.connection.readyState })
-);
+/* ==================== HEALTH ==================== */
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    dbState: mongoose.connection.readyState,
+  });
+});
 
+/* ==================== STATIC ==================== */
 app.use("/public", express.static(path.join(process.cwd(), "public")));
 
+/* ==================== ROUTES ==================== */
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/employees", employeeRoutes);
@@ -212,45 +263,54 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/induction", inductionRoutes);
 app.use("/api/resignations", resignationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
+app.use("/api/work", employeeWorkRoutes);
+app.use("/api/work/admin", adminWorkRoutes);
+app.use("/api/webauthn", webauthnRoutes);
+app.use("/api/face-auth", faceAuthRoutes);
 
 /* ==================== 🔹 RAZORPAY ROUTES ==================== */
 app.use("/api/razorpay", razorpayRoutes);
-
 app.use("/api/master", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
-
-/* ==================== ✅ DOMAIN MANAGEMENT ROUTES ==================== */
 app.use("/api/domain", domainRoutes);
 
-/* ==================== FRONTEND FALLBACK ==================== */
+/* ==================== FRONTEND ==================== */
 app.use(express.static(path.join(process.cwd(), "../FRONTEND/dist")));
 
 app.get("*", (req, res, next) => {
-  if (req.originalUrl.startsWith("/api")) return next();
+  if (req.originalUrl.startsWith("/api")) {
+    return next();
+  }
+
   res.sendFile(
     path.join(process.cwd(), "../FRONTEND/dist/index.html"),
     (err) => {
-      if (err) res.status(500).send("Frontend build not found.");
+      if (err) {
+        res.status(500).send("Frontend build not found");
+      }
     }
   );
 });
 
-/* ==================== 404 & ERROR HANDLER ==================== */
+/* ==================== 404 ==================== */
 app.use("/api", (req, res) => {
-  res
-    .status(404)
-    .json({ message: `API route ${req.method} ${req.url} not found` });
+  res.status(404).json({
+    message: `API route ${req.method} ${req.url} not found`,
+  });
 });
 
+/* ==================== ERROR HANDLER ==================== */
 app.use((err, req, res, next) => {
   console.error("🚨 Server Error:", err.message);
-  res
-    .status(err.status || 500)
-    .json({ message: err.message || "Internal Server Error" });
+
+  res.status(err.status || 500).json({
+    message: err.message || "Internal Server Error",
+  });
 });
 
 /* ==================== START SERVER ==================== */
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

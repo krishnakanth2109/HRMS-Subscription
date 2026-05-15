@@ -27,6 +27,12 @@ const officeSettingsSchema = new mongoose.Schema({
     type: Boolean,
   },
 
+  // Control the time interval (in minutes) for desktop tracker screenshots
+  screenshotIntervalMinutes: {
+    type: Number,
+    default: 5
+  },
+
   // Store individual employee work mode overrides and schedules
   employeeWorkModes: [{
     employeeId: { type: String, required: true },
