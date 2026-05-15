@@ -121,6 +121,46 @@ export const loginUser = async (email, password) => {
   }
 };
 
+export const loginWithFaceApi = async (descriptor) => {
+  try {
+    const response = await api.post("/api/face-auth/login", { descriptor });
+    return response.data;
+  } catch (error) {
+    console.error("Face login failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const registerFaceApi = async (descriptors) => {
+  try {
+    const response = await api.post("/api/face-auth/register", { descriptors });
+    return response.data;
+  } catch (error) {
+    console.error("Face register failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const checkFaceStatusApi = async () => {
+  try {
+    const response = await api.get("/api/face-auth/status");
+    return response.data;
+  } catch (error) {
+    console.error("Face status check failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+export const deleteFaceApi = async () => {
+  try {
+    const response = await api.delete("/api/face-auth/remove");
+    return response.data;
+  } catch (error) {
+    console.error("Face delete failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
 
 /* =============================================================================
    EMPLOYEE MANAGEMENT
@@ -1033,10 +1073,79 @@ export const managePayrollCandidate = async (formData, id = null) => {
 export const deletePayrollCandidate = async (id) => 
   (await api.delete(`/api/payroll/${id}`)).data;
 
+/* =============================================================================
+   DAILY WORK TRACKER
+============================================================================= */
+export const submitMorningWork = async (payload) =>
+  (await api.post("/api/work/morning", payload)).data;
+
+export const submitEveningWork = async (
+  description,
+  images = [],
+  employee_submitted_percentage
+) => {
+  const formData = new FormData();
+  formData.append("description", description);
+  formData.append("employee_submitted_percentage", employee_submitted_percentage);
+
+  images.forEach((image) => {
+    formData.append("images", image);
+  });
+
+  return (
+    await api.post("/api/work/evening", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+  ).data;
+};
+
+export const getMyDailyWorkRecords = async (month, year) =>
+  (
+    await api.get("/api/work/my-records", {
+      params: { month, year },
+    })
+  ).data;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ✅ ADD THESE LINES inside the  /* LEAVES */  section of api.js
 //    (paste right after  cancelLeaveRequestById )
 // ─────────────────────────────────────────────────────────────────────────────
+
+/* =============================================================================
+   WEBAUTHN FINGERPRINT AUTHENTICATION
+============================================================================= */
+export const getWebAuthnRegistrationOptions = async () =>
+  (await api.post("/api/webauthn/register/options")).data;
+
+export const verifyWebAuthnRegistration = async (
+  credential,
+  challenge,
+  deviceName
+) =>
+  (
+    await api.post("/api/webauthn/register/verify", {
+      credential,
+      challenge,
+      deviceName,
+    })
+  ).data;
+
+export const getWebAuthnLoginOptions = async () =>
+  (await api.post("/api/webauthn/login/options")).data;
+
+export const verifyWebAuthnLogin = async (credential, challenge) =>
+  (
+    await api.post("/api/webauthn/login/verify", {
+      credential,
+      challenge,
+    })
+  ).data;
+
+export const getWebAuthnCredentials = async () =>
+  (await api.get("/api/webauthn/credentials")).data;
+
+export const deleteWebAuthnCredential = async (credentialId) =>
+  (await api.delete(`/api/webauthn/credentials/${credentialId}`)).data;
 
 /* =============================================================================
    LEAVE POLICY  (Admin: configure paid-day limits per leave type)

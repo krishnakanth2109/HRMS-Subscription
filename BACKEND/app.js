@@ -14,6 +14,7 @@ const allowedOrigins = [
   "http://vwsync.com",
   "https://vwsync.com",
   "https://hrms-vaz.netlify.app",
+  "https://hrms-420.netlify.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "https://www.vwsync.com"
@@ -58,6 +59,10 @@ import offerLetterRoutes from "./routes/offerLetterRoutes.js";
 import offerResponseRoutes from "./routes/offerResponseRoutes.js";
 import inductionRoutes from "./routes/inductionRoutes.js";
 import resignationRoutes from "./routes/resignationRoutes.js";
+import workRoutes from "./routes/workRoutes.js";
+import webauthnRoutes from "./routes/webauthnRoutes.js";
+import faceAuthRoutes from "./routes/faceAuthRoutes.js";
+const { employeeWorkRoutes, adminWorkRoutes } = workRoutes;
 
 /* ==================== 🔹 RAZORPAY IMPORT ==================== */
 import razorpayRoutes from "./routes/razorpayRoutes.js";
@@ -212,6 +217,10 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/induction", inductionRoutes);
 app.use("/api/resignations", resignationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
+app.use("/api/work", employeeWorkRoutes);
+app.use("/api/work/admin", adminWorkRoutes);
+app.use("/api/webauthn", webauthnRoutes);
+app.use("/api/face-auth", faceAuthRoutes);
 
 /* ==================== 🔹 RAZORPAY ROUTES ==================== */
 app.use("/api/razorpay", razorpayRoutes);

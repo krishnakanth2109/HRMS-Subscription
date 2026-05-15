@@ -65,6 +65,8 @@ import NewEmployeeAttendance from "./EmployeePages/EmployeeAttendance";
 import EmployeeDailyAttendance from "./EmployeePages/EmployeeDailyAttendance";
 import EmployeeNotifications from "./pages/EmployeeNotifications";
 import EmployeeTeamsPage from "./EmployeePages/EmployeeTeamsPage";
+import EmployeeWorkTracker from "./EmployeePages/EmployeeWorkTracker";
+import CurrentEmployeeFaceSetup from "./EmployeePages/CurrentEmployeeFaceSetup";
 
 
 // Admin pages
@@ -295,6 +297,8 @@ function App() {
         <Route path="/admin/rules" element={<AdminRulesPost />} />
         <Route path="/admin/issues" element={<AdminIssues/>} />
         <Route path="/admin/live-tracking" element={<AdminLiveTracking />} />
+        <Route path="/admin/idletime-tracking" element={<AdminLiveTracking />} />
+        <Route path="/admin/setup-face" element={<CurrentEmployeeFaceSetup />} />
         <Route path="/admin/induction" element={<Induction />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
           <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
@@ -332,6 +336,8 @@ function App() {
         <Route path="/employee/rules" element={<EmployeeViewRules />} />
         <Route path="/employee/payslip" element={<EmployeePayslip />} />
         <Route path="/employee/chatting" element={<ConnectWithEmployee />} />
+        <Route path="/employee/daily-work-tracker" element={<EmployeeWorkTracker />} />
+        <Route path="/employee/setup-face" element={<CurrentEmployeeFaceSetup />} />
         <Route path="/employee/issues" element={<EmployeeIssues />} />
 
         <Route

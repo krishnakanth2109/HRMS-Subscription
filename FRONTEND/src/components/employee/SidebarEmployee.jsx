@@ -16,6 +16,8 @@ import {
   FaReceipt,
   FaChevronLeft,
   FaChevronRight,
+  FaClipboardCheck,
+  FaUserShield,
   FaFileSignature,
 } from "react-icons/fa";
 
@@ -34,6 +36,8 @@ const navLinks = [
   { to: "/employee/reuestworkmode", label: "WorkMode Request", icon: <FaLaptopHouse /> },
   { to: "/employee/payslip", label: "Pay-Slip", icon: <FaMoneyCheckAlt /> },
   { to: "/employee/chatting", label: "Connect with Employee", icon: <FaUserFriends /> },
+  { to: "/employee/daily-work-tracker", label: "Daily Work Tracker", icon: <FaClipboardCheck /> },
+  { to: "/employee/setup-face", label: "Settings", icon: <FaUserShield /> },
   // { to: "/employee/expense", label: "Add Expense", icon: <FaReceipt /> }
   { to: "/employee/issues", label: "Report Issue", icon: <FaReceipt /> },
   { to: "/employee/resignation", label: "Resignation", icon: <FaFileSignature /> },
