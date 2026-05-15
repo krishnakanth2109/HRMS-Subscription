@@ -106,214 +106,273 @@ const OvertimeWithModal = () => {
     }
   };
 
-  if (loading) return <div className="p-6 text-center text-lg">Loading...</div>;
+  if (loading) return <div className="p-10 flex justify-center text-gray-500 font-bold">Loading Overtime Data...</div>;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex  justify-between border border-gray-200 shadow-sm p-4 bg-white rounded-2xl items-center mb-8">
-        <h2 className="text-4xl font-extrabold text-indigo-700 tracking-wide">
-          My Overtime Requests
-        </h2>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-gray-200 shadow-sm p-6 bg-white rounded-2xl">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black text-indigo-700 tracking-tight">
+            Overtime Requests
+          </h2>
+          <p className="text-sm text-gray-500 font-medium mt-1">Manage and track your extra work hours</p>
+        </div>
 
         <button
           onClick={() => setApplyModalOpen(true)}
-          className="bg-gradient-to-r from-indigo-600 to-indigo-800 hover:opacity-90 text-white px-6 py-2.5 rounded-lg shadow-lg transition-all font-semibold"
+          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl shadow-lg shadow-indigo-100 transition-all font-bold flex items-center justify-center gap-2 active:scale-95"
         >
-          + Apply Overtime
+          <span className="text-lg">+</span> Apply Overtime
         </button>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white shadow-xl rounded-xl overflow-hidden border">
-        <table className="w-full text-sm">
-          <thead className="bg-indigo-600 text-white">
-            <tr>
-              <th className="px-6 py-3 border-r">Date</th>
-              <th className="px-6 py-3 border-r">Type</th>
-              <th className="px-6 py-3">Status / Action</th>
-            </tr>
-          </thead>
+      {/* TABLE SECTION */}
+      <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px]">
+              <tr>
+                <th className="px-6 py-5">Request Date</th>
+                <th className="px-6 py-5">Overtime Type</th>
+                <th className="px-6 py-5 text-center">Current Status</th>
+                <th className="px-6 py-5 text-right">Actions</th>
+              </tr>
+            </thead>
 
-          <tbody>
-            {overtimeList.length > 0 ? (
-              overtimeList.map((ot) => (
-                <tr
-                  key={ot._id}
-                  className="hover:bg-indigo-50 transition border-b"
-                >
-                  <td className="px-6 py-3 border-r text-center">{ot.date}</td>
-                  <td className="px-6 py-3 border-r text-center">
-                    {ot.type.replace("_", " ")}
-                  </td>
-
-                  <td className="px-6 py-3 text-center">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        ot.status === "APPROVED"
-                          ? "bg-green-100 text-green-700"
-                          : ot.status === "REJECTED"
-                          ? "bg-red-100 text-red-700"
-                          : ot.status === "CANCELLED"
-                          ? "bg-gray-200 text-gray-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {ot.status}
-                    </span>
-
-                    {ot.status === "PENDING" && (
-                      <button
-                        onClick={() => {
-                          setSelectedOT(ot._id);
-                          setConfirmCancelModal(true);
-                        }}
-                        className="ml-3 text-xs bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded-md shadow transition"
-                      >
-                        Cancel
-                      </button>
-                    )}
+            <tbody className="divide-y divide-gray-50">
+              {overtimeList.length > 0 ? (
+                overtimeList.map((ot) => (
+                  <tr key={ot._id} className="hover:bg-indigo-50/30 transition-colors">
+                    <td className="px-6 py-5 font-bold text-gray-800">{ot.date}</td>
+                    <td className="px-6 py-5">
+                      <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
+                        {ot.type.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                        ot.status === "APPROVED" ? "bg-green-50 text-green-700 border-green-200" :
+                        ot.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
+                        ot.status === "CANCELLED" ? "bg-gray-100 text-gray-500 border-gray-200" :
+                        "bg-yellow-50 text-yellow-700 border-yellow-200"
+                      }`}>
+                        {ot.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      {ot.status === "PENDING" && (
+                        <button
+                          onClick={() => {
+                            setSelectedOT(ot._id);
+                            setConfirmCancelModal(true);
+                          }}
+                          className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-2 rounded-xl text-xs font-bold border border-red-100 transition-all active:scale-95 shadow-sm"
+                        >
+                          Cancel Request
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="p-20 text-center text-gray-400 font-black uppercase tracking-widest text-xs" colSpan="4">
+                    No overtime requests found
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  className="p-6 text-center text-gray-600"
-                  colSpan="3"
-                >
-                  No overtime requests found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile View */}
+        <div className="md:hidden flex flex-col divide-y divide-gray-50">
+          {overtimeList.length > 0 ? (
+            overtimeList.map((ot) => (
+              <div key={ot._id} className="p-5 flex flex-col gap-4 bg-white hover:bg-gray-50/50 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Request For</span>
+                    <span className="text-sm font-black text-gray-800">{ot.date}</span>
+                  </div>
+                  <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
+                    ot.status === "APPROVED" ? "bg-green-50 text-green-700 border-green-200" :
+                    ot.status === "REJECTED" ? "bg-red-50 text-red-700 border-red-200" :
+                    ot.status === "CANCELLED" ? "bg-gray-100 text-gray-500 border-gray-200" :
+                    "bg-yellow-50 text-yellow-700 border-yellow-200"
+                  }`}>
+                    {ot.status}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Type</span>
+                  <span className="text-xs font-bold text-indigo-700">{ot.type.replace("_", " ")}</span>
+                </div>
+
+                {ot.status === "PENDING" && (
+                  <button
+                    onClick={() => {
+                      setSelectedOT(ot._id);
+                      setConfirmCancelModal(true);
+                    }}
+                    className="w-full bg-red-600 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-100 active:scale-95 transition-transform"
+                  >
+                    Cancel This Request
+                  </button>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="p-20 text-center text-gray-400 font-black uppercase tracking-widest text-xs">
+              No overtime requests found
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ----------------------- APPLY OT MODAL ----------------------- */}
       <AnimatePresence>
         {applyModalOpen && (
-          <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div
-              className="bg-white w-96 p-6 rounded-xl shadow-2xl"
-              initial={{ scale: 0.7 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.7 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setApplyModalOpen(false)}
+            />
+            <motion.div
+              className="bg-white w-full max-w-md p-0 rounded-3xl shadow-2xl overflow-hidden relative z-10"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
             >
-              <h3 className="text-2xl font-bold mb-4 text-indigo-700">
-                Apply Overtime
-              </h3>
-
-              <div className="bg-indigo-50 p-3 rounded mb-4 text-sm">
-                <p><b>Name:</b> {user.name}</p>
-                <p><b>ID:</b> {user.employeeId}</p>
+              <div className="bg-indigo-600 p-6 text-white">
+                <h3 className="text-xl font-black flex items-center gap-2">
+                  Apply Overtime
+                </h3>
+                <p className="text-indigo-100 text-xs mt-1">Submit your request for extra hours</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block mb-1 font-medium">Date</label>
-                  <input
-                    type="date"
-                    name="date"
-                    value={form.date}
-                    min={new Date().toISOString().split("T")[0]}
-                    onChange={(e) => {
-                      const selected = e.target.value;
-                      const d = new Date(selected);
-
-                      if (d.getDay() === 0) {
-                        setError("Sundays are not allowed for overtime.");
-                        setForm({ ...form, date: "" });
-                        return;
-                      }
-
-                      setError("");
-                      handleChange(e);
-                    }}
-                    className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-indigo-400"
-                  />
+              <div className="p-6">
+                <div className="bg-gray-50 p-4 rounded-2xl mb-6 border border-gray-100 grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Employee</span>
+                    <p className="text-xs font-bold text-gray-800">{user.name}</p>
+                  </div>
+                  <div>
+                    <span className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Emp ID</span>
+                    <p className="text-xs font-bold text-gray-800">{user.employeeId}</p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block mb-1 font-medium">Type</label>
-                  <select
-                    name="type"
-                    value={form.type}
-                    onChange={handleChange}
-                    className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-indigo-400"
-                  >
-                    <option value="INCENTIVE_OT">Incentive OT</option>
-                    <option value="PENDING_OT">Pending OT</option>
-                  </select>
-                </div>
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Overtime Date</label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={form.date}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => {
+                        const selected = e.target.value;
+                        const d = new Date(selected);
+                        if (d.getDay() === 0) {
+                          setError("Sundays are not allowed for overtime.");
+                          setForm({ ...form, date: "" });
+                          return;
+                        }
+                        setError("");
+                        handleChange(e);
+                      }}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-sm"
+                    />
+                  </div>
 
-                {error && <p className="text-red-600">{error}</p>}
-                {success && <p className="text-green-600">{success}</p>}
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Incentive Type</label>
+                    <select
+                      name="type"
+                      value={form.type}
+                      onChange={handleChange}
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-sm appearance-none"
+                    >
+                      <option value="INCENTIVE_OT">Incentive OT</option>
+                      <option value="PENDING_OT">Pending OT</option>
+                    </select>
+                  </div>
 
-                <button
-                  type="submit"
-                  className="w-full bg-indigo-600 hover:bg-indigo-800 text-white py-2 rounded-lg font-semibold shadow"
-                >
-                  Submit
-                </button>
-              </form>
+                  {error && <p className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold border border-red-100">{error}</p>}
+                  {success && <p className="bg-green-50 text-green-600 p-3 rounded-xl text-xs font-bold border border-green-100">{success}</p>}
 
-              <button
-                onClick={() => setApplyModalOpen(false)}
-                className="mt-4 text-sm text-gray-500 underline w-full text-center"
-              >
-                Close
-              </button>
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setApplyModalOpen(false)}
+                      className="flex-1 py-4 rounded-2xl text-xs font-black uppercase text-gray-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-100 transition-all active:scale-95"
+                    >
+                      Submit Request
+                    </button>
+                  </div>
+                </form>
+              </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
       {/* ----------------------- CANCEL MODAL ----------------------- */}
       <AnimatePresence>
         {confirmCancelModal && (
-          <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+             <motion.div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setConfirmCancelModal(false)}
+            />
             <motion.div
-              className="bg-white w-80 p-6 rounded-xl shadow-2xl"
-              initial={{ scale: 0.7 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.7 }}
+              className="bg-white w-full max-w-sm p-8 rounded-3xl shadow-2xl relative z-10 text-center"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
             >
-              <h3 className="text-xl font-bold mb-4 text-red-600">
-                Confirm Cancel
+              <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 text-red-600 border border-red-100 shadow-inner">
+                <span className="text-2xl font-black">?</span>
+              </div>
+              <h3 className="text-xl font-black mb-2 text-gray-800">
+                Cancel Request?
               </h3>
-
-              <p className="mb-6 text-gray-700">
-                Are you sure you want to cancel this overtime request?
+              <p className="mb-8 text-sm text-gray-500 font-medium leading-relaxed">
+                Are you sure you want to cancel this overtime request? This action cannot be undone.
               </p>
 
-              <div className="flex justify-between">
+              <div className="flex flex-col gap-3">
                 <button
                   onClick={handleCancel}
-                  className="bg-red-600 hover:bg-red-800 text-white px-4 py-2 rounded shadow"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-100 transition-all active:scale-95"
                 >
-                  Yes, Cancel
+                  Yes, Cancel Request
                 </button>
-
                 <button
                   onClick={() => setConfirmCancelModal(false)}
-                  className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded shadow"
+                  className="w-full py-4 rounded-2xl text-xs font-black uppercase text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  No, Keep
+                  No, Keep it
                 </button>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

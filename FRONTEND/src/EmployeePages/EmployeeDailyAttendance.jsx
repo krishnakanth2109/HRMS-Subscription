@@ -135,18 +135,20 @@ const TableRowSkeleton = () => (
     <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
     <td className="px-6 py-4"><div className="h-6 bg-gray-200 rounded-full w-20"></div></td>
     <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+    <td className="px-6 py-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
   </tr>
 );
 
 // Summary Card Component
 const SummaryCard = ({ title, count, icon, colorClass, bgClass }) => (
-  <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
-    <div>
-      <p className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-1">{title}</p>
-      <h3 className="text-3xl font-bold text-gray-800">{count}</h3>
-      <p className="text-[10px] text-gray-400 mt-1">This month</p>
+  <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow group">
+    <div className="flex-1 min-w-0">
+      <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 truncate">{title}</p>
+      <h3 className="text-2xl sm:text-3xl font-black text-gray-900 leading-none">{count}</h3>
+      <p className="text-[10px] text-gray-400 mt-2 font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">This month</p>
     </div>
-    <div className={`p-3 rounded-xl ${bgClass} ${colorClass} text-xl`}>
+    <div className={`p-3 rounded-xl ${bgClass} ${colorClass} text-xl flex-shrink-0 ml-3 shadow-inner`}>
       {icon}
     </div>
   </div>
@@ -839,81 +841,98 @@ const EmployeeDailyAttendance = () => {
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* --- Header Section --- */}
-        <div className="flex flex-col border border-gray-200 shadow-sm bg-white rounded-2xl py-6 px-4 md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Have a Great Day, {user?.name?.split(' ')[0] || "Employee"}!</h1>
-            <p className="text-gray-500 text-sm mt-1">Here's Your attendance overview for {selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</p>
+        <div className="flex flex-col bg-white rounded-3xl p-6 shadow-sm border border-gray-100 lg:flex-row lg:items-center justify-between gap-6 transition-all duration-300">
+          <div className="text-center lg:text-left">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight">
+              Have a Great Day, <span className="text-blue-600">{user?.name?.split(' ')[0] || "Employee"}</span>!
+            </h1>
+            <p className="text-gray-500 text-sm mt-2 font-medium">
+              Your attendance overview for <span className="text-gray-800 font-bold">{selectedDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+            </p>
           </div>
 
-          <div className="flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-            <select value={selectedDate.getMonth()} onChange={handleMonthChange} className="bg-transparent text-sm font-semibold outline-none cursor-pointer hover:text-blue-600">
-              {barGraphData.labels.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
-            <select value={selectedDate.getFullYear()} onChange={handleYearChange} className="bg-transparent text-sm font-semibold outline-none cursor-pointer hover:text-blue-600 border-l pl-3">
-              {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-gray-50/50 p-2 rounded-2xl border border-gray-100 w-full lg:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-100">
+              <FaCalendarAlt className="text-blue-500 text-xs" />
+              <select value={selectedDate.getMonth()} onChange={handleMonthChange} className="bg-transparent text-sm font-bold outline-none cursor-pointer hover:text-blue-600 grow text-center">
+                {barGraphData.labels.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-100">
+              <FaRegClock className="text-blue-500 text-xs" />
+              <select value={selectedDate.getFullYear()} onChange={handleYearChange} className="bg-transparent text-sm font-bold outline-none cursor-pointer hover:text-blue-600 grow text-center">
+                {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
         {/* --- Top Summary Cards --- */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <SummaryCard title="Present Days" count={summaryStats.presentDays} icon={<FaCheckCircle />} colorClass="text-green-600" bgClass="bg-green-100" />
-          <SummaryCard title="Full Days" count={summaryStats.fullDays} icon={<FaBullseye />} colorClass="text-pink-600" bgClass="bg-pink-100" />
-          <SummaryCard title="Half Days" count={summaryStats.halfDays} icon={<FaStarHalfAlt />} colorClass="text-yellow-600" bgClass="bg-yellow-100" />
-          <SummaryCard title="Absent Days" count={summaryStats.absentDays} icon={<FaTimesCircle />} colorClass="text-red-600" bgClass="bg-red-100" />
-          <SummaryCard title="On Time" count={summaryStats.onTimeCount} icon={<FaUserClock />} colorClass="text-blue-600" bgClass="bg-blue-100" />
-          <SummaryCard title="Late Arrivals" count={summaryStats.lateCount} icon={<FaExclamationTriangle />} colorClass="text-orange-600" bgClass="bg-orange-100" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <SummaryCard title="Present" count={summaryStats.presentDays} icon={<FaCheckCircle />} colorClass="text-green-600" bgClass="bg-green-50" />
+          <SummaryCard title="Full Days" count={summaryStats.fullDays} icon={<FaBullseye />} colorClass="text-pink-600" bgClass="bg-pink-50" />
+          <SummaryCard title="Half Days" count={summaryStats.halfDays} icon={<FaStarHalfAlt />} colorClass="text-yellow-600" bgClass="bg-yellow-50" />
+          <SummaryCard title="Absent" count={summaryStats.absentDays} icon={<FaTimesCircle />} colorClass="text-red-600" bgClass="bg-red-50" />
+          <SummaryCard title="On Time" count={summaryStats.onTimeCount} icon={<FaUserClock />} colorClass="text-blue-600" bgClass="bg-blue-50" />
+          <SummaryCard title="Late" count={summaryStats.lateCount} icon={<FaExclamationTriangle />} colorClass="text-orange-600" bgClass="bg-orange-50" />
         </div>
 
         {/* --- Middle Section: Today Status & Mini Calendar --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Left: Today's Status (UPDATED UI & LIVE TIMER) */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 relative overflow-hidden">
-            <div className="mb-6">
-              <h3 className="text-xl font-bold text-gray-800">Today's Status</h3>
-              <p className="text-gray-400 text-xs mt-1">{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+          <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 relative overflow-hidden group">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-extrabold text-gray-900 tracking-tight">Today's Activity</h3>
+                <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mt-1">
+                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+              <div className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-blue-100">
+                Live Tracking
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Punch In */}
-              <div className="bg-gray-50 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center hover:bg-green-50/50 transition-colors group">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-green-100 text-green-600 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+              <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center border border-transparent hover:border-green-100 hover:bg-green-50/30 transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center text-lg mb-2 shadow-sm border border-green-100">
                   <FaSignInAlt />
                 </div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Punch In</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-1">
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Entry</p>
+                <p className="text-base font-black text-gray-900 mt-0.5">
                   {todayRecord.punchIn ? new Date(todayRecord.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
                 </p>
               </div>
 
               {/* Punch Out */}
-              <div className="bg-gray-50 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center hover:bg-blue-50/50 transition-colors group">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+              <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center border border-transparent hover:border-blue-100 hover:bg-blue-50/30 transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg mb-2 shadow-sm border border-blue-100">
                   <FaSignOutAlt />
                 </div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Punch Out</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-1">
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Exit</p>
+                <p className="text-base font-black text-gray-900 mt-0.5">
                   {todayRecord.punchOut ? new Date(todayRecord.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "----"}
                 </p>
               </div>
 
               {/* Working (Live Timer) */}
-              <div className="bg-gray-50 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center hover:bg-blue-50/50 transition-colors group">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-blue-500 text-white flex items-center justify-center text-xl mb-3 shadow-lg shadow-blue-200 group-hover:scale-110 transition-transform">
-                  <FaHourglassHalf />
+              <div className="bg-blue-600 rounded-2xl p-4 flex flex-col items-center justify-center shadow-lg shadow-blue-100 hover:scale-[1.02] transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-white/20 text-white flex items-center justify-center text-lg mb-2 backdrop-blur-sm">
+                  <FaHourglassHalf className={todayRecord.punchIn && !todayRecord.punchOut ? "animate-spin-slow" : ""} />
                 </div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Working</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-1 font-mono">{liveTimer}</p>
+                <p className="text-[8px] font-black text-blue-100 uppercase tracking-widest">Worked</p>
+                <p className="text-base font-black text-white mt-0.5 font-mono">{liveTimer}</p>
               </div>
 
               {/* Target */}
-              <div className="bg-gray-50 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center hover:bg-purple-50/50 transition-colors group">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center text-xl mb-3 group-hover:scale-110 transition-transform">
+              <div className="bg-gray-50 rounded-2xl p-4 flex flex-col items-center justify-center border border-transparent hover:border-purple-100 hover:bg-purple-50/30 transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-lg mb-2 shadow-sm border border-purple-100">
                   <FaBullseye />
                 </div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Target</p>
-                <p className="text-lg md:text-xl font-bold text-gray-900 mt-1">
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Goal</p>
+                <p className="text-base font-black text-gray-900 mt-0.5">
                   {shiftDetails?.fullDayHours || 9}h 00m
                 </p>
               </div>
@@ -988,36 +1007,37 @@ const EmployeeDailyAttendance = () => {
         {/* --- Charts Section --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Monthly Donut */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col">
-            <h3 className="text-gray-800 font-bold mb-4">Monthly Overview</h3>
-            <div className="relative h-48 w-full flex-1">
-              <Doughnut data={donutData} options={donutOptions} />
-              {/* Center Text */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pr-12 md:pr-16 lg:pr-12">
-                <span className="text-3xl font-bold text-gray-800">{getDaysInMonth(selectedDate.getFullYear(), selectedDate.getMonth()).length}</span>
-                <span className="text-[10px] text-gray-400 uppercase font-bold">Days</span>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col min-h-[300px]">
+            <h3 className="text-gray-800 font-bold mb-6 flex items-center gap-2"><FaListAlt className="text-blue-500" /> Monthly Overview</h3>
+            <div className="relative flex-1 flex flex-col items-center justify-center">
+              <div className="w-full h-full max-h-56 relative">
+                <Doughnut data={donutData} options={donutOptions} />
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
+                  <span className="text-3xl font-black text-gray-800">{getDaysInMonth(selectedDate.getFullYear(), selectedDate.getMonth()).length}</span>
+                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Total Days</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Yearly Bar */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-gray-800 font-bold">Yearly Overview - {selectedDate.getFullYear()}</h3>
-              <div className="flex gap-4 text-xs">
-                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Present</div>
-                <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Absent</div>
+          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 min-h-[300px] flex flex-col">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+              <h3 className="text-gray-800 font-bold flex items-center gap-2"><FaHistory className="text-emerald-500" /> Yearly Overview - {selectedDate.getFullYear()}</h3>
+              <div className="flex gap-4 text-[10px] font-bold uppercase tracking-wider">
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Present</div>
+                <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500"></span> Absent</div>
               </div>
             </div>
-            <div className="h-48 w-full">
+            <div className="flex-1 w-full relative min-h-[200px]">
               <Bar
                 data={barGraphData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
                   scales: {
-                    x: { grid: { display: false }, border: { display: false } },
-                    y: { display: true, border: { display: false }, grid: { borderDash: [4, 4] }, ticks: { stepSize: 5 } }
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+                    y: { display: true, border: { display: false }, grid: { borderDash: [4, 4], color: '#f1f5f9' }, ticks: { stepSize: 5, font: { size: 10 } } }
                   },
                   plugins: { legend: { display: false } }
                 }}
@@ -1026,184 +1046,256 @@ const EmployeeDailyAttendance = () => {
           </div>
         </div>
 
-        {/* --- Table Section (UPDATED: Scrollable with Indicator) --- */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-gray-800 text-lg">Attendance Records</h3>
-              <p className="text-gray-400 text-xs mt-1">{selectedDate.toLocaleString('default', { month: 'long' })} {selectedDate.getFullYear()}</p>
+        {/* --- Attendance Records Section --- */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          {/* Section Header */}
+          <div className="p-6 border-b border-gray-100 bg-white flex flex-col gap-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-extrabold text-gray-900 text-xl tracking-tight">Attendance Records</h3>
+                <p className="text-gray-400 text-xs mt-1 font-medium uppercase tracking-widest">
+                  {selectedDate.toLocaleString('default', { month: 'long' })} {selectedDate.getFullYear()}
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <div className="relative w-full sm:w-64">
+                  <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                  <input
+                    type="text"
+                    placeholder="Search records..."
+                    className="pl-11 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full transition-all focus:bg-white focus:shadow-inner"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <button onClick={handleExport} className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl text-sm font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100 active:scale-95">
+                  <FaFileDownload /> Export CSV
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="pl-8 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-48"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <button onClick={handleExport} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-100 transition">
-                <FaFileDownload /> <span className="hidden md:inline">Export CSV</span>
+            {/* Quick Filter / History Buttons */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowRequestsModal(true)}
+                className="flex-1 min-w-[140px] px-4 py-2.5 text-orange-600 bg-orange-50 rounded-xl hover:bg-orange-100 text-xs font-bold transition flex items-center justify-center gap-2 border border-orange-100"
+              >
+                <FaUserClock className="text-orange-400" /> Late History
               </button>
-
-              {/* Action Menu for History */}
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setShowRequestsModal(true)}
-                  className="px-3 py-2 text-orange-600 bg-orange-50 rounded-lg hover:bg-orange-100 text-sm font-medium"
-                >
-                  Late Requests History
-                </button>
-
-                <button
-                  onClick={() => setShowCorrectionHistoryModal(true)}
-                  className="px-3 py-2 text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 text-sm font-medium"
-                >
-                  Attendence Correction History
-                </button>
-
-                <button
-                  onClick={() => setShowFullDayHistoryModal(true)}
-                  className="px-3 py-2 text-teal-600 bg-teal-50 rounded-lg hover:bg-teal-100 text-sm font-medium"
-                >
-                  Full Day Request History
-                </button>
-
-              </div>
+              <button
+                onClick={() => setShowCorrectionHistoryModal(true)}
+                className="flex-1 min-w-[140px] px-4 py-2.5 text-purple-600 bg-purple-50 rounded-xl hover:bg-purple-100 text-xs font-bold transition flex items-center justify-center gap-2 border border-purple-100"
+              >
+                <FaHistory className="text-purple-400" /> Correction History
+              </button>
+              <button
+                onClick={() => setShowFullDayHistoryModal(true)}
+                className="flex-1 min-w-[140px] px-4 py-2.5 text-teal-600 bg-teal-50 rounded-xl hover:bg-teal-100 text-xs font-bold transition flex items-center justify-center gap-2 border border-teal-100"
+              >
+                <FaBullseye className="text-teal-400" /> Full Day History
+              </button>
             </div>
           </div>
 
-          {/* Fixed Header */}
-          <div className="border-b border-gray-100 bg-gray-50/50 pr-[6px]">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-400 uppercase font-bold">
-                <tr>
-                  {['Date', 'Check In', 'Check Out', 'Hours Worked', 'Status', 'Login Status', 'Day Type'].map((h, i) => (
-                    <th key={i} className="px-6 py-4 font-semibold tracking-wider cursor-pointer hover:text-blue-600" onClick={() => requestSort(h.replace(' ', '').toLowerCase())}>
-                      <div className="flex items-center gap-1">{h} {getSortIcon(h.replace(' ', '').toLowerCase())}</div>
+          {/* Desktop Table View */}
+          <div className="hidden lg:block overflow-x-auto custom-scrollbar border border-gray-100 rounded-2xl shadow-sm bg-white">
+            <table className="min-w-[1100px] w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 text-[10px] text-gray-400 uppercase font-black tracking-[0.2em] border-b border-gray-100">
+                  {['Date', 'Check In', 'Check Out', 'Worked', 'Attendance', 'Log', 'Type', 'Action', 'Edit'].map((h, i) => (
+                    <th key={i} className="px-6 py-5 font-black cursor-pointer hover:text-blue-600 transition-colors whitespace-nowrap" onClick={() => requestSort(h.toLowerCase().replace(' ', ''))}>
+                      <div className="flex items-center gap-1.5">{h} {getSortIcon(h.toLowerCase().replace(' ', ''))}</div>
                     </th>
                   ))}
                 </tr>
               </thead>
+              <tbody className="divide-y divide-gray-50 bg-white">
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} />)
+                ) : filteredData.length > 0 ? (
+                  filteredData.map((row) => {
+                    const isWeekend = row.workedStatus === 'Week Off';
+                    const isAbsent = row.workedStatus === 'Absent';
+                    const correctionReq = myCorrections.find(c => c.date === toISODateString(row.date));
+                    const isCorrectionPending = correctionReq?.requestStatus === 'pending';
+                    const isCorrectionApproved = correctionReq?.requestStatus === 'approved';
+                    const isCorrectionRejected = correctionReq?.requestStatus === 'rejected';
+
+                    return (
+                      <tr key={row.date} className="hover:bg-blue-50/20 transition-colors group border-b border-gray-50 last:border-0">
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="font-black text-gray-800 text-sm">{new Date(row.date).getDate()} {new Date(row.date).toLocaleString('default', { month: 'short' })}</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{new Date(row.date).toLocaleDateString('en-US', { weekday: 'long' })}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 font-semibold text-gray-600 whitespace-nowrap">
+                          {row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                        </td>
+                        <td className="px-6 py-5 font-semibold text-gray-600 whitespace-nowrap">
+                          {row.punchOut ? new Date(row.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <span className="font-black text-gray-900 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-100">{row.displayTime}</span>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          {row.workedStatus === "Working" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100 animate-pulse">
+                              <FaRegClock className="animate-spin-slow" /> Working
+                            </span>
+                          ) : row.workedStatus === "Full Day" ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-green-50 text-green-600 border border-green-100">
+                              <FaCheckCircle /> Full Day
+                            </span>
+                          ) : isAbsent ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-50 text-red-600 border border-red-100">
+                              <FaTimesCircle /> Absent
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-yellow-50 text-yellow-600 border border-yellow-100">{row.workedStatus}</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          {row.loginStatus === 'LATE' ? (
+                            <span className="text-red-500 font-black text-[10px] uppercase tracking-widest bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-100">Late</span>
+                          ) : row.punchIn ? (
+                            <span className="text-green-500 font-black text-[10px] uppercase tracking-widest bg-green-50 px-2.5 py-1.5 rounded-lg border border-green-100">On-Time</span>
+                          ) : <span className="text-gray-300 font-bold">--</span>}
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${isWeekend ? "bg-gray-100 text-gray-500" : "bg-blue-50 text-blue-600 border border-blue-100"}`}>
+                            {isWeekend ? "Weekend" : "Week Day"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          {isCorrectionPending && <span className="text-[10px] text-orange-500 font-black uppercase bg-orange-50 px-3 py-1.5 rounded-full animate-pulse border border-orange-100">Pending</span>}
+                          {isCorrectionApproved && <span className="text-[10px] text-green-600 font-black uppercase bg-green-50 px-3 py-1.5 rounded-full border border-green-100">Approved</span>}
+                          {isCorrectionRejected && <span className="text-[10px] text-red-500 font-black uppercase bg-red-50 px-3 py-1.5 rounded-full border border-red-100">Rejected</span>}
+                        </td>
+                        <td className="px-6 py-5 text-center whitespace-nowrap">
+                          {!isWeekend && !isCorrectionPending && !isCorrectionApproved && !row.isAdminCorrected && (
+                            <button
+                              onClick={() => openAdvancedCorrectionModal(row)}
+                              className="text-gray-400 hover:text-blue-600 p-2 hover:bg-blue-50 rounded-full transition-all mx-auto"
+                              title="Request Correction"
+                            >
+                              <FaEdit size={14} />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr><td colSpan="9" className="text-center py-20 text-gray-400 font-medium">No records found for this period.</td></tr>
+                )}
+              </tbody>
             </table>
           </div>
 
-          {/* Scrollable Body */}
-          <div className="relative group">
-            <div
-              ref={tableContainerRef}
-              onScroll={handleScroll}
-              className="max-h-[400px] overflow-y-auto"
-              style={{ scrollbarWidth: 'thin' }}
-            >
-              <table className="w-full text-sm text-left">
-                <tbody className="divide-y divide-gray-50">
-                  {loading ? (
-                    Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} />)
-                  ) : filteredData.length > 0 ? (
-                    filteredData.map((row) => {
-                      const isWeekend = row.workedStatus === 'Week Off';
-                      const isAbsent = row.workedStatus === 'Absent';
-                      const correctionReq = myCorrections.find(c => c.date === toISODateString(row.date));
-                      const isCorrectionPending = correctionReq?.requestStatus === 'pending';
-                      const isCorrectionApproved = correctionReq?.requestStatus === 'approved';
-                      const isCorrectionRejected = correctionReq?.requestStatus === 'rejected';
+          {/* Mobile Card View */}
+          <div className="lg:hidden">
+            <div className="flex flex-col gap-5 p-4 bg-gray-50/50">
+              {loading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-6 bg-white rounded-2xl animate-pulse space-y-4 shadow-sm border border-gray-100">
+                    <div className="flex justify-between">
+                      <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="h-10 bg-gray-100 rounded-xl"></div>
+                      <div className="h-10 bg-gray-100 rounded-xl"></div>
+                    </div>
+                  </div>
+                ))
+              ) : filteredData.length > 0 ? (
+                filteredData.map((row) => {
+                  const isWeekend = row.workedStatus === 'Week Off';
+                  const isAbsent = row.workedStatus === 'Absent';
+                  const correctionReq = myCorrections.find(c => c.date === toISODateString(row.date));
+                  const isCorrectionPending = correctionReq?.requestStatus === 'pending';
+                  const isCorrectionApproved = correctionReq?.requestStatus === 'approved';
+                  const isCorrectionRejected = correctionReq?.requestStatus === 'rejected';
 
-                      return (
-                        <tr key={row.date} className="hover:bg-gray-50/50 transition-colors group">
-                          <td className="px-6 py-4 w-[14.2%]">
-                            <p className="font-bold text-gray-700">{new Date(row.date).getDate()} {new Date(row.date).toLocaleString('default', { month: 'short', year: 'numeric' })}</p>
-                            <p className="text-xs text-gray-400 ">{new Date(row.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
-                          </td>
-                          <td className="px-6 py-4 w-[14.2%] font-medium text-gray-600">
-                            {row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
-                          </td>
-                          <td className="px-6 py-4 w-[14.2%] font-medium text-gray-600">
-                            {row.punchOut ? new Date(row.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--"}
-                          </td>
-                          <td className="px-6 py-4 w-[14.2%] font-bold text-gray-800">{row.displayTime}</td>
-                          <td className="px-6 py-4 w-[14.2%]">
-                            {row.workedStatus === "Working" ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-600 border border-blue-100">
-                                <FaRegClock className="animate-spin-slow" /> Working
+                  return (
+                    <div key={row.date} className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 hover:border-blue-500 transition-all transform active:scale-[0.98]">
+                      <div className="flex justify-between items-start mb-5">
+                        <div className="flex gap-4 items-center">
+                          <div className="bg-blue-600 text-white w-14 h-14 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-blue-100 shrink-0">
+                            <span className="text-xl font-black leading-none">{new Date(row.date).getDate()}</span>
+                            <span className="text-[9px] uppercase font-black mt-0.5">{new Date(row.date).toLocaleString('default', { month: 'short' })}</span>
+                          </div>
+                          <div>
+                            <h4 className="font-black text-gray-800 text-base">{new Date(row.date).toLocaleDateString('en-US', { weekday: 'long' })}</h4>
+                            <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                              {row.loginStatus === 'LATE' ? (
+                                <span className="text-[8px] font-black uppercase text-red-500 bg-red-50 px-2 py-1 rounded-lg border border-red-100">Late Login</span>
+                              ) : row.punchIn ? (
+                                <span className="text-[8px] font-black uppercase text-green-500 bg-green-50 px-2 py-1 rounded-lg border border-green-100">On-Time</span>
+                              ) : null}
+                              <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border ${isWeekend ? "bg-gray-100 text-gray-500 border-gray-200" : "bg-blue-50 text-blue-600 border-blue-100"}`}>
+                                {isWeekend ? "Weekend" : "Working Day"}
                               </span>
-                            ) : row.workedStatus === "Full Day" ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-600 border border-green-100">
-                                <FaCheckCircle /> Completed
-                              </span>
-                            ) : isAbsent ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-600 border border-red-100">
-                                <FaTimesCircle /> Absent
-                              </span>
-                            ) : (
-                              <span className="text-gray-500 font-medium">{row.workedStatus}</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 w-[14.2%]">
-                            {row.loginStatus === 'LATE' ? (
-                              <span className="text-red-500 font-bold text-xs">Late</span>
-                            ) : row.punchIn ? (
-                              <span className="text-green-500 font-bold text-xs">On-Time</span>
-                            ) : <span className="text-gray-300">--</span>}
-                          </td>
-                          <td className="px-1 py-4 w-[14.2%]">
-                            <div className="flex items-center justify-between">
-                              <span className={`px-3 py-1 rounded-md text-xs font-bold ${isWeekend ? "bg-gray-100 text-gray-500" :
-                                isAbsent ? "bg-red-50 text-red-500" :
-                                  row.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-600" :
-                                    "bg-blue-50 text-blue-600"
-                                }`}>
-                                {isWeekend ? "Weekend" : row.workedStatus === "Full Day" ? "Full Day" : row.workedStatus}
-                              </span>
-
-                              <div className="flex items-center gap-2">
-                                {!isWeekend && !isCorrectionPending && !isCorrectionApproved && !row.isAdminCorrected && (
-                                  <button
-                                    onClick={() => openAdvancedCorrectionModal(row)}
-                                    className="text-gray-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-full transition-all"
-                                    title="Request Correction"
-                                  >
-                                    <FaEdit size={14} />
-                                  </button>
-                                )}
-
-                                {isCorrectionPending && (
-                                  <span className="flex items-center gap-1 text-[10px] text-orange-500 font-bold bg-orange-50 px-2 py-1 rounded-full animate-pulse">
-                                    <FaRegClock size={10} /> Pending
-                                  </span>
-                                )}
-                                {isCorrectionApproved && (
-                                  <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full">
-                                    <FaCheckCircle size={10} /> Approved
-                                  </span>
-                                )}
-                                {isCorrectionRejected && (
-                                  <span className="flex items-center gap-1 text-[10px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded-full">
-                                    <FaTimesCircle size={10} /> Rejected
-                                  </span>
-                                )}
-                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr><td colSpan="7" className="text-center py-10 text-gray-400">No records found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                          </div>
+                        </div>
 
-            {/* Scroll Indicator */}
-            {showScrollArrow && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur shadow-lg border border-gray-100 rounded-full p-2 text-blue-600 animate-bounce cursor-pointer z-10" onClick={() => tableContainerRef.current.scrollBy({ top: 100, behavior: 'smooth' })}>
-                <FaChevronDown />
-              </div>
-            )}
+                        <div className="flex flex-col items-end gap-2.5">
+                          <div className="bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100 shadow-inner">
+                            <span className="text-xs font-black text-gray-900">{row.displayTime}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {isCorrectionPending && <span className="text-[9px] font-black uppercase text-orange-500 bg-orange-50 px-2.5 py-1.5 rounded-xl border border-orange-100 animate-pulse">Pending</span>}
+                            {isCorrectionApproved && <span className="text-[9px] font-black uppercase text-green-600 bg-green-50 px-2.5 py-1.5 rounded-xl border border-green-100">Approved</span>}
+                            {isCorrectionRejected && <span className="text-[9px] font-black uppercase text-red-500 bg-red-50 px-2.5 py-1.5 rounded-xl border border-red-100">Rejected</span>}
+                            {!isWeekend && !isCorrectionPending && !isCorrectionApproved && !row.isAdminCorrected && (
+                              <button onClick={() => openAdvancedCorrectionModal(row)} className="text-blue-600 bg-blue-50 p-2.5 rounded-2xl border border-blue-100 shadow-sm active:scale-90 transition-transform">
+                                <FaEdit size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center text-center">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.1em] mb-1.5">Check In</p>
+                          <p className="text-sm font-black text-gray-800 font-mono">{row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</p>
+                        </div>
+                        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex flex-col items-center justify-center text-center">
+                          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.1em] mb-1.5">Check Out</p>
+                          <p className="text-sm font-black text-gray-800 font-mono">{row.punchOut ? new Date(row.punchOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-center">
+                        {row.workedStatus === "Working" ? (
+                          <div className="w-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl text-center shadow-lg shadow-blue-100 animate-pulse flex items-center justify-center gap-2">
+                            <FaRegClock className="animate-spin-slow" /> Currently Working
+                          </div>
+                        ) : row.workedStatus === "Full Day" ? (
+                          <div className="w-full bg-green-50 text-green-600 text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl text-center border border-green-100 flex items-center justify-center gap-2">
+                            <FaCheckCircle /> Full Day Completed
+                          </div>
+                        ) : isAbsent ? (
+                          <div className="w-full bg-red-50 text-red-600 text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl text-center border border-red-100 flex items-center justify-center gap-2">
+                            <FaTimesCircle /> Marked Absent
+                          </div>
+                        ) : (
+                          <div className="w-full bg-yellow-50 text-yellow-600 text-[10px] font-black uppercase tracking-widest py-3.5 rounded-2xl text-center border border-yellow-100">
+                            {row.workedStatus} Status
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="p-20 text-center bg-white rounded-3xl border border-dashed border-gray-200 text-gray-400 font-black uppercase tracking-widest text-sm">No Records Found</div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1230,7 +1322,7 @@ const EmployeeDailyAttendance = () => {
 
               <div className="p-6 space-y-5">
                 {/* Status Selection */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Current Status</label>
                     <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-600 font-semibold text-sm">
@@ -1253,7 +1345,7 @@ const EmployeeDailyAttendance = () => {
 
                 {/* Time Selection */}
                 {advancedReqData.requestedStatus !== 'Absent' && (
-                  <div className="grid grid-cols-2 gap-4 animate-fade-in">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Requested Punch In</label>
                       <input
@@ -1326,38 +1418,86 @@ const EmployeeDailyAttendance = () => {
               </div>
 
               {/* Modal Content - Scrollable */}
-              <div className="overflow-y-auto p-0 flex-1 bg-gray-50">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-white text-gray-500 text-xs uppercase sticky top-0 shadow-sm z-10">
-                    <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Punch In</th>
-                      <th className="px-6 py-4">Reason</th>
-                      <th className="px-6 py-4">Admin Note</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {lateRequestsHistory.length > 0 ? (
-                      lateRequestsHistory.map((row, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 font-bold text-gray-700">{new Date(row.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold border ${row.lateCorrectionRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
-                              row.lateCorrectionRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
-                                'bg-yellow-50 text-yellow-600 border-yellow-200'
-                              }`}>{row.lateCorrectionRequest.status}</span>
-                          </td>
-                          <td className="px-6 py-4 font-mono text-xs">{row.punchIn ? new Date(row.punchIn).toLocaleTimeString() : '--'}</td>
-                          <td className="px-6 py-4 max-w-xs truncate text-gray-500" title={row.lateCorrectionRequest.reason}>{row.lateCorrectionRequest.reason}</td>
-                          <td className="px-6 py-4 italic text-gray-400">{row.lateCorrectionRequest.adminComment || "--"}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="5" className="text-center py-12 text-gray-400">No late requests found in history.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="overflow-y-auto p-0 flex-1 bg-gray-50 custom-scrollbar">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-white text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 shadow-sm z-10">
+                      <tr>
+                        <th className="px-6 py-5">Date</th>
+                        <th className="px-6 py-5">Status</th>
+                        <th className="px-6 py-5">Punch In</th>
+                        <th className="px-6 py-5">Reason</th>
+                        <th className="px-6 py-5">Admin Note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {lateRequestsHistory.length > 0 ? (
+                        lateRequestsHistory.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-5 font-black text-gray-700 whitespace-nowrap">{new Date(row.date).toLocaleDateString()}</td>
+                            <td className="px-6 py-5">
+                              <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${row.lateCorrectionRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                                row.lateCorrectionRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                                  'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                }`}>{row.lateCorrectionRequest.status}</span>
+                            </td>
+                            <td className="px-6 py-5 font-mono text-xs font-bold whitespace-nowrap">{row.punchIn ? new Date(row.punchIn).toLocaleTimeString() : '--'}</td>
+                            <td className="px-6 py-5 min-w-[200px] text-gray-500 text-xs leading-relaxed" title={row.lateCorrectionRequest.reason}>{row.lateCorrectionRequest.reason}</td>
+                            <td className="px-6 py-5 italic text-gray-400 text-xs min-w-[150px]">{row.lateCorrectionRequest.adminComment || "--"}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="5" className="text-center py-20 text-gray-400 font-black uppercase tracking-widest text-xs">No late requests found</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden p-4 space-y-4">
+                  {lateRequestsHistory.length > 0 ? (
+                    lateRequestsHistory.map((row, i) => (
+                      <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Request Date</span>
+                            <span className="text-sm font-black text-gray-800">{new Date(row.date).toLocaleDateString()}</span>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${row.lateCorrectionRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                            row.lateCorrectionRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                              'bg-yellow-50 text-yellow-600 border-yellow-200'
+                            }`}>{row.lateCorrectionRequest.status}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-gray-50 p-3 rounded-xl">
+                            <span className="block text-[8px] font-black text-gray-400 uppercase tracking-tighter mb-1">Punch In</span>
+                            <span className="text-xs font-bold text-gray-700 font-mono">{row.punchIn ? new Date(row.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                          </div>
+                          <div className="bg-gray-50 p-3 rounded-xl">
+                            <span className="block text-[8px] font-black text-gray-400 uppercase tracking-tighter mb-1">Type</span>
+                            <span className="text-xs font-bold text-gray-700">Late Login</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reason</span>
+                          <p className="text-xs text-gray-600 leading-relaxed bg-blue-50/50 p-3 rounded-xl border border-blue-100/50">{row.lateCorrectionRequest.reason}</p>
+                        </div>
+
+                        {row.lateCorrectionRequest.adminComment && (
+                          <div className="space-y-2 pt-2 border-t border-gray-50">
+                            <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest">Admin Remark</span>
+                            <p className="text-xs italic text-gray-500 bg-orange-50/50 p-3 rounded-xl border border-orange-100/50">{row.lateCorrectionRequest.adminComment}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-20 text-gray-400 font-black uppercase tracking-widest text-xs">No late requests found</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1372,46 +1512,92 @@ const EmployeeDailyAttendance = () => {
                 <button onClick={() => setShowCorrectionHistoryModal(false)} className="hover:bg-white/20 p-2 rounded-full transition"><FaTimes /></button>
               </div>
 
-              <div className="overflow-y-auto p-0 flex-1 bg-gray-50">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-white text-gray-500 text-xs uppercase sticky top-0 shadow-sm z-10">
-                    <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Correction Time</th>
-                      <th className="px-6 py-4">Reason</th>
-                      <th className="px-6 py-4">Admin Note</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {statusCorrectionHistory.length > 0 ? (
-                      statusCorrectionHistory.map((row, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 font-bold text-gray-700">{new Date(row.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold border ${row.statusCorrectionRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
-                              row.statusCorrectionRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
-                                'bg-yellow-50 text-yellow-600 border-yellow-200'
-                              }`}>{row.statusCorrectionRequest.status}</span>
-                          </td>
-                          <td className="px-6 py-4 font-mono text-xs text-blue-600 font-bold">
+              <div className="overflow-y-auto p-0 flex-1 bg-gray-50 custom-scrollbar">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-white text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 shadow-sm z-10">
+                      <tr>
+                        <th className="px-6 py-5">Date</th>
+                        <th className="px-6 py-5">Status</th>
+                        <th className="px-6 py-5">Correction</th>
+                        <th className="px-6 py-5">Reason</th>
+                        <th className="px-6 py-5">Admin Note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {statusCorrectionHistory.length > 0 ? (
+                        statusCorrectionHistory.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-5 font-black text-gray-700 whitespace-nowrap">{new Date(row.date).toLocaleDateString()}</td>
+                            <td className="px-6 py-5">
+                              <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${row.statusCorrectionRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                                row.statusCorrectionRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                                  'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                }`}>{row.statusCorrectionRequest.status}</span>
+                            </td>
+                            <td className="px-6 py-5 font-mono text-xs text-blue-600 font-black whitespace-nowrap">
+                              {(() => {
+                                const utcDate = new Date(row.statusCorrectionRequest.requestedPunchOut);
+                                const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
+                                return istDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              })()}
+                            </td>
+                            <td className="px-6 py-5 min-w-[200px] text-gray-500 text-xs leading-relaxed" title={row.statusCorrectionRequest.reason}>{row.statusCorrectionRequest.reason}</td>
+                            <td className="px-6 py-5 italic text-gray-400 text-xs min-w-[150px]">{row.statusCorrectionRequest.adminComment || "--"}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="5" className="text-center py-20 text-gray-400 font-black uppercase tracking-widest text-xs">No correction history found</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden p-4 space-y-4">
+                  {statusCorrectionHistory.length > 0 ? (
+                    statusCorrectionHistory.map((row, i) => (
+                      <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Attendance Date</span>
+                            <span className="text-sm font-black text-gray-800">{new Date(row.date).toLocaleDateString()}</span>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${row.statusCorrectionRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                            row.statusCorrectionRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                              'bg-yellow-50 text-yellow-600 border-yellow-200'
+                            }`}>{row.statusCorrectionRequest.status}</span>
+                        </div>
+
+                        <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex items-center justify-between">
+                          <span className="text-[10px] font-black text-indigo-600 uppercase">Requested Out</span>
+                          <span className="text-sm font-black text-indigo-700 font-mono">
                             {(() => {
-                              // Convert UTC to IST for display
                               const utcDate = new Date(row.statusCorrectionRequest.requestedPunchOut);
-                              // Add 5.5 hours (IST offset) to convert UTC to IST
                               const istDate = new Date(utcDate.getTime() + (5.5 * 60 * 60 * 1000));
                               return istDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                             })()}
-                          </td>
-                          <td className="px-6 py-4 max-w-xs truncate text-gray-500" title={row.statusCorrectionRequest.reason}>{row.statusCorrectionRequest.reason}</td>
-                          <td className="px-6 py-4 italic text-gray-400">{row.statusCorrectionRequest.adminComment || "--"}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="5" className="text-center py-12 text-gray-400">No correction history found.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reason for Discrepancy</span>
+                          <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">{row.statusCorrectionRequest.reason}</p>
+                        </div>
+
+                        {row.statusCorrectionRequest.adminComment && (
+                          <div className="space-y-2 pt-2 border-t border-gray-50">
+                            <span className="text-[10px] font-black text-purple-600 uppercase tracking-widest">Admin Response</span>
+                            <p className="text-xs italic text-gray-500 bg-purple-50/50 p-3 rounded-xl border border-purple-100/50">{row.statusCorrectionRequest.adminComment}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-20 text-gray-400 font-black uppercase tracking-widest text-xs">No correction history found</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1511,38 +1697,80 @@ const EmployeeDailyAttendance = () => {
                 <button onClick={() => setShowFullDayHistoryModal(false)} className="hover:bg-white/20 p-2 rounded-full transition"><FaTimes /></button>
               </div>
 
-              <div className="overflow-y-auto p-0 flex-1 bg-gray-50">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-white text-gray-500 text-xs uppercase sticky top-0 shadow-sm z-10">
-                    <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Submitted On</th>
-                      <th className="px-6 py-4">Reason</th>
-                      <th className="px-6 py-4">Admin Note</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {fullDayRequestHistory.length > 0 ? (
-                      fullDayRequestHistory.map((row, i) => (
-                        <tr key={i} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 font-bold text-gray-700">{new Date(row.date).toLocaleDateString()}</td>
-                          <td className="px-6 py-4">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold border ${row.fullDayRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
-                              row.fullDayRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
-                                'bg-yellow-50 text-yellow-600 border-yellow-200'
-                              }`}>{row.fullDayRequest.status}</span>
-                          </td>
-                          <td className="px-6 py-4 font-mono text-xs">{row.fullDayRequest.requestedAt ? new Date(row.fullDayRequest.requestedAt).toLocaleString() : '--'}</td>
-                          <td className="px-6 py-4 max-w-xs truncate text-gray-500" title={row.fullDayRequest.reason}>{row.fullDayRequest.reason}</td>
-                          <td className="px-6 py-4 italic text-gray-400">{row.fullDayRequest.adminComment || "--"}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="5" className="text-center py-12 text-gray-400">No full day request history found.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="overflow-y-auto p-0 flex-1 bg-gray-50 custom-scrollbar">
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-white text-gray-400 text-[10px] font-black uppercase tracking-widest sticky top-0 shadow-sm z-10">
+                      <tr>
+                        <th className="px-6 py-5">Date</th>
+                        <th className="px-6 py-5">Status</th>
+                        <th className="px-6 py-5">Submitted On</th>
+                        <th className="px-6 py-5">Reason</th>
+                        <th className="px-6 py-5">Admin Note</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {fullDayRequestHistory.length > 0 ? (
+                        fullDayRequestHistory.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-5 font-black text-gray-700 whitespace-nowrap">{new Date(row.date).toLocaleDateString()}</td>
+                            <td className="px-6 py-5">
+                              <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${row.fullDayRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                                row.fullDayRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                                  'bg-yellow-50 text-yellow-600 border-yellow-200'
+                                }`}>{row.fullDayRequest.status}</span>
+                            </td>
+                            <td className="px-6 py-5 font-mono text-xs font-bold whitespace-nowrap">{row.fullDayRequest.requestedAt ? new Date(row.fullDayRequest.requestedAt).toLocaleString() : '--'}</td>
+                            <td className="px-6 py-5 min-w-[200px] text-gray-500 text-xs leading-relaxed" title={row.fullDayRequest.reason}>{row.fullDayRequest.reason}</td>
+                            <td className="px-6 py-5 italic text-gray-400 text-xs min-w-[150px]">{row.fullDayRequest.adminComment || "--"}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr><td colSpan="5" className="text-center py-20 text-gray-400 font-black uppercase tracking-widest text-xs">No history found</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden p-4 space-y-4">
+                  {fullDayRequestHistory.length > 0 ? (
+                    fullDayRequestHistory.map((row, i) => (
+                      <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col gap-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Attendance Date</span>
+                            <span className="text-sm font-black text-gray-800">{new Date(row.date).toLocaleDateString()}</span>
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${row.fullDayRequest.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-200' :
+                            row.fullDayRequest.status === 'REJECTED' ? 'bg-red-50 text-red-600 border-red-200' :
+                              'bg-yellow-50 text-yellow-600 border-yellow-200'
+                            }`}>{row.fullDayRequest.status}</span>
+                        </div>
+
+                        <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                          <span className="block text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Submitted On</span>
+                          <span className="text-xs font-bold text-emerald-700">{row.fullDayRequest.requestedAt ? new Date(row.fullDayRequest.requestedAt).toLocaleString() : '--'}</span>
+                        </div>
+
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Reason</span>
+                          <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-3 rounded-xl border border-gray-100">{row.fullDayRequest.reason}</p>
+                        </div>
+
+                        {row.fullDayRequest.adminComment && (
+                          <div className="space-y-2 pt-2 border-t border-gray-50">
+                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Admin Note</span>
+                            <p className="text-xs italic text-gray-500 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50">{row.fullDayRequest.adminComment}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-20 text-gray-400 font-black uppercase tracking-widest text-xs">No history found</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

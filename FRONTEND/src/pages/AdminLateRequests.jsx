@@ -650,11 +650,11 @@ const AdminLateRequests = () => {
           <button
             onClick={() => { setRequestType("PENDING"); fetchRequests(); }}
             className={`flex-1 sm:flex-none text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl transition shadow-sm font-black uppercase tracking-wider relative border-2 ${requestType === "PENDING"
-                ? "bg-orange-600 text-white border-orange-600"
-                : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
+              ? "bg-orange-600 text-white border-orange-600"
+              : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
               }`}
           >
-            ontime
+            Late Login
             {requests.length > 0 && (
               <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
                 {requests.length}
@@ -664,8 +664,8 @@ const AdminLateRequests = () => {
           <button
             onClick={() => { setRequestType("CORRECTIONS"); fetchCorrectionRequests(); }}
             className={`flex-1 sm:flex-none text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl transition shadow-sm font-black uppercase tracking-wider relative border-2 ${requestType === "CORRECTIONS"
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
               }`}
           >
             Corrections
@@ -678,8 +678,8 @@ const AdminLateRequests = () => {
           <button
             onClick={() => { setRequestType("LIMITS"); fetchEmployeeLimits(); }}
             className={`flex-1 sm:flex-none text-[10px] sm:text-xs px-3 sm:px-4 py-2 rounded-xl transition shadow-sm font-black uppercase tracking-wider border-2 ${requestType === "LIMITS"
-                ? "bg-purple-600 text-white border-purple-600"
-                : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
+              ? "bg-purple-600 text-white border-purple-600"
+              : "bg-white border-gray-100 text-gray-500 hover:bg-gray-50"
               }`}
           >
             Limits
@@ -717,8 +717,8 @@ const AdminLateRequests = () => {
             onClick={() => setShowBulkLimitModal(true)}
             disabled={selectedEmployees.length === 0}
             className={`px-4 py-2.5 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm transition ${selectedEmployees.length > 0
-                ? "bg-purple-600 text-white hover:bg-purple-700"
-                : "bg-gray-200 text-gray-400 cursor-not-allowed"
+              ? "bg-purple-600 text-white hover:bg-purple-700"
+              : "bg-gray-200 text-gray-400 cursor-not-allowed"
               }`}
           >
             <FaCog /> Bulk Edit ({selectedEmployees.length})

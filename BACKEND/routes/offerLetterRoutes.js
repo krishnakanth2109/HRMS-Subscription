@@ -16,6 +16,8 @@ import PayrollRule from "../models/PayrollRule.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import { upload, cloudinary } from "../config/cloudinary.js";
+import { generateHRDocument } from "../Services/aiDocumentService.js";
+import { getFallbackTemplate } from "../utils/documentTemplates.js";
 
 const router = express.Router();
 
@@ -259,7 +261,7 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     // The offer letter template expects ANNUAL values (divides by 12 for monthly column)
     let pt = n(comp.pt) * 12;
     let pf = n(comp.pf) * 12;
-    let basic = n(comp.basic_salary) * 12; // monthly → annual
+    let basic = n(comp.basic_salary) * 12;
 
     // ALWAYS use latest Payroll Rules — respects zero values from admin settings
     console.log("📋 Offer letter: fetching live Payroll Rules for admin", adminId);
@@ -271,17 +273,9 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
         conveyance: 1600, medical: 1250,
         travellingAllowance: 800, otherAllowance: 1000,
         pfCalculationMethod: 'percentage', pfPercentage: 12,
-        pfFixedAmountEmployee: 0,
         ptSlab1Limit: 15000, ptSlab2Limit: 20000,
         ptSlab1Amount: 150, ptSlab2Amount: 200
       };
-    } else {
-      console.log("✅ Live Payroll Rules:", JSON.stringify({
-        basicPercentage: rules.basicPercentage, hraPercentage: rules.hraPercentage,
-        conveyance: rules.conveyance, medical: rules.medical,
-        travellingAllowance: rules.travellingAllowance, otherAllowance: rules.otherAllowance,
-        pfPercentage: rules.pfPercentage
-      }));
     }
 
     if (basic === 0 && ctc > 0) {
@@ -332,90 +326,74 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     const ctcLakhs = formatLakhs(ctc);
     const netWords = numberToIndianWords(net);
 
-    // Determine strict pixel boundaries for the Canvas to prevent Annexure A overlap 
-    // or accidental second blank pages. Math matches FRONTEND containerPxPerPage padding.
-    const isIntern = !emp.employment_type || emp.employment_type.toLowerCase() === "internship";
-    const minHeightPx = isIntern ? "745px" : "850px";
+    // AI CONTENT GENERATION
+    let aiContent = "";
+    try {
+      console.log(`🤖 AI: Generating ${letterType} for ${emp.name}...`);
+      aiContent = await generateHRDocument({
+        letterType,
+        employeeData: emp,
+        companyName: company
+      });
+    } catch (aiErr) {
+      console.warn("⚠️ AI Generation failed, using fallback:", aiErr.message);
+      aiContent = getFallbackTemplate(letterType, {
+        name: emp.name,
+        designation: emp.designation,
+        companyName: company,
+        joiningDate: joiningFormatted,
+        ctc: ctcLakhs,
+        employmentType: emp.employment_type
+      });
+    }
 
-    // Build the offer letter HTML (Page 1 + Salary Annexure Page 2)
+    const subject = letterType === "Others" ? "Subject: [As Specified]" : `Subject: ${letterType}`;
+
+    // Wrap in branded Page 1 layout
     const page1 = `
-    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14.5px; line-height: 1.6; max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; min-height: ${minHeightPx}; box-sizing: border-box; padding-top: 15px;">
-        <p style="text-align: right; font-weight: bold; margin-bottom: 30px; margin-top: 10px;">
+    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14px; line-height: 1.5; max-width: 800px; margin: 0 auto; box-sizing: border-box; padding-top: 10px;">
+        <p style="text-align: right; font-weight: bold; margin-bottom: 20px; margin-top: 5px;">
             Date : ${currentDate}
         </p>
-        <p style="margin-bottom: 30px;"><strong>To,</strong></p>
-        <p style="margin-bottom: 30px;">Dear <strong>${emp.name}</strong></p>
-        <h3 style="text-align: center; color: #000; margin-bottom: 30px; font-size: 15px; font-weight: bold;">Subject: Offer of Employment</h3>
-        <p style="margin-bottom: 20px;">We are pleased to offer you the position of <strong>${emp.designation}</strong> with <strong>${company.toUpperCase()}</strong>. We are all excited about the potential that you will bring to our organization.</p>
-        ${ctc > 0 ? `<p style="margin-bottom: 20px;">Your CTC would be <strong>${ctcLakhs}</strong></p>
-        <p style="margin-bottom: 20px;">The CTC would be subjected to all statutory deductions as applicable.</p>` : ""}
-        <p style="margin-bottom: 20px;">You are required to join us on <strong>${joiningFormatted}</strong> beyond which this offer stands cancelled unless otherwise either party communicates the said delay beforehand.</p>
-        <p style="margin-bottom: 30px;">We look forward to your arrival as an employee of our organization and are confident that you will play a key role in our company's expansion. If this employment offer is acceptable to you, please sign a copy of this letter and return it to us by <strong>${joiningFormatted}</strong>.</p>
-        <div style="margin-top: 40px;">
-            <p style="margin-bottom: 20px;"><strong>Yours truly,</strong></p>
-            <p style="margin-bottom: 10px;"><strong>For ${company}</strong></p>
+        <p style="margin-bottom: 15px;"><strong>To,</strong></p>
+        <p style="margin-bottom: 15px;">Dear <strong>${emp.name}</strong></p>
+        <h3 style="text-align: center; color: #000; margin-bottom: 20px; font-size: 14.5px; font-weight: bold;">${subject}</h3>
+        
+        <div class="letter-body">
+          ${aiContent}
+        </div>
+
+        <div style="margin-top: 30px;">
+            <p style="margin-bottom: 15px;"><strong>Yours truly,</strong></p>
+            <p style="margin-bottom: 5px;"><strong>For ${company}</strong></p>
             <p style="margin: 0;">&nbsp;</p>
-            <p style="margin: 0;">&nbsp;</p>
-          
-            <p style="margin: 0;"><strong>Managing Director</strong></p>
+            <p style="margin: 0;"><strong>Authorized Signatory</strong></p>
         </div>
     </div>`;
 
-    let page2 = `
-    <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 14px; line-height: 1.6; max-width: 800px; margin: 0 auto; padding-top: 30px;">
-        <h3 style="text-align: center; margin-bottom: 30px; font-size: 14px; font-weight: bold;">Annexure "A"</h3>
-        <p style="margin-bottom: 30px; font-weight: bold; line-height: 1.4;">Entitlements: All entitlements listed below are subject to Company Policies, Procedures<br>and Guidelines that may be in force or as issued/changed from time to time. The Details<br>of your remuneration are as under:</p>
-        <p style="font-weight: bold; text-decoration: underline; margin-bottom: 2px;">Salary Structure</p>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px;">
-            <tr style="font-weight: bold;">
-                <td style="border: 1px solid #000; padding: 4px 6px; text-align: left; width: 40%;"><strong>Particulars</strong></td>
-                <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; width: 30%;"><strong>Monthly (Rs.)</strong></td>
-                <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; width: 30%;"><strong>Annually (Rs.)</strong></td>
-            </tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Basic Salary</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(basic / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${basic}.00</td></tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">HRA</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(hra / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${hra}.00</td></tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Conveyance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(conveyance / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${conveyance}.00</td></tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Medical Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(medical / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${medical}.00</td></tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Travelling Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(travel / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${travel}.00</td></tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Other Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(other / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${other}.00</td></tr>
-            <tr><td style="border: 1px solid #000; padding: 4px 6px;">Special Allowance</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(special / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${special}.00</td></tr>
-            <tr><td colspan="3" style="padding: 2px; border: 1px solid #000; border-bottom: none; border-top: none;">&nbsp;</td></tr>
-            <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 4px 6px;"><strong>Gross Amount</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${Math.round(gross / 12)}.00</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${gross}.00</strong></td></tr>
-            ${pt > 0 ? `<tr><td style="border: 1px solid #000; padding: 4px 6px; font-weight: bold;"><strong>PT</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(pt / 12)}</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${pt}</td></tr>` : ""}
-            ${pf > 0 ? `<tr><td style="border: 1px solid #000; padding: 4px 6px; font-weight: bold;"><strong>PF</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(pf / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${pf}.00</td></tr>` : ""}
-            <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 4px 6px;"><strong>Net Pay</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${Math.round(net / 12)}.00</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${net}.00</strong></td></tr>
-        </table>
-        <p style="font-weight: bold; margin-bottom: 15px;">Rupees: ${netWords || "Zero"} Rupees Only (Per Annum)</p>
-        <p style="margin-bottom: 15px;">
-            *Incentive/Referral/Bonus or any other variable amount is payable subject to the<br>
-            employee's performance as per Company Policies and at the Sole discretion of the<br>
-            Company's management.
-            <br><br>
-            *Employee has to be in active roles at the time of actual payment and not serving any<br>
-            notice period in order to be eligible for the payment.
-        </p>
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 20px;">
-            <div style="text-align: left;">
-                <p style="margin-bottom: 10px;"><strong>For ${company}</strong></p>
-                <p style="margin: 0;">&nbsp;</p>
-                <p style="margin: 0;">&nbsp;</p>
-               
-                <p style="margin: 0;"><strong>Managing Director</strong></p>
-            </div>
-            <div style="text-align: center; margin-bottom: 0;">
-                <p style="margin: 0;">&nbsp;</p>
-                <p style="margin: 0;">&nbsp;</p>
-                <p style="margin: 0;">&nbsp;</p>
-                <p style="margin-bottom: 5px;"><strong>Agreed and accepted</strong></p>
-                <p style="margin: 0;"><strong>${emp.name}</strong></p>
-            </div>
-        </div>
-    </div>`;
+    let content = page1.trim();
 
-    let content = page1;
-    // Internships do not require the Salary Annexure breakdown page
-    if (!emp.employment_type || emp.employment_type.toLowerCase() !== "internship") {
-      content += page2;
+    // Determine if Annexure A (Salary Breakdown) is needed
+    const needsAnnexure = ["Offer Letter", "Appraisal Letter"].includes(letterType);
+
+    if (needsAnnexure && ctc > 0) {
+      const page2 = `
+      <div style="font-family: 'Arial', sans-serif; color: #000; font-size: 13px; line-height: 1.4; max-width: 800px; margin: 0 auto; border-top: 1px dashed #ccc; padding-top: 20px; margin-top: 20px;">
+          <h3 style="text-align: center; margin-bottom: 15px; font-size: 13px; font-weight: bold;">Annexure "A" - Compensation Details</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px;">
+              <tr style="font-weight: bold; background-color: #f9f9f9;">
+                  <td style="border: 1px solid #000; padding: 4px 6px; text-align: left; width: 40%;"><strong>Particulars</strong></td>
+                  <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; width: 30%;"><strong>Monthly (Rs.)</strong></td>
+                  <td style="border: 1px solid #000; padding: 4px 6px; text-align: center; width: 30%;"><strong>Annually (Rs.)</strong></td>
+              </tr>
+              <tr><td style="border: 1px solid #000; padding: 4px 6px;">Basic Salary</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(basic / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${basic}.00</td></tr>
+              <tr><td style="border: 1px solid #000; padding: 4px 6px;">HRA</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(hra / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${hra}.00</td></tr>
+              <tr><td style="border: 1px solid #000; padding: 4px 6px;">Gross Amount</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${Math.round(gross / 12)}.00</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${gross}.00</td></tr>
+              <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 4px 6px;"><strong>Total CTC</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${Math.round(ctc / 12)}.00</strong></td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;"><strong>${ctc}.00</strong></td></tr>
+          </table>
+          <p style="font-size: 11px; color: #555;">*Details subject to statutory deductions as per policy.</p>
+      </div>`;
+      content += page2.trim();
     }
 
     // Save generated letter to history
@@ -533,15 +511,15 @@ router.post('/download-docx', protect, onlyAdmin, async (req, res) => {
                 const getRawStr = (htmlStr) => htmlStr ? htmlStr.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').trim() : '';
                 const leftStr = leftLines[i] || '';
                 const rightStr = rightLines[i] || '';
-                
+
                 let spacer = '';
                 if (rightStr) {
                   const leftLength = getRawStr(leftStr).length;
-                  const padLen = Math.max(5, 75 - leftLength); 
+                  const padLen = Math.max(5, 75 - leftLength);
                   // Use non-breaking spaces for word alignment
                   spacer = '&nbsp;'.repeat(padLen);
                 }
-                
+
                 signatureHtml += `<p style="margin:0;padding:0;">${leftStr}${spacer}${rightStr}</p>`;
               }
               signatureHtml += `</div>`;
