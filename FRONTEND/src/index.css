@@ -35,6 +35,16 @@
   background: #cbd5e1;
 }
 
+/* No scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* --- DARK MODE GLOBALS --- */
 .dark body,
 .dark #root {

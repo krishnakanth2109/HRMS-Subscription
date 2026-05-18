@@ -1,94 +1,83 @@
-import { useContext, useState, useRef, useEffect } from "react";
+import { useContext, useState, useRef, useEffect, useMemo } from "react";
 import { AuthContext } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
-  FaBell,
-  FaUserCircle,
-  FaChevronDown,
-  FaSignOutAlt,
-  FaUser,
-  FaKey,
-  FaCog,
-  FaPalette,
-  FaCheck,
-  FaMoon,
-} from "react-icons/fa";
+  Bell,
+  UserCircle,
+  ChevronDown,
+  LogOut,
+  User,
+  Key,
+  ShieldCheck,
+  Palette,
+  Check,
+  Moon,
+  Menu,
+  ChevronRight,
+  X
+} from "lucide-react";
 import { CurrentEmployeeNotificationContext } from "../../EmployeeContext/CurrentEmployeeNotificationContext";
-import WelcomeKitPopup from "./WelcomeKitPopup"; // ✅ Import the popup
-import api from "../../api"; // ✅ Import api for status check
+import WelcomeKitPopup from "./WelcomeKitPopup";
+import api from "../../api";
 
-
-const NavbarEmployee = ({ currentTheme, onThemeChange }) => {
+const NavbarEmployee = ({ currentTheme, onThemeChange, setMobileOpen }) => {
   const { logout } = useContext(AuthContext);
   const { unreadNotifications } = useContext(CurrentEmployeeNotificationContext);
-
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [showMenu, setShowMenu] = useState(false);
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
   const [employeeName, setEmployeeName] = useState("Employee");
-
-  // ✅ Welcome Kit state
   const [showWelcomeKit, setShowWelcomeKit] = useState(false);
   const [employeeData, setEmployeeData] = useState(null);
 
   const menuRef = useRef(null);
   const themeRef = useRef(null);
 
-  // Load employee name from session + check welcome kit status
+  const breadcrumbs = useMemo(() => {
+    const pathnames = location.pathname.split("/").filter((x) => x);
+    return pathnames.map((value, index) => {
+      const last = index === pathnames.length - 1;
+      const to = `/${pathnames.slice(0, index + 1).join("/")}`;
+      const label = value.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+      return { label, to, last };
+    });
+  }, [location.pathname]);
+
   useEffect(() => {
     const savedUser = sessionStorage.getItem("hrmsUser");
     if (savedUser) {
       const user = JSON.parse(savedUser);
       setEmployeeName(user.name || "Employee");
-
-      // ✅ Use the MongoDB _id (stored as `id` or `_id`) for status check
       const employeeMongoId = user._id || user.id;
-
-      if (employeeMongoId) {
-        checkWelcomeKitStatus(employeeMongoId, user);
-      }
+      if (employeeMongoId) checkWelcomeKitStatus(employeeMongoId, user);
     }
   }, []);
 
-  // ✅ Check if the employee has already submitted the welcome kit
   const checkWelcomeKitStatus = async (employeeMongoId, user) => {
     try {
       const res = await api.get(`/api/welcome-kit/status/${employeeMongoId}`);
-      // If not submitted yet → show popup
       if (res.data && res.data.submitted === false) {
-        setEmployeeData(user);     // pass full user object to popup
+        setEmployeeData(user);
         setShowWelcomeKit(true);
       }
     } catch (err) {
-      // Silently fail — don't block the UI if the check fails
       console.error("Welcome kit status check failed:", err);
     }
   };
 
-  const user = {
-    name: employeeName,
-    role: "Employee",
-    avatar: null,
-  };
-
-  // Close menus from outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenu(false);
-      }
-      if (themeRef.current && !themeRef.current.contains(e.target)) {
-        setShowThemeDropdown(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
+      if (themeRef.current && !themeRef.current.contains(e.target)) setShowThemeDropdown(false);
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   return (
     <>
-      {/* ✅ Render WelcomeKitPopup when triggered */}
       {showWelcomeKit && employeeData && (
         <WelcomeKitPopup
           employee={employeeData}
@@ -97,134 +86,126 @@ const NavbarEmployee = ({ currentTheme, onThemeChange }) => {
         />
       )}
 
-      {/* Navbar — no changes to existing structure/logic below */}
-      <nav className="h-16 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 flex items-center justify-between px-6 shadow-lg relative z-10">
+      <nav className="h-[60px] flex items-center justify-between px-4 shadow-md bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 transition-all relative z-10">
+        
+        {/* Left Section */}
+        <div className="flex items-center gap-4">
+          <button 
+            className="md:hidden p-2 text-white hover:bg-white/10 rounded-md transition-colors"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Menu size={20} />
+          </button>
 
-        {/* Logo */}
-        <div
-          className="flex items-center gap-3 cursor-pointer"
-          onClick={() => navigate("/employee/dashboard")}
-        >
-          <h1 className="pl-10 text-2xl font-bold text-white tracking-wide drop-shadow">
-            HRMS
-          </h1>
+          <div className="hidden sm:flex items-center gap-2 text-sm text-white/80">
+            <Link to="/employee/dashboard" className="hover:text-white transition-colors font-medium">Home</Link>
+            {breadcrumbs.length > 0 && <ChevronRight size={14} className="text-white/40" />}
+            {breadcrumbs.map((crumb, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                {crumb.last ? (
+                  <span className="text-white font-bold">{crumb.label}</span>
+                ) : (
+                  <>
+                    <Link to={crumb.to} className="hover:text-white transition-colors">{crumb.label}</Link>
+                    <ChevronRight size={14} className="text-white/40" />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-6">
-
-          {/* 🔥 THEME SELECTION OPTION */}
+        <div className="flex items-center gap-2 md:gap-4">
+          
+          {/* Theme Toggle */}
           <div className="relative" ref={themeRef}>
-            <div
-              className="cursor-pointer group p-1"
+            <button
               onClick={() => setShowThemeDropdown(!showThemeDropdown)}
+              className="p-2 text-white hover:bg-white/10 rounded-full transition-all"
             >
-              <FaPalette className="text-xl text-white group-hover:text-yellow-300 transition" />
-            </div>
-
+              <Palette size={20} />
+            </button>
             {showThemeDropdown && (
-              <div className="absolute top-10 right-0 bg-white border rounded-lg shadow-xl w-48 z-[100] animate-fade-in py-2">
-                <div className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b mb-1">
-                  Select Theme
-                </div>
+              <div className="absolute top-12 right-0 bg-white border border-slate-200 rounded-lg shadow-xl w-48 z-50 py-2 animate-in fade-in slide-in-from-top-2">
+                <div className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b mb-1">Theme</div>
                 {[
-                  { id: "bubbles", label: "Bubbles Theme" },
-                  { id: "image", label: "Green Theme" },
-                  { id: "white", label: "Light Mode" },
-                  { id: "dark", label: "Dark Mode" },
+                  { id: 'bubbles', label: 'Bubbles' },
+                  { id: 'image', label: 'Green' },
+                  { id: 'white', label: 'Light' },
+                  { id: 'dark', label: 'Dark' }
                 ].map((t) => (
-                  <div
+                  <button
                     key={t.id}
-                    onClick={() => {
-                      onThemeChange(t.id);
-                      setShowThemeDropdown(false);
-                    }}
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition text-sm text-gray-700 font-medium"
+                    onClick={() => { onThemeChange(t.id); setShowThemeDropdown(false); }}
+                    className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 font-medium transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      {t.id === "dark" && <FaMoon className="text-gray-400 text-xs" />}
+                      {t.id === "dark" && <Moon size={14} className="text-slate-400" />}
                       {t.label}
                     </div>
-                    {currentTheme === t.id && <FaCheck className="text-blue-500 text-xs" />}
-                  </div>
+                    {currentTheme === t.id && <Check size={14} className="text-blue-600" />}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Notification Bell */}
-          <div
-            className="relative cursor-pointer group"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate("/employee/notifications");
-            }}
+          {/* Notifications */}
+          <button
+            onClick={() => navigate("/employee/notifications")}
+            className="p-2 text-white hover:bg-white/10 rounded-full transition-all relative"
           >
-            <FaBell className="text-2xl text-white group-hover:text-yellow-300 transition" />
+            <Bell size={20} />
             {unreadNotifications > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold shadow-md">
-                {unreadNotifications}
+              <span className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] font-bold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                {unreadNotifications > 99 ? "99+" : unreadNotifications}
               </span>
             )}
-          </div>
+          </button>
 
-          {/* Profile Dropdown */}
-          <div
-            ref={menuRef}
-            className="relative flex items-center gap-2 cursor-pointer select-none"
-            onClick={() => setShowMenu((prev) => !prev)}
-          >
-            <FaUserCircle className="text-3xl text-white shadow rounded-full" />
-            <span className="text-white font-semibold hidden md:inline">
-              {user.name}
-            </span>
-            <FaChevronDown
-              className={`text-white ml-1 transition-transform duration-200 ${showMenu ? "rotate-180" : ""
-                }`}
-            />
+          <div className="w-[1px] h-6 bg-white/20 mx-1 hidden md:block" />
+
+          {/* User Profile */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="flex items-center gap-2 p-1 hover:bg-white/10 rounded-lg transition-all"
+            >
+              <div className="w-8 h-8 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold text-xs shadow-sm">
+                {employeeName.charAt(0).toUpperCase()}
+              </div>
+              <div className="hidden md:flex flex-col items-start leading-tight">
+                <span className="text-xs font-bold text-white">{employeeName}</span>
+                <span className="text-[10px] text-white/70 font-bold uppercase">Employee</span>
+              </div>
+              <ChevronDown size={14} className={`text-white transition-transform ${showMenu ? "rotate-180" : ""}`} />
+            </button>
 
             {showMenu && (
-              <div className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-44 z-50 text-base animate-fade-in">
-                <div
-                  onClick={() => {
-                    navigate("/employee/profile");
-                    setShowMenu(false);
-                  }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all"
-                >
-                  <FaUser className="text-blue-600" /> My Profile
+              <div className="absolute top-12 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl w-48 z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2">
+                <div className="px-4 py-2 border-b border-slate-50 bg-slate-50/50 md:hidden">
+                  <p className="text-xs font-bold text-slate-900">{employeeName}</p>
                 </div>
-
-                <div
-                  onClick={() => {
-                    navigate("/employee/change-password");
-                    setShowMenu(false);
-                  }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all"
-                >
-                  <FaKey className="text-blue-600" /> Change Password
-                </div>
-
-                <div
-                  onClick={() => {
-                    navigate("/employee/rules");
-                    setShowMenu(false);
-                  }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 text-gray-700 cursor-pointer transition-all border-t border-gray-100"
-                >
-                  <FaCog className="text-blue-600" /> Company Policies
-                </div>
-
-                <div
-                  onClick={() => {
-                    logout();
-                    navigate("/");
-                    setShowMenu(false);
-                  }}
-                  className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 cursor-pointer transition-all border-t border-gray-100"
-                >
-                  <FaSignOutAlt /> Logout
-                </div>
+                
+                <button onClick={() => { navigate("/employee/profile"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <User size={16} className="text-slate-400" /> My Profile
+                </button>
+                <button onClick={() => { navigate("/employee/change-password"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <Key size={16} className="text-slate-400" /> Change Password
+                </button>
+                
+                <div className="h-[1px] bg-slate-100 my-1" />
+                
+                <button onClick={() => { navigate("/employee/rules"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <ShieldCheck size={16} className="text-slate-400" /> Policies
+                </button>
+                
+                <div className="h-[1px] bg-slate-100 my-1" />
+                
+                <button onClick={() => { logout(); navigate("/"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                  <LogOut size={16} /> Logout
+                </button>
               </div>
             )}
           </div>

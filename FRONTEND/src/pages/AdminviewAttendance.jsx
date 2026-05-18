@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
@@ -700,6 +701,7 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
 // MAIN COMPONENT
 // ==========================================
 const AdminAttendance = () => {
+  const location = useLocation();
   const todayISO = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState(todayISO);
   const [endDate, setEndDate] = useState(todayISO);
@@ -825,6 +827,14 @@ const AdminAttendance = () => {
       setRequestActionLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (location.state?.openPunchOutRequests) {
+      setIsPunchOutRequestsOpen(true);
+      // Clear state after reading to prevent re-opening on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   // Daily counts uses scoped API (backend already filters by adminId via middleware)
   const fetchDailyCounts = useCallback(async (date) => {

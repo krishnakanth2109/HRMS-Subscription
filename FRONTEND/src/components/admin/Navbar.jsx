@@ -1,35 +1,36 @@
-// --- START OF FILE Navbar.jsx ---
-
-import { useContext, useState, useRef, useEffect } from "react";
+import { useContext, useState, useRef, useEffect, useMemo } from "react";
 import { AuthContext } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationContext } from "../../context/NotificationContext";
-import {
-  FaBell,
-  FaUserCircle,
-  FaChevronDown,
-  FaSignOutAlt,
-  FaUser,
-  FaKey,
-  FaCog,
-  FaPalette,
-  FaCheck,
-  FaMoon,
-  FaTimes,
-  FaCheckCircle,
-  FaTrash,
-} from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
+import {
+  Bell,
+  UserCircle,
+  ChevronDown,
+  LogOut,
+  User,
+  Key,
+  Settings,
+  Palette,
+  Check,
+  Moon,
+  X,
+  CheckCircle,
+  Trash2,
+  Menu,
+  ChevronRight,
+  Info
+} from "lucide-react";
 
-// ⭐ One shared socket instance for the Navbar (idle alert listener)
 const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000", {
   transports: ["websocket"],
 });
 
-const Navbar = ({ currentTheme, onThemeChange }) => {
+const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [showMenu, setShowMenu] = useState(false);
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
@@ -44,49 +45,45 @@ const Navbar = ({ currentTheme, onThemeChange }) => {
     markAsRead,
     markAllAsRead,
     clearAll,
-    bellOpen,       // ✅ FEATURE 1 — controlled by context
-    setBellOpen,    // ✅ FEATURE 1 — toggle from context
+    bellOpen,
+    setBellOpen,
   } = useContext(NotificationContext);
 
   const { themeColor } = useTheme();
   const [idlePopup, setIdlePopup] = useState(null);
 
-  // ─── Close dropdowns on outside click ────────────────────────────────────
+  const breadcrumbs = useMemo(() => {
+    const pathnames = location.pathname.split("/").filter((x) => x);
+    return pathnames.map((value, index) => {
+      const last = index === pathnames.length - 1;
+      const to = `/${pathnames.slice(0, index + 1).join("/")}`;
+      const label = value.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
+      return { label, to, last };
+    });
+  }, [location.pathname]);
+
   useEffect(() => {
     const handleOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setShowMenu(false);
-      }
-      if (themeRef.current && !themeRef.current.contains(e.target)) {
-        setShowThemeDropdown(false);
-      }
-      // ✅ FEATURE 1 — close bell panel when clicking outside
-      if (bellRef.current && !bellRef.current.contains(e.target)) {
-        setBellOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setShowMenu(false);
+      if (themeRef.current && !themeRef.current.contains(e.target)) setShowThemeDropdown(false);
+      if (bellRef.current && !bellRef.current.contains(e.target)) setBellOpen(false);
     };
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [setBellOpen]);
 
-  // ─── SOCKET.IO LISTENERS (Navbar handles idle-alert popup only) ──────────
   useEffect(() => {
     if (!user) return;
-
     socket.on("connect", () => {
-      console.log("🟢 Navbar socket connected:", socket.id);
-      // ✅ FEATURE 2 — Authenticate into user's private room
       socket.emit("authenticate", user._id);
-      socket.emit("register", "admin"); // legacy support
+      socket.emit("register", "admin");
     });
-
     socket.on("admin-notification", (data) => {
       if (data.title === "Employee Idle Alert") {
         setIdlePopup(data);
         setTimeout(() => setIdlePopup(null), 6000);
       }
     });
-
     return () => {
       socket.off("connect");
       socket.off("admin-notification");
@@ -98,232 +95,193 @@ const Navbar = ({ currentTheme, onThemeChange }) => {
     navigate("/");
   };
 
-  // Recent 6 notifications for the dropdown panel
   const recentNotifications = notifications.slice(0, 6);
 
   return (
     <>
-      {/* ⭐ IDLE POPUP */}
       {idlePopup && (
-        <div className="fixed top-20 right-4 z-50 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg w-80 animate-slide-in">
-          <strong className="font-bold flex items-center gap-2">
-            <FaBell className="text-red-600" />
-            {idlePopup.title}
-          </strong>
-          <p className="text-sm mt-1">{idlePopup.message}</p>
-          <button
-            onClick={() => { navigate("/admin/notifications"); setBellOpen(false); }}
-            className="mt-3 text-blue-600 text-sm font-semibold underline"
-          >
-            View Notification →
-          </button>
+        <div className="fixed top-20 right-4 z-[100] bg-white border-l-4 border-red-500 p-4 rounded-r-lg shadow-2xl w-80 animate-slide-in">
+          <div className="flex items-start gap-3">
+            <div className="bg-red-100 p-2 rounded-full">
+              <Bell size={18} className="text-red-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="text-sm font-bold text-slate-900">{idlePopup.title}</h4>
+              <p className="text-xs text-slate-500 mt-1">{idlePopup.message}</p>
+              <button
+                onClick={() => { navigate("/admin/notifications"); setBellOpen(false); }}
+                className="mt-2 text-indigo-600 text-xs font-semibold hover:underline"
+              >
+                View Details →
+              </button>
+            </div>
+            <button onClick={() => setIdlePopup(null)} className="text-slate-400 hover:text-slate-600">
+              <X size={14} />
+            </button>
+          </div>
         </div>
       )}
 
-      {/* NAVBAR */}
-      <nav
-        className="h-16 flex items-center justify-between px-6 shadow-lg relative"
+      <nav 
+        className="h-[60px] flex items-center justify-between px-4 shadow-md transition-all relative z-10"
         style={{ backgroundColor: themeColor }}
       >
-        <h1 className="text-2xl font-bold text-white tracking-wide drop-shadow">
-          {/* App name if needed */}
-        </h1>
+        <div className="flex items-center gap-4">
+          <button 
+            className="md:hidden p-2 text-white hover:bg-white/10 rounded-md transition-colors"
+            onClick={() => setMobileOpen(true)}
+          >
+            <Menu size={20} />
+          </button>
 
-        <div className="flex items-center gap-6">
+          <div className="hidden sm:flex items-center gap-2 text-sm text-white/80">
+            <Link to="/admin/dashboard" className="hover:text-white transition-colors font-medium">Home</Link>
+            {breadcrumbs.length > 0 && <ChevronRight size={14} className="text-white/40" />}
+            {breadcrumbs.map((crumb, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                {crumb.last ? (
+                  <span className="text-white font-bold">{crumb.label}</span>
+                ) : (
+                  <>
+                    <Link to={crumb.to} className="hover:text-white transition-colors">{crumb.label}</Link>
+                    <ChevronRight size={14} className="text-white/40" />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
-          {/* 🔥 THEME SELECTION DROPDOWN */}
+        <div className="flex items-center gap-2 md:gap-4">
           <div className="relative" ref={themeRef}>
-            <div
-              className="cursor-pointer group p-1"
+            <button
               onClick={() => setShowThemeDropdown(!showThemeDropdown)}
+              className="p-2 text-white hover:bg-white/10 rounded-full transition-all"
             >
-              <FaPalette className="text-xl text-white group-hover:text-yellow-300 transition" />
-            </div>
-
+              <Palette size={20} />
+            </button>
             {showThemeDropdown && (
-              <div className="absolute top-10 right-0 bg-white border rounded-lg shadow-xl w-48 z-30 animate-fade-in py-2">
-                <div className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b mb-1">
-                  Background
-                </div>
+              <div className="absolute top-12 right-0 bg-white border border-slate-200 rounded-lg shadow-xl w-48 z-50 py-2 animate-in fade-in slide-in-from-top-2">
+                <div className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b mb-1">Theme</div>
                 {[
-                  { id: 'bubbles', label: 'Bubbles Theme' },
-                  { id: 'image', label: 'Green Theme' },
-                  { id: 'white', label: 'Light Mode' },
-                  { id: 'dark', label: 'Dark Mode' }
+                  { id: 'bubbles', label: 'Bubbles' },
+                  { id: 'image', label: 'Green' },
+                  { id: 'white', label: 'Light' },
+                  { id: 'dark', label: 'Dark' }
                 ].map((t) => (
-                  <div
+                  <button
                     key={t.id}
-                    onClick={() => {
-                      onThemeChange(t.id);
-                      setShowThemeDropdown(false);
-                    }}
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition text-sm text-gray-700 font-medium"
+                    onClick={() => { onThemeChange(t.id); setShowThemeDropdown(false); }}
+                    className="w-full flex items-center justify-between px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 font-medium transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      {t.id === "dark" && <FaMoon className="text-gray-400 text-xs" />}
+                      {t.id === "dark" && <Moon size={14} className="text-slate-400" />}
                       {t.label}
                     </div>
-                    {currentTheme === t.id && <FaCheck className="text-blue-500 text-xs" />}
-                  </div>
+                    {currentTheme === t.id && <Check size={14} className="text-indigo-600" />}
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
-          {/* 🔔 BELL ICON — ✅ FEATURE 1: Toggle panel open/close */}
           <div className="relative" ref={bellRef}>
-            <div
-              className="relative cursor-pointer group"
-              onClick={() => setBellOpen((prev) => !prev)}
-              title={bellOpen ? "Close notifications" : "Open notifications"}
+            <button
+              onClick={() => setBellOpen(!bellOpen)}
+              className="p-2 text-white hover:bg-white/10 rounded-full transition-all relative"
             >
-              <FaBell className="text-2xl text-white group-hover:text-yellow-300 transition" />
-
+              <Bell size={20} />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-bounce shadow-lg">
+                <span className="absolute top-1.5 right-1.5 bg-red-500 text-white text-[10px] font-bold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
-            </div>
+            </button>
 
-            {/* ✅ FEATURE 1 + FEATURE 2 — Inline notification panel */}
             {bellOpen && (
-              <div className="absolute top-10 lg:right-0 -right-20 w-80 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden">
-                {/* Panel Header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-blue-600 to-blue-700">
-                  <span className="text-white font-semibold text-sm flex items-center gap-2">
-                    <FaBell /> Notifications
-                    {unreadCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {unreadCount} new
-                      </span>
-                    )}
+              <div className="absolute top-12 right-0 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+                  <span className="text-slate-900 font-bold text-sm flex items-center gap-2">
+                    Notifications
+                    {unreadCount > 0 && <span className="bg-indigo-100 text-indigo-600 text-[10px] px-2 py-0.5 rounded-full">{unreadCount} new</span>}
                   </span>
-                  <button
-                    onClick={() => setBellOpen(false)}
-                    className="text-white opacity-70 hover:opacity-100 transition"
-                  >
-                    <FaTimes />
-                  </button>
+                  <button onClick={() => setBellOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
                 </div>
-
-                {/* Notification list */}
-                <div className="max-h-72 overflow-y-auto">
+                <div className="max-h-80 overflow-y-auto">
                   {recentNotifications.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 text-sm">
-                      <FaBell className="text-3xl mx-auto mb-2 text-gray-200" />
-                      You're all caught up!
+                    <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                      <Bell size={32} className="opacity-20 mb-2" />
+                      <p className="text-xs">No new notifications</p>
                     </div>
                   ) : (
                     recentNotifications.map((n) => (
                       <div
                         key={n._id}
-                        onClick={() => markAsRead(n._id)}
-                        className={`px-4 py-3 border-b cursor-pointer hover:bg-gray-50 transition flex items-start gap-3 ${!n.isRead ? "bg-blue-50" : ""
-                          }`}
+                        onClick={() => { markAsRead(n._id); navigate("/admin/notifications"); setBellOpen(false); }}
+                        className={`px-4 py-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors flex gap-3 ${!n.isRead ? "bg-indigo-50/30" : ""}`}
                       >
-                        <div className={`mt-0.5 w-2 h-2 rounded-full flex-shrink-0 ${!n.isRead ? "bg-blue-500" : "bg-gray-300"}`} />
+                        <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? "bg-indigo-500" : "bg-slate-200"}`} />
                         <div className="flex-1 min-w-0">
-                          {n.title && (
-                            <p className="text-xs font-semibold text-blue-600 truncate">{n.title}</p>
-                          )}
-                          <p className="text-xs text-gray-700 leading-snug">{n.message}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">
-                            {new Date(n.date || n.createdAt).toLocaleString()}
-                          </p>
+                          {n.title && <p className="text-xs font-bold text-slate-900 truncate">{n.title}</p>}
+                          <p className="text-xs text-slate-600 leading-snug line-clamp-2">{n.message}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{new Date(n.date || n.createdAt).toLocaleString()}</p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-
-                {/* Panel Footer actions */}
-                <div className="flex items-center justify-between px-4 py-2 border-t bg-gray-50 text-xs">
-                  <button
-                    onClick={() => { markAllAsRead(); }}
-                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 font-medium transition disabled:opacity-40"
-                    disabled={unreadCount === 0}
-                  >
-                    <FaCheckCircle /> Mark all read
+                <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-100 text-[11px] font-medium">
+                  <button onClick={markAllAsRead} disabled={unreadCount === 0} className="text-indigo-600 hover:text-indigo-800 disabled:opacity-50 flex items-center gap-1">
+                    <CheckCircle size={12} /> Mark read
                   </button>
-                  <button
-                    onClick={() => { clearAll(); }}
-                    className="flex items-center gap-1 text-red-500 hover:text-red-700 font-medium transition"
-                  >
-                    <FaTrash /> Clear all
+                  <button onClick={clearAll} className="text-red-500 hover:text-red-700 flex items-center gap-1">
+                    <Trash2 size={12} /> Clear
                   </button>
-                  <button
-                    onClick={() => { navigate("/admin/notifications"); setBellOpen(false); }}
-                    className="text-gray-500 hover:text-gray-700 font-medium transition"
-                  >
-                    View all →
-                  </button>
+                  <button onClick={() => { navigate("/admin/notifications"); setBellOpen(false); }} className="text-slate-500 hover:text-slate-700">View all →</button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* USER DROPDOWN */}
-          <div
-            ref={menuRef}
-            className="relative flex items-center gap-3 cursor-pointer select-none"
-            onClick={() => setShowMenu((prev) => !prev)}
-          >
-            <FaUserCircle className="text-3xl text-white shadow" />
+          <div className="w-[1px] h-6 bg-white/20 mx-1 hidden md:block" />
 
-            <div className="hidden md:flex flex-col items-start leading-tight">
-              <span className="text-white font-semibold">
-                {user?.name || "Admin"}
-              </span>
-              <span className="text-xs text-yellow-200 font-medium uppercase tracking-wide">
-                {user?.planType || user?.plan || "Free Plan"}
-              </span>
-            </div>
-
-            <FaChevronDown
-              className={`text-white transition-transform duration-200 ${showMenu ? "rotate-180" : ""}`}
-            />
-
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="flex items-center gap-2 p-1 hover:bg-white/10 rounded-lg transition-all"
+            >
+              <div className="w-8 h-8 rounded-full bg-white text-indigo-600 flex items-center justify-center font-bold text-xs shadow-sm">
+                {user?.name?.charAt(0).toUpperCase() || "A"}
+              </div>
+              <div className="hidden md:flex flex-col items-start leading-tight">
+                <span className="text-xs font-bold text-white">{user?.name || "Admin"}</span>
+                <span className="text-[10px] text-white/70 font-bold uppercase">{user?.planType || "Plan"}</span>
+              </div>
+              <ChevronDown size={14} className={`text-white transition-transform ${showMenu ? "rotate-180" : ""}`} />
+            </button>
             {showMenu && (
-              <div
-                className="absolute top-12 right-0 bg-white border rounded-lg shadow-lg w-56 z-50 text-base animate-fade-in overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div
-                  onClick={() => { navigate("/admin/profile"); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
-                >
-                  <FaUser className="text-blue-600" /> View Profile
+              <div className="absolute top-12 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl w-56 z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2">
+                <div className="px-4 py-2 border-b border-slate-50 bg-slate-50/50 md:hidden">
+                  <p className="text-xs font-bold text-slate-900">{user?.name}</p>
+                  <p className="text-[10px] text-indigo-500 font-bold">{user?.planType}</p>
                 </div>
-
-                <div
-                  onClick={() => { navigate("/admin/change-password"); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition"
-                >
-                  <FaKey className="text-blue-600" /> Change Password
-                </div>
-
-                <div
-                  onClick={() => { navigate("/admin/rules"); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition border-t"
-                >
-                  <FaCog className="text-blue-600" /> Company Rules & Regulations
-                </div>
-
-                <div
-                  onClick={() => { navigate("/admin/issues"); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50 cursor-pointer transition border-t"
-                >
-                  <FaCog className="text-blue-600" /> Technical Issues
-                </div>
-
-                {/* LOGOUT */}
-                <div
-                  onClick={() => { handleLogout(); setShowMenu(false); }}
-                  className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-blue-50 cursor-pointer transition border-t"
-                >
-                  <FaSignOutAlt /> Logout
-                </div>
+                <button onClick={() => { navigate("/admin/profile"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <User size={16} className="text-slate-400" /> View Profile
+                </button>
+                <button onClick={() => { navigate("/admin/change-password"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <Key size={16} className="text-slate-400" /> Change Password
+                </button>
+                <div className="h-[1px] bg-slate-100 my-1" />
+                <button onClick={() => { navigate("/admin/rules"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <Settings size={16} className="text-slate-400" /> Company Rules
+                </button>
+                <button onClick={() => { navigate("/admin/issues"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+                  <Info size={16} className="text-slate-400" /> Report Issue
+                </button>
+                <div className="h-[1px] bg-slate-100 my-1" />
+                <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                  <LogOut size={16} /> Logout
+                </button>
               </div>
             )}
           </div>

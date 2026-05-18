@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from "react";
+import { io } from "socket.io-client";
 
 import {
   FaUser,
@@ -886,7 +887,15 @@ const EmployeeManagement = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [allResignations, setAllResignations] = useState([]);
+  const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [socket, setSocket] = useState(null);
+
+  // Socket URL
+  const SOCKET_URL =
+    import.meta.env.MODE === "production"
+      ? import.meta.env.VITE_API_URL_PRODUCTION
+      : import.meta.env.VITE_API_URL_DEVELOPMENT;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("All");
   const [selectedRole, setSelectedRole] = useState("All");
@@ -935,13 +944,16 @@ const EmployeeManagement = () => {
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empRes, resignationRes, companiesRes] = await Promise.all([
+      const [empRes, resignationRes, companiesRes, punchOutRes] = await Promise.all([
         getEmployees(),
         api.get("/api/resignations/admin/all"),
-        getAllCompanies()
+        getAllCompanies(),
+        api.get("/api/punchoutreq/all")
       ]);
       setEmployees(empRes);
       setAllResignations(resignationRes.data || []);
+      const pendingPunchOuts = (punchOutRes.data || []).filter(r => r.status === "Pending").length;
+      setPunchOutRequestsCount(pendingPunchOuts);
       setCompanies(Array.isArray(companiesRes) ? companiesRes : companiesRes.data || []);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -949,6 +961,35 @@ const EmployeeManagement = () => {
       setLoading(false);
     }
   }, []);
+
+  // Initialize Socket
+  useEffect(() => {
+    const s = io(SOCKET_URL);
+    setSocket(s);
+    return () => s.disconnect();
+  }, [SOCKET_URL]);
+
+  // Real-time updates
+  useEffect(() => {
+    if (!socket) return;
+    const handlePunchOutUpdate = () => {
+      // Re-fetch only the count to minimize overhead
+      api.get("/api/punchoutreq/all").then(res => {
+        const pending = (res.data || []).filter(r => r.status === "Pending").length;
+        setPunchOutRequestsCount(pending);
+      });
+    };
+
+    socket.on("punchout:new", handlePunchOutUpdate);
+    socket.on("punchout:updated", handlePunchOutUpdate);
+    socket.on("resignation:updated", fetchAllData); // Assuming resignation also has updates
+
+    return () => {
+      socket.off("punchout:new", handlePunchOutUpdate);
+      socket.off("punchout:updated", handlePunchOutUpdate);
+      socket.off("resignation:updated", fetchAllData);
+    };
+  }, [socket, fetchAllData]);
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
 
@@ -1101,9 +1142,9 @@ const EmployeeManagement = () => {
                   className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center justify-center gap-2 transition-all duration-200 transform hover:scale-[1.02] md:hover:scale-105 relative text-sm sm:text-base"
                 >
                   <FaClipboardList /> HR Activities
-                  {allResignations.filter(r => r.status === "Pending").length > 0 && (
+                  {(allResignations.filter(r => r.status === "Pending").length + punchOutRequestsCount) > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-bounce">
-                      {allResignations.filter(r => r.status === "Pending").length}
+                      {allResignations.filter(r => r.status === "Pending").length + punchOutRequestsCount}
                     </span>
                   )}
                   <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
@@ -1180,6 +1221,21 @@ const EmployeeManagement = () => {
                       {allResignations.filter(r => r.status === "Pending").length > 0 && (
                         <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                           {allResignations.filter(r => r.status === "Pending").length} New
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Punch Out Requests */}
+                    <button
+                      onClick={() => { navigate("/attendance", { state: { openPunchOutRequests: true } }); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FaSignOutAlt className="text-red-500" /> Punch Out Requests
+                      </div>
+                      {punchOutRequestsCount > 0 && (
+                        <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                          {punchOutRequestsCount} New
                         </span>
                       )}
                     </button>

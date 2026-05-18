@@ -84,19 +84,31 @@ const LayoutEmployee = () => {
     return 'bg-white/70 backdrop-blur-sm shadow-[0_4px_24px_rgba(0,0,0,0.02)]';
   };
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${getMainClassNames()}`}>
       
       {/* SIDEBAR */}
-      <div className={`z-30 flex-shrink-0 transition-colors duration-500 ${getWrapperStyles()}`}>
-        <SidebarEmployee />
+      <div className="z-30 hidden md:block md:relative">
+        <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      </div>
+
+      {/* Mobile Sidebar */}
+      <div className="md:hidden">
+        <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       </div>
 
       <div className="flex flex-col flex-1 min-w-0">
         
         {/* NAVBAR */}
-        <div className={`z-20 flex-shrink-0 transition-colors duration-500 ${getNavWrapperStyles()}`}>
-          <NavbarEmployee currentTheme={theme} onThemeChange={toggleTheme} />
+        <div className={`z-20 flex-shrink-0 transition-colors duration-500`}>
+          <NavbarEmployee 
+            currentTheme={theme} 
+            onThemeChange={toggleTheme} 
+            mobileOpen={mobileOpen}
+            setMobileOpen={setMobileOpen}
+          />
         </div>
 
         <main className="relative flex-1 overflow-hidden bg-transparent">
