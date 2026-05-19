@@ -62,6 +62,24 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatDateDMY = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) {
+    if (typeof date === 'string' && date.includes('-')) {
+      const parts = date.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+    }
+    return String(date);
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
 const calculateLeaveDays = (from, to) => {
   if (!from || !to) return 0;
   const fromDate = new Date(from);
@@ -555,7 +573,7 @@ const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, per
             <div>
               <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#1e293b' }}>🖨️ Select Letterhead</h2>
               <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
-                Choose a background template for the payslip PDF — <strong>{selectedIds} employee{selectedIds > 1 ? 's' : ''}</strong> • {periodStart} → {periodEnd}
+                Choose a background template for the payslip PDF — <strong>{selectedIds} employee{selectedIds > 1 ? 's' : ''}</strong> • {formatDateDMY(periodStart)} → {formatDateDMY(periodEnd)}
               </p>
             </div>
           </div>
@@ -715,7 +733,7 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
             <div>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
               <p className="text-indigo-200 text-[10px] sm:text-sm mt-0.5">
-                Step 1 of 2 — Select Employees &nbsp;→&nbsp; {periodStart} → {periodEnd}
+                Step 1 of 2 — Select Employees &nbsp;→&nbsp; {formatDateDMY(periodStart)} → {formatDateDMY(periodEnd)}
               </p>
             </div>
             <button onClick={onClose} className="bg-white/10 hover:bg-white/25 rounded-full p-2 transition-all">
@@ -852,7 +870,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
     const exportData = [{
       "Employee ID": employee.employeeId,
       "Name": employee.employeeName,
-      "Pay Period": `${periodStart} to ${periodEnd}`,
+      "Pay Period": `${formatDateDMY(periodStart)} to ${formatDateDMY(periodEnd)}`,
       "Total Days in Month": employee.totalDaysInMonth,
       "Worked Days": employee.workedDays,
       "Week Off Days (Paid)": employee.weekOffDays,
@@ -868,7 +886,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
       "Total Deductions": employee.totalDeductions,
       "Net Payable": employee.netPayableSalary
     }];
-    exportToExcel(exportData, `Payslip_${employee.employeeName}_${periodStart}`);
+    exportToExcel(exportData, `Payslip_${employee.employeeName}_${formatDateDMY(periodStart)}`);
   };
 
   // Builds the raw payslip HTML (used both for print and PDF)
@@ -882,7 +900,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           </div>
           <div style="text-align:right;">
             <div style="font-size:16px;font-weight:bold;">PAYSLIP</div>
-            <div style="font-size:11px;">${new Date(periodStart).toLocaleDateString()} – ${new Date(periodEnd).toLocaleDateString()}</div>
+            <div style="font-size:11px;">${formatDateDMY(periodStart)} – ${formatDateDMY(periodEnd)}</div>
           </div>
         </div>
         <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
@@ -1507,7 +1525,7 @@ const PayrollManagement = () => {
       "Total Deductions": emp.totalDeductions,
       "Net Payable": emp.netPayableSalary
     }));
-    exportToExcel(dataToExport, `Payroll_Report_${summaryStartDate}_to_${summaryEndDate}`);
+    exportToExcel(dataToExport, `Payroll_Report_${formatDateDMY(summaryStartDate)}_to_${formatDateDMY(summaryEndDate)}`);
   };
 
   // ✅ UPDATED: Open release modal instead of direct save
@@ -1539,7 +1557,7 @@ const PayrollManagement = () => {
             <span style="color:#4338CA;font-weight:600;"> Employee${selectedRecords.length > 1 ? 's' : ''}</span>
           </div>
           ${templateUrl ? `<p style="color:#059669;font-size:12px;">🖨️ Template: <strong>${templateUrl.split('/').pop()}</strong></p>` : '<p style="color:#9CA3AF;font-size:12px;">No letterhead selected</p>'}
-          <p style="color:#6B7280;font-size:12px;margin-top:6px;">Period: <strong>${summaryStartDate}</strong> → <strong>${summaryEndDate}</strong></p>
+          <p style="color:#6B7280;font-size:12px;margin-top:6px;">Period: <strong>${formatDateDMY(summaryStartDate)}</strong> → <strong>${formatDateDMY(summaryEndDate)}</strong></p>
         </div>
       `,
       icon: 'question',
@@ -1578,7 +1596,7 @@ const PayrollManagement = () => {
           <div style="text-align:center;">
             <p style="color:#374151;font-size:14px;margin-bottom:8px;">Successfully released payslips for</p>
             <strong style="font-size:20px;color:#059669;">${selectedRecords.length} employee${selectedRecords.length > 1 ? 's' : ''}</strong>
-            <p style="color:#9CA3AF;font-size:12px;margin-top:8px;">Period: ${summaryStartDate} → ${summaryEndDate}</p>
+            <p style="color:#9CA3AF;font-size:12px;margin-top:8px;">Period: ${formatDateDMY(summaryStartDate)} → ${formatDateDMY(summaryEndDate)}</p>
           </div>
         `,
         confirmButtonColor: '#059669',
@@ -1634,7 +1652,7 @@ const PayrollManagement = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   <span className="text-sm font-medium text-gray-700">
-                    {summaryStartDate} - {summaryEndDate}
+                    {formatDateDMY(summaryStartDate)} - {formatDateDMY(summaryEndDate)}
                   </span>
                 </div>
               </div>
@@ -1689,7 +1707,7 @@ const PayrollManagement = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 <span className="text-xs font-medium text-gray-600">
-                  {summaryStartDate} - {summaryEndDate}
+                  {formatDateDMY(summaryStartDate)} - {formatDateDMY(summaryEndDate)}
                 </span>
               </div>
             </div>

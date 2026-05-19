@@ -313,8 +313,9 @@ function App() {
           <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
           <Route path="/admin/resignation" element={<AdminResignation />} />
           <Route path="/admin/hr-checklist" element={<HRChecklist />} />
-           <Route path="/admin/welcome-kits-management" element={<AdminWelcomeKits />} />
-           <Route path="/admin/whats-new" element={<WhatsNew /> }/>
+            <Route path="/admin/welcome-kits-management" element={<AdminWelcomeKits />} />
+            <Route path="/admin/whats-new" element={<WhatsNew /> }/>
+            <Route path="/support-admin/whats-new" element={<WhatsNew /> }/>
          
       </Route>
 

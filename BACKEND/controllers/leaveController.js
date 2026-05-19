@@ -398,7 +398,7 @@ export const getLeaveDetails = async (req, res) => {
   try {
     const doc = await LeaveRequest.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ message: "Not found" });
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = req.user.role === "admin" || req.user.role === "support-admin";
     if (isAdmin) {
       if (doc.adminId && doc.adminId.toString() !== req.user._id.toString())
         return res.status(403).json({ message: "Unauthorized" });

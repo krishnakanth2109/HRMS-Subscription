@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, Link } from "react-router-dom";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Swal from "sweetalert2";
 import {
@@ -421,20 +421,39 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       )}
 
       <aside className={sidebarClasses}>
-        {/* Header / Logo */}
-        <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
+        <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "flex-col justify-center gap-1 py-2" : "justify-between"}`}>
           {!collapsed || isMobile ? (
-            <div className="flex items-center gap-3 overflow-hidden">
-              <img
-                src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
-                alt="Logo"
-                className="h-[68px] w-auto object-contain"
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-3 overflow-hidden">
+                <img
+                  src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
+                  alt="Logo"
+                  className="h-[68px] w-auto object-contain"
+                />
+              </div>
+              {!isMobile && (
+                <button
+                  onClick={() => setCollapsed(true)}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
+                  title="Collapse Sidebar"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+              )}
+            </>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg">
-              V
-            </div>
+            <>
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                V
+              </div>
+              <button
+                onClick={() => setCollapsed(false)}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
+                title="Expand Sidebar"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </>
           )}
           {isMobile && (
             <button onClick={() => setMobileOpen(false)} className="p-1 text-slate-400 hover:text-white transition-colors">
@@ -521,32 +540,21 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           )}
         </nav>
 
-        {/* Footer / Toggle */}
+        {/* Footer / Version */}
         <div className="p-3 border-t border-slate-800">
-          {!isMobile && (
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all mb-2"
-            >
-              {collapsed ? <ChevronRight size={20} /> : (
-                <>
-                  <ChevronLeft size={20} />
-                  <span className="text-sm font-medium">Collapse</span>
-                </>
-              )}
-            </button>
-          )}
-          
-          <div className={`flex items-center gap-3 px-3 py-2 ${collapsed && !isMobile ? "justify-center" : ""}`}>
+          <Link
+            to="/support-admin/whats-new"
+            className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/30 transition-all cursor-pointer ${collapsed && !isMobile ? "justify-center" : ""}`}
+          >
              {(!collapsed || isMobile) ? (
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-semibold text-slate-300 truncate">Support Admin Panel</span>
-                  <span className="text-[10px] text-slate-500">v5.1.1</span>
+                  <span className="text-[10px] text-indigo-400 hover:underline">v5.1.1</span>
                 </div>
              ) : (
-               <span className="text-[10px] text-slate-500 font-bold">V5</span>
+               <span className="text-[10px] text-indigo-400 font-bold hover:underline">V5</span>
              )}
-          </div>
+          </Link>
         </div>
       </aside>
     </>

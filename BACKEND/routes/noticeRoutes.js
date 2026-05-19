@@ -91,7 +91,7 @@ router.post("/", protect, async (req, res) => {
     // If recipients is empty or explicitly "ALL", store as "ALL"
     const recipientValue = (Array.isArray(recipients) && recipients.length > 0) ? recipients : "ALL";
     
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     const creatorModel = isAdmin ? "Admin" : "Employee";
 
     // Determine Admin and Company IDs
@@ -127,7 +127,7 @@ router.put("/:id", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     const isOwner = notice.createdBy.equals(userId);
 
     if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
@@ -163,7 +163,7 @@ router.delete("/:id", protect, async (req, res) => {
     if (!notice) return res.status(404).json({ message: "Notice not found" });
 
     const userId = req.user._id;
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     const isOwner = notice.createdBy.equals(userId);
 
     if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {
@@ -285,7 +285,7 @@ router.delete("/:id/reply/:replyId", protect, async (req, res) => {
     if (!reply) return res.status(404).json({ message: "Reply not found" });
 
     const userId = req.user._id.toString();
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     const isReplyOwner = (reply.employeeId?.toString() === userId) || (reply.adminId?.toString() === userId);
 
     if (isAdmin && notice.adminId && !notice.adminId.equals(userId)) {

@@ -35,7 +35,7 @@ router.get("/status/:employeeId", protect, async (req, res) => {
     const { employeeId } = req.params;
 
     // Get user's company context
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     
     let query = { employeeId };
     
@@ -101,7 +101,7 @@ router.post("/submit", protect, async (req, res) => {
       return res.status(404).json({ message: "Employee not found" });
     }
 
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     
     let adminId = null;
     let companyId = null;
@@ -190,7 +190,7 @@ router.post("/submit", protect, async (req, res) => {
 // ─────────────────────────────────────────────
 router.get("/all", protect, async (req, res) => {
   try {
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     const userId = req.user._id;
 
 
@@ -248,7 +248,7 @@ router.get("/all", protect, async (req, res) => {
 // ─────────────────────────────────────────────
 router.delete("/:id", protect, async (req, res) => {
   try {
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     const userId = req.user._id;
 
     if (!isAdmin) {
@@ -285,7 +285,7 @@ router.delete("/:id", protect, async (req, res) => {
 // ─────────────────────────────────────────────
 router.get("/company/stats", protect, async (req, res) => {
   try {
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === "admin";
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
     
     if (!isAdmin) {
       return res.status(403).json({ message: "Unauthorized: Admin access required" });

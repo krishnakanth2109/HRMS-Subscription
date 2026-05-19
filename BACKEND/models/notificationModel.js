@@ -49,7 +49,8 @@ const notificationSchema = new Schema(
         "attendance-correction-request",
         "attendance-correction-status",
         "resignation",
-        "resignation-status"
+        "resignation-status",
+        "FORCE_PUNCH_OUT"
       ],
       default: "general",
     },

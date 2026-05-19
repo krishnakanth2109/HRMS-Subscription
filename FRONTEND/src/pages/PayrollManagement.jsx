@@ -211,6 +211,16 @@ const PayrollPage = () => {
         }).format(amount || 0);
     };
 
+    const formatDateDMY = (dateStr) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+    };
+
     return (
         <div className="">
             <div className="p-8 bg-gray-50 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border  shadow-sm transition-all duration-300">
@@ -814,7 +824,7 @@ const PayrollPage = () => {
                                     </div>
                                     <div className="flex justify-between border-b border-blue-100 pb-2">
                                         <span className="text-gray-600">Date of Birth:</span>
-                                        <span className="font-medium">{new Date(selectedUser.dob).toLocaleDateString()}</span>
+                                        <span className="font-medium">{formatDateDMY(selectedUser.dob)}</span>
                                     </div>
                                     <div className="pt-2">
                                         <p className="text-gray-600 mb-1">Address:</p>
@@ -850,7 +860,7 @@ const PayrollPage = () => {
                                     </div>
                                     <div className="flex justify-between pt-2">
                                         <span className="text-gray-600">Joining Date:</span>
-                                        <span className="font-medium">{new Date(selectedUser.joiningDate).toLocaleDateString()}</span>
+                                        <span className="font-medium">{formatDateDMY(selectedUser.joiningDate)}</span>
                                     </div>
                                 </div>
                             </div>

@@ -144,7 +144,12 @@ const EmployeePayslip = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'NA';
-    return new Date(dateString).toLocaleDateString('en-GB');
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return String(dateString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
   };
 
   const handlePrint = () => {

@@ -47,13 +47,13 @@ router.get(
 /* =====================================================
    ADMIN ROUTES
 ===================================================== */
-router.post("/", protect, restrictTo("admin"), createGroup);
-router.get("/", protect, restrictTo("admin"), getAllGroups);
-router.get("/:id", protect, restrictTo("admin"), getSingleGroup);
-router.put("/:id", protect, restrictTo("admin"), updateGroup);
-router.put("/:id/leader", protect, restrictTo("admin"), assignGroupLeader);
-router.post("/:id/member", protect, restrictTo("admin"), addMember);
-router.delete("/:id/member", protect, restrictTo("admin"), removeMember);
-router.delete("/:id", protect, restrictTo("admin"), deleteGroup);
+router.post("/", protect, restrictTo("admin", "support-admin"), createGroup);
+router.get("/", protect, restrictTo("admin", "support-admin"), getAllGroups);
+router.get("/:id", protect, restrictTo("admin", "support-admin"), getSingleGroup);
+router.put("/:id", protect, restrictTo("admin", "support-admin"), updateGroup);
+router.put("/:id/leader", protect, restrictTo("admin", "support-admin"), assignGroupLeader);
+router.post("/:id/member", protect, restrictTo("admin", "support-admin"), addMember);
+router.delete("/:id/member", protect, restrictTo("admin", "support-admin"), removeMember);
+router.delete("/:id", protect, restrictTo("admin", "support-admin"), deleteGroup);
 
 export default router;

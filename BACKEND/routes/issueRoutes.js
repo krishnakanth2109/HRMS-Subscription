@@ -750,10 +750,13 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
         fallbackEmail  = fallbackEmail  || emp.email;
         fallbackName   = fallbackName   || emp.name;
       }
-    } else if (role === "admin" || role === "superadmin") {
-      const adm = await mongoose.model("Admin").findById(userId).lean();
+    } else if (role === "admin" || role === "support-admin" || role === "superadmin") {
+      let adm = await mongoose.model("Admin").findById(userId).lean();
+      if (!adm && role === "support-admin") {
+        adm = await mongoose.model("SupportAdmin").findById(userId).lean();
+      }
       if (adm) {
-        finalAdminId   = finalAdminId   || userId;
+        finalAdminId   = finalAdminId   || req.user.adminId || userId;
         finalCompanyId = finalCompanyId || adm.companyId || adm.company || userId;
         fallbackEmail  = fallbackEmail  || adm.email;
         fallbackName   = fallbackName   || adm.name;
@@ -782,8 +785,8 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
       role,
       adminId:        finalAdminId,
       companyId:      finalCompanyId,
-      status:         role === "admin" || role === "superadmin" ? "approved" : "pending",
-      approvalByAdmin: role === "admin" || role === "superadmin",
+      status:         role === "admin" || role === "support-admin" || role === "superadmin" ? "approved" : "pending",
+      approvalByAdmin: role === "admin" || role === "support-admin" || role === "superadmin",
     });
 
     // ── EMAIL: notify scoped admin (employees only — admins raise directly as approved)
@@ -812,7 +815,7 @@ router.post("/", setUser, upload.array("images", 5), async (req, res) => {
     }
 
     // ── EMAIL: when an Admin raises an issue it's auto-approved → notify all SuperAdmins
-    if (role === "admin") {
+    if (role === "admin" || role === "support-admin") {
       try {
         const masterAdmins = await MasterAdmin.find({}).lean();
         const masterEmails = masterAdmins.map((m) => m.email).filter(Boolean);
@@ -858,8 +861,8 @@ router.get("/", setUser, async (req, res) => {
 
     if (role === "employee") {
       filter = { raisedBy: _id };
-    } else if (role === "admin") {
-      filter = { adminId: _id };
+    } else if (role === "admin" || role === "support-admin") {
+      filter = { adminId: req.user.adminId || _id };
     } else if (role === "superadmin") {
       filter = {
         $or: [
@@ -879,10 +882,10 @@ router.get("/", setUser, async (req, res) => {
 // ─── ADMIN APPROVE ────────────────────────────────────────────────────────────
 router.patch("/:id/approve", setUser, async (req, res) => {
   try {
-    if (req.user.role !== "admin") return res.status(403).json({ success: false });
+    if (req.user.role !== "admin" && req.user.role !== "support-admin") return res.status(403).json({ success: false });
 
     const issue = await TechnicalIssue.findOneAndUpdate(
-      { _id: req.params.id, adminId: req.user._id, status: "pending" },
+      { _id: req.params.id, adminId: req.user.adminId || req.user._id, status: "pending" },
       { status: "approved", approvalByAdmin: true },
       { new: true }
     );
@@ -890,7 +893,10 @@ router.patch("/:id/approve", setUser, async (req, res) => {
     if (!issue) return res.status(404).json({ success: false, message: "Issue not found" });
 
     // Fetch admin details for the forwarded email
-    const adminDoc = await mongoose.model("Admin").findById(req.user._id).lean();
+    let adminDoc = await mongoose.model("Admin").findById(req.user._id).lean();
+    if (!adminDoc && req.user.role === "support-admin") {
+      adminDoc = await mongoose.model("SupportAdmin").findById(req.user._id).lean();
+    }
     const approvedAt = new Date().toLocaleString("en-IN", {
       dateStyle: "medium", timeStyle: "short",
     });
@@ -956,12 +962,12 @@ router.patch("/:id/approve", setUser, async (req, res) => {
 // ─── ADMIN REJECT ─────────────────────────────────────────────────────────────
 router.patch("/:id/reject", setUser, async (req, res) => {
   try {
-    if (req.user.role !== "admin") return res.status(403).json({ success: false });
+    if (req.user.role !== "admin" && req.user.role !== "support-admin") return res.status(403).json({ success: false });
 
     const { resolvedMessage } = req.body;
 
     const issue = await TechnicalIssue.findOneAndUpdate(
-      { _id: req.params.id, adminId: req.user._id, status: "pending" },
+      { _id: req.params.id, adminId: req.user.adminId || req.user._id, status: "pending" },
       { status: "rejected", resolvedMessage },
       { new: true }
     );
@@ -1053,7 +1059,7 @@ router.delete("/:id", setUser, async (req, res) => {
     if (!issue) return res.status(404).json({ success: false, message: "Not found" });
 
     const isOwner        = issue.raisedBy.toString() === req.user._id.toString();
-    const isAdminOfIssue = req.user.role === "admin" && issue.adminId.toString() === req.user._id.toString();
+    const isAdminOfIssue = (req.user.role === "admin" || req.user.role === "support-admin") && issue.adminId.toString() === (req.user.adminId || req.user._id).toString();
 
     if (!isOwner && !isAdminOfIssue && req.user.role !== "superadmin") {
       return res.status(403).json({ success: false });

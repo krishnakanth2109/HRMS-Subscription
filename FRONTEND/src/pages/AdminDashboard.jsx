@@ -536,7 +536,7 @@ const AdminDashboard = () => {
       <div className="relative z-10 w-full h-full overflow-y-auto p-6 pb-20 internal-scroll">
 
         {/* 1. TOP STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
 
           {/* Total Employees */}
           <div className="relative bg-blue-500 rounded-[20px] p-5 shadow-lg overflow-hidden h-[130px] flex flex-col justify-between transition-transform hover:scale-[1.02]">
@@ -601,7 +601,7 @@ const AdminDashboard = () => {
 </div>
 
           {/* Pending Resignations */}
-          <Link
+          {/* <Link
             to="/admin/resignation"
             className="bg-white rounded-[20px] p-5 shadow-sm h-[130px] flex flex-col justify-between border border-gray-100 transition-all hover:shadow-md hover:border-red-200 cursor-pointer relative"
           >
@@ -619,7 +619,7 @@ const AdminDashboard = () => {
                 {allResignations.filter(r => r.status === "Pending").length}
               </h3>
             </div>
-          </Link>
+          </Link> */}
         </div>
 
         {/* 2. CHARTS SECTION */}

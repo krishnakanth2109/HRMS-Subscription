@@ -72,7 +72,7 @@ router.get("/", async (req, res) => {
   try {
     let query = {};
     // ✅ FIX: Case-insensitive role check
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === 'admin';
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === 'admin' || req.user.role.toLowerCase() === 'support-admin');
 
     if (isAdmin) {
       query.adminId = req.user._id;

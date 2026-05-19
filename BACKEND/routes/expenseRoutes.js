@@ -107,7 +107,7 @@ router.get('/employee/:employeeId', async (req, res) => {
     const { employeeId } = req.params;
     
     // Security check
-    if (req.user.employeeId !== employeeId && req.user.role !== 'admin') {
+    if (req.user.employeeId !== employeeId && req.user.role !== 'admin' && req.user.role !== 'support-admin') {
         return res.status(403).json({ message: "Forbidden" });
     }
 

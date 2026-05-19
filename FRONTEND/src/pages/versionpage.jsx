@@ -5,15 +5,27 @@ import React, { useState } from 'react';
 // ============================================
 const updates = [
   {
+    date: "May 19, 2026",
+    version: "v5.2.0",
+    items: [
+      {
+        type: "new",
+        title: "Biometric Integration",
+        desc: "Implemented advanced biometric authentication with improved attendance accuracy, faster verification, and reduced false punch-ins."
+      },
+
+    ]
+  },
+  {
     date: "April 25, 2026",
     version: "v5.1.1",
     items: [
-            {
+      {
         type: "improved",
         title: "Performance Idle Detection",
         desc: "Improved accuracy and reduced false positives."
       },
-   
+
       {
         type: "improved",
         title: "Performance Module UI",
@@ -44,13 +56,13 @@ const Badge = ({ type }) => {
     improved: "bg-blue-100 text-blue-700",
     fixed: "bg-red-100 text-red-700"
   };
-  
+
   const labels = {
     new: "NEW",
     improved: "IMPROVED",
     fixed: "FIXED"
   };
-  
+
   return (
     <span className={`inline-block px-2.5 py-1 text-xs font-semibold rounded-full ${styles[type]}`}>
       {labels[type]}
@@ -78,11 +90,11 @@ const UpdateItem = ({ item }) => {
 // ============================================
 const WhatsNew = () => {
   const [showAll, setShowAll] = useState(false);
-  
+
   // Separate latest update from older ones
   const latestUpdate = updates[0];
   const olderUpdates = updates.slice(1);
-  
+
   // Decide which updates to show
   const visibleUpdates = showAll ? olderUpdates : olderUpdates.slice(0, 3);
   const hasMore = olderUpdates.length > 3;
@@ -90,7 +102,7 @@ const WhatsNew = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        
+
         {/* HEADER SECTION */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-1.5 shadow-sm border border-gray-200 mb-4">
@@ -100,23 +112,23 @@ const WhatsNew = () => {
             </span>
             <span className="text-sm font-medium text-gray-600">Live Updates</span>
           </div>
-          
+
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-3 tracking-tight">
             What's New in <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">VWSync</span>
           </h1>
           <p className="text-lg text-gray-500 max-w-2xl mx-auto">
             Daily updates and improvements in HRMS
           </p>
-          
+
           <div className="mt-4 inline-flex items-center gap-2 bg-white rounded-full px-4 py-1.5 shadow-sm">
             <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span className="text-sm text-gray-600">Current version</span>
-            <span className="font-mono font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-md text-sm">v5.1.1</span>
+            <span className="font-mono font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-md text-sm">v5.2.0</span>
           </div>
         </div>
-        
+
         {/* LATEST UPDATE - HIGHLIGHTED SECTION */}
         <div className="mb-12">
           <div className="relative">
@@ -150,7 +162,7 @@ const WhatsNew = () => {
             </div>
           </div>
         </div>
-        
+
         {/* PREVIOUS UPDATES SECTION */}
         <div className="mt-10">
           <div className="flex items-center gap-2 mb-6">
@@ -158,7 +170,7 @@ const WhatsNew = () => {
             <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">Previous Updates</span>
             <div className="h-px flex-1 bg-gray-200"></div>
           </div>
-          
+
           <div className="space-y-8">
             {visibleUpdates.map((update, idx) => (
               <div key={idx} className="relative pl-6 before:absolute before:left-[11px] before:top-6 before:bottom-0 before:w-px before:bg-gray-200 last:before:hidden">
@@ -166,7 +178,7 @@ const WhatsNew = () => {
                 <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-white border-2 border-gray-300 flex items-center justify-center">
                   <div className="w-2 h-2 rounded-full bg-gray-400"></div>
                 </div>
-                
+
                 {/* Update card */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
@@ -191,7 +203,7 @@ const WhatsNew = () => {
               </div>
             ))}
           </div>
-          
+
           {/* Expand/Collapse Button */}
           {hasMore && (
             <div className="text-center mt-8">
@@ -217,7 +229,7 @@ const WhatsNew = () => {
               </button>
             </div>
           )}
-          
+
           {/* Empty state when no older updates */}
           {olderUpdates.length === 0 && (
             <div className="text-center py-12">
@@ -225,7 +237,7 @@ const WhatsNew = () => {
             </div>
           )}
         </div>
-        
+
         {/* FOOTER NOTE */}
         <div className="mt-16 text-center text-xs text-gray-400 border-t border-gray-200 pt-8">
           <p>VWSync HRMS — Continuously improving your workforce management experience</p>

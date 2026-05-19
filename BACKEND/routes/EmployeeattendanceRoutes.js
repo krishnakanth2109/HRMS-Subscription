@@ -1558,7 +1558,7 @@ router.get('/:employeeId', async (req, res) => {
   try {
     const requestedId = req.params.employeeId;
     const loggedUser = req.user;
-    if (loggedUser.role !== "admin" && loggedUser.employeeId !== requestedId) {
+    if (loggedUser.role !== "admin" && loggedUser.role !== "support-admin" && loggedUser.employeeId !== requestedId) {
       return res.status(403).json({ message: "Access denied." });
     }
     const record = await Attendance.findOne({ employeeId: requestedId });
@@ -1979,7 +1979,7 @@ router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) =>
   try {
     let companyIds = [];
 
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'support-admin') {
       // Find all companies owned by this admin
       const companies = await Company.find({ adminId: req.user._id });
       companyIds = companies.map(c => c._id);

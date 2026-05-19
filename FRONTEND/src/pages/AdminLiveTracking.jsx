@@ -70,6 +70,7 @@ const AdminLiveTracking = () => {
         try {
             setSavingSettings(true);
             const val = parseInt(newInterval, 10);
+            // const val = 90;
             if (val > 0) {
                 await api.put('/api/idletime/settings/tracker', { screenshotIntervalMinutes: val });
                 setScreenshotInterval(val);
