@@ -25,12 +25,13 @@ const adminSchema = new mongoose.Schema(
     // 'admin' is the owner of Companies. 'manager' might be a sub-role under Admin.
     role: {
       type: String,
-      enum: ["admin", "manager"], 
+      // enum: ["admin", "manager"],
       default: "admin",
     },
 
     phone: { type: String, default: "" },
     department: { type: String, default: "Administration" },
+    adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", default: null },
 
     /* ==================== LOGIN ACCESS CONTROL ==================== */
     loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle this

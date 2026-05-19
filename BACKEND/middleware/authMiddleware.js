@@ -2,6 +2,7 @@
 import { promisify } from "util";
 import jwt from "jsonwebtoken";
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
 
 /*
@@ -32,13 +33,28 @@ export const protect = async (req, res, next) => {
       process.env.JWT_SECRET
     );
 
-    let currentUser = await Admin.findById(decoded.id).select("-password");
+    // Check Admin first, then SupportAdmin, then Employee
+    let currentUser = await Admin.findById(decoded.id).select("-password").lean();
     if (currentUser) {
       currentUser.role = "admin";
+      // Allow shared tenant access for created admins
+      currentUser.actualId = currentUser._id;
+      if (currentUser.adminId) {
+        currentUser._id = currentUser.adminId;
+      }
     } else {
-      currentUser = await Employee.findById(decoded.id).select("-password");
+      currentUser = await SupportAdmin.findById(decoded.id).select("-password").lean();
       if (currentUser) {
-        currentUser.role = "employee";
+        currentUser.role = "support-admin";
+        currentUser.actualId = currentUser._id;
+        if (currentUser.adminId) {
+          currentUser._id = currentUser.adminId;
+        }
+      } else {
+        currentUser = await Employee.findById(decoded.id).select("-password");
+        if (currentUser) {
+          currentUser.role = "employee";
+        }
       }
     }
 

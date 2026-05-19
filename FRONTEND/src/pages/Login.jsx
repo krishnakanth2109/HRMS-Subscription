@@ -125,8 +125,10 @@ const Login = () => {
   useEffect(() => {
     if (!user) return;
     const userRole = user.role?.toLowerCase();
-    if (userRole === "admin" || userRole === "manager") {
+    if (userRole === "admin") {
       navigate("/admin/dashboard", { replace: true });
+    } else if (userRole === "support-admin") {
+      navigate("/support-admin/dashboard", { replace: true });
     } else if (userRole === "employee") {
       navigate("/employee/dashboard", { replace: true });
     } else {
@@ -202,8 +204,10 @@ const Login = () => {
     sessionStorage.setItem("hrmsUser", JSON.stringify(userWithToken));
 
     window.location.href =
-      result.data.role === "admin" || result.data.role === "manager"
+      result.data.role === "admin"
         ? "/admin/dashboard"
+        : result.data.role === "support-admin"
+        ? "/support-admin/dashboard"
         : "/employee/dashboard";
   };
 

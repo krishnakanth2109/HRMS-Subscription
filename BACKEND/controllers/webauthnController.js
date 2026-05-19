@@ -5,6 +5,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import WebAuthnCredential from "../models/WebAuthnCredential.js";
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -297,9 +298,12 @@ export const verifyAuthentication = async (req, res) => {
     let user = null;
     let role = storedCredential.userRole;
 
-    if (role === "admin" || role === "manager") {
+    if (role === "admin") {
       user = await Admin.findById(storedCredential.userId);
-      if (user) role = user.role; // Could be "admin" or "manager"
+      if (user) role = user.role;
+    } else if (role === "support-admin") {
+      user = await SupportAdmin.findById(storedCredential.userId);
+      if (user) role = user.role;
     } else {
       user = await Employee.findById(storedCredential.userId);
       if (user) role = "employee";

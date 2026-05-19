@@ -1,6 +1,7 @@
 // --- START OF FILE controllers/userController.js ---
 
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
 
 // Helper function to filter an object for only allowed fields
@@ -16,12 +17,14 @@ const filterObj = (obj, ...allowedFields) => {
 export const updateMyProfile = async (req, res) => {
   try {
     const filteredBody = filterObj(req.body, 'name', 'email', 'phone', 'department');
-    const userId = req.user.id;
+    const userId = req.user.actualId || req.user.id || req.user._id;
     const userRole = req.user.role;
 
     let updatedUser;
     if (userRole === 'admin') {
       updatedUser = await Admin.findByIdAndUpdate(userId, filteredBody, { new: true, runValidators: true });
+    } else if (userRole === 'support-admin') {
+      updatedUser = await SupportAdmin.findByIdAndUpdate(userId, filteredBody, { new: true, runValidators: true });
     } else {
       updatedUser = await Employee.findByIdAndUpdate(userId, filteredBody, { new: true, runValidators: true });
     }
@@ -52,9 +55,15 @@ export const changePassword = async (req, res) => {
   }
 
   try {
-    let user = await Admin.findById(req.user.id).select("+password");
-    if (!user) {
-        user = await Employee.findById(req.user.id).select("+password");
+    const userId = req.user.actualId || req.user.id || req.user._id;
+    let user;
+    if (req.user.role === 'support-admin') {
+      user = await SupportAdmin.findById(userId).select("+password");
+    } else {
+      user = await Admin.findById(userId).select("+password");
+      if (!user) {
+          user = await Employee.findById(userId).select("+password");
+      }
     }
 
     if (!user) {

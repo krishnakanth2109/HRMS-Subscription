@@ -6,7 +6,8 @@ import {
   FaCrown, FaCalendarAlt, FaCheckCircle, FaTimesCircle,
   FaClock, FaCreditCard, FaEdit, FaSave, FaTimes,
   FaMapMarkerAlt, FaGlobeAsia, FaFingerprint, FaLayerGroup,
-  FaDotCircle, FaWifi, FaCity, FaFlag, FaHashtag, FaChevronDown
+  FaDotCircle, FaWifi, FaCity, FaFlag, FaHashtag, FaChevronDown,
+  FaEye, FaEyeSlash, FaUsers, FaTrash
 } from "react-icons/fa";
 import { MdRadar, MdLocationOn } from "react-icons/md";
 
@@ -29,6 +30,18 @@ const AdminProfile = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+
+  // Create Admin Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createAdminLoading, setCreateAdminLoading] = useState(false);
+  const [newAdminForm, setNewAdminForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: ""
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const featureLabels = {
     "/admin/dashboard": "Dashboard",
@@ -63,6 +76,11 @@ const AdminProfile = () => {
   const [selectedCompanyId, setSelectedCompanyId] = useState("");
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [upgradingPlanId, setUpgradingPlanId] = useState(null);
+
+  // Support Admins State
+  const [isSupportAdminsModalOpen, setIsSupportAdminsModalOpen] = useState(false);
+  const [supportAdmins, setSupportAdmins] = useState([]);
+  const [loadingSupportAdmins, setLoadingSupportAdmins] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -105,6 +123,36 @@ const AdminProfile = () => {
     }
   };
 
+  const fetchSupportAdmins = async () => {
+    setLoadingSupportAdmins(true);
+    try {
+      const res = await api.get("/api/admin/support-admins");
+      setSupportAdmins(res.data || []);
+    } catch (err) {
+      console.error("Error fetching support admins:", err);
+    } finally {
+      setLoadingSupportAdmins(false);
+    }
+  };
+
+  const handleDeleteSupportAdmin = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this support admin?")) return;
+    try {
+      await api.delete(`/api/admin/support-admins/${id}`);
+      setSupportAdmins(supportAdmins.filter(a => a._id !== id));
+      alert("Support Admin deleted successfully.");
+    } catch (err) {
+      console.error("Error deleting support admin:", err);
+      alert("Failed to delete support admin.");
+    }
+  };
+
+  useEffect(() => {
+    if (isSupportAdminsModalOpen) {
+      fetchSupportAdmins();
+    }
+  }, [isSupportAdminsModalOpen]);
+
   useEffect(() => {
     fetchProfile();
     fetchPlans();
@@ -127,6 +175,38 @@ const AdminProfile = () => {
       alert(err.response?.data?.message || "Update failed");
     } finally {
       setUpdateLoading(false);
+    }
+  };
+
+  const handleCreateSupportAdmin = async (e) => {
+    e.preventDefault();
+    if (newAdminForm.password.length < 8) {
+      alert("Password must be at least 8 characters.");
+      return;
+    }
+    if (newAdminForm.password !== newAdminForm.confirmPassword) {
+      alert("Passwords do not match.");
+      return;
+    }
+    setCreateAdminLoading(true);
+    try {
+      const payload = {
+        name: newAdminForm.name,
+        email: newAdminForm.email,
+        password: newAdminForm.password,
+        phone: profile?.phone || "",
+        department: profile?.department || "Support Administration",
+        adminId: profile?.adminId || profile?._id // Link to root admin
+      };
+      await api.post("/api/admin/support-admins", payload);
+      alert("Support Admin created successfully!");
+      setIsCreateModalOpen(false);
+      setNewAdminForm({ name: "", email: "", password: "", confirmPassword: "" });
+      fetchSupportAdmins(); // Refresh support admins list
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to create support admin");
+    } finally {
+      setCreateAdminLoading(false);
     }
   };
 
@@ -166,7 +246,7 @@ const AdminProfile = () => {
         },
         isUpgrade: true
       });
-      
+
       const orderData = res.data; // { orderId, amount, currency, keyId }
 
       // 2. Open Razorpay checkout popup
@@ -262,6 +342,15 @@ const AdminProfile = () => {
   return (
     <div className="min-h-screen p-4 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
+
+        <div className="flex justify-end">
+          <button
+            onClick={() => setIsSupportAdminsModalOpen(true)}
+            className="flex items-center gap-2 bg-purple-600 text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+          >
+            <FaUsers size={14} /> Support Admins
+          </button>
+        </div>
 
         {/* HEADER SECTION */}
         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
@@ -511,7 +600,7 @@ const AdminProfile = () => {
               return (
                 <div
                   key={plan._id}
-                  className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col ${ isCurrentPlan ? "border-purple-500 bg-purple-50/50" : "border-gray-100 bg-gray-50 hover:border-purple-200" }`}
+                  className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col ${isCurrentPlan ? "border-purple-500 bg-purple-50/50" : "border-gray-100 bg-gray-50 hover:border-purple-200"}`}
                 >
                   {isCurrentPlan && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
@@ -545,7 +634,7 @@ const AdminProfile = () => {
                   <button
                     onClick={() => handleUpgrade(plan)}
                     disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) || Number(plan.price) === 0}
-                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${ isCurrentPlan ? "bg-emerald-100 text-emerald-600 cursor-default" : Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100" }`}
+                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${isCurrentPlan ? "bg-emerald-100 text-emerald-600 cursor-default" : Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"}`}
                   >
                     {isCurrentPlan ? "Active Now" : upgradingPlanId === plan._id ? "Processing..." : Number(plan.price) === 0 ? "Default Plan" : "Upgrade Plan"}
                   </button>
@@ -556,6 +645,166 @@ const AdminProfile = () => {
         </div>
 
       </div>
+
+      {/* CREATE SUPPORT ADMIN MODAL */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl relative">
+            <button
+              onClick={() => setIsCreateModalOpen(false)}
+              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <FaTimes size={20} />
+            </button>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <FaUser className="text-purple-600" /> Create New Support Admin
+            </h2>
+            <form onSubmit={handleCreateSupportAdmin} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newAdminForm.name}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+                  placeholder="John Doe"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Username (Email)</label>
+                <input
+                  type="email"
+                  required
+                  value={newAdminForm.email}
+                  onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={newAdminForm.password}
+                    onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+                    placeholder="Min. 8 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirm Password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    minLength={8}
+                    value={newAdminForm.confirmPassword}
+                    onChange={(e) => setNewAdminForm({ ...newAdminForm, confirmPassword: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+                    placeholder="Confirm Password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={createAdminLoading}
+                  className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-70 flex justify-center"
+                >
+                  {createAdminLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : "Create Support Admin"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Support Admins Modal */}
+      {isSupportAdminsModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl p-8 relative flex flex-col max-h-[90vh]">
+            <button
+              onClick={() => setIsSupportAdminsModalOpen(false)}
+              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
+            >
+              <FaTimes size={16} />
+            </button>
+            <div className="mb-8 flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black text-gray-900">Manage Support Admins</h3>
+                <p className="text-gray-500 font-medium text-sm mt-1">View and manage support admins created under your account.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsSupportAdminsModalOpen(false);
+                  setIsCreateModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+              >
+                <FaUser size={14} /> Create Support Admin
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2">
+              {loadingSupportAdmins ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                </div>
+              ) : supportAdmins.length === 0 ? (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
+                  <FaUsers size={48} className="mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500 font-semibold">No support admins found</p>
+                  <p className="text-sm text-gray-400 mt-1">You haven't created any support admins yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {supportAdmins.map((supportAdmin) => (
+                    <div key={supportAdmin._id} className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md shrink-0">
+                          {supportAdmin.name?.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-gray-900">{supportAdmin.name}</h4>
+                          <p className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                            <FaEnvelope className="text-gray-400" size={10} /> {supportAdmin.email}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSupportAdmin(supportAdmin._id)}
+                        className="p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                        title="Delete Support Admin"
+                      >
+                        <FaTrash size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -564,17 +813,17 @@ const AdminProfile = () => {
 const colorMap = {
   purple: { bg: "bg-purple-50", icon: "text-purple-500", badge: "text-purple-700 bg-purple-50 border-purple-100" },
   indigo: { bg: "bg-indigo-50", icon: "text-indigo-500", badge: "text-indigo-700 bg-indigo-50 border-indigo-100" },
-  blue:   { bg: "bg-blue-50",   icon: "text-blue-500",   badge: "text-blue-700 bg-blue-50 border-blue-100"     },
-  teal:   { bg: "bg-teal-50",   icon: "text-teal-500",   badge: "text-teal-700 bg-teal-50 border-teal-100"     },
-  emerald:{ bg: "bg-emerald-50",icon: "text-emerald-500",badge: "text-emerald-700 bg-emerald-50 border-emerald-100" },
-  rose:   { bg: "bg-rose-50",   icon: "text-rose-500",   badge: "text-rose-700 bg-rose-50 border-rose-100"     },
-  sky:    { bg: "bg-sky-50",    icon: "text-sky-500",    badge: "text-sky-700 bg-sky-50 border-sky-100"        },
-  amber:  { bg: "bg-amber-50",  icon: "text-amber-500",  badge: "text-amber-700 bg-amber-50 border-amber-100"  },
+  blue: { bg: "bg-blue-50", icon: "text-blue-500", badge: "text-blue-700 bg-blue-50 border-blue-100" },
+  teal: { bg: "bg-teal-50", icon: "text-teal-500", badge: "text-teal-700 bg-teal-50 border-teal-100" },
+  emerald: { bg: "bg-emerald-50", icon: "text-emerald-500", badge: "text-emerald-700 bg-emerald-50 border-emerald-100" },
+  rose: { bg: "bg-rose-50", icon: "text-rose-500", badge: "text-rose-700 bg-rose-50 border-rose-100" },
+  sky: { bg: "bg-sky-50", icon: "text-sky-500", badge: "text-sky-700 bg-sky-50 border-sky-100" },
+  amber: { bg: "bg-amber-50", icon: "text-amber-500", badge: "text-amber-700 bg-amber-50 border-amber-100" },
   violet: { bg: "bg-violet-50", icon: "text-violet-500", badge: "text-violet-700 bg-violet-50 border-violet-100" },
   orange: { bg: "bg-orange-50", icon: "text-orange-500", badge: "text-orange-700 bg-orange-50 border-orange-100" },
-  fuchsia:{ bg: "bg-fuchsia-50",icon: "text-fuchsia-500",badge: "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-100" },
-  red:    { bg: "bg-red-50",    icon: "text-red-500",    badge: "text-red-700 bg-red-50 border-red-100"        },
-  slate:  { bg: "bg-slate-50",  icon: "text-slate-500",  badge: "text-slate-700 bg-slate-50 border-slate-200"  },
+  fuchsia: { bg: "bg-fuchsia-50", icon: "text-fuchsia-500", badge: "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-100" },
+  red: { bg: "bg-red-50", icon: "text-red-500", badge: "text-red-700 bg-red-50 border-red-100" },
+  slate: { bg: "bg-slate-50", icon: "text-slate-500", badge: "text-slate-700 bg-slate-50 border-slate-200" },
 };
 
 const CompanyDetailCard = ({ icon, label, value, color = "purple", compact = false }) => {

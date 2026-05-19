@@ -340,7 +340,7 @@ export const adminPunchOut = async (data) =>
 
 
 // --- Advanced Correction System ---
-export const requestCorrectionAdvanced = async (data) => 
+export const requestCorrectionAdvanced = async (data) =>
   (await api.post("/api/attendance/request-correction-advanced", data)).data;
 
 export const getPendingCorrections = async () =>
@@ -984,7 +984,7 @@ export const sendOfferLetterEmail = async (data) => {
 
 export const downloadOfferLetterDocx = async (data) => {
   const response = await api.post("/api/offer-letters/download-docx", data, {
-      responseType: "blob"
+    responseType: "blob"
   });
   return response.data;
 };
@@ -1007,7 +1007,7 @@ export const uploadOfferLetterTemplate = async (formData) =>
 
 export const deleteOfferLetterTemplate = async (id) =>
   (await api.delete(`/api/offer-letters/templates/${id}`)).data;
-  //  DEMO REQUEST
+//  DEMO REQUEST
 // ============================================================================= */
 export const submitDemoRequest = async (data) => {
   try {
@@ -1059,7 +1059,7 @@ export const changeEmployeePassword = async (employeeId, newPassword) =>
 /* =============================================================================
    PAYROLL CANDIDATE MANAGEMENT
 ============================================================================= */
-export const getPayrollCandidates = async () => 
+export const getPayrollCandidates = async () =>
   (await api.get("/api/payroll/all")).data;
 
 
@@ -1070,7 +1070,7 @@ export const managePayrollCandidate = async (formData, id = null) => {
   })).data;
 };
 
-export const deletePayrollCandidate = async (id) => 
+export const deletePayrollCandidate = async (id) =>
   (await api.delete(`/api/payroll/${id}`)).data;
 
 /* =============================================================================

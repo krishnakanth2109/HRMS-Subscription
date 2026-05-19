@@ -2,6 +2,7 @@
 
 import jwt from "jsonwebtoken";
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
 import FaceDescriptor from "../models/FaceDescriptor.js";
 
@@ -55,13 +56,20 @@ export const registerFace = async (req, res) => {
       userName = admin.name;
       userEmail = admin.email;
     } else {
-      const employee = await Employee.findById(userId);
-      if (employee) {
-        userType = "Employee";
-        userName = employee.name;
-        userEmail = employee.email;
+      const supportAdmin = await SupportAdmin.findById(userId);
+      if (supportAdmin) {
+        userType = "SupportAdmin";
+        userName = supportAdmin.name;
+        userEmail = supportAdmin.email;
       } else {
-        return res.status(404).json({ message: "User not found." });
+        const employee = await Employee.findById(userId);
+        if (employee) {
+          userType = "Employee";
+          userName = employee.name;
+          userEmail = employee.email;
+        } else {
+          return res.status(404).json({ message: "User not found." });
+        }
       }
     }
 
@@ -145,7 +153,12 @@ export const loginWithFace = async (req, res) => {
     if (bestMatch.userType === "Admin") {
       user = await Admin.findById(bestMatch.userId).select("+role");
       if (user) {
-        role = user.role; // "admin" or "manager"
+        role = user.role; // "admin"
+      }
+    } else if (bestMatch.userType === "SupportAdmin") {
+      user = await SupportAdmin.findById(bestMatch.userId).select("+role");
+      if (user) {
+        role = user.role; // "support-admin"
       }
     } else {
       user = await Employee.findById(bestMatch.userId);

@@ -17,6 +17,7 @@ import MasterSettings from "./pages/master/MasterSettings";
 // Pages
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
+import SupportAdminDashboard from "./pages/support-admin/SupportAdminDashboard";
 import EmployeeManagement from "./pages/EmployeeManagement";
 import AddEmployee from "./pages/AddEmployee";
 import ReactivateEmployee from "./pages/ReactivateEmployee";
@@ -25,6 +26,7 @@ import AdminViewAttendance from "./pages/AdminviewAttendance";
 import LeaveManagement from "./pages/LeaveManagement";
 import AdminLeaveSummary from "./pages/AdminLeaveSummary";
 import AdminProfile from "./pages/AdminProfile";
+import SupportAdminProfile from "./pages/support-admin/SupportAdminProfile";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import EmployeeLeaveSummary from "./pages/EmployeeLeaveSummary";
 import AdminNotifications from "./pages/AdminNotifications";
@@ -134,6 +136,9 @@ const PublicRoute = ({ children }) => {
       if (role === "admin") {
         return <Navigate to="/admin/dashboard" replace />;
       }
+      if (role === "support-admin") {
+        return <Navigate to="/support-admin/dashboard" replace />;
+      }
       if (role === "employee") {
         return <Navigate to="/employee/dashboard" replace />;
       }
@@ -230,7 +235,7 @@ function App() {
       {/* ------------------ ADMIN ROUTES ------------------ */}
       <Route
         element={
-          <ProtectedRoute role="admin">
+          <ProtectedRoute allow={["admin", "support-admin"]}>
             <EmployeeProvider> 
               <LayoutAdmin />
             </EmployeeProvider>
@@ -238,7 +243,9 @@ function App() {
         }
       >
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/support-admin/dashboard" element={<SupportAdminDashboard />} />
         <Route path="/admin/profile" element={<AdminProfile />} />
+        <Route path="/support-admin/profile" element={<SupportAdminProfile />} />
         <Route path="/employees" element={<EmployeeManagement />} />
         <Route path="/employees/add" element={<AddEmployee />} />
         <Route path="/employees/reactivate/:id" element={<ReactivateEmployee />} />

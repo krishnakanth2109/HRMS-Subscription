@@ -12,10 +12,10 @@ const webAuthnCredentialSchema = new mongoose.Schema(
       index: true,
     },
 
-    // "admin" | "manager" | "employee" — determines which collection to look up
+    // "admin" | "support-admin" | "employee" — determines which collection to look up
     userRole: {
       type: String,
-      enum: ["admin", "manager", "employee"],
+      enum: ["admin", "support-admin", "employee"],
       required: true,
     },
 

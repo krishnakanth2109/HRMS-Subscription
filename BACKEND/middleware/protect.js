@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 
 export const protect = async (req, res, next) => {
   let token;
@@ -18,7 +19,22 @@ export const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = await Admin.findById(decoded.id).select("+role");
+    let currentUser = await Admin.findById(decoded.id).select("+role").lean();
+    if (currentUser) {
+      currentUser.actualId = currentUser._id;
+      if (currentUser.adminId) {
+        currentUser._id = currentUser.adminId;
+      }
+    } else {
+      currentUser = await SupportAdmin.findById(decoded.id).select("+role").lean();
+      if (currentUser) {
+        currentUser.actualId = currentUser._id;
+        if (currentUser.adminId) {
+          currentUser._id = currentUser.adminId;
+        }
+      }
+    }
+    req.user = currentUser;
 
     next();
   } catch (error) {

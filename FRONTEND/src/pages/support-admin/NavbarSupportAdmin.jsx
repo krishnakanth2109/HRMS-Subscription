@@ -1,36 +1,30 @@
-import { useContext, useState, useRef, useEffect, useMemo } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { NotificationContext } from "../../context/NotificationContext";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
 import {
   Bell,
-  UserCircle,
   ChevronDown,
   LogOut,
   User,
-  Key,
-  Settings,
   Palette,
   Check,
   Moon,
   X,
   CheckCircle,
   Trash2,
-  Menu,
-  ChevronRight,
-  Info
+  Menu
 } from "lucide-react";
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000", {
   transports: ["websocket"],
 });
 
-const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
+const NavbarSupportAdmin = ({ currentTheme, onThemeChange, setMobileOpen }) => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [showMenu, setShowMenu] = useState(false);
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
@@ -51,16 +45,6 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
 
   const { themeColor } = useTheme();
   const [idlePopup, setIdlePopup] = useState(null);
-
-  const breadcrumbs = useMemo(() => {
-    const pathnames = location.pathname.split("/").filter((x) => x);
-    return pathnames.map((value, index) => {
-      const last = index === pathnames.length - 1;
-      const to = `/${pathnames.slice(0, index + 1).join("/")}`;
-      const label = value.split("-").map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(" ");
-      return { label, to, last };
-    });
-  }, [location.pathname]);
 
   useEffect(() => {
     const handleOutside = (e) => {
@@ -108,12 +92,6 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
             <div className="flex-1">
               <h4 className="text-sm font-bold text-slate-900">{idlePopup.title}</h4>
               <p className="text-xs text-slate-500 mt-1">{idlePopup.message}</p>
-              <button
-                onClick={() => { navigate("/admin/notifications"); setBellOpen(false); }}
-                className="mt-2 text-indigo-600 text-xs font-semibold hover:underline"
-              >
-                View Details →
-              </button>
             </div>
             <button onClick={() => setIdlePopup(null)} className="text-slate-400 hover:text-slate-600">
               <X size={14} />
@@ -122,37 +100,21 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
         </div>
       )}
 
-      <nav
+      <nav 
         className="h-[60px] flex items-center justify-between px-4 shadow-md transition-all relative z-10"
         style={{ backgroundColor: themeColor }}
       >
         <div className="flex items-center gap-4">
-          <button
+          <button 
             className="md:hidden p-2 text-white hover:bg-white/10 rounded-md transition-colors"
             onClick={() => setMobileOpen(true)}
           >
             <Menu size={20} />
           </button>
-
-          {/* <div className="hidden sm:flex items-center gap-2 text-sm text-white/80">
-            <Link to="/admin/dashboard" className="hover:text-white transition-colors font-medium">Home</Link>
-            {breadcrumbs.length > 0 && <ChevronRight size={14} className="text-white/40" />}
-            {breadcrumbs.map((crumb, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                {crumb.last ? (
-                  <span className="text-white font-bold">{crumb.label}</span>
-                ) : (
-                  <>
-                    <Link to={crumb.to} className="hover:text-white transition-colors">{crumb.label}</Link>
-                    <ChevronRight size={14} className="text-white/40" />
-                  </>
-                )}
-              </div>
-            ))}
-          </div> */}
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
+          {/* THEME SELECTOR */}
           <div className="relative" ref={themeRef}>
             <button
               onClick={() => setShowThemeDropdown(!showThemeDropdown)}
@@ -185,6 +147,7 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
             )}
           </div>
 
+          {/* NOTIFICATION BELL */}
           <div className="relative" ref={bellRef}>
             <button
               onClick={() => setBellOpen(!bellOpen)}
@@ -217,7 +180,7 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
                     recentNotifications.map((n) => (
                       <div
                         key={n._id}
-                        onClick={() => { markAsRead(n._id); navigate("/admin/notifications"); setBellOpen(false); }}
+                        onClick={() => { markAsRead(n._id); setBellOpen(false); }}
                         className={`px-4 py-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors flex gap-3 ${!n.isRead ? "bg-indigo-50/30" : ""}`}
                       >
                         <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${!n.isRead ? "bg-indigo-500" : "bg-slate-200"}`} />
@@ -237,7 +200,6 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
                   <button onClick={clearAll} className="text-red-500 hover:text-red-700 flex items-center gap-1">
                     <Trash2 size={12} /> Clear
                   </button>
-                  <button onClick={() => { navigate("/admin/notifications"); setBellOpen(false); }} className="text-slate-500 hover:text-slate-700">View all →</button>
                 </div>
               </div>
             )}
@@ -245,17 +207,18 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
 
           <div className="w-[1px] h-6 bg-white/20 mx-1 hidden md:block" />
 
+          {/* USER MENU */}
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="flex items-center gap-2 p-1 hover:bg-white/10 rounded-lg transition-all"
             >
               <div className="w-8 h-8 rounded-full bg-white text-indigo-600 flex items-center justify-center font-bold text-xs shadow-sm">
-                {user?.name?.charAt(0).toUpperCase() || "A"}
+                {user?.name?.charAt(0).toUpperCase() || "S"}
               </div>
               <div className="hidden md:flex flex-col items-start leading-tight">
-                <span className="text-xs font-bold text-white">{user?.name || "Admin"}</span>
-                <span className="text-[10px] text-white/70 font-bold uppercase">{user?.planType || "Plan"}</span>
+                <span className="text-xs font-bold text-white">{user?.name || "Support Admin"}</span>
+                <span className="text-[10px] text-white/70 font-bold uppercase">Support Admin</span>
               </div>
               <ChevronDown size={14} className={`text-white transition-transform ${showMenu ? "rotate-180" : ""}`} />
             </button>
@@ -263,33 +226,22 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
               <div className="absolute top-12 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl w-56 z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2">
                 <div className="px-4 py-2 border-b border-slate-50 bg-slate-50/50 md:hidden">
                   <p className="text-xs font-bold text-slate-900">{user?.name}</p>
-                  <p className="text-[10px] text-indigo-500 font-bold">{user?.planType}</p>
+                  <p className="text-[10px] text-indigo-500 font-bold">Support Admin</p>
                 </div>
                 <button
                   onClick={() => {
-                    if (user?.role === "support-admin") {
-                      navigate("/support-admin/profile");
-                    } else {
-                      navigate("/admin/profile");
-                    }
+                    navigate("/support-admin/profile");
                     setShowMenu(false);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   <User size={16} className="text-slate-400" /> View Profile
                 </button>
-                <button onClick={() => { navigate("/admin/change-password"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                  <Key size={16} className="text-slate-400" /> Change Password
-                </button>
                 <div className="h-[1px] bg-slate-100 my-1" />
-                <button onClick={() => { navigate("/admin/rules"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                  <Settings size={16} className="text-slate-400" /> Company Rules
-                </button>
-                <button onClick={() => { navigate("/admin/issues"); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-colors">
-                  <Info size={16} className="text-slate-400" /> Report Issue
-                </button>
-                <div className="h-[1px] bg-slate-100 my-1" />
-                <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                <button 
+                  onClick={handleLogout} 
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                >
                   <LogOut size={16} /> Logout
                 </button>
               </div>
@@ -301,4 +253,4 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
   );
 };
 
-export default Navbar;
+export default NavbarSupportAdmin;

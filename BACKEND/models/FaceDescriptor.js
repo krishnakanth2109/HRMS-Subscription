@@ -13,7 +13,7 @@ const faceDescriptorSchema = new mongoose.Schema(
     // Which collection the user belongs to
     userType: {
       type: String,
-      enum: ["Admin", "Employee"],
+      enum: ["Admin", "SupportAdmin", "Employee"],
       required: true,
     },
 

@@ -1094,17 +1094,9 @@ const EmployeeLeavemanagement = () => {
         halfDaySession: from === to ? halfDaySession || "" : "",
       };
 
-      let applied = false;
       if (typeof applyForLeave === "function") {
-        try {
-          await applyForLeave(payload);
-          applied = true;
-        } catch (err) {
-          console.error("Error applying leave via function:", err);
-        }
-      }
-
-      if (!applied) {
+        await applyForLeave(payload);
+      } else {
         await api.post("/api/leaves/apply", payload);
       }
 
@@ -1141,14 +1133,15 @@ const EmployeeLeavemanagement = () => {
       }, 3000);
     } catch (err) {
       console.error("submit error", err);
+      const errMsg = err.response?.data?.message || err?.message || "Failed to submit leave request.";
       // Show SweetAlert Error
       Swal.fire({
         icon: 'error',
         title: 'Submission Failed',
-        text: err?.message || "Failed to submit leave request.",
+        text: errMsg,
         confirmButtonColor: '#d33'
       });
-      setSubmitError(err?.message || "Failed to submit leave request.");
+      setSubmitError(errMsg);
     }
   };
 

@@ -27,8 +27,8 @@ const FingerprintSetupCard = () => {
       return "Admin Fingerprint";
     }
 
-    if (normalizedRole === "manager") {
-      return "Manager Fingerprint";
+    if (normalizedRole === "support-admin") {
+      return "Support Admin Fingerprint";
     }
 
     return "Employee Fingerprint";

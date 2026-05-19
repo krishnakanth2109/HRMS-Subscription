@@ -4,6 +4,7 @@ import LeaveRequest, { LeavePolicy } from "../models/LeaveRequest.js";
 import Notification from "../models/notificationModel.js";
 import Employee from "../models/employeeModel.js";
 import Admin from "../models/adminModel.js";
+import Attendance from "../models/Attendance.js";
 import nodemailer from "nodemailer";
 
 /* ===============================================================
@@ -278,6 +279,29 @@ export const createLeave = async (req, res) => {
 
     const monthKey = from.slice(0, 7);
     const dates    = listDates(from, to);
+
+    // ✅ Check if employee is trying to apply for previous days and was present/punched-in
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const pastDates = dates.filter((d) => d < todayStr);
+
+    if (pastDates.length > 0) {
+      const attendanceDoc = await Attendance.findOne({ employeeId: loggedUser.employeeId });
+      if (attendanceDoc) {
+        for (const date of pastDates) {
+          const entry = attendanceDoc.attendance.find((e) => e.date === date);
+          if (entry) {
+            const isPunchedIn = entry.punchIn !== null && entry.punchIn !== undefined;
+            const isPresentStatus = ["PRESENT", "HALF_DAY", "WORKING", "COMPLETED"].includes(entry.status);
+
+            if (isPunchedIn || isPresentStatus) {
+              return res.status(400).json({
+                message: `You cannot apply for leave on ${date} because you were present or punched in on that day.`,
+              });
+            }
+          }
+        }
+      }
+    }
 
     const { leavecategory, paidDays } = await resolveLeaveCategoryForRequest(
       loggedUser.adminId, 
