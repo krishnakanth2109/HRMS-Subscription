@@ -2,11 +2,11 @@ import React, { useEffect, useState, useRef } from "react";
 import { getHolidays, getEmployees } from "../api";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
-import { 
-  FaCalendarCheck, 
-  FaUmbrellaBeach, 
-  FaBirthdayCake, 
-  FaChevronLeft, 
+import {
+  FaCalendarCheck,
+  FaUmbrellaBeach,
+  FaBirthdayCake,
+  FaChevronLeft,
   FaChevronRight,
   FaCalendarDay,
   FaGift,
@@ -40,7 +40,7 @@ const EmployeeHolidays = () => {
     const target = new Date(targetDate);
     target.setHours(0, 0, 0, 0);
     const diffTime = Math.abs(target - today);
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
   // --- LOGIC: FETCH DATA ---
@@ -94,8 +94,8 @@ const EmployeeHolidays = () => {
     .filter(h => h.start >= new Date())
     .sort((a, b) => a.start - b.start);
 
-  const displayHolidays = expandedHolidays 
-    ? allUpcomingHolidays 
+  const displayHolidays = expandedHolidays
+    ? allUpcomingHolidays
     : allUpcomingHolidays.slice(0, 4);
 
   // Filter Birthdays: Match Month AND (if current month, day >= today)
@@ -129,7 +129,7 @@ const EmployeeHolidays = () => {
 
   const currentYear = activeDate.getFullYear();
   const currentMonth = activeDate.getMonth();
-  
+
   const stats = {
     holidays: holidays.filter(h => h.start.getMonth() === currentMonth && h.start.getFullYear() === currentYear).length,
     weekends: getWeekendsInMonth(currentYear, currentMonth),
@@ -137,7 +137,7 @@ const EmployeeHolidays = () => {
   };
 
   // --- UI: CALENDAR CUSTOMIZATION ---
-  
+
   const tileContent = ({ date, view }) => {
     if (view === "month") {
       const d = normalize(date);
@@ -158,10 +158,10 @@ const EmployeeHolidays = () => {
       setShowPopup(false);
       return;
     }
-    
+
     const d = normalize(date);
     const dateEvents = [];
-    
+
     // Check for holidays
     holidays.forEach(h => {
       if (d >= h.start && d <= h.end) {
@@ -174,7 +174,7 @@ const EmployeeHolidays = () => {
         });
       }
     });
-    
+
     // Check for birthdays
     birthdays.forEach(b => {
       if (b.dob.getDate() === d.getDate() && b.dob.getMonth() === d.getMonth()) {
@@ -186,7 +186,7 @@ const EmployeeHolidays = () => {
         });
       }
     });
-    
+
     if (dateEvents.length > 0) {
       const rect = event.target.getBoundingClientRect();
       setPopupPosition({
@@ -223,7 +223,7 @@ const EmployeeHolidays = () => {
   return (
     <div className="min-h-screen  p-4 md:p-8 font-sans">
       <div className="max-w-[1800px] mx-auto space-y-8">
-        
+
         {/* HEADER SECTION */}
         <div className="flex flex-col border border-gray-200 shadow-sm bg-white rounded-2xl p-6 md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -233,63 +233,63 @@ const EmployeeHolidays = () => {
           <div className="flex items-center gap-3 bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm">
             <FaCalendarDay className="text-blue-500" />
             <span className="text-sm font-medium text-gray-700">
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
               })}
             </span>
           </div>
         </div>
 
         {/* STATS CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Holidays</p>
                 <h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.holidays}</h3>
                 <span className="text-xs text-gray-400">This month</span>
               </div>
-              <div className="p-3 rounded-full bg-blue-50">
+              <div className="p-3 rounded-full bg-blue-50 shrink-0">
                 <FaUmbrellaBeach className="text-blue-500 text-xl" />
               </div>
             </div>
           </div>
-          
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Weekends</p>
                 <h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.weekends}</h3>
                 <span className="text-xs text-gray-400">This month</span>
               </div>
-              <div className="p-3 rounded-full bg-indigo-50">
+              <div className="p-3 rounded-full bg-indigo-50 shrink-0">
                 <FaCalendarCheck className="text-indigo-500 text-xl" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-500 text-sm font-medium">Birthdays</p>
                 <h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.birthdays}</h3>
                 <span className="text-xs text-gray-400">Upcoming</span>
               </div>
-              <div className="p-3 rounded-full bg-orange-50">
+              <div className="p-3 rounded-full bg-orange-50 shrink-0">
                 <FaBirthdayCake className="text-orange-500 text-xl" />
               </div>
             </div>
           </div>
 
           {/* Next Holiday Card */}
-          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-5 rounded-2xl shadow-sm text-white">
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-5 rounded-2xl shadow-sm text-white flex flex-col justify-center">
             <div className="flex items-center justify-between">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm opacity-90 mb-1">Next Holiday</p>
-                <h3 className="text-xl font-bold">
+                <h3 className="text-xl font-bold truncate">
                   {upcomingHoliday ? upcomingHoliday.name : "None"}
                 </h3>
                 {upcomingHoliday && (
@@ -298,25 +298,25 @@ const EmployeeHolidays = () => {
                   </p>
                 )}
               </div>
-              <div className="p-3 rounded-full bg-white/20">
+              <div className="p-3 rounded-full bg-white/20 shrink-0 ml-2">
                 <FaGift className="text-xl" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* MAIN CONTENT GRID - 3 equal columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
+        {/* MAIN CONTENT GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
           {/* LEFT: CALENDAR */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-xl font-bold text-gray-800">Calendar</h3>
-    
+
               </div>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => setActiveDate(new Date(activeDate.getFullYear(), activeDate.getMonth() - 1, 1))}
                   className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
                 >
@@ -325,7 +325,7 @@ const EmployeeHolidays = () => {
                 <div className="px-3 py-2 bg-gray-50 rounded-lg text-sm font-medium">
                   {activeDate.toLocaleString('default', { month: 'short', year: 'numeric' })}
                 </div>
-                <button 
+                <button
                   onClick={() => setActiveDate(new Date(activeDate.getFullYear(), activeDate.getMonth() + 1, 1))}
                   className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
                 >
@@ -334,13 +334,13 @@ const EmployeeHolidays = () => {
               </div>
             </div>
 
-            <div 
+            <div
               ref={calendarRef}
               className="relative"
               onMouseLeave={handleDateLeave}
             >
-              <Calendar 
-                onChange={setActiveDate} 
+              <Calendar
+                onChange={setActiveDate}
                 value={activeDate}
                 activeStartDate={activeDate}
                 onActiveStartDateChange={({ activeStartDate }) => setActiveDate(activeStartDate)}
@@ -359,7 +359,7 @@ const EmployeeHolidays = () => {
 
               {/* Date Hover Popup */}
               {showPopup && popupContent.length > 0 && (
-                <div 
+                <div
                   className="date-popup fixed z-50 bg-white rounded-xl shadow-2xl border border-gray-200 p-4 w-80 animate-fadeIn"
                   style={{
                     left: `${popupPosition.x}px`,
@@ -372,9 +372,9 @@ const EmployeeHolidays = () => {
                   <div className="absolute -bottom-2 left-1/2 w-4 h-4 bg-white border-r border-b border-gray-200 rotate-45 transform -translate-x-1/2"></div>
                   <div className="mb-3 pb-2 border-b border-gray-100">
                     <h4 className="font-bold text-lg text-gray-800">
-                      {hoveredDate?.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
+                      {hoveredDate?.toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        month: 'short',
                         day: 'numeric'
                       })}
                     </h4>
@@ -444,7 +444,7 @@ const EmployeeHolidays = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className={`space-y-3 flex-1 ${expandedHolidays ? '' : 'overflow-hidden'}`}>
               {displayHolidays.length === 0 ? (
                 <div className="text-center py-8">
@@ -453,8 +453,8 @@ const EmployeeHolidays = () => {
                 </div>
               ) : (
                 displayHolidays.map((h, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className="bg-gradient-to-r from-blue-50 to-white border border-blue-100 rounded-xl p-4 hover:shadow-sm transition-shadow"
                   >
                     <div className="flex items-center gap-4">
@@ -477,10 +477,10 @@ const EmployeeHolidays = () => {
                 ))
               )}
             </div>
-            
+
             {allUpcomingHolidays.length > 4 && (
               <div className="pt-4 mt-auto">
-                <button 
+                <button
                   onClick={() => setExpandedHolidays(!expandedHolidays)}
                   className="w-full py-2.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
@@ -522,8 +522,8 @@ const EmployeeHolidays = () => {
                 </div>
               ) : (
                 displayBirthdays.map((b, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className="bg-gradient-to-r from-purple-50 to-white border border-purple-100 rounded-xl p-4 hover:shadow-sm transition-shadow"
                   >
                     <div className="flex items-center gap-4">
@@ -552,10 +552,10 @@ const EmployeeHolidays = () => {
                 ))
               )}
             </div>
-            
+
             {currentMonthBirthdays.length > 3 && (
               <div className="pt-4 mt-auto">
-                <button 
+                <button
                   onClick={() => setExpandedBirthdays(!expandedBirthdays)}
                   className="w-full py-2.5 text-sm font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors flex items-center justify-center gap-2"
                 >
@@ -609,6 +609,17 @@ const EmployeeHolidays = () => {
             font-size: 14px;
             transition: all 0.2s ease;
             border: none !important;
+        }
+
+        @media (max-width: 640px) {
+            .react-calendar__tile {
+                padding: 10px 2px !important;
+                font-size: 12px;
+                line-height: 14px;
+            }
+            .react-calendar__month-view__weekdays {
+                font-size: 0.65em;
+            }
         }
         .react-calendar__tile:enabled:hover,
         .react-calendar__tile:enabled:focus {

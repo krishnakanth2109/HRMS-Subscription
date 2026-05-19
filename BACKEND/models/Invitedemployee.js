@@ -4,7 +4,6 @@ const invitedEmployeeSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true,
     lowercase: true,
     trim: true
   },
@@ -34,25 +33,25 @@ const invitedEmployeeSchema = new mongoose.Schema({
   onboardedAt: {
     type: Date
   },
-  signatureUrl: { type: String }, 
-  policyStatus: { 
-    type: String, 
-    enum: ['accepted', 'not accepted'], 
-    default: 'not accepted' 
+  signatureUrl: { type: String },
+  policyStatus: {
+    type: String,
+    enum: ['accepted', 'not accepted'],
+    default: 'not accepted'
   },
   policyAcceptedAt: { type: Date },
   requiredDocuments: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CompanyDocument'
   }]
-  
+
 }, {
   timestamps: true
 }
 
 );
 
-invitedEmployeeSchema.index({ email: 1 });
+invitedEmployeeSchema.index({ email: 1 }, { unique: true });
 invitedEmployeeSchema.index({ company: 1, status: 1 });
 
 export default mongoose.model("InvitedEmployee", invitedEmployeeSchema);

@@ -16,6 +16,13 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import { MdEmail, MdLock } from "react-icons/md";
+import { HiOutlineFaceSmile } from "react-icons/hi2";
+import FaceLogin from "../components/FaceLogin";
+import {
+  getWebAuthnLoginOptions,
+  loginWithFaceApi,
+  verifyWebAuthnLogin,
+} from "../api";
 
 const Login = () => {
   const { user, login, logout } = useContext(AuthContext);
@@ -28,6 +35,10 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [showFaceLogin, setShowFaceLogin] = useState(false);
+  const [faceLoading, setFaceLoading] = useState(false);
 
   /* ==================== SIGNUP & DYNAMIC PLANS STATE ==================== */
   const [showSignup, setShowSignup] = useState(false);
@@ -59,6 +70,26 @@ const Login = () => {
 
   // Only paid plans shown in upgrade modal - no free trial
   const paidPlans = fetchedPlans.filter((p) => Number(p.price) > 0);
+
+  useEffect(() => {
+    const checkBiometricSupport = async () => {
+      try {
+        if (
+          window.PublicKeyCredential &&
+          typeof window.PublicKeyCredential
+            .isUserVerifyingPlatformAuthenticatorAvailable === "function"
+        ) {
+          const available =
+            await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          setBiometricSupported(available);
+        }
+      } catch {
+        setBiometricSupported(false);
+      }
+    };
+
+    checkBiometricSupport();
+  }, []);
 
   /* ==================== FETCH DYNAMIC PLANS ==================== */
   useEffect(() => {
@@ -94,8 +125,10 @@ const Login = () => {
   useEffect(() => {
     if (!user) return;
     const userRole = user.role?.toLowerCase();
-    if (userRole === "admin" || userRole === "manager") {
+    if (userRole === "admin") {
       navigate("/admin/dashboard", { replace: true });
+    } else if (userRole === "support-admin") {
+      navigate("/support-admin/dashboard", { replace: true });
     } else if (userRole === "employee") {
       navigate("/employee/dashboard", { replace: true });
     } else {
@@ -144,6 +177,119 @@ const Login = () => {
       setError(err.response?.data?.message || "Login failed. Please check credentials.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const safeAtob = (str) => {
+    let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4) base64 += "=";
+    return atob(base64);
+  };
+
+  const toBase64Url = (buffer) =>
+    btoa(String.fromCharCode(...new Uint8Array(buffer)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+  const finishBiometricLogin = (result) => {
+    if (result.status !== "success" || !result.token) {
+      setError("Biometric authentication failed");
+      return;
+    }
+
+    sessionStorage.setItem("token", result.token);
+    sessionStorage.setItem("hrms-token", result.token);
+    const userWithToken = { ...result.data, token: result.token };
+    sessionStorage.setItem("hrmsUser", JSON.stringify(userWithToken));
+
+    window.location.href =
+      result.data.role === "admin"
+        ? "/admin/dashboard"
+        : result.data.role === "support-admin"
+        ? "/support-admin/dashboard"
+        : "/employee/dashboard";
+  };
+
+  const handleFingerprintLogin = async () => {
+    if (!biometricSupported) {
+      setError("Fingerprint authentication is not supported on this device.");
+      return;
+    }
+
+    setError("");
+    setBiometricLoading(true);
+
+    try {
+      const { options } = await getWebAuthnLoginOptions();
+      const challengeBuffer = Uint8Array.from(safeAtob(options.challenge), (c) =>
+        c.charCodeAt(0)
+      );
+
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: challengeBuffer,
+          rpId: options.rpId,
+          timeout: options.timeout,
+          userVerification: options.userVerification,
+          allowCredentials: (options.allowCredentials || []).map((cred) => ({
+            ...cred,
+            id: Uint8Array.from(safeAtob(cred.id), (c) => c.charCodeAt(0)),
+          })),
+        },
+      });
+
+      const credentialData = {
+        id: toBase64Url(assertion.rawId),
+        type: assertion.type,
+        response: {
+          authenticatorData: btoa(
+            String.fromCharCode(
+              ...new Uint8Array(assertion.response.authenticatorData)
+            )
+          ),
+          clientDataJSON: btoa(
+            String.fromCharCode(
+              ...new Uint8Array(assertion.response.clientDataJSON)
+            )
+          ),
+          signature: btoa(
+            String.fromCharCode(...new Uint8Array(assertion.response.signature))
+          ),
+        },
+      };
+
+      const result = await verifyWebAuthnLogin(credentialData, options.challenge);
+      finishBiometricLogin(result);
+    } catch (err) {
+      if (err.name === "NotAllowedError") {
+        setError("Fingerprint authentication was cancelled.");
+      } else if (err.name === "SecurityError") {
+        setError("Fingerprint authentication requires HTTPS or localhost.");
+      } else {
+        setError(err.response?.data?.message || "Fingerprint authentication failed.");
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
+  };
+
+  const handleFaceLogin = async (descriptor) => {
+    setFaceLoading(true);
+    setError("");
+
+    try {
+      const result = await loginWithFaceApi(descriptor);
+      setShowFaceLogin(false);
+      finishBiometricLogin(result);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Face not recognized. Please try again or use email/password."
+      );
+      setShowFaceLogin(false);
+    } finally {
+      setFaceLoading(false);
     }
   };
 
@@ -380,6 +526,38 @@ const Login = () => {
                   </span>
                 ) : "Access Dashboard"}
               </button>
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  or
+                </span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={handleFingerprintLogin}
+                  disabled={!biometricSupported || biometricLoading}
+                  id="fingerprint-login-btn"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-100 transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FaFingerprint className="text-base" />
+                  {biometricLoading ? "Scanning..." : "Fingerprint"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowFaceLogin(true)}
+                  disabled={faceLoading}
+                  id="face-login-btn"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-3 py-3 text-xs font-bold text-white shadow-lg shadow-sky-100 transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <HiOutlineFaceSmile className="text-base" />
+                  {faceLoading ? "Scanning..." : "Face ID"}
+                </button>
+              </div>
             </form>
 
             <div className="mt-6 sm:mt-8 flex flex-col items-center gap-3 sm:gap-4 text-center">
@@ -741,6 +919,15 @@ const Login = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showFaceLogin && (
+        <FaceLogin
+          onFaceLogin={handleFaceLogin}
+          onClose={() => {
+            if (!faceLoading) setShowFaceLogin(false);
+          }}
+        />
       )}
 
       {/* Custom CSS for animations and bubbles */}

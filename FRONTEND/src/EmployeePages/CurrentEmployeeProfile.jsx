@@ -212,6 +212,12 @@ useEffect(() => {
   const saveChanges = async () => {
     // 1. Phone Validation
     if (employee.phone?.length !== 10) return alert("Phone number must be 10 digits");
+
+    const normalizedEmail = employee.email?.trim().toLowerCase();
+    if (!normalizedEmail) return alert("Office email is required");
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      return alert("Please enter a valid office email address");
+    }
     
     // 2. Aadhaar Validation
     const cleanAadhaar = employee.personalDetails?.aadhaarNumber?.replace(/\D/g, "") || "";
@@ -227,7 +233,7 @@ useEffect(() => {
     }
 
     const empId = String(employee.employeeId);
-    const updatedEmployee = { ...employee, employeeId: empId };
+    const updatedEmployee = { ...employee, employeeId: empId, email: normalizedEmail };
 
     setSaving(true);
 
@@ -320,7 +326,7 @@ useEffect(() => {
           <Section title="Basic Information">
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <StaticField label="Employee ID" value={employeeId} />
-                <StaticField label="Email" value={email} />
+                <Input label="Office Email" type="email" value={email} onChange={(v) => handleBasicChange("email", v)} editable={isEditing} icon={<FaEnvelope/>} />
                 <Input label="Full Name" value={name} onChange={(v) => handleBasicChange("name", v)} editable={isEditing} icon={<FaUser/>} />
                 <Input label="Phone (10 Digits)" value={phone} onChange={(v) => handleBasicChange("phone", v)} editable={isEditing} icon={<FaPhone/>} />
                 <div className="md:col-span-2">

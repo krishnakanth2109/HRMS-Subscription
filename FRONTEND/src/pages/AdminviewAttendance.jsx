@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
@@ -327,26 +328,46 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0 z-20">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold text-xl overflow-hidden bg-gray-50">
+        <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white shrink-0 z-20">
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold sm:text-xl overflow-hidden bg-gray-50 shrink-0">
               {profilePic ? <img src={profilePic} alt={employeeData.name} className="w-full h-full object-cover" /> : (employeeData.name || "U").charAt(0)}
             </div>
-            <div><h3 className="text-xl font-bold text-gray-800">Attendance History</h3><p className="text-gray-500 font-medium text-sm flex items-center gap-2 mt-0.5"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>{employeeData.name} ({employeeData.employeeId})</p></div>
+            <div className="min-w-0">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">{employeeData.name}</h3>
+              <p className="text-gray-500 font-medium text-[10px] sm:text-sm flex items-center gap-2 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>{employeeData.employeeId}</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={handleShareImage} className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"><FaShareAlt /> Share</button>
-            <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors shadow-sm"><FaFileExcel /> Download</button>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-800 p-2 hover:bg-gray-100 rounded-full transition-colors ml-2"><FaTimes size={20} /></button>
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+            <div className="flex items-center gap-2">
+              <button onClick={handleShareImage} className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-700 text-[10px] sm:text-sm font-bold rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"><FaShareAlt /> <span className="hidden xs:inline">Share</span></button>
+              <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-[10px] sm:text-sm font-bold rounded-xl hover:bg-green-700 transition-colors shadow-sm"><FaFileExcel /> <span className="hidden xs:inline">Download</span></button>
+            </div>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-800 p-2 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={18} /></button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto bg-gray-50/50 custom-scrollbar" ref={contentRef}>
-          <div className="p-6 grid grid-cols-2 md:grid-cols-5 gap-4 sticky top-0 z-10 bg-gray-50/95 backdrop-blur-sm border-b border-gray-200/50">
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow"><span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Working Days</span><span className="text-2xl font-black text-gray-800">{stats.workingDays}</span></div>
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-indigo-500"><span className="text-[10px] font-bold uppercase text-indigo-500 tracking-wider">Present</span><span className="text-2xl font-black text-gray-800">{stats.present}</span></div>
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-green-500"><span className="text-[10px] font-bold uppercase text-green-500 tracking-wider">Full Days</span><span className="text-2xl font-black text-gray-800">{stats.fullDays}</span></div>
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-yellow-500"><span className="text-[10px] font-bold uppercase text-yellow-600 tracking-wider">Half Days</span><span className="text-2xl font-black text-gray-800">{stats.halfDays}</span></div>
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-1 hover:shadow-md transition-shadow border-b-4 border-b-red-500"><span className="text-[10px] font-bold uppercase text-red-500 tracking-wider">Absent</span><span className="text-2xl font-black text-gray-800">{stats.absent}</span></div>
+          <div className="p-3 sm:p-6 flex sm:grid sm:grid-cols-5 gap-2 sm:gap-4 overflow-x-auto bg-white border-b border-gray-200/50 no-scrollbar items-stretch">
+            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow shrink-0">
+              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-400 tracking-wider text-center leading-tight">Working Days</span>
+              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.workingDays}</span>
+            </div>
+            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-indigo-500 shrink-0">
+              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-indigo-500 tracking-wider text-center leading-tight">Present</span>
+              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.present}</span>
+            </div>
+            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-green-500 shrink-0">
+              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-green-500 tracking-wider text-center leading-tight">Full Days</span>
+              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.fullDays}</span>
+            </div>
+            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-yellow-500 shrink-0">
+              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-yellow-600 tracking-wider text-center leading-tight">Half Days</span>
+              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.halfDays}</span>
+            </div>
+            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-red-500 shrink-0">
+              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-red-500 tracking-wider text-center leading-tight">Absent</span>
+              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.absent}</span>
+            </div>
           </div>
           <div className="px-6 mb-6 mt-4">
             <div className="flex bg-gray-200/50 p-1.5 rounded-xl w-fit border border-gray-200">
@@ -356,25 +377,71 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
           </div>
           <div className="px-6 pb-10">
             {viewMode === "daily" ? (
-              <div className="overflow-x-auto rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-                <table className="min-w-full text-sm text-left whitespace-nowrap">
-                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20">
-                    <tr><th className="px-6 py-4">Date</th><th className="px-6 py-4">Punch In</th><th className="px-6 py-4">Punch Out</th><th className="px-6 py-4">Assigned</th><th className="px-6 py-4">Duration</th><th className="px-6 py-4">Login Status</th><th className="px-6 py-4">Worked Status</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
-                      <tr key={idx} className={`transition-all duration-200 ${item.rowClass}`}>
-                        <td className="px-6 py-4 font-semibold text-gray-800">{formatDateDMY(item.date)}<div className="text-[10px] font-medium text-gray-400 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'long' })}</div></td>
-                        <td className="px-6 py-4 text-green-600 font-semibold">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                        <td className="px-6 py-4 text-red-600 font-semibold">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                        <td className="px-6 py-4 text-gray-500 font-medium">{formatDecimalHours(item.shiftHours)}</td>
-                        <td className="px-6 py-4 font-mono font-bold text-gray-700">{item.displayTime}</td>
-                        <td className="px-6 py-4">{item.loginStatus !== "--" && (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide ${item.loginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.loginStatus}</span>)}</td>
-                        <td className="px-6 py-4 font-semibold"><span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span></td>
+              <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full text-sm text-left whitespace-nowrap">
+                    <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-xs font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20">
+                      <tr>
+                        <th className="px-4 sm:px-6 py-4">Date</th>
+                        <th className="px-4 sm:px-6 py-4">Punch In</th>
+                        <th className="px-4 sm:px-6 py-4">Punch Out</th>
+                        <th className="px-6 py-4 hidden lg:table-cell">Assigned</th>
+                        <th className="px-6 py-4 hidden md:table-cell">Duration</th>
+                        <th className="px-6 py-4 hidden xl:table-cell">Login Status</th>
+                        <th className="px-4 sm:px-6 py-4">Worked Status</th>
                       </tr>
-                    ))) : (<tr><td colSpan="7" className="text-center p-10 text-gray-500 font-medium bg-white">No data for selected range.</td></tr>)}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
+                        <tr key={idx} className={`transition-all duration-200 ${item.rowClass}`}>
+                          <td className="px-4 sm:px-6 py-4 font-semibold text-gray-800">
+                            {formatDateDMY(item.date)}
+                            <div className="text-[10px] font-medium text-gray-400 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-4 text-green-600 font-semibold">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                          <td className="px-4 sm:px-6 py-4 text-red-600 font-semibold">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                          <td className="px-6 py-4 text-gray-500 font-medium hidden lg:table-cell">{formatDecimalHours(item.shiftHours)}</td>
+                          <td className="px-6 py-4 font-mono font-bold text-gray-700 hidden md:table-cell">{item.displayTime}</td>
+                          <td className="px-6 py-4 hidden xl:table-cell">{item.loginStatus !== "--" && (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide ${item.loginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.loginStatus}</span>)}</td>
+                          <td className="px-4 sm:px-6 py-4 font-semibold"><span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span></td>
+                        </tr>
+                      ))) : (<tr><td colSpan="7" className="text-center p-10 text-gray-500 font-medium bg-white">No data for selected range.</td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Daily Cards */}
+                <div className="md:hidden divide-y divide-gray-100">
+                  {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
+                    <div key={idx} className={`p-4 space-y-3 ${item.rowClass}`}>
+                      <div className="flex justify-between items-center">
+                        <div className="font-bold text-gray-800 text-sm">
+                          {formatDateDMY(item.date)}
+                          <span className="ml-2 text-[10px] text-gray-400 font-medium uppercase">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 bg-white/50 p-2.5 rounded-xl border border-gray-100/50">
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch In</p>
+                          <p className="text-[11px] font-bold text-green-600">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch Out</p>
+                          <p className="text-[11px] font-bold text-red-600">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Worked</p>
+                          <p className="text-[11px] font-mono font-bold text-gray-700">{item.displayTime || "--"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Status</p>
+                          <p className="text-[11px] font-bold">{item.loginStatus !== "--" ? <span className={item.loginStatus === "LATE" ? "text-red-600" : "text-green-600"}>{item.loginStatus}</span> : "--"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))) : (<div className="text-center p-10 text-gray-500 font-medium">No records found.</div>)}
+                </div>
               </div>
             ) : (
               <div className="space-y-6">
@@ -382,39 +449,71 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
                   const isExpanded = expandedWeeks[week.weekStart];
                   return (
                     <div key={wIdx} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
-                      <div className="bg-gray-50 border-b border-gray-200 p-5 flex justify-between items-center">
-                        <div className="flex items-center gap-6">
-                          <div><span className="text-[10px] font-bold uppercase text-gray-400 tracking-widest block mb-1">Weekly Range</span><span className="font-bold text-gray-800">{formatDateDMY(week.weekStart)} — {formatDateDMY(week.weekEnd)}</span></div>
-                          <button onClick={() => toggleWeekExpansion(week.weekStart)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-[11px] font-bold uppercase text-gray-600 transition-colors shadow-sm"><FaInfoCircle className="text-blue-500" /> {isExpanded ? "Hide Report" : "Detailed Report"} {isExpanded ? <FaChevronUp /> : <FaChevronDown />}</button>
+                      <div className="bg-gray-50 border-b border-gray-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                          <div><span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest block mb-0.5">Weekly Range</span><span className="text-sm sm:text-base font-bold text-gray-800">{formatDateDMY(week.weekStart)} — {formatDateDMY(week.weekEnd)}</span></div>
+                          <button onClick={() => toggleWeekExpansion(week.weekStart)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase text-gray-600 transition-colors shadow-sm"><FaInfoCircle className="text-blue-500" /> {isExpanded ? "Hide" : "Details"} {isExpanded ? <FaChevronUp /> : <FaChevronDown />}</button>
                         </div>
-                        <div className="text-right"><span className="text-[10px] font-bold uppercase text-gray-400 tracking-widest block mb-1">Total Work Hours</span><span className="text-xl font-black text-green-600 font-mono bg-green-50 px-3 py-1 rounded-lg">{formatDecimalHours(week.totalHours)}</span></div>
+                        <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
+                          <span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest block mb-0.5">Total Hours</span>
+                          <span className="text-lg sm:text-xl font-black text-green-600 font-mono bg-green-50 px-3 py-1 rounded-lg border border-green-100/50">{formatDecimalHours(week.totalHours)}</span>
+                        </div>
                       </div>
                       {isExpanded && (
-                        <div className="p-5 bg-gray-50/50 border-b border-gray-100 grid grid-cols-4 gap-4 animate-in slide-in-from-top duration-300">
-                          <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-green-500 border-t border-r border-b border-gray-100"><p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Full Days</p><p className="text-xl font-black text-gray-800 mt-1">{week.stats.full}</p></div>
-                          <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-500 border-t border-r border-b border-gray-100"><p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Half Days</p><p className="text-xl font-black text-gray-800 mt-1">{week.stats.half}</p></div>
-                          <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-500 border-t border-r border-b border-gray-100"><p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Absents</p><p className="text-xl font-black text-gray-800 mt-1">{week.stats.absent}</p></div>
-                          <div className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500 border-t border-r border-b border-gray-100"><p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Late Logins</p><p className="text-xl font-black text-gray-800 mt-1">{week.stats.late}</p></div>
+                        <div className="p-4 sm:p-5 bg-gray-50/50 border-b border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 animate-in slide-in-from-top duration-300">
+                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-green-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Full</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.full}</p></div>
+                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-yellow-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Half</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.half}</p></div>
+                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-red-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Abs</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.absent}</p></div>
+                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-orange-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Late</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.late}</p></div>
                         </div>
                       )}
                       <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm text-left whitespace-nowrap">
-                          <thead className="bg-white text-gray-400 uppercase text-[11px] font-bold tracking-wider border-b border-gray-100">
-                            <tr><th className="px-6 py-3">Day</th><th className="px-6 py-3">Punch In</th><th className="px-6 py-3">Punch Out</th><th className="px-6 py-3 text-center">Login Status</th><th className="px-6 py-3 text-right">Hours Worked</th><th className="px-6 py-3">Status</th></tr>
+                        <table className="hidden md:table min-w-full text-sm text-left whitespace-nowrap">
+                          <thead className="bg-white text-gray-400 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-100">
+                            <tr>
+                              <th className="px-4 sm:px-6 py-3">Day</th>
+                              <th className="px-4 sm:px-6 py-3">Punch In</th>
+                              <th className="px-4 sm:px-6 py-3">Punch Out</th>
+                              <th className="px-6 py-3 text-center hidden md:table-cell">Login Status</th>
+                              <th className="px-6 py-3 text-right hidden sm:table-cell">Hours Worked</th>
+                              <th className="px-4 sm:px-6 py-3">Status</th>
+                            </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">
                             {week.days.map((day, dIdx) => (
                               <tr key={dIdx} className={day.rowClass}>
-                                <td className="px-6 py-3.5 font-semibold text-gray-700">{formatDateDMY(day.date)}<span className="ml-2 text-gray-400 font-medium uppercase text-[10px] bg-gray-100 px-1.5 py-0.5 rounded">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span></td>
-                                <td className="px-6 py-3.5 font-medium text-gray-600">{day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                                <td className="px-6 py-3.5 font-medium text-gray-600">{day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                                <td className="px-6 py-3.5 text-center">{day.loginStatus !== "--" && (<span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${day.loginStatus === "LATE" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>{day.loginStatus}</span>)}</td>
-                                <td className="px-6 py-3.5 text-right font-mono font-bold text-gray-700">{day.displayTime || "0h 0m"}</td>
-                                <td className="px-6 py-3.5"><span className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border border-green-100" : day.isAbsent ? "bg-red-50 text-red-700 border border-red-100" : "bg-gray-100 text-gray-600 border border-gray-200"}`}>{day.workedStatus}</span></td>
+                                <td className="px-4 sm:px-6 py-3.5 font-semibold text-gray-700">
+                                  {formatDateDMY(day.date)}
+                                  <span className="ml-1 text-[10px] text-gray-400 font-medium uppercase bg-gray-100 px-1 py-0.5 rounded sm:ml-2 sm:px-1.5">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                </td>
+                                <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-600">{day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                                <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-600">{day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                                <td className="px-6 py-3.5 text-center hidden md:table-cell">{day.loginStatus !== "--" && (<span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${day.loginStatus === "LATE" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>{day.loginStatus}</span>)}</td>
+                                <td className="px-6 py-3.5 text-right font-mono font-bold text-gray-700 hidden sm:table-cell">{day.displayTime || "0h 0m"}</td>
+                                <td className="px-4 sm:px-6 py-3.5"><span className={`px-2 sm:px-2.5 py-1 rounded-full font-bold text-[9px] sm:text-[10px] ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border border-green-100" : day.isAbsent ? "bg-red-50 text-red-700 border border-red-100" : "bg-gray-100 text-gray-600 border border-gray-200"}`}>{day.workedStatus}</span></td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
+
+                        {/* Mobile Weekly Detail Cards */}
+                        <div className="md:hidden divide-y divide-gray-50">
+                          {week.days.map((day, dIdx) => (
+                            <div key={dIdx} className={`p-4 space-y-2 ${day.rowClass}`}>
+                              <div className="flex justify-between items-center">
+                                <div className="text-[11px] font-bold text-gray-700">{formatDateDMY(day.date)} <span className="ml-1 text-[9px] text-gray-400 uppercase">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span></div>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700" : day.isAbsent ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{day.workedStatus}</span>
+                              </div>
+                              <div className="flex justify-between items-center text-[10px]">
+                                <div className="flex gap-3">
+                                  <span className="text-green-600 font-medium">In: {day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                                  <span className="text-red-600 font-medium">Out: {day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                                </div>
+                                <div className="font-mono font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{day.displayTime || "0h 0m"}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   );
@@ -452,53 +551,118 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
           {loading ? (
             <div className="flex flex-col items-center justify-center py-10 text-gray-500"><FaSpinner className="animate-spin text-3xl mb-3 text-blue-500" />Loading...</div>
           ) : employees.length > 0 ? (
-            <div className="overflow-x-auto rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-              <table className="min-w-full text-sm text-left whitespace-nowrap">
-                <thead className="bg-gray-50 text-gray-500 uppercase text-[11px] font-bold tracking-wider border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-4">Employee</th>
-                    <th className="px-6 py-4">Role</th>
-                    {isOnBreakModal && <th className="px-6 py-4">Break At</th>}
-                    {isOnBreakModal && <th className="px-6 py-4">Total Break Time</th>}
-                    {!isLoginRequired && !isOnBreakModal && <th className="px-6 py-4">Worked Status</th>}
-                    {canPunchOutInModal && <th className="px-6 py-4 text-center">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {employees.map((emp, index) => {
-                    const employeeInfo = employeeInfoMap[emp.employeeId] || {};
-                    const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
-                    const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
-                    const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
-                    return (
-                      <tr key={emp.employeeId || index} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50">
-                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
+            <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full text-sm text-left whitespace-nowrap">
+                  <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-4">Employee</th>
+                      <th className="px-6 py-4 hidden md:table-cell">Role</th>
+                      {isOnBreakModal && <th className="px-4 sm:px-6 py-4">Break At</th>}
+                      {isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Total Break Time</th>}
+                      {!isLoginRequired && !isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Worked Status</th>}
+                      {canPunchOutInModal && <th className="px-4 sm:px-6 py-4 text-center">Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {employees.map((emp, index) => {
+                      const employeeInfo = employeeInfoMap[emp.employeeId] || {};
+                      const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                      const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
+                      const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
+                      return (
+                        <tr key={emp.employeeId || index} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 sm:px-6 py-4">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50 shrink-0">
+                                {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-gray-800 text-xs sm:text-sm truncate">{emp.name || emp.employeeName || employeeInfo.name}</p>
+                                <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{emp.employeeId}</p>
+                                <p className="text-[10px] text-blue-600 font-medium md:hidden truncate">{employeeInfo.role}</p>
+                              </div>
                             </div>
-                            <div><p className="font-bold text-gray-800">{emp.name || emp.employeeName || employeeInfo.name}</p><p className="text-xs text-gray-500 font-mono mt-0.5">{emp.employeeId}</p></div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4"><span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">{employeeInfo.role || "N/A"}</span></td>
-                        {isOnBreakModal && (<td className="px-6 py-4">{breakStartTime ? (<span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100"><FaCoffee size={10} /> {new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>) : (<span className="text-gray-400 text-xs">--</span>)}</td>)}
-                        {isOnBreakModal && (<td className="px-6 py-4"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100 font-mono">{formatBreakDuration(totalBreakSecs)}</span></td>)}
-                        {!isLoginRequired && !isOnBreakModal && (<td className="px-6 py-4">{emp.displayLoginStatus && (<span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md font-bold ${emp.displayLoginStatus === 'LATE' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{emp.displayLoginStatus}</span>)}</td>)}
-                        {canPunchOutInModal && (
-                          <td className="px-6 py-4 text-center">
-                            <button 
-                              onClick={() => onPunchOut(emp)} 
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-bold rounded-lg transition-colors border border-red-100"
-                            >
-                              <FaSignOutAlt size={10} /> Punch Out
-                            </button>
                           </td>
+                          <td className="px-6 py-4 hidden md:table-cell"><span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">{employeeInfo.role || "N/A"}</span></td>
+                          {isOnBreakModal && (
+                            <td className="px-4 sm:px-6 py-4">
+                              {breakStartTime ? (
+                                <div className="flex flex-col gap-1">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">
+                                    <FaCoffee size={10} /> {new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-orange-600 sm:hidden">{formatBreakDuration(totalBreakSecs)}</span>
+                                </div>
+                              ) : (<span className="text-gray-400 text-xs">--</span>)}
+                            </td>
+                          )}
+                          {isOnBreakModal && (<td className="px-6 py-4 hidden sm:table-cell"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100 font-mono">{formatBreakDuration(totalBreakSecs)}</span></td>)}
+                          {!isLoginRequired && !isOnBreakModal && (<td className="px-6 py-4 hidden sm:table-cell">{emp.displayLoginStatus && (<span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md font-bold ${emp.displayLoginStatus === 'LATE' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{emp.displayLoginStatus}</span>)}</td>)}
+                          {canPunchOutInModal && (
+                            <td className="px-4 sm:px-6 py-4 text-center">
+                              <button onClick={() => onPunchOut(emp)} className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg text-[10px] font-bold transition-all shadow-sm border border-red-100"><FaSignOutAlt size={10} /> Punch Out</button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-gray-100">
+                {employees.map((emp, index) => {
+                  const employeeInfo = employeeInfoMap[emp.employeeId] || {};
+                  const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                  const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
+                  const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
+                  return (
+                    <div key={emp.employeeId || index} className="p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50">
+                            {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-800 text-sm">{emp.name || emp.employeeName || employeeInfo.name}</p>
+                            <p className="text-[10px] text-gray-500 font-mono">{emp.employeeId}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{employeeInfo.role || "N/A"}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 items-center justify-between bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50">
+                        {isOnBreakModal && (
+                          <div className="flex gap-3">
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-gray-400 font-bold uppercase">Break At</span>
+                              <span className="text-[10px] font-bold text-amber-600">{breakStartTime ? new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[8px] text-gray-400 font-bold uppercase">Duration</span>
+                              <span className="text-[10px] font-bold text-orange-600 font-mono">{formatBreakDuration(totalBreakSecs)}</span>
+                            </div>
+                          </div>
                         )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        {!isLoginRequired && !isOnBreakModal && emp.displayLoginStatus && (
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-gray-400 font-bold uppercase">Status</span>
+                            <span className={`text-[10px] font-bold ${emp.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600'}`}>{emp.displayLoginStatus}</span>
+                          </div>
+                        )}
+                        {canPunchOutInModal && (
+                          <button onClick={() => onPunchOut(emp)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-bold shadow-sm"><FaSignOutAlt /> Punch Out</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ) : <p className="text-center text-slate-500 py-8">No employees in this category.</p>}
         </div>
@@ -513,20 +677,20 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
   if (totalItems === 0) return null;
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-200">
-      <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-500">Rows per page:</label>
-        <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); onPageChange(1); }} className="bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 rounded-lg p-1.5 outline-none focus:ring-2 focus:ring-blue-500">
+    <div className="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-4 bg-white border-t border-gray-200 gap-4">
+      <div className="flex items-center gap-3 order-2 sm:order-1">
+        <label className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-wider">Rows per page:</label>
+        <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); onPageChange(1); }} className="bg-gray-50 border border-gray-200 text-xs sm:text-sm font-bold text-gray-700 rounded-xl px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-all">
           <option value="10">10</option>
           <option value="25">25</option>
           <option value="50">50</option>
         </select>
       </div>
-      <div className="flex items-center gap-6">
-        <span className="text-sm font-medium text-gray-500">Showing {startItem}-{endItem} of {totalItems}</span>
-        <div className="flex rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="px-4 py-2 text-sm font-bold text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-50 border-r border-gray-200 transition-colors">Prev</button>
-          <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages} className="px-4 py-2 text-sm font-bold text-gray-600 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:bg-gray-50 transition-colors">Next</button>
+      <div className="flex flex-col min-[480px]:flex-row items-center gap-3 sm:gap-6 order-1 sm:order-2 w-full sm:w-auto">
+        <span className="text-[11px] sm:text-sm font-bold text-gray-500 order-2 min-[480px]:order-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">Showing <span className="text-gray-900">{startItem}-{endItem}</span> of <span className="text-blue-600">{totalItems}</span></span>
+        <div className="flex rounded-xl shadow-sm border border-gray-200 overflow-hidden order-1 min-[480px]:order-2 w-full min-[480px]:w-auto">
+          <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} className="flex-1 min-[480px]:px-6 py-2.5 text-xs sm:text-sm font-black text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:bg-gray-50 border-r border-gray-200 transition-all active:bg-gray-100">Prev</button>
+          <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages} className="flex-1 min-[480px]:px-6 py-2.5 text-xs sm:text-sm font-black text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-30 disabled:bg-gray-50 transition-all active:bg-gray-100">Next</button>
         </div>
       </div>
     </div>
@@ -537,6 +701,7 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
 // MAIN COMPONENT
 // ==========================================
 const AdminAttendance = () => {
+  const location = useLocation();
   const todayISO = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState(todayISO);
   const [endDate, setEndDate] = useState(todayISO);
@@ -663,6 +828,14 @@ const AdminAttendance = () => {
     }
   };
 
+  useEffect(() => {
+    if (location.state?.openPunchOutRequests) {
+      setIsPunchOutRequestsOpen(true);
+      // Clear state after reading to prevent re-opening on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
   // Daily counts uses scoped API (backend already filters by adminId via middleware)
   const fetchDailyCounts = useCallback(async (date) => {
     try {
@@ -700,7 +873,7 @@ const AdminAttendance = () => {
   useEffect(() => {
     const fetchImages = async () => {
       if (allEmployees.length === 0) return;
-      
+
       const idsToFetch = allEmployees
         .map(emp => emp.employeeId)
         .filter(id => id && !employeeImages[id]);
@@ -711,22 +884,22 @@ const AdminAttendance = () => {
         const response = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
         const profilesList = Array.isArray(response.data) ? response.data : [];
         const newImages = {};
-        profilesList.forEach(profile => { 
-          if (profile.employeeId && profile.profilePhoto?.url) { 
-            newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url); 
-          } 
+        profilesList.forEach(profile => {
+          if (profile.employeeId && profile.profilePhoto?.url) {
+            newImages[profile.employeeId] = getSecureUrl(profile.profilePhoto.url);
+          }
         });
-        
+
         if (Object.keys(newImages).length > 0) {
           setEmployeeImages(prev => ({ ...prev, ...newImages }));
         }
-      } catch (err) { 
-        console.error("Failed to fetch bulk profile images", err); 
+      } catch (err) {
+        console.error("Failed to fetch bulk profile images", err);
       }
     };
 
-    if (allEmployees.length > 0) { 
-      fetchImages(); 
+    if (allEmployees.length > 0) {
+      fetchImages();
     }
   }, [allEmployees]);
 
@@ -986,30 +1159,31 @@ const AdminAttendance = () => {
         {/* ========================================== */}
         <div className="flex flex-col space-y-6">
           <div className="p-6 border border-gray-200 shadow-sm bg-white rounded-2xl flex flex-col gap-5">
-           
-            <div className="flex items-center gap-3 text-xl font-bold text-gray-800"><div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FaCalendarAlt /></div> Daily Attendance Log</div>
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="relative group flex-grow-0">
-                <FaSearch className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                <input type="text" placeholder="Search Name or ID..." value={dailySearchTerm} onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }} className="pl-10 pr-4 py-2.5 w-64 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm text-sm font-medium text-gray-700" />
-              </div>
-              <div className="w-64 bg-gray-50 border border-gray-200 rounded-xl outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-sm overflow-hidden flex items-center">
-                <span className="px-4 py-2.5 bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wider border-r border-gray-200 h-full flex items-center">From</span>
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-3 pr-3 py-2.5 outline-none bg-transparent text-gray-700 font-medium text-sm" />
-              </div>
-              <div className="w-64 bg-gray-50 border border-gray-200 rounded-xl outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-sm overflow-hidden flex items-center">
-                <span className="px-4 py-2.5 bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wider border-r border-gray-200 h-full flex items-center">To</span>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-3 pr-3 py-2.5 outline-none bg-transparent text-gray-700 font-medium text-sm" />
-              </div>
-              <div className="ml-auto flex flex-col items-end gap-3">
-                <button onClick={() => setIsPunchOutRequestsOpen(true)} className="relative flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95">
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-xl font-bold text-gray-800"><div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FaCalendarAlt /></div> Daily Attendance Log</div>
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <button onClick={() => setIsPunchOutRequestsOpen(true)} className="flex-1 sm:flex-none relative flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95">
                   <FaSignOutAlt size={16} />
-                  Punch Out Requests
-                  {pendingPunchOutRequests.length > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black px-2 py-1 animate-pulse">{pendingPunchOutRequests.length}</span>
-                  )}
+                  <span className="truncate">Punch Out Requests</span>
+                  {pendingPunchOutRequests.length > 0 && (<span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black px-2 py-1 animate-pulse">{pendingPunchOutRequests.length}</span>)}
                 </button>
-                <button onClick={exportDailyLogToExcel} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all active:scale-95"><FaFileExcel size={16} /><span>Export CSV</span></button>
+                <button onClick={exportDailyLogToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all active:scale-95"><FaFileExcel size={16} /><span className="truncate">Export CSV</span></button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="relative group w-full">
+                <FaSearch className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                <input type="text" placeholder="Search Name or ID..." value={dailySearchTerm} onChange={(e) => { setDailySearchTerm(e.target.value); setDailyCurrentPage(1); }} className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm text-sm font-medium text-gray-700" />
+              </div>
+              <div className="w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-sm overflow-hidden flex items-center">
+                <span className="px-3 py-2.5 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider border-r border-gray-200 h-full flex items-center shrink-0">From</span>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-3 pr-3 py-2.5 outline-none bg-transparent text-gray-700 font-medium text-xs sm:text-sm" />
+              </div>
+              <div className="w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-sm overflow-hidden flex items-center">
+                <span className="px-3 py-2.5 bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider border-r border-gray-200 h-full flex items-center shrink-0">To</span>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-3 pr-3 py-2.5 outline-none bg-transparent text-gray-700 font-medium text-xs sm:text-sm" />
               </div>
             </div>
           </div>
@@ -1022,137 +1196,210 @@ const AdminAttendance = () => {
 
           </div>
 
-          <div className="overflow-x-auto rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-            <table className="min-w-full text-sm text-left whitespace-nowrap">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[11px] font-bold tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Employee</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Punch In</th>
-                  <th className="px-6 py-4">Punch Out</th>
-                  <th className="px-6 py-4">Work Hrs</th>
-                  <th className="px-6 py-4">Duration</th>
-                  <th className="px-6 py-4">Login Status</th>
-                  <th className="px-6 py-4">Worked Status</th>
-                  <th className="px-6 py-4">Breaks</th>
-                  <th className="px-6 py-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {loading ? (
-                  <tr><td colSpan="10" className="text-center p-10 font-medium text-gray-500"><FaSpinner className="animate-spin text-xl inline-block mr-2 text-blue-500" />Loading daily log...</td></tr>
-                ) : processedDailyData.length === 0 ? (
-                  <tr><td colSpan="10" className="text-center p-10 text-gray-500 font-medium">No records found.</td></tr>
-                ) : processedDailyData.map((item, idx) => {
-                  const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
-                  const canPunchOut = item.punchIn && !item.isFinalPunchOut && !item.adminPunchOut;
-                  const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
-                  const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
-                  const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
-                  const isWorkFromHome = item.workMode === 'WFH';
-                  const breakState = fetchedBreaks[item._id || `${item.employeeId}-${item.date}`];
-                  const rowBreakSessions = breakState?.data || [];
-                  const rowTotalBreakSecs = calcTotalBreakSeconds(rowBreakSessions);
+          <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full text-sm text-left whitespace-nowrap">
+                <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider">
+                  <tr>
+                    <th className="px-4 sm:px-6 py-4">Employee</th>
+                    <th className="px-6 py-4 hidden md:table-cell">Date</th>
+                    <th className="px-4 sm:px-6 py-4">Punch In</th>
+                    <th className="px-4 sm:px-6 py-4">Punch Out</th>
+                    <th className="px-6 py-4 hidden lg:table-cell">Work Hrs</th>
+                    <th className="px-6 py-4 hidden sm:table-cell">Duration</th>
+                    <th className="px-6 py-4 hidden xl:table-cell">Login Status</th>
+                    <th className="px-6 py-4 hidden lg:table-cell">Worked Status</th>
+                    <th className="px-6 py-4 hidden xl:table-cell">Breaks</th>
+                    <th className="px-4 sm:px-6 py-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {loading ? (
+                    <tr><td colSpan="10" className="text-center p-10 font-medium text-gray-500"><FaSpinner className="animate-spin text-xl inline-block mr-2 text-blue-500" />Loading daily log...</td></tr>
+                  ) : processedDailyData.length === 0 ? (
+                    <tr><td colSpan="10" className="text-center p-10 text-gray-500 font-medium">No records found.</td></tr>
+                  ) : processedDailyData.map((item, idx) => {
+                    const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
+                    const canPunchOut = item.punchIn && !item.isFinalPunchOut && !item.adminPunchOut;
+                    const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
+                    const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
+                    const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
+                    const isWorkFromHome = item.workMode === 'WFH';
+                    const breakState = fetchedBreaks[item._id || `${item.employeeId}-${item.date}`];
+                    const rowBreakSessions = breakState?.data || [];
+                    const rowTotalBreakSecs = calcTotalBreakSeconds(rowBreakSessions);
 
-                  return (
-                    <tr key={item._id || idx} className={`hover:bg-gray-50 transition-colors ${isAbsent ? "bg-red-50/20" : "bg-white"}`}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-shadow" onClick={() => profilePic && setPreviewImage(profilePic)}>
-                            {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.employeeName || "U").charAt(0)}
-                          </div>
-                          <div>
-                            <div className="font-bold text-gray-800">{item.employeeName}</div>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-gray-500 font-mono text-xs">{item.employeeId}</span>
-                              {isWorkFromHome && (<span className="flex items-center justify-center" title="Working from Home"><img src="https://image2url.com/r2/default/images/1771229256808-7f17d81e-c508-495b-91f1-f6fda3c6ac5b.png" alt="Home" className="w-5 h-5 object-contain" /></span>)}
+                    return (
+                      <tr key={item._id || idx} className={`hover:bg-gray-50 transition-colors ${isAbsent ? "bg-red-50/20" : "bg-white"}`}>
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-shadow shrink-0" onClick={() => profilePic && setPreviewImage(profilePic)}>
+                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.employeeName || "U").charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-gray-800 text-xs sm:text-sm truncate">{item.employeeName}</div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-gray-500 font-mono text-[10px]">{item.employeeId}</span>
+                                {isWorkFromHome && (<span className="flex items-center justify-center" title="Working from Home"><img src="https://image2url.com/r2/default/images/1771229256808-7f17d81e-c508-495b-91f1-f6fda3c6ac5b.png" alt="Home" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" /></span>)}
+                              </div>
+                              <div className="text-[10px] text-gray-400 md:hidden mt-1">{formatDateDMY(item.date)}</div>
                             </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-gray-600">{formatDateDMY(item.date)}</td>
-                      <td className="px-6 py-4">
-                        <div className={`font-bold ${punchInColor}`}>{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</div>
-                        {item.punchIn && <LocationViewButton location={item.punchInLocation} />}
-                      </td>
-                      <td className="px-6 py-4">
-                        {item.isOnBreak ? (
-                          <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-[11px] bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full animate-pulse"><FaCoffee size={9} /> On Break</span>
-                        ) : (
-                          <>
-                            <div className={`font-bold ${item.punchOut ? punchOutColor : 'text-gray-400'}`}>{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</div>
-                            {item.punchOut && !item.isOnBreak && <LocationViewButton location={item.punchOutLocation} />}
-                          </>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-gray-500">{formatDecimalHours(item.assignedHours)}</td>
-                      <td className="px-6 py-4 font-mono font-bold text-gray-700">
-                        {(item.status === "WORKING" && item.punchIn) ? <LiveTimer startTime={item.punchIn} /> : (item.displayTime || "0h 0m 0s")}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase ${item.displayLoginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.displayLoginStatus}</span>
-                      </td>
-                      <td className="px-6 py-4 font-semibold">
-                        {item.isOnBreak ? (
-                          <span className="px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold shadow-sm border bg-amber-50 text-amber-700 border-amber-200 animate-pulse flex items-center gap-1.5 w-fit"><FaCoffee size={9} /> On Break</span>
-                        ) : (
-                          <span className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-700 border-gray-200"}`}>{item.workedStatus}</span>
-                        )}
-                      </td>
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-gray-600 hidden md:table-cell">{formatDateDMY(item.date)}</td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className={`font-bold text-xs sm:text-sm ${punchInColor}`}>{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</div>
+                          {item.punchIn && <div className="hidden sm:block"><LocationViewButton location={item.punchInLocation} /></div>}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          {item.isOnBreak ? (
+                            <span className="inline-flex items-center gap-1 text-amber-600 font-bold text-[9px] sm:text-[11px] bg-amber-50 border border-amber-100 px-1.5 sm:px-2 py-0.5 rounded-full animate-pulse"><FaCoffee size={9} /> On Break</span>
+                          ) : (
+                            <>
+                              <div className={`font-bold text-xs sm:text-sm ${item.punchOut ? punchOutColor : 'text-gray-400'}`}>{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</div>
+                              {item.punchOut && !item.isOnBreak && <div className="hidden sm:block"><LocationViewButton location={item.punchOutLocation} /></div>}
+                            </>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium text-gray-500 hidden lg:table-cell">{formatDecimalHours(item.assignedHours)}</td>
+                        <td className="px-6 py-4 font-mono font-bold text-gray-700 hidden sm:table-cell">
+                          {(item.status === "WORKING" && item.punchIn) ? <LiveTimer startTime={item.punchIn} /> : (item.displayTime || "0h 0m 0s")}
+                        </td>
+                        <td className="px-6 py-4 hidden xl:table-cell">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase ${item.displayLoginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.displayLoginStatus}</span>
+                        </td>
+                        <td className="px-6 py-4 font-semibold hidden lg:table-cell">
+                          {item.isOnBreak ? (
+                            <span className="px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold shadow-sm border bg-amber-50 text-amber-700 border-amber-200 animate-pulse flex items-center gap-1.5 w-fit"><FaCoffee size={9} /> On Break</span>
+                          ) : (
+                            <span className={`px-3 py-1.5 rounded-full text-[10px] uppercase tracking-wider font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-700 border-gray-200"}`}>{item.workedStatus}</span>
+                          )}
+                        </td>
 
-                      <td className="px-6 py-4">
-                        {item.breakCount > 0 ? (
-                          <div className="relative">
-                            <button onClick={() => toggleBreakDropdown(item)} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold rounded-lg hover:bg-amber-100 transition-colors">
-                              <FaCoffee size={10} />{item.breakCount} Break{item.breakCount > 1 ? "s" : ""}<FaChevronDown size={8} className={`transition-transform duration-200 ${openBreakDropdownId === (item._id || `${item.employeeId}-${item.date}`) ? "rotate-180" : ""}`} />
-                            </button>
-                            {openBreakDropdownId === (item._id || `${item.employeeId}-${item.date}`) && (
-                              <div className="absolute left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden animate-in slide-in-from-top-2 duration-150">
-                                <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5"><FaCoffee className="text-amber-500" size={10} /><span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Break Sessions</span></div>
-                                {breakState?.loading ? (
-                                  <div className="px-3 py-4 text-center text-xs text-amber-600"><FaSpinner className="animate-spin inline mr-1" /> Loading breaks...</div>
-                                ) : (
-                                  <>
-                                    {rowBreakSessions.map((brk, bIdx) => {
-                                      const dur = calcBreakSessionDuration(brk);
-                                      return (
-                                        <div key={bIdx} className="px-3 py-2.5 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors">
-                                          <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-bold text-gray-400 uppercase w-6">{bIdx + 1}</span>
-                                            <div className="flex items-center gap-1 text-[11px] font-semibold">
-                                              <span className="text-green-600">{brk.from ? new Date(brk.from).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
-                                              <span className="text-gray-300">→</span>
-                                              <span className="text-red-600">{brk.to ? new Date(brk.to).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-amber-500 animate-pulse">Active</span>}</span>
+                        <td className="px-6 py-4 hidden xl:table-cell">
+                          {item.breakCount > 0 ? (
+                            <div className="relative">
+                              <button onClick={() => toggleBreakDropdown(item)} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold rounded-lg hover:bg-amber-100 transition-colors">
+                                <FaCoffee size={10} />{item.breakCount} Break{item.breakCount > 1 ? "s" : ""}<FaChevronDown size={8} className={`transition-transform duration-200 ${openBreakDropdownId === (item._id || `${item.employeeId}-${item.date}`) ? "rotate-180" : ""}`} />
+                              </button>
+                              {openBreakDropdownId === (item._id || `${item.employeeId}-${item.date}`) && (
+                                <div className="absolute right-0 sm:left-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-xl min-w-[260px] overflow-hidden animate-in slide-in-from-top-2 duration-150">
+                                  <div className="px-3 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5"><FaCoffee className="text-amber-500" size={10} /><span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Break Sessions</span></div>
+                                  {breakState?.loading ? (
+                                    <div className="px-3 py-4 text-center text-xs text-amber-600"><FaSpinner className="animate-spin inline mr-1" /> Loading breaks...</div>
+                                  ) : (
+                                    <>
+                                      {rowBreakSessions.map((brk, bIdx) => {
+                                        const dur = calcBreakSessionDuration(brk);
+                                        return (
+                                          <div key={bIdx} className="px-3 py-2.5 border-b border-gray-50 last:border-b-0 hover:bg-gray-50 transition-colors">
+                                            <div className="flex items-center justify-between">
+                                              <span className="text-[10px] font-bold text-gray-400 uppercase w-6">{bIdx + 1}</span>
+                                              <div className="flex items-center gap-1 text-[11px] font-semibold">
+                                                <span className="text-green-600">{brk.from ? new Date(brk.from).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                                                <span className="text-gray-300">→</span>
+                                                <span className="text-red-600">{brk.to ? new Date(brk.to).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : <span className="text-amber-500 animate-pulse">Active</span>}</span>
+                                              </div>
+                                              <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded font-mono">{formatBreakDuration(dur)}</span>
                                             </div>
-                                            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded font-mono">{formatBreakDuration(dur)}</span>
                                           </div>
-                                        </div>
-                                      );
-                                    })}
-                                    <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Break</span>
-                                      <span className="text-[11px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-100 font-mono">{formatBreakDuration(rowTotalBreakSecs)}</span>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ) : (<span className="text-gray-400 text-xs font-medium">--</span>)}
-                      </td>
+                                        );
+                                      })}
+                                      <div className="px-3 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Break</span>
+                                        <span className="text-[11px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-100 font-mono">{formatBreakDuration(rowTotalBreakSecs)}</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (<span className="text-gray-400 text-xs font-medium">--</span>)}
+                        </td>
 
-                      <td className="px-6 py-4">
+                        <td className="px-4 sm:px-6 py-4 text-center">
+                          {canPunchOut ? (
+                            <button onClick={() => setPunchOutModal({ isOpen: true, employee: item })} className="flex items-center justify-center gap-1.5 px-2 py-1 bg-white border border-red-200 text-red-600 text-[9px] sm:text-[10px] font-bold rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm mx-auto"><FaSignOutAlt size={10} /> <span className="hidden xs:inline">Punch Out</span></button>
+                          ) : (item.isFinalPunchOut || item.adminPunchOut) ? (
+                            <span className="inline-flex items-center justify-center gap-1.5 px-2 sm:px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 text-[10px] sm:text-[11px] font-bold rounded-lg mx-auto"><FaCheckCircle className="text-green-500" /> <span className="hidden xs:inline">Done</span></span>
+                          ) : (<span className="text-gray-400 text-xs font-medium">--</span>)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card Layout */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {loading ? (
+                <div className="text-center p-10 font-medium text-gray-500"><FaSpinner className="animate-spin text-xl inline-block mr-2 text-blue-500" />Loading daily log...</div>
+              ) : processedDailyData.length === 0 ? (
+                <div className="text-center p-10 text-gray-500 font-medium">No records found.</div>
+              ) : processedDailyData.map((item, idx) => {
+                const isAbsent = item.status === "ABSENT" || item.workedStatus.includes("Absent");
+                const canPunchOut = item.punchIn && !item.isFinalPunchOut && !item.adminPunchOut;
+                const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
+                const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
+                const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
+
+                return (
+                  <div key={item._id || idx} className={`p-4 space-y-4 ${isAbsent ? "bg-red-50/20" : "bg-white hover:bg-gray-50 transition-colors"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 shrink-0" onClick={() => profilePic && setPreviewImage(profilePic)}>
+                          {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.employeeName || "U").charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-gray-800 text-sm truncate">{item.employeeName}</div>
+                          <div className="text-[10px] text-gray-500 font-mono truncate">{item.employeeId}</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase ${item.displayLoginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.displayLoginStatus}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-bold border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-700 border-gray-200"}`}>{item.workedStatus}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Date</p>
+                        <p className="text-[11px] font-semibold text-gray-700">{formatDateDMY(item.date)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Duration</p>
+                        <p className="text-[11px] font-mono font-bold text-gray-700">{(item.status === "WORKING" && item.punchIn) ? <LiveTimer startTime={item.punchIn} /> : (item.displayTime || "0h 0m")}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch In</p>
+                        <p className={`text-[11px] font-bold ${punchInColor}`}>{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch Out</p>
+                        <p className={`text-[11px] font-bold ${item.punchOut ? punchOutColor : 'text-gray-400'}`}>{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      {item.breakCount > 0 && (
+                        <div className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 flex items-center gap-1">
+                          <FaCoffee size={10} /> {item.breakCount} Break{item.breakCount > 1 ? 's' : ''}
+                        </div>
+                      )}
+                      <div className="flex-1 flex justify-end">
                         {canPunchOut ? (
-                          <button onClick={() => setPunchOutModal({ isOpen: true, employee: item })} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-lg hover:bg-red-50 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"><FaSignOutAlt /> Punch Out</button>
+                          <button onClick={() => setPunchOutModal({ isOpen: true, employee: item })} className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-red-600 text-white text-[10px] font-bold rounded-lg shadow-sm active:scale-95 transition-all"><FaSignOutAlt size={10} /> Punch Out Now</button>
                         ) : (item.isFinalPunchOut || item.adminPunchOut) ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 text-gray-600 text-[11px] font-bold rounded-lg"><FaCheckCircle className="text-green-500" /> Done</span>
-                        ) : (<span className="text-gray-400 text-xs font-medium">--</span>)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          <span className="text-[10px] font-bold text-green-600 flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-lg border border-green-100"><FaCheckCircle /> Shift Completed</span>
+                        ) : (<span className="text-gray-400 text-xs">--</span>)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             <Pagination totalItems={dailyTotalItems} itemsPerPage={dailyItemsPerPage} currentPage={dailyCurrentPage} onPageChange={setDailyCurrentPage} setItemsPerPage={setDailyItemsPerPage} />
           </div>
         </div>
@@ -1162,111 +1409,168 @@ const AdminAttendance = () => {
         {/* ========================================== */}
         <div className="flex flex-col space-y-6 mt-10">
           <div className="p-6 border border-gray-200 shadow-sm bg-white rounded-2xl flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3"><div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><FaUsers size={20} /></div><h2 className="text-xl font-bold text-gray-800">Employees Attendance Summary</h2></div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {!isCompareMode ? (
-                  <button onClick={() => setIsCompareMode(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95"><FaExchangeAlt className="text-blue-500" /> Compare Data</button>
+                  <button onClick={() => setIsCompareMode(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95"><FaExchangeAlt className="text-blue-500" /> Compare</button>
                 ) : (
-                  <div className="flex items-center gap-3 animate-in slide-in-from-right duration-300">
-                    <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-full">{selectedCompareIds.length} Selected</span>
-                    <button onClick={() => { if (selectedCompareIds.length < 2) alert("Select at least 2 employees to compare."); else setIsComparisonModalOpen(true); }} className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm font-bold rounded-xl shadow hover:bg-green-700 transition-all"><FaCheck /> Proceed Comparison</button>
-                    <button onClick={() => { setIsCompareMode(false); setSelectedCompareIds([]); }} className="px-5 py-2.5 bg-gray-100 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
+                  <div className="flex flex-wrap items-center gap-2 animate-in slide-in-from-right duration-300">
+                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-full">{selectedCompareIds.length} Selected</span>
+                    <button onClick={() => { if (selectedCompareIds.length < 2) alert("Select at least 2 employees to compare."); else setIsComparisonModalOpen(true); }} className="px-4 py-2.5 bg-green-600 text-white text-xs font-bold rounded-xl shadow hover:bg-green-700 transition-all">Proceed</button>
+                    <button onClick={() => { setIsCompareMode(false); setSelectedCompareIds([]); }} className="px-4 py-2.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
                   </div>
                 )}
+                <button onClick={exportSummaryToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-blue-700 transition-transform active:scale-95"><FaFileExcel size={16} /> <span className="hidden xs:inline">Export</span></button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 items-end">
               <div className="relative group w-full">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1.5 block">Search Employee</label>
-                <FaSearch className="absolute left-3.5 top-[35px] text-gray-400 group-focus-within:text-blue-500" />
-                <input type="text" placeholder="Name or ID..." value={summarySearchTerm} onChange={(e) => { setSummarySearchTerm(e.target.value); setSummaryCurrentPage(1); }} className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm text-sm font-medium" />
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1 block">Search Employee</label>
+                <div className="relative">
+                  <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500" />
+                  <input type="text" placeholder="Name or ID..." value={summarySearchTerm} onChange={(e) => { setSummarySearchTerm(e.target.value); setSummaryCurrentPage(1); }} className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm text-sm font-medium" />
+                </div>
               </div>
               <div className="w-full">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1.5 block">Select Month</label>
-                <div className="relative"><FaCalendarDay className="absolute left-3.5 top-3 text-gray-400" /><input type="month" value={selectedMonth} onChange={handleMonthChange} className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white shadow-sm text-sm font-medium" /></div>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1 block">Select Month</label>
+                <div className="relative"><FaCalendarDay className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" /><input type="month" value={selectedMonth} onChange={handleMonthChange} className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white shadow-sm text-sm font-medium" /></div>
               </div>
               <div className="w-full">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1.5 block">From Date</label>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1 block">From Date</label>
                 <input type="date" value={summaryStartDate} onChange={(e) => setSummaryStartDate(e.target.value)} className="px-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white shadow-sm text-sm font-medium text-gray-700" />
               </div>
               <div className="w-full">
-                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1.5 block">To Date</label>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1 block">To Date</label>
                 <input type="date" value={summaryEndDate} onChange={(e) => setSummaryEndDate(e.target.value)} className="px-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white shadow-sm text-sm font-medium text-gray-700" />
-              </div>
-              <div className="w-full">
-                <button onClick={exportSummaryToExcel} className="w-full flex justify-center items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-blue-700 transition-transform active:scale-95 h-[46px]"><FaFileExcel size={16} /> Export Data</button>
               </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-            <table className="min-w-full text-sm text-left whitespace-nowrap">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-[11px] font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-                <tr>
-                  {isCompareMode && <th className="px-6 py-4 text-center">Select</th>}
-                  <th className="px-6 py-4">Employee</th>
-                  <th className="px-6 py-4 text-center">Assigned Hrs</th>
-                  <th className="px-6 py-4 text-center">Present</th>
-                  <th className="px-6 py-4 text-center">On Time</th>
-                  <th className="px-6 py-4 text-center">Late</th>
-                  <th className="px-6 py-4 text-center">Approved OT</th>
-                  <th className="px-6 py-4 text-center">Full Days</th>
-                  <th className="px-6 py-4 text-center">Half Days</th>
-                  <th className="px-6 py-4 text-center">Absent</th>
-                  <th className="px-6 py-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {summaryLoading || employeesLoading ? (
-                  <tr><td colSpan="11" className="text-center p-10 text-gray-500 font-medium"><FaSpinner className="animate-spin text-xl inline-block mr-2 text-blue-500" />Loading summary...</td></tr>
-                ) : employeeSummaryStats.length === 0 ? (
-                  <tr><td colSpan="11" className="text-center p-10 text-gray-500 font-medium">No summary data available.</td></tr>
-                ) : employeeSummaryStats.map((emp) => {
-                  const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
-                  return (
-                    <tr key={emp.employeeId} className={`transition-colors ${selectedCompareIds.includes(emp.employeeId) ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
-                      {isCompareMode && (
-                        <td className="px-6 py-4 text-center"><input type="checkbox" className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" checked={selectedCompareIds.includes(emp.employeeId)} onChange={() => toggleSelection(emp.employeeId)} /></td>
-                      )}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-shadow" onClick={() => profilePic && setPreviewImage(profilePic)}>
-                            {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.employeeName || "U").charAt(0)}
+          <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full text-sm text-left whitespace-nowrap">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20 shadow-sm">
+                  <tr>
+                    {isCompareMode && <th className="px-4 sm:px-6 py-4 text-center">Sel</th>}
+                    <th className="px-4 sm:px-6 py-4">Employee</th>
+                    <th className="px-6 py-4 text-center hidden lg:table-cell">Assigned</th>
+                    <th className="px-4 sm:px-6 py-4 text-center">Pres</th>
+                    <th className="px-6 py-4 text-center hidden sm:table-cell">On Time</th>
+                    <th className="px-6 py-4 text-center hidden sm:table-cell">Late</th>
+                    <th className="px-6 py-4 text-center hidden md:table-cell">OT</th>
+                    <th className="px-6 py-4 text-center hidden lg:table-cell">Full</th>
+                    <th className="px-6 py-4 text-center hidden lg:table-cell">Half</th>
+                    <th className="px-4 sm:px-6 py-4 text-center">Abs</th>
+                    <th className="px-4 sm:px-6 py-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {summaryLoading || employeesLoading ? (
+                    <tr><td colSpan="11" className="text-center p-10 text-gray-500 font-medium"><FaSpinner className="animate-spin text-xl inline-block mr-2 text-blue-500" />Loading summary...</td></tr>
+                  ) : employeeSummaryStats.length === 0 ? (
+                    <tr><td colSpan="11" className="text-center p-10 text-gray-500 font-medium">No summary data available.</td></tr>
+                  ) : employeeSummaryStats.map((emp) => {
+                    const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                    return (
+                      <tr key={emp.employeeId} className={`transition-colors ${selectedCompareIds.includes(emp.employeeId) ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}>
+                        {isCompareMode && (
+                          <td className="px-4 sm:px-6 py-4 text-center"><input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" checked={selectedCompareIds.includes(emp.employeeId)} onChange={() => toggleSelection(emp.employeeId)} /></td>
+                        )}
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-shadow shrink-0" onClick={() => profilePic && setPreviewImage(profilePic)}>
+                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.employeeName || "U").charAt(0)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-gray-800 text-xs sm:text-sm truncate">{emp.employeeName}</div>
+                              <div className="text-gray-500 font-mono text-[10px] mt-0.5 truncate">{emp.employeeId}</div>
+                            </div>
                           </div>
-                          <div><div className="font-bold text-gray-800">{emp.employeeName}</div><div className="text-gray-500 font-mono text-xs mt-0.5">{emp.employeeId}</div></div>
+                        </td>
+                        <td className="px-6 py-4 text-center font-medium text-gray-500 hidden lg:table-cell">{formatDecimalHours(emp.assignedHours)}</td>
+                        <td className="px-4 sm:px-6 py-4 text-center font-black text-blue-700 bg-blue-50/30 text-sm sm:text-lg">{emp.presentDays}</td>
+                        <td className="px-6 py-4 text-center font-bold text-green-600 hidden sm:table-cell">{emp.onTimeDays}</td>
+                        <td className="px-6 py-4 text-center font-bold text-red-600 hidden sm:table-cell">{emp.lateDays}</td>
+                        <td className="px-6 py-4 text-center font-bold text-indigo-600 hidden md:table-cell">{emp.approvedOT}</td>
+                        <td className="px-6 py-4 text-center font-semibold text-gray-700 hidden lg:table-cell">{emp.fullDays}</td>
+                        <td className="px-6 py-4 text-center font-semibold text-gray-700 hidden lg:table-cell">{emp.halfDays}</td>
+                        <td className="px-4 sm:px-6 py-4 text-center text-red-600 font-black text-sm sm:text-lg">{emp.absentDays}</td>
+                        <td className="px-4 sm:px-6 py-4 text-center">
+                          <button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"><FaEye size={14} className="sm:w-4 sm:h-4" /></button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Summary Cards */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {summaryLoading || employeesLoading ? (
+                <div className="text-center p-10 text-gray-500 font-medium"><FaSpinner className="animate-spin text-xl inline-block mr-2 text-blue-500" />Loading summary...</div>
+              ) : employeeSummaryStats.length === 0 ? (
+                <div className="text-center p-10 text-gray-500 font-medium">No summary data available.</div>
+              ) : employeeSummaryStats.map((emp) => {
+                const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                return (
+                  <div key={emp.employeeId} className={`p-4 space-y-4 ${selectedCompareIds.includes(emp.employeeId) ? 'bg-blue-50/50' : 'bg-white hover:bg-gray-50 transition-colors'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {isCompareMode && (<input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" checked={selectedCompareIds.includes(emp.employeeId)} onChange={() => toggleSelection(emp.employeeId)} />)}
+                        <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 shrink-0" onClick={() => profilePic && setPreviewImage(profilePic)}>
+                          {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.employeeName || "U").charAt(0)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 text-center font-medium text-gray-500">{formatDecimalHours(emp.assignedHours)}</td>
-                      <td className="px-6 py-4 text-center font-black text-blue-700 bg-blue-50/30 text-lg">{emp.presentDays}</td>
-                      <td className="px-6 py-4 text-center font-bold text-green-600">{emp.onTimeDays}</td>
-                      <td className="px-6 py-4 text-center font-bold text-red-600">{emp.lateDays}</td>
-                      <td className="px-6 py-4 text-center font-bold text-indigo-600">{emp.approvedOT}</td>
-                      <td className="px-6 py-4 text-center font-semibold text-gray-700">{emp.fullDays}</td>
-                      <td className="px-6 py-4 text-center font-semibold text-gray-700">{emp.halfDays}</td>
-                      <td className="px-6 py-4 text-center text-red-600 font-black">{emp.absentDays}</td>
-                      <td className="px-6 py-4 text-center">
-                        <button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"><FaEye size={16} /></button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <div className="min-w-0">
+                          <div className="font-bold text-gray-800 text-sm truncate">{emp.employeeName}</div>
+                          <div className="text-[10px] text-gray-500 font-mono truncate">{emp.employeeId}</div>
+                        </div>
+                      </div>
+                      <button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 shadow-sm"><FaEye size={14} /></button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-blue-50/50 p-2 rounded-lg text-center border border-blue-100/50">
+                        <p className="text-[8px] font-bold text-blue-400 uppercase tracking-tighter">Present</p>
+                        <p className="text-sm font-black text-blue-700">{emp.presentDays}</p>
+                      </div>
+                      <div className="bg-green-50/50 p-2 rounded-lg text-center border border-green-100/50">
+                        <p className="text-[8px] font-bold text-green-400 uppercase tracking-tighter">On Time</p>
+                        <p className="text-sm font-black text-green-700">{emp.onTimeDays}</p>
+                      </div>
+                      <div className="bg-red-50/50 p-2 rounded-lg text-center border border-red-100/50">
+                        <p className="text-[8px] font-bold text-red-400 uppercase tracking-tighter">Absent</p>
+                        <p className="text-sm font-black text-red-700">{emp.absentDays}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between px-1">
+                      <div className="flex gap-4">
+                        <div className="text-[10px] font-medium text-gray-500">Late: <span className="font-bold text-orange-600">{emp.lateDays}</span></div>
+                        <div className="text-[10px] font-medium text-gray-500">OT: <span className="font-bold text-indigo-600">{emp.approvedOT}</span></div>
+                      </div>
+                      <div className="text-[10px] font-medium text-gray-400 uppercase tracking-widest">{formatDecimalHours(emp.assignedHours)} Shift</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
             <Pagination totalItems={paginatedEmployeesForSummary.length} itemsPerPage={summaryItemsPerPage} currentPage={summaryCurrentPage} onPageChange={setSummaryCurrentPage} setItemsPerPage={setSummaryItemsPerPage} />
           </div>
         </div>
       </div>
 
       <AttendanceDetailModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} employeeData={selectedEmployee} shiftsMap={shiftsMap} holidays={holidays} dateRange={{ startDate: summaryStartDate, endDate: summaryEndDate }} employeeImages={employeeImages} />
-      <StatusListModal 
-        isOpen={statusListModal.isOpen} 
-        onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })} 
-        title={statusListModal.title} 
-        employees={statusListModal.employees} 
-        loading={statusListModal.loading} 
-        employeeImages={employeeImages} 
-        allEmployees={allEmployees} 
+      <StatusListModal
+        isOpen={statusListModal.isOpen}
+        onClose={() => setStatusListModal({ ...statusListModal, isOpen: false })}
+        title={statusListModal.title}
+        employees={statusListModal.employees}
+        loading={statusListModal.loading}
+        employeeImages={employeeImages}
+        allEmployees={allEmployees}
         date={startDate}
         onPunchOut={(emp) => {
           // Prepare employee object for AdminPunchOutModal

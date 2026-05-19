@@ -30,7 +30,8 @@ import {
   FaList,
   FaThLarge,
   FaFilter,
-  FaUserMinus
+  FaUserMinus,
+  FaSyncAlt
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -256,28 +257,28 @@ const StatCard = ({ icon, title, value, color, onClick, category, isActive }) =>
 
   return (
     <motion.div
-      whileHover={{ scale: 1.03, y: -4 }}
+      whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`relative overflow-hidden rounded-xl p-5 cursor-pointer transition-all duration-300 ${isActive ? 'ring-2 ring-offset-2' : ''
+      className={`relative overflow-hidden rounded-2xl p-3 sm:p-5 cursor-pointer transition-all duration-300 ${isActive ? 'ring-2 ring-offset-2' : ''
         } ${config.bg} border ${config.border} ${isActive ? `ring-${category === 'WORKING' ? 'blue' : category === 'COMPLETED' ? 'emerald' : category === 'NOT_LOGGED_IN' ? 'slate' : category === 'ON_LEAVE' ? 'purple' : 'amber'}-500/30` : ''
         }`}
     >
-      <div className="absolute top-0 right-0 w-20 h-20 -mr-4 -mt-4 opacity-10">
+      <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 -mr-4 -mt-4 opacity-10">
         <div className={`w-full h-full bg-gradient-to-br ${config.gradient} rounded-full`}></div>
       </div>
 
       <div className="relative z-10">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-1">{title}</p>
-            <p className="text-2xl font-bold text-slate-900">
+        <div className="flex items-center sm:items-start justify-between sm:flex-col gap-2 sm:gap-0">
+          <div className="flex-grow">
+            <p className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500 mb-0.5 sm:mb-1">{title}</p>
+            <p className="text-lg sm:text-2xl font-black text-slate-900 leading-none">
               {value}
             </p>
           </div>
-          <div className={`p-2.5 rounded-lg ${config.bg}`}>
+          <div className={`p-2 rounded-xl ${config.bg} flex items-center justify-center shrink-0 sm:mt-3`}>
             {React.cloneElement(icon, {
-              className: `text-lg ${config.text}`
+              className: `text-base sm:text-lg ${config.text}`
             })}
           </div>
         </div>
@@ -866,7 +867,7 @@ const TodayOverview = () => {
       const idsToFetch = allEmployees
         .map((emp) => emp.employeeId)
         .filter((id) => id && !employeeImages[id]);
-      
+
       if (idsToFetch.length === 0) return;
 
       try {
@@ -874,7 +875,7 @@ const TodayOverview = () => {
         const res = await api.post("/api/profile/bulk", { employeeIds: idsToFetch });
         const newImages = {};
         const newPhoneNumbers = {};
-        
+
         if (Array.isArray(res.data)) {
           res.data.forEach((profile) => {
             if (profile.employeeId) {
@@ -887,7 +888,7 @@ const TodayOverview = () => {
             }
           });
         }
-        
+
         if (Object.keys(newImages).length > 0) {
           setEmployeeImages(prev => ({ ...prev, ...newImages }));
         }
@@ -902,49 +903,7 @@ const TodayOverview = () => {
     fetchEmployeeDetails();
   }, [allEmployees]);
 
-  // Debug useEffect - check phone numbers in employee data
-  useEffect(() => {
-    if (allEmployees.length > 0) {
-      console.log("=== DEBUG: Employee Phone Numbers ===");
-      allEmployees.forEach(emp => {
-        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
-        console.log(`  emp.phone: ${emp.phone}`);
-        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
-        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
-        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
-        console.log("---");
-      });
-    }
-  }, [allEmployees]);
 
-  // Debug useEffect - Moved OUTSIDE the previous useEffect
-  useEffect(() => {
-    if (allEmployees.length > 0) {
-      console.log("=== DEBUG: Employee Phone Numbers ===");
-      allEmployees.forEach(emp => {
-        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
-        console.log(`  emp.phone: ${emp.phone}`);
-        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
-        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
-        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
-        console.log("---");
-      });
-    }
-  }, [allEmployees]);
-
-  useEffect(() => {
-    if (allEmployees.length > 0) {
-      console.log("=== DEBUG: Employee Phone Numbers ===");
-      allEmployees.forEach(emp => {
-        console.log(`Employee: ${emp.name || emp.employeeName} (${emp.employeeId})`);
-        console.log(`  emp.phone: ${emp.phone}`);
-        console.log(`  emp.phoneNumber: ${emp.phoneNumber}`);
-        console.log(`  emp.personalDetails?.phone: ${emp.personalDetails?.phone}`);
-        console.log(`  emp.personalDetails?.phoneNumber: ${emp.personalDetails?.phoneNumber}`);
-        console.log("---");
-      });
-    }
-  }, [allEmployees]);
 
   // Initial data fetch
   useEffect(() => {
@@ -953,7 +912,7 @@ const TodayOverview = () => {
 
   const allDailyData = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
-    
+
     const empNameMap = allEmployees.reduce((acc, emp) => {
       acc[emp.employeeId] = emp.name || emp.employeeName;
       return acc;
@@ -965,7 +924,7 @@ const TodayOverview = () => {
       else if (emp.phoneNumber) phoneNumber = emp.phoneNumber;
       else if (emp.personalDetails?.phone) phoneNumber = emp.personalDetails.phone;
       else if (emp.personalDetails?.phoneNumber) phoneNumber = emp.personalDetails.phoneNumber;
-      
+
       if (emp.employeeId && phoneNumber) {
         acc[emp.employeeId] = phoneNumber;
       }
@@ -974,7 +933,7 @@ const TodayOverview = () => {
 
     const activeEmployeeIds = new Set(allEmployees.filter(e => e.isActive !== false).map(e => e.employeeId));
     const presentIds = new Set(attendanceData.map(att => att.employeeId));
-    
+
     const onLeaveToday = leaveData.filter(leave => {
       if (leave.status !== 'Approved') return false;
       return today >= leave.from && today <= leave.to;
@@ -1044,383 +1003,384 @@ const TodayOverview = () => {
 
     return [...attendanceWithDetails, ...onLeaveToday, ...notLoggedIn];
   }, [attendanceData, leaveData, allEmployees, shiftsMap, employeeImages, employeePhoneNumbers, resignationData]);
- // ✅ Added employeePhoneNumbers to dependencies
+  // ✅ Added employeePhoneNumbers to dependencies
 
-// 2. Department Filter Data (Source for Stats)
-const departmentFilteredData = useMemo(() => {
-  if (departmentFilter === "All") {
-    return allDailyData;
-  }
-  return allDailyData.filter(item => item.department === departmentFilter);
-}, [allDailyData, departmentFilter]);
-
-// 3. Calculate Stats (Counts) based on Department Data
-const stats = useMemo(() => {
-  // This uses departmentFilteredData so counts don't go to zero when 'Late' or 'Working' is selected
-  const baseData = departmentFilteredData;
-
-  return {
-    working: baseData.filter(item => item.category === 'WORKING').length,
-    completed: baseData.filter(item => item.category === 'COMPLETED').length,
-    notLoggedIn: baseData.filter(item => item.category === 'NOT_LOGGED_IN').length,
-    onLeave: baseData.filter(item => item.category === 'ON_LEAVE').length,
-    late: baseData.filter(item => item.loginStatus?.isLate === true).length,
-    total: baseData.length
-  };
-}, [departmentFilteredData]);
-
-// 4. Final Display Data (Filtered by Dropdown Selection + Search)
-const finalDisplayData = useMemo(() => {
-  let filtered = departmentFilteredData;
-
-  // Apply Dropdown Filter
-  if (filterType !== 'ALL') {
-    if (filterType === 'LATE') {
-      filtered = filtered.filter(item => item.loginStatus?.isLate === true);
-    } else {
-      filtered = filtered.filter(item => item.category === filterType);
+  // 2. Department Filter Data (Source for Stats)
+  const departmentFilteredData = useMemo(() => {
+    if (departmentFilter === "All") {
+      return allDailyData;
     }
-  }
+    return allDailyData.filter(item => item.department === departmentFilter);
+  }, [allDailyData, departmentFilter]);
 
-  // Apply Search
-  if (searchTerm) {
-    const lowerTerm = searchTerm.toLowerCase();
-    filtered = filtered.filter(item =>
-      item.employeeName.toLowerCase().includes(lowerTerm) ||
-      item.employeeId.toLowerCase().includes(lowerTerm) ||
-      item.department.toLowerCase().includes(lowerTerm) ||
-      (item.phoneNumber && item.phoneNumber.includes(searchTerm))
-    );
-  }
+  // 3. Calculate Stats (Counts) based on Department Data
+  const stats = useMemo(() => {
+    // This uses departmentFilteredData so counts don't go to zero when 'Late' or 'Working' is selected
+    const baseData = departmentFilteredData;
 
-  return filtered;
-}, [departmentFilteredData, filterType, searchTerm]);
+    return {
+      working: baseData.filter(item => item.category === 'WORKING').length,
+      completed: baseData.filter(item => item.category === 'COMPLETED').length,
+      notLoggedIn: baseData.filter(item => item.category === 'NOT_LOGGED_IN').length,
+      onLeave: baseData.filter(item => item.category === 'ON_LEAVE').length,
+      late: baseData.filter(item => item.loginStatus?.isLate === true).length,
+      total: baseData.length
+    };
+  }, [departmentFilteredData]);
 
-// Summary Metrics
-const summaryMetrics = useMemo(() => {
-  const total = departmentFilteredData.length;
-  const working = departmentFilteredData.filter(i => i.category === 'WORKING').length;
-  const completed = departmentFilteredData.filter(i => i.category === 'COMPLETED').length;
-  const late = departmentFilteredData.filter(i => i.loginStatus?.isLate === true).length;
-  const withPhone = departmentFilteredData.filter(i => i.phoneNumber).length;
+  // 4. Final Display Data (Filtered by Dropdown Selection + Search)
+  const finalDisplayData = useMemo(() => {
+    let filtered = departmentFilteredData;
 
-  return {
-    total,
-    present: working + completed,
-    late,
-    withPhone,
-    attendanceRate: total > 0 ? Math.round(((working + completed) / total) * 100) : 0
-  };
-}, [departmentFilteredData]);
+    // Apply Dropdown Filter
+    if (filterType !== 'ALL') {
+      if (filterType === 'LATE') {
+        filtered = filtered.filter(item => item.loginStatus?.isLate === true);
+      } else {
+        filtered = filtered.filter(item => item.category === filterType);
+      }
+    }
 
-const departments = useMemo(() => {
-  const depts = allDailyData.map(item => item.department).filter(Boolean);
-  return ['All', ...new Set(depts)];
-}, [allDailyData]);
+    // Apply Search
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.employeeName.toLowerCase().includes(lowerTerm) ||
+        item.employeeId.toLowerCase().includes(lowerTerm) ||
+        item.department.toLowerCase().includes(lowerTerm) ||
+        (item.phoneNumber && item.phoneNumber.includes(searchTerm))
+      );
+    }
 
-// Handlers
-const handleCallClick = (employee) => setCallModal({ isOpen: true, employee });
-const handleMessageClick = (employee) => setMessageModal({ isOpen: true, employee });
+    return filtered;
+  }, [departmentFilteredData, filterType, searchTerm]);
 
-// Auto-refresh
-useEffect(() => {
-  const interval = setInterval(() => fetchAllData(), 180000); // 3 min
-  return () => clearInterval(interval);
-}, [fetchAllData]);
+  // Summary Metrics
+  const summaryMetrics = useMemo(() => {
+    const total = departmentFilteredData.length;
+    const working = departmentFilteredData.filter(i => i.category === 'WORKING').length;
+    const completed = departmentFilteredData.filter(i => i.category === 'COMPLETED').length;
+    const late = departmentFilteredData.filter(i => i.loginStatus?.isLate === true).length;
+    const withPhone = departmentFilteredData.filter(i => i.phoneNumber).length;
 
-return (
-  <div className="min-h-screen ">
-    {/* Header */}
-    <div className="z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl max-w-7xl mx-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between h-auto sm:h-20 py-4 sm:py-0 gap-4 sm:gap-0">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="p-2 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg shadow">
-              <FaCalendarDay className="text-white text-xl" />
+    return {
+      total,
+      present: working + completed,
+      late,
+      withPhone,
+      attendanceRate: total > 0 ? Math.round(((working + completed) / total) * 100) : 0
+    };
+  }, [departmentFilteredData]);
+
+  const departments = useMemo(() => {
+    const depts = allDailyData.map(item => item.department).filter(Boolean);
+    return ['All', ...new Set(depts)];
+  }, [allDailyData]);
+
+  // Handlers
+  const handleCallClick = (employee) => setCallModal({ isOpen: true, employee });
+  const handleMessageClick = (employee) => setMessageModal({ isOpen: true, employee });
+
+  // Auto-refresh
+  useEffect(() => {
+    const interval = setInterval(() => fetchAllData(), 180000); // 3 min
+    return () => clearInterval(interval);
+  }, [fetchAllData]);
+
+  return (
+    <div className="min-h-screen ">
+      {/* Header */}
+      <div className="z-15 bg-white/90 backdrop-blur-xl border-b border-slate-200 sticky top-0 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col md:flex-row items-center justify-between min-h-[5rem] py-4 md:py-0 gap-4">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="p-3 bg-slate-900 rounded-2xl shadow-lg shadow-slate-200">
+                <FaCalendarDay className="text-white text-xl" />
+              </div>
+              <div>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight">
+                  Today's Overview
+                </h1>
+                <p className="text-xs text-slate-500 flex items-center gap-1.5 font-bold uppercase tracking-wider">
+                  <span>{formatDateDMY(new Date())}</span>
+                  <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-emerald-600">Live</span>
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">
-                Today's Overview
-              </h1>
-              <p className="text-sm text-slate-500 flex items-center gap-1.5">
-                <span>{formatDateDMY(new Date())}</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="font-medium">Live Updates</span>
-              </p>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full sm:w-auto">
-            <div className="relative flex-grow sm:flex-grow-0">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 text-sm" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-56 text-sm shadow-sm"
-              />
-            </div>
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <div className="relative flex-grow md:flex-grow-0 md:min-w-[280px]">
+                <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+                <input
+                  type="text"
+                  placeholder="Search employees or IDs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-slate-900 focus:border-slate-900 w-full text-sm font-medium transition-all"
+                />
+              </div>
 
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={fetchAllData}
-              disabled={loading}
-              className={`px-3.5 py-2.5 font-medium rounded-lg transition-all text-sm flex items-center gap-1.5 whitespace-nowrap ${loading
-                  ? 'bg-slate-300 text-slate-700 cursor-not-allowed'
-                  : 'bg-slate-800 text-white hover:bg-slate-900'
-                }`}
-            >
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={fetchAllData}
+                disabled={loading}
+                className={`p-3 rounded-2xl transition-all shadow-md active:scale-95 ${loading
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-white text-slate-900 border border-slate-200 hover:bg-slate-50'
+                  }`}
+                title="Refresh Data"
+              >
+                <FaSyncAlt className={loading ? 'animate-spin' : ''} />
+              </motion.button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Stats Grid - Counts won't reset to zero when filtering */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-300 rounded-2xl p-4">
-        <StatCard
-          icon={<FaClock />}
-          title="Working"
-          value={stats.working}
-          category="WORKING"
-          isActive={filterType === 'WORKING'}
-          onClick={() => setFilterType('WORKING')}
-        />
-        <StatCard
-          icon={<FaCheckCircle />}
-          title="Completed"
-          value={stats.completed}
-          category="COMPLETED"
-          isActive={filterType === 'COMPLETED'}
-          onClick={() => setFilterType('COMPLETED')}
-        />
-        <StatCard
-          icon={<FaUserSlash />}
-          title="LOGIN REQUIRED"
-          value={stats.notLoggedIn}
-          category="NOT_LOGGED_IN"
-          isActive={filterType === 'NOT_LOGGED_IN'}
-          onClick={() => setFilterType('NOT_LOGGED_IN')}
-        />
-        <StatCard
-          icon={<FaCalendarAlt />}
-          title="On Leave"
-          value={stats.onLeave}
-          category="ON_LEAVE"
-          isActive={filterType === 'ON_LEAVE'}
-          onClick={() => setFilterType('ON_LEAVE')}
-        />
-        <StatCard
-          icon={<FaUserClock />}
-          title="Late"
-          value={stats.late}
-          category="LATE"
-          isActive={filterType === 'LATE'}
-          onClick={() => setFilterType('LATE')}
-        />
-      </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Stats Grid - Counts won't reset to zero when filtering */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+          <StatCard
+            icon={<FaClock />}
+            title="Working"
+            value={stats.working}
+            category="WORKING"
+            isActive={filterType === 'WORKING'}
+            onClick={() => setFilterType('WORKING')}
+          />
+          <StatCard
+            icon={<FaCheckCircle />}
+            title="Completed"
+            value={stats.completed}
+            category="COMPLETED"
+            isActive={filterType === 'COMPLETED'}
+            onClick={() => setFilterType('COMPLETED')}
+          />
+          <StatCard
+            icon={<FaUserSlash />}
+            title="REQUIRED"
+            value={stats.notLoggedIn}
+            category="NOT_LOGGED_IN"
+            isActive={filterType === 'NOT_LOGGED_IN'}
+            onClick={() => setFilterType('NOT_LOGGED_IN')}
+          />
+          <StatCard
+            icon={<FaCalendarAlt />}
+            title="On Leave"
+            value={stats.onLeave}
+            category="ON_LEAVE"
+            isActive={filterType === 'ON_LEAVE'}
+            onClick={() => setFilterType('ON_LEAVE')}
+          />
+          <StatCard
+            icon={<FaUserClock />}
+            title="Late"
+            value={stats.late}
+            category="LATE"
+            isActive={filterType === 'LATE'}
+            onClick={() => setFilterType('LATE')}
+          />
+        </div>
 
-      {/* Controls Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        {/* Controls Bar */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 
-          {/* Filter Group */}
-          <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
-            {/* Layout Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700">Layout:</span>
-              <div className="relative">
-                <select
-                  value={viewMode}
-                  onChange={(e) => setViewMode(e.target.value)}
-                  className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
-                >
-                  <option value="card">Cards View</option>
-                  <option value="table">Table View</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  {viewMode === 'card' ? <FaThLarge className="text-slate-500 text-xs" /> : <FaList className="text-slate-500 text-xs" />}
+            {/* Filter Group */}
+            <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto">
+              {/* Layout Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-700">Layout:</span>
+                <div className="relative">
+                  <select
+                    value={viewMode}
+                    onChange={(e) => setViewMode(e.target.value)}
+                    className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
+                  >
+                    <option value="card">Cards View</option>
+                    <option value="table">Table View</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    {viewMode === 'card' ? <FaThLarge className="text-slate-500 text-xs" /> : <FaList className="text-slate-500 text-xs" />}
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Filter Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-700">Filter Status:</span>
+                <div className="relative">
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
+                  >
+                    <option value="ALL">All Employees</option>
+                    <option value="WORKING">Working</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="NOT_LOGGED_IN">LOGIN REQUIRED</option>
+                    <option value="ON_LEAVE">On Leave</option>
+                    <option value="LATE">Late</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <FaFilter className="text-slate-500 text-xs" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Status Filter Dropdown */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700">Filter Status:</span>
-              <div className="relative">
-                <select
-                  value={filterType}
-                  onChange={(e) => setFilterType(e.target.value)}
-                  className="appearance-none bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2.5 pr-8 cursor-pointer"
-                >
-                  <option value="ALL">All Employees</option>
-                  <option value="WORKING">Working</option>
-                  <option value="COMPLETED">Completed</option>
-                  <option value="NOT_LOGGED_IN">LOGIN REQUIRED</option>
-                  <option value="ON_LEAVE">On Leave</option>
-                  <option value="LATE">Late</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <FaFilter className="text-slate-500 text-xs" />
-                </div>
-              </div>
+            {/* Department Filter */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <span className="text-sm font-medium text-slate-700">Dept:</span>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2.5"
+              >
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Department Filter */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <span className="text-sm font-medium text-slate-700">Dept:</span>
-            <select
-              value={departmentFilter}
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="bg-slate-50 border border-slate-300 text-slate-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2.5"
-            >
-              {departments.map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
+          <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
+            <span>Showing <strong>{finalDisplayData.length}</strong> results</span>
+            <span>Department Total: {departmentFilteredData.length}</span>
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
-          <span>Showing <strong>{finalDisplayData.length}</strong> results</span>
-          <span>Department Total: {departmentFilteredData.length}</span>
-        </div>
-      </div>
-
-      {/* Content Area (Card Grid or Table) */}
-      {loading && finalDisplayData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="text-slate-600 text-sm">Loading employee data...</p>
-        </div>
-      ) : finalDisplayData.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="w-20 h-20 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FaCalendarDay className="text-slate-400 text-2xl" />
+        {/* Content Area (Card Grid or Table) */}
+        {loading && finalDisplayData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="w-12 h-12 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-slate-600 text-sm">Loading employee data...</p>
           </div>
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">No employees found</h3>
-          <p className="text-slate-500 text-sm">Try changing your filters</p>
-        </div>
-      ) : (
-        viewMode === 'card' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {finalDisplayData.map((employee, idx) => (
-              <EmployeeCard
-                key={employee.employeeId || idx}
-                employee={employee}
-                category={employee.category}
-                onImageClick={setPreviewImage}
-                onCallClick={handleCallClick}
-                onMessageClick={handleMessageClick}
-              />
-            ))}
+        ) : finalDisplayData.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-20 h-20 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaCalendarDay className="text-slate-400 text-2xl" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">No employees found</h3>
+            <p className="text-slate-500 text-sm">Try changing your filters</p>
           </div>
         ) : (
-          <TableView
-            data={finalDisplayData}
-            onImageClick={setPreviewImage}
-            onCallClick={handleCallClick}
-            onMessageClick={handleMessageClick}
-          />
-        )
-      )}
-
-      {/* Summary Footer */}
-      <div className="mt-10 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Department Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-            <div className="text-sm font-medium text-slate-500 mb-1">Attendance Rate</div>
-            <div className="text-2xl font-semibold text-slate-900">
-              {summaryMetrics.attendanceRate}%
+          viewMode === 'card' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {finalDisplayData.map((employee, idx) => (
+                <EmployeeCard
+                  key={employee.employeeId || idx}
+                  employee={employee}
+                  category={employee.category}
+                  onImageClick={setPreviewImage}
+                  onCallClick={handleCallClick}
+                  onMessageClick={handleMessageClick}
+                />
+              ))}
             </div>
-            <div className="mt-2 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full"
-                style={{ width: `${summaryMetrics.attendanceRate}%` }}
-              ></div>
+          ) : (
+            <TableView
+              data={finalDisplayData}
+              onImageClick={setPreviewImage}
+              onCallClick={handleCallClick}
+              onMessageClick={handleMessageClick}
+            />
+          )
+        )}
+
+        {/* Summary Footer */}
+        <div className="mt-10 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl p-6 border border-slate-200">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Department Summary</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Attendance Rate</div>
+              <div className="text-2xl font-black text-slate-900 leading-none mb-3">
+                {summaryMetrics.attendanceRate}%
+              </div>
+              <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full"
+                  style={{ width: `${summaryMetrics.attendanceRate}%` }}
+                ></div>
+              </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-            <div className="text-sm font-medium text-slate-500 mb-1">Active Employees</div>
-            <div className="text-2xl font-semibold text-slate-900">{summaryMetrics.present}</div>
-            <div className="mt-1 text-xs text-slate-600">Currently engaged</div>
-          </div>
-
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-            <div className="text-sm font-medium text-slate-500 mb-1">Contactable</div>
-            <div className="text-2xl font-semibold text-blue-700">
-              {summaryMetrics.withPhone}
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Active Staff</div>
+              <div className="text-2xl font-black text-slate-900 leading-none">{summaryMetrics.present}</div>
+              <div className="mt-2 text-[10px] font-bold text-emerald-600 uppercase tracking-tighter">Engaged Now</div>
             </div>
-            <div className="mt-1 text-xs text-slate-600">Employees with phone</div>
-          </div>
 
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200">
-            <div className="text-sm font-medium text-slate-500 mb-1">Punctuality Issues</div>
-            <div className="text-2xl font-semibold text-amber-700">{summaryMetrics.late}</div>
-            <div className="mt-1 text-xs text-slate-600">Late arrivals</div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contactable</div>
+              <div className="text-2xl font-black text-blue-600 leading-none">
+                {summaryMetrics.withPhone}
+              </div>
+              <div className="mt-2 text-[10px] font-bold text-blue-600 uppercase tracking-tighter">Linked Profile</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Late Arrivals</div>
+              <div className="text-2xl font-black text-amber-600 leading-none">{summaryMetrics.late}</div>
+              <div className="mt-2 text-[10px] font-bold text-amber-600 uppercase tracking-tighter">Needs Review</div>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
 
-    {/* Modals */}
-    <AnimatePresence>
-      {callModal.isOpen && (
-        <CallModal
-          isOpen={callModal.isOpen}
-          onClose={() => setCallModal({ isOpen: false, employee: null })}
-          employee={callModal.employee}
-          phoneNumber={callModal.employee?.phoneNumber}
-        />
-      )}
+      {/* Modals */}
+      <AnimatePresence>
+        {callModal.isOpen && (
+          <CallModal
+            isOpen={callModal.isOpen}
+            onClose={() => setCallModal({ isOpen: false, employee: null })}
+            employee={callModal.employee}
+            phoneNumber={callModal.employee?.phoneNumber}
+          />
+        )}
 
-      {messageModal.isOpen && (
-        <MessageModal
-          isOpen={messageModal.isOpen}
-          onClose={() => setMessageModal({ isOpen: false, employee: null })}
-          employee={messageModal.employee}
-          phoneNumber={messageModal.employee?.phoneNumber}
-        />
-      )}
+        {messageModal.isOpen && (
+          <MessageModal
+            isOpen={messageModal.isOpen}
+            onClose={() => setMessageModal({ isOpen: false, employee: null })}
+            employee={messageModal.employee}
+            phoneNumber={messageModal.employee?.phoneNumber}
+          />
+        )}
 
-      {previewImage && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
-          onClick={() => setPreviewImage(null)}
-        >
+        {previewImage && (
           <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0.9 }}
-            className="relative max-w-3xl max-h-[85vh]"
-            onClick={e => e.stopPropagation()}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
+            onClick={() => setPreviewImage(null)}
           >
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-slate-300 p-2"
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="relative max-w-3xl max-h-[85vh]"
+              onClick={e => e.stopPropagation()}
             >
-              <FaTimes size={20} />
-            </button>
-            <img
-              src={previewImage}
-              alt="Profile"
-              className="rounded-lg shadow-2xl max-w-full max-h-[85vh] object-contain"
-            />
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute -top-10 right-0 text-white hover:text-slate-300 p-2"
+              >
+                <FaTimes size={20} />
+              </button>
+              <img
+                src={previewImage}
+                alt="Profile"
+                className="rounded-lg shadow-2xl max-w-full max-h-[85vh] object-contain"
+              />
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  </div>
-);
+        )}
+      </AnimatePresence>
+    </div>
+  );
 };
 
 export default TodayOverview;

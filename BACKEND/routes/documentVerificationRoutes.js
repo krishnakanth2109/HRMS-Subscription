@@ -4,6 +4,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { v4 as uuidv4 } from 'uuid';
 import DocumentVerification from '../models/DocumentVerification.js';
 import Company from '../models/CompanyModel.js';
+import { protect, restrictTo } from '../middleware/authMiddleware.js';
 import customTransporter from '../config/nodemailer.js';
 
 const router = express.Router();
@@ -16,12 +17,12 @@ const router = express.Router();
 const fireDocVerifyMail = ({ to, name, role, department, employmentType, companyName, formLink, emailSubject, emailMessage }) => {
   try {
     const parsedMessage = (emailMessage || '')
-      .replace(/\[NAME\]/gi,            name           || 'Candidate')
-      .replace(/\[ROLE\]/gi,            role           || 'Team Member')
-      .replace(/\[DEPT\]/gi,            department     || 'General')
+      .replace(/\[NAME\]/gi, name || 'Candidate')
+      .replace(/\[ROLE\]/gi, role || 'Team Member')
+      .replace(/\[DEPT\]/gi, department || 'General')
       .replace(/\[EMPLOYMENT_TYPE\]/gi, employmentType || 'Full Time')
-      .replace(/\[COMPANY\]/gi,         companyName    || 'Our Company')
-      .replace(/\[FORM_LINK\]/gi,       '<a href="' + formLink + '" style="color:#6d28d9;font-weight:bold;">' + formLink + '</a>');
+      .replace(/\[COMPANY\]/gi, companyName || 'Our Company')
+      .replace(/\[FORM_LINK\]/gi, '<a href="' + formLink + '" style="color:#6d28d9;font-weight:bold;">' + formLink + '</a>');
 
     const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px;margin:auto;">' + parsedMessage.replace(/\n/g, '<br>') + '</div>';
 
@@ -81,17 +82,23 @@ const DOCUMENT_FIELDS = [
 // ---------------------------------------------------
 // CHECK IF EMAIL ALREADY SENT (NEW ENDPOINT - FIXED)
 // ---------------------------------------------------
-router.get('/company/:companyId/check/:email', async (req, res) => {
+router.get('/company/:companyId/check/:email', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
     const { companyId, email } = req.params;
+
+    // Ensure admin owns this company
+    const company = await Company.findOne({ _id: companyId, adminId: req.user._id });
+    if (!company) {
+      return res.status(403).json({ error: "Unauthorized access to this company" });
+    }
+
     const decodedEmail = decodeURIComponent(email);
-    
-    // IMPORTANT: Use 'company' field (not 'companyId') and correct model name 'DocumentVerification'
-    const existing = await DocumentVerification.findOne({ 
-      company: companyId, 
-      email: decodedEmail.toLowerCase() 
+
+    const existing = await DocumentVerification.findOne({
+      company: companyId,
+      email: decodedEmail.toLowerCase()
     });
-    
+
     res.json({ alreadySent: !!existing });
   } catch (error) {
     console.error('Check email error:', error);
@@ -102,9 +109,9 @@ router.get('/company/:companyId/check/:email', async (req, res) => {
 // ---------------------------------------------------
 // SEND INVITATION (SINGLE) - MODIFIED TO PREVENT RESEND
 // ---------------------------------------------------
-router.post('/invite', async (req, res) => {
+router.post('/invite', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
-    const { email, name, fullName, role, department, employmentType, companyId, invitedBy, formBaseUrl, emailSubject, emailMessage } = req.body;
+    const { email, name, fullName, role, department, employmentType, companyId, formBaseUrl, emailSubject, emailMessage } = req.body;
 
     if (!email || !companyId) {
       return res.status(400).json({ success: false, error: 'Email and Company ID are required' });
@@ -115,12 +122,12 @@ router.post('/invite', async (req, res) => {
 
     // Check if already exists and prevent resend
     let existing = await DocumentVerification.findOne({ email: email.toLowerCase(), company: companyId });
-    
+
     // If already exists and status is not 'rejected', prevent resend
     if (existing && existing.status !== 'rejected') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Document verification already sent to this email. Please check history.' 
+      return res.status(400).json({
+        success: false,
+        error: 'Document verification already sent to this email. Please check history.'
       });
     }
 
@@ -134,6 +141,7 @@ router.post('/invite', async (req, res) => {
       existing.role = role || existing.role;
       existing.department = department || existing.department;
       existing.employmentType = employmentType || existing.employmentType;
+      existing.invitedBy = req.user._id;
       existing.token = token;
       existing.status = 'pending';
       existing.invitedAt = new Date();
@@ -143,7 +151,7 @@ router.post('/invite', async (req, res) => {
         email: email.toLowerCase(),
         name, fullName, role, department, employmentType,
         company: companyId,
-        invitedBy: invitedBy || null,
+        invitedBy: req.user._id,
         token,
         status: 'pending',
         documents: docSlots,
@@ -162,10 +170,10 @@ router.post('/invite', async (req, res) => {
       formLink, emailSubject, emailMessage,
     });
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Invitation sent! Email is being delivered in the background.', 
-      data: existing, 
+    res.status(200).json({
+      success: true,
+      message: 'Invitation sent! Email is being delivered in the background.',
+      data: existing,
       formLink
     });
   } catch (error) {
@@ -177,9 +185,9 @@ router.post('/invite', async (req, res) => {
 // ---------------------------------------------------
 // SEND INVITATION (BULK) - MODIFIED TO PREVENT RESEND
 // ---------------------------------------------------
-router.post('/bulk-invite', async (req, res) => {
+router.post('/bulk-invite', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
-    const { employees, companyId, invitedBy, formBaseUrl, emailSubject, emailMessage } = req.body;
+    const { employees, companyId, formBaseUrl, emailSubject, emailMessage } = req.body;
 
     if (!employees || !Array.isArray(employees) || !companyId) {
       return res.status(400).json({ success: false, error: 'employees[] and companyId required' });
@@ -198,25 +206,26 @@ router.post('/bulk-invite', async (req, res) => {
         const emailLower = emp.email.toLowerCase();
 
         let existing = await DocumentVerification.findOne({ email: emailLower, company: companyId });
-        
+
         // Skip if already exists and not rejected
         if (existing && existing.status !== 'rejected') {
           results.skipped.push({ email: emailLower, reason: 'Already sent previously' });
           continue; // Skip this email without sending
         }
-        
+
         if (existing) {
           // Update only for rejected cases
-          existing.token = token; 
-          existing.status = 'pending'; 
+          existing.token = token;
+          existing.status = 'pending';
           existing.invitedAt = new Date();
+          existing.invitedBy = req.user._id;
           Object.assign(existing, { name: emp.name, fullName: emp.fullName, role: emp.role, department: emp.department, employmentType: emp.employmentType });
           await existing.save();
         } else {
           existing = await DocumentVerification.create({
             email: emailLower, name: emp.name, fullName: emp.fullName, role: emp.role,
             department: emp.department, employmentType: emp.employmentType,
-            company: companyId, invitedBy: invitedBy || null, token, status: 'pending', documents: docSlots,
+            company: companyId, invitedBy: req.user._id, token, status: 'pending', documents: docSlots,
           });
         }
 
@@ -240,10 +249,10 @@ router.post('/bulk-invite', async (req, res) => {
       }
     }
 
-    res.status(200).json({ 
-      success: true, 
-      message: `Processed ${employees.length} invitations. Sent: ${results.success.length}, Skipped: ${results.skipped.length}, Failed: ${results.failed.length}`, 
-      results 
+    res.status(200).json({
+      success: true,
+      message: `Processed ${employees.length} invitations. Sent: ${results.success.length}, Skipped: ${results.skipped.length}, Failed: ${results.failed.length}`,
+      results
     });
   } catch (error) {
     console.error('Bulk invite error:', error);
@@ -337,8 +346,14 @@ router.post('/submit/:token', async (req, res) => {
 // ---------------------------------------------------
 // GET ALL SUBMISSIONS FOR A COMPANY (Admin)
 // ---------------------------------------------------
-router.get('/company/:companyId', async (req, res) => {
+router.get('/company/:companyId', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
+    // Ensure admin owns this company
+    const company = await Company.findOne({ _id: req.params.companyId, adminId: req.user._id });
+    if (!company) {
+      return res.status(403).json({ error: "Unauthorized access to this company" });
+    }
+
     const records = await DocumentVerification.find({ company: req.params.companyId })
       .populate('company', 'name')
       .sort({ invitedAt: -1 });
@@ -351,13 +366,30 @@ router.get('/company/:companyId', async (req, res) => {
 // ---------------------------------------------------
 // GET ALL SUBMISSIONS (Admin – all companies)
 // ---------------------------------------------------
-router.get('/all', async (req, res) => {
+router.get('/all', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
-    const records = await DocumentVerification.find()
+    // Determine which companies this user can see
+    let companyFilter = {};
+
+    if (req.user.role === 'admin' || req.user.role === 'support-admin') {
+      // SaaS Admin: See candidates for all companies they own
+      const myCompanies = await Company.find({ adminId: req.user._id }).select('_id');
+      const companyIds = myCompanies.map(c => c._id);
+      companyFilter = { company: { $in: companyIds } };
+    } else {
+      // Manager/Employee: See candidates only for their assigned company
+      if (!req.user.company) {
+        return res.status(403).json({ success: false, error: "No company assigned to your profile" });
+      }
+      companyFilter = { company: req.user.company };
+    }
+
+    const records = await DocumentVerification.find(companyFilter)
       .populate('company', 'name')
       .sort({ invitedAt: -1 });
     res.status(200).json({ success: true, data: records });
   } catch (error) {
+    console.error('Get all doc verification records error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -401,7 +433,7 @@ router.get('/employee', async (req, res) => {
 // ---------------------------------------------------
 // ADMIN TOGGLE VERIFY A SINGLE DOCUMENT
 // ---------------------------------------------------
-router.patch('/verify-doc/:id', async (req, res) => {
+router.patch('/verify-doc/:id', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
     const { fieldKey, verified } = req.body;
     const record = await DocumentVerification.findById(req.params.id);
@@ -429,7 +461,7 @@ router.patch('/verify-doc/:id', async (req, res) => {
 // ---------------------------------------------------
 // ADMIN VERIFY ALL UPLOADED DOCUMENTS
 // ---------------------------------------------------
-router.patch('/verify-all/:id', async (req, res) => {
+router.patch('/verify-all/:id', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
     const record = await DocumentVerification.findById(req.params.id);
     if (!record) return res.status(404).json({ success: false, error: 'Record not found' });
@@ -455,7 +487,7 @@ router.patch('/verify-all/:id', async (req, res) => {
 // ---------------------------------------------------
 // ADMIN UPDATE NOTES
 // ---------------------------------------------------
-router.patch('/notes/:id', async (req, res) => {
+router.patch('/notes/:id', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
     const record = await DocumentVerification.findByIdAndUpdate(
       req.params.id,
@@ -472,7 +504,7 @@ router.patch('/notes/:id', async (req, res) => {
 // ---------------------------------------------------
 // DELETE RECORD
 // ---------------------------------------------------
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', protect, restrictTo('admin', 'support-admin'), async (req, res) => {
   try {
     const deleted = await DocumentVerification.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ success: false, error: 'Record not found' });

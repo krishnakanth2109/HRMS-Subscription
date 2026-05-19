@@ -11,7 +11,7 @@ router.use(protect);
 router.post("/create", async (req, res) => {
   try {
     const { employeeId, employeeName, originalDate, requestedPunchOut, reason } = req.body;
-    await PunchOutRequest.create({
+    const reqDoc = await PunchOutRequest.create({
       adminId: req.user.adminId, // Hierarchy
       companyId: req.user.company, // Hierarchy
       employeeId,
@@ -20,6 +20,12 @@ router.post("/create", async (req, res) => {
       requestedPunchOut,
       reason,
     });
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("punchout:new");
+    }
+
     res.json({ success: true, message: "Request submitted" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -113,6 +119,8 @@ router.post("/action", onlyAdmin, async (req, res) => {
     }
 
     await request.save();
+    const io = req.app.get("io");
+    if (io) io.emit("punchout:updated");
     res.json({ success: true, message: `Request ${status}` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -143,6 +151,8 @@ router.delete("/delete/:id", onlyAdmin, async (req, res) => {
     try {
         const result = await PunchOutRequest.findOneAndDelete({ _id: req.params.id, adminId: req.user._id });
         if (!result) return res.status(404).json({ message: "Request not found" });
+        const io = req.app.get("io");
+        if (io) io.emit("punchout:updated");
         res.json({ success: true, message: "Deleted" });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

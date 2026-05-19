@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaCalendarAlt } from "react-icons/fa";
 import Swal from "sweetalert2"; // ✅ ADDED: SweetAlert import
 import api, {
   getLeaveRequestsForEmployee,
@@ -195,7 +196,7 @@ const EmployeeLeavemanagement = () => {
 
   // Load user from storage
   useEffect(() => {
-    const saved = sessionStorage.getItem("hrmsUser") || localStorage.getItem("hrmsUser");
+    const saved = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
     if (saved) {
       setUser(JSON.parse(saved));
     }
@@ -445,15 +446,9 @@ const EmployeeLeavemanagement = () => {
   const fetchLeavePolicies = useCallback(async () => {
     if (dataLoadedRef.current.policy) return;
     try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const headers = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const API_BASE = "http://localhost:5000/api/leaves/balance";
-      const res = await fetch(API_BASE, { headers });
+      const { data } = await api.get("/api/leaves/balance");
       
-      if (res.ok) {
-        const data = await res.json();
+      if (data) {
         // API now returns { balance, sandwichLeaveEnabled, unplannedAbsenceToLOP, carryForwardEnabled }
         // Handle both the new shape and the old bare-array shape for backwards compatibility
         if (Array.isArray(data)) {
@@ -550,14 +545,7 @@ const EmployeeLeavemanagement = () => {
 
       // Fallback to API if function fails
       if (!leavesData.length) {
-        const API_BASE = "http://localhost:5000/api/leaves";
-        const url = new URL(API_BASE, window.location.origin);
-        url.searchParams.set("employeeId", empId);
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error("Failed to fetch leave list");
-        
-        const data = await res.json();
+        const { data } = await api.get(`/api/leaves/${empId}`);
         leavesData = data || [];
       }
 
@@ -1106,27 +1094,10 @@ const EmployeeLeavemanagement = () => {
         halfDaySession: from === to ? halfDaySession || "" : "",
       };
 
-      let applied = false;
       if (typeof applyForLeave === "function") {
-        try {
-          await applyForLeave(payload);
-          applied = true;
-        } catch (err) {
-          console.error("Error applying leave via function:", err);
-        }
-      }
-
-      if (!applied) {
-        const API_BASE = "http://localhost:5000/api/leaves";
-        const res = await fetch(API_BASE, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          throw new Error(txt || "Submit failed");
-        }
+        await applyForLeave(payload);
+      } else {
+        await api.post("/api/leaves/apply", payload);
       }
 
       playRequestSound();
@@ -1162,14 +1133,15 @@ const EmployeeLeavemanagement = () => {
       }, 3000);
     } catch (err) {
       console.error("submit error", err);
+      const errMsg = err.response?.data?.message || err?.message || "Failed to submit leave request.";
       // Show SweetAlert Error
       Swal.fire({
         icon: 'error',
         title: 'Submission Failed',
-        text: err?.message || "Failed to submit leave request.",
+        text: errMsg,
         confirmButtonColor: '#d33'
       });
-      setSubmitError(err?.message || "Failed to submit leave request.");
+      setSubmitError(errMsg);
     }
   };
 
@@ -1209,12 +1181,7 @@ const EmployeeLeavemanagement = () => {
         }
       }
       if (!canceled) {
-        const API_BASE = "http://localhost:5000/api/leaves";
-        let res = await fetch(`${API_BASE}/${leaveId}`, { method: "DELETE" });
-        if (!res.ok) {
-          res = await fetch(`${API_BASE}/${leaveId}/cancel`, { method: "POST" });
-          if (!res.ok) throw new Error("Cancel failed");
-        }
+        await api.delete(`/api/leaves/cancel/${leaveId}`);
       }
       await fetchAllData();
       
@@ -1347,97 +1314,99 @@ const EmployeeLeavemanagement = () => {
           </div>
         </motion.div>
 
-        {/* ✅ UPDATED Stats Cards - Added Unplanned Absences Card */}
+        {/* ✅ UPDATED Stats Cards - Fully Responsive Grid */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8 w-full"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-6 mb-8 w-full"
         >
           {/* Pending Leaves Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-blue-500 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Leave Balance</p>
-                <p className="text-4xl font-bold text-gray-900 mt-2">{stats.pendingLeaves}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.totalCredit > 0
-                    ? `${stats.pendingLeaves} of ${stats.totalCredit} paid day${stats.totalCredit !== 1 ? "s" : ""} remaining`
-                    : "No policy configured"}
+          <div className="bg-white rounded-2xl shadow-lg p-3 md:p-6 border-l-4 border-blue-500 flex flex-col justify-between min-h-[110px] md:min-h-0">
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-[8px] md:text-sm font-black uppercase tracking-tight md:tracking-widest truncate">Leave Balance</p>
+                <p className="text-xl md:text-4xl font-black text-gray-900 mt-0.5 md:mt-2">{stats.pendingLeaves}</p>
+              </div>
+              <div className="w-8 h-8 md:w-14 md:h-14 bg-blue-100 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                <span className="text-base md:text-3xl">📥</span>
+              </div>
+            </div>
+            <div className="mt-1 md:mt-2">
+              <p className="text-[8px] md:text-xs text-gray-500 font-bold leading-tight truncate">
+                {stats.totalCredit > 0 ? `${stats.pendingLeaves}/${stats.totalCredit} Paid` : "No Policy"}
+              </p>
+              {carryForwardEnabled && stats.totalCarriedForward > 0 && (
+                <p className="text-[8px] md:text-xs text-emerald-600 font-black mt-0.5 truncate">
+                  ↩ CF: {stats.totalCarriedForward}
                 </p>
-                {/* ✅ NEW: Show carry-forward badge when feature is ON and days exist */}
-                {carryForwardEnabled && stats.totalCarriedForward > 0 && (
-                  <p className="text-xs text-emerald-600 font-semibold mt-1">
-                    ↩ {stats.totalCarriedForward} day{stats.totalCarriedForward !== 1 ? "s" : ""} carried forward
-                  </p>
-                )}
-              </div>
-              <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-3xl">📥</span>
-              </div>
+              )}
             </div>
           </div>
 
           {/* Total Leave Days Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-cyan-500 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Overall Leaves</p>
-                <p className="text-4xl font-bold text-gray-900 mt-2">{stats.totalLeaveDays}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.normalLeaveDays} Normal + {stats.sandwichDaysCount} Sandwich
-                  {stats.unplannedAbsenceDays > 0 && ` + ${stats.unplannedAbsenceDays} Unplanned`}
-                </p>
+          <div className="bg-white rounded-2xl shadow-lg p-3 md:p-6 border-l-4 border-cyan-500 flex flex-col justify-between min-h-[110px] md:min-h-0">
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-[8px] md:text-sm font-black uppercase tracking-tight md:tracking-widest truncate">Overall Leaves</p>
+                <p className="text-xl md:text-4xl font-black text-gray-900 mt-0.5 md:mt-2">{stats.totalLeaveDays}</p>
               </div>
-              <div className="w-14 h-14 bg-cyan-100 rounded-full flex items-center justify-center">
-                 <span className="text-3xl">📅</span>
+              <div className="w-8 h-8 md:w-14 md:h-14 bg-cyan-100 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                 <span className="text-base md:text-3xl">📅</span>
               </div>
+            </div>
+            <div className="mt-1 md:mt-2">
+              <p className="text-[8px] md:text-xs text-gray-500 font-bold leading-tight truncate">
+                {stats.normalLeaveDays}N + {stats.sandwichDaysCount}S
+              </p>
             </div>
           </div>
 
           {/* Unplanned Absences Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-red-500 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Unplanned Absences</p>
-                <p className="text-4xl font-bold text-gray-900 mt-2">{stats.unplannedAbsenceDays}</p>
-                <p className="text-xs text-gray-500 mt-1">Days without leave</p>
+          <div className="bg-white rounded-2xl shadow-lg p-3 md:p-6 border-l-4 border-red-500 flex flex-col justify-between min-h-[110px] md:min-h-0">
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-[8px] md:text-sm font-black uppercase tracking-tight md:tracking-widest truncate">Unplanned</p>
+                <p className="text-xl md:text-4xl font-black text-gray-900 mt-0.5 md:mt-2">{stats.unplannedAbsenceDays}</p>
               </div>
-              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
-                <span className="text-3xl">⚠️</span>
+              <div className="w-8 h-8 md:w-14 md:h-14 bg-red-100 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                <span className="text-base md:text-3xl">⚠️</span>
               </div>
+            </div>
+            <div className="mt-1 md:mt-2">
+              <p className="text-[8px] md:text-xs text-red-500 font-black uppercase tracking-widest truncate">Absences</p>
             </div>
           </div>
 
-          {/* Extra Leaves Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-orange-500 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">LOP</p>
-                <p className="text-4xl font-bold text-gray-900 mt-2">{stats.extraLeaves}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.totalCredit > 0
-                    ? `Beyond ${stats.totalCredit} day${stats.totalCredit !== 1 ? "s" : ""} policy limit`
-                    : "No policy configured"}
-                </p>
+          {/* LOP Days Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-3 md:p-6 border-l-4 border-orange-500 flex flex-col justify-between min-h-[110px] md:min-h-0">
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-[8px] md:text-sm font-black uppercase tracking-tight md:tracking-widest truncate">LOP Days</p>
+                <p className="text-xl md:text-4xl font-black text-gray-900 mt-0.5 md:mt-2">{stats.extraLeaves}</p>
               </div>
-              <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-3xl">⚠️</span>
+              <div className="w-8 h-8 md:w-14 md:h-14 bg-orange-100 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                <span className="text-base md:text-3xl">🚫</span>
               </div>
+            </div>
+            <div className="mt-1 md:mt-2">
+              <p className="text-[8px] md:text-xs text-orange-600 font-black uppercase tracking-widest truncate">Beyond Limit</p>
             </div>
           </div>
 
-          {/* Sandwich Leaves Card */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-purple-500 h-full">
-            <div className="flex items-center justify-between h-full">
-              <div>
-                <p className="text-gray-600 text-sm font-semibold">Sandwich Leaves</p>
-                <p className="text-4xl font-bold text-gray-900 mt-2">{stats.sandwichLeavesCount}</p>
-                <p className="text-xs text-gray-500 mt-1">Patterns found</p>
+          {/* Total Requests Card */}
+          <div className="bg-white rounded-2xl shadow-lg p-3 md:p-6 border-l-4 border-emerald-500 flex flex-col justify-between min-h-[110px] md:min-h-0 sm:col-span-2 lg:col-span-1">
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className="text-gray-500 text-[8px] md:text-sm font-black uppercase tracking-tight md:tracking-widest truncate">Requests</p>
+                <p className="text-xl md:text-4xl font-black text-gray-900 mt-0.5 md:mt-2">{leaveList.length}</p>
               </div>
-              <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-3xl">🥪</span>
+              <div className="w-8 h-8 md:w-14 md:h-14 bg-emerald-100 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                <span className="text-base md:text-3xl">🚀</span>
               </div>
+            </div>
+            <div className="mt-1 md:mt-2">
+              <p className="text-[8px] md:text-xs text-emerald-600 font-black uppercase tracking-widest truncate">Total History</p>
             </div>
           </div>
         </motion.div>
@@ -1537,95 +1506,152 @@ const EmployeeLeavemanagement = () => {
             </p>
           </div>
           
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">From-To</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Reason</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">HalfDay</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Action Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Applied</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Approved By</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">From-To</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">Reason</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">HalfDay</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">Type</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest">Approved By</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-black text-gray-500 uppercase tracking-widest">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-50">
                 {loading ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center">
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <span className="ml-3 text-gray-600">Loading leave requests...</span>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 font-bold uppercase tracking-widest text-xs">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                        Syncing Leave History...
                       </div>
                     </td>
                   </tr>
                 ) : filteredLeaveList.length > 0 ? (
                   filteredLeaveList.map((lv) => (
-                    <tr key={lv._id} className="hover:bg-blue-50 transition duration-150">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
+                    <tr key={lv._id} className="hover:bg-blue-50/30 transition duration-150">
+                      <td className="px-6 py-5 whitespace-nowrap">
+                        <div className="text-sm font-black text-gray-800 flex items-center gap-2">
+                          <FaCalendarAlt className="text-blue-500 text-xs" />
                           {formatDisplayDate(lv.from)} 
-                          <span className="mx-2 text-gray-400">→</span>
+                          <span className="text-gray-300 font-normal">→</span>
                           {formatDisplayDate(lv.to)}
                         </div>
+                        <p className="text-[10px] text-gray-400 font-bold ml-5 uppercase tracking-widest mt-0.5">Applied: {formatDisplayDate(lv.requestDate)}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs">{lv.reason || "-"}</div>
+                      <td className="px-6 py-5">
+                        <div className="text-xs text-gray-600 max-w-xs font-medium italic">"{lv.reason || "-"}"</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                      <td className="px-6 py-5">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${lv.halfDaySession ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
                           {lv.halfDaySession || "Full Day"}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                      <td className="px-6 py-5">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-700 border border-blue-100">
                           {lv.leaveType || "-"}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{formatDisplayDate(lv.actionDate)}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{formatDisplayDate(lv.requestDate)}</div>
-                      </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-5 text-center">
                         {renderStatusBadge(lv.status)}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{lv.approvedBy || "-"}</div>
+                      <td className="px-6 py-5">
+                        <div className="text-xs font-bold text-gray-700">{lv.approvedBy || "-"}</div>
+                        {lv.actionDate && <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{formatDisplayDate(lv.actionDate)}</p>}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          {lv.status === "Pending" && (
-                            <button
-                              onClick={() => handleCancelLeave(lv._id)}
-                              className="text-red-600 hover:text-red-800 font-medium text-sm px-3 py-1 rounded-lg border border-red-200 hover:border-red-300 transition duration-200"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
+                      <td className="px-6 py-5 text-right">
+                        {lv.status === "Pending" && (
+                          <button
+                            onClick={() => handleCancelLeave(lv._id)}
+                            className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-red-100 transition-all active:scale-95 shadow-sm"
+                          >
+                            Cancel Request
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center">
-                      <div className="text-gray-500">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-2xl">📝</span>
-                        </div>
-                        <p className="text-lg font-semibold mb-2">No leave requests found</p>
-                        <p className="text-sm">No leaves found for {formatMonth(selectedMonth)} with status "{selectedStatus}"</p>
-                      </div>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 font-black uppercase tracking-widest text-[10px]">
+                      No leave requests found for this period
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden flex flex-col gap-5 p-4 bg-slate-50/50">
+            {loading ? (
+               <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest text-xs flex flex-col items-center gap-3 bg-white rounded-3xl border border-dashed border-slate-200">
+                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+                 Updating History...
+               </div>
+            ) : filteredLeaveList.length > 0 ? (
+              filteredLeaveList.map((lv) => (
+                <div key={lv._id} className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col gap-4 transition-all active:scale-[0.98]">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Duration</span>
+                      <div className="flex items-center gap-1.5 font-black text-slate-800 text-xs">
+                        <FaCalendarAlt className="text-blue-500 text-[10px]" />
+                        {formatDisplayDate(lv.from)} 
+                        <span className="text-slate-300 font-normal">→</span>
+                        {formatDisplayDate(lv.to)}
+                      </div>
+                    </div>
+                    {renderStatusBadge(lv.status)}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-blue-50/50 p-2.5 rounded-2xl border border-blue-100/50">
+                      <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest block mb-0.5">Type</span>
+                      <span className="text-[10px] font-black text-blue-700 uppercase truncate block">{lv.leaveType || "Normal"}</span>
+                    </div>
+                    <div className="bg-amber-50/50 p-2.5 rounded-2xl border border-amber-100/50">
+                      <span className="text-[7px] font-black text-amber-400 uppercase tracking-widest block mb-0.5">Session</span>
+                      <span className="text-[10px] font-black text-amber-700 uppercase truncate block">{lv.halfDaySession || "Full Day"}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Reason</span>
+                    <p className="text-[11px] text-slate-600 bg-slate-50/80 p-3 rounded-2xl border border-slate-100 italic font-medium leading-relaxed">
+                      "{lv.reason || "No reason provided"}"
+                    </p>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-slate-50/30 px-3 py-2 rounded-xl border border-slate-100/50">
+                    <div>
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Applied</span>
+                      <span className="text-[9px] font-bold text-slate-500">{formatDisplayDate(lv.requestDate)}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest block">Approved</span>
+                      <span className="text-[9px] font-bold text-slate-800">{lv.approvedBy || "Pending"}</span>
+                    </div>
+                  </div>
+
+                  {lv.status === "Pending" && (
+                    <button
+                      onClick={() => handleCancelLeave(lv._id)}
+                      className="w-full bg-red-600 text-white py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-100 active:scale-95 transition-transform"
+                    >
+                      Cancel Request
+                    </button>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400 font-black uppercase tracking-widest text-[10px]">
+                No leave requests found for this month
+              </div>
+            )}
           </div>
         </motion.div>
 

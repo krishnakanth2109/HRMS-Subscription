@@ -38,6 +38,15 @@ export const LeaveRequestProvider = ({ children }) => {
 
   // ✅ FETCH ALL LEAVE REQUESTS FROM THE BACKEND
   const fetchLeaveRequests = useCallback(async () => {
+    const token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+    const savedUser = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+
+    if (!token || !savedUser) {
+      setLeaveRequests([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await getLeaveRequests();

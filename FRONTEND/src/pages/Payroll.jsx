@@ -708,14 +708,13 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
         />
       )}
 
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-6 py-5 flex items-center justify-between shrink-0">
+          <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between shrink-0">
             <div>
-              <h2 className="text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
-              <p className="text-indigo-200 text-sm mt-0.5">
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight">🚀 Release Payslips</h2>
+              <p className="text-indigo-200 text-[10px] sm:text-sm mt-0.5">
                 Step 1 of 2 — Select Employees &nbsp;→&nbsp; {periodStart} → {periodEnd}
               </p>
             </div>
@@ -727,20 +726,20 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
           </div>
 
           {/* Search + Select All bar */}
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 shrink-0 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-            <div className="relative flex-1 max-w-sm">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50 shrink-0 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1">
               <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input type="text" placeholder="Search by name or ID..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-indigo-400 focus:border-transparent outline-none transition" />
             </div>
-            <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none group px-1">
               <div onClick={handleSelectAll} className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all cursor-pointer ${allFilteredSelected ? 'bg-indigo-600 border-indigo-600' : someFilteredSelected ? 'bg-indigo-100 border-indigo-400' : 'bg-white border-gray-300 group-hover:border-indigo-400'}`}>
                 {allFilteredSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                 {someFilteredSelected && !allFilteredSelected && <div className="w-2.5 h-0.5 bg-indigo-600 rounded" />}
               </div>
-              <span className="text-sm font-semibold text-gray-700">{allFilteredSelected ? 'Deselect All' : 'Select All'}</span>
+              <span className="text-sm font-bold text-gray-700">{allFilteredSelected ? 'Deselect All' : 'Select All'}</span>
               <span className="text-xs text-gray-400">({filteredData.length} shown)</span>
             </label>
           </div>
@@ -758,26 +757,25 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
               const isSelected = selectedIds.has(emp.employeeId);
               return (
                 <div key={emp.employeeId} onClick={() => handleToggle(emp.employeeId)}
-                  className={`flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-all duration-150 ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
+                  className={`flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-3.5 cursor-pointer transition-all duration-150 ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-gray-50 border-l-4 border-transparent'}`}
                 >
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300'}`}>
                     {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                   </div>
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-all ${isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'}`}>
+                  <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold shrink-0 transition-all ${isSelected ? 'bg-indigo-200 text-indigo-800' : 'bg-gray-100 text-gray-600'}`}>
                     {emp.employeeName.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{emp.employeeName}</p>
-                    <p className="text-xs text-gray-500">{emp.employeeId} &middot; {emp.role}</p>
+                    <p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{emp.employeeName}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-500 truncate">{emp.employeeId} &middot; {emp.role}</p>
                   </div>
-                  <div className="hidden sm:flex gap-1.5 shrink-0">
-                    <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">F:{emp.fullDays}</span>
-                    <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">H:{emp.halfDays}</span>
-                    {emp.lopDays > 0 && <span className="text-[10px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">LOP:{emp.lopDays}</span>}
+                  <div className="hidden lg:flex gap-1.5 shrink-0">
+                    <span className="text-[10px] font-bold bg-green-100 text-green-700 px-1.5 py-0.5 rounded border border-green-200">F:{emp.fullDays}</span>
+                    <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-200">H:{emp.halfDays}</span>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-sm font-extrabold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>{formatCurrency(emp.netPayableSalary)}</p>
-                    <p className="text-[10px] text-gray-400">net pay</p>
+                    <p className={`text-xs sm:text-sm font-black ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>{formatCurrency(emp.netPayableSalary)}</p>
+                    <p className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-wider font-bold">net</p>
                   </div>
                 </div>
               );
@@ -785,27 +783,24 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 px-6 py-4 border-t border-gray-200 bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-all ${selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                {selectedCount === 0 ? 'No employees selected' : `${selectedCount} employee${selectedCount > 1 ? 's' : ''} selected`}
+          <div className="shrink-0 px-4 sm:px-6 py-4 border-t border-gray-200 bg-white">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+              <div className={`px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all text-center sm:text-left ${selectedCount > 0 ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                {selectedCount === 0 ? 'No employees selected' : `${selectedCount} selected`}
               </div>
               {selectedCount > 0 && (
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 font-medium">Total Net Payable</p>
-                  <p className="text-lg font-extrabold text-indigo-700">{formatCurrency(totalNetSelected)}</p>
+                <div className="text-center sm:text-right">
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Net Payable</p>
+                  <p className="text-lg sm:text-xl font-black text-indigo-700">{formatCurrency(totalNetSelected)}</p>
                 </div>
               )}
             </div>
-            <div className="flex gap-3">
-              <button onClick={onClose} className="px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">Cancel</button>
+            <div className="flex gap-2 sm:gap-3">
+              <button onClick={onClose} className="px-4 sm:px-5 py-2.5 border border-gray-300 rounded-xl text-sm font-bold text-gray-500 hover:bg-gray-50 transition active:scale-95">Cancel</button>
               <button onClick={handleRelease} disabled={selectedCount === 0}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow ${selectedCount > 0 ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-[0.98]' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-black transition-all flex items-center justify-center gap-2 shadow-md ${selectedCount > 0 ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white hover:shadow-lg active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                Next: Choose Letterhead →
+                <span>Release &nbsp;→</span>
               </button>
             </div>
           </div>
@@ -903,15 +898,15 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Conveyance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.conveyance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">Professional Tax</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.pt)}</td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Medical</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.medical)}</td><td style="padding:5px 7px;border:1px solid #ddd;">LOP Deduction (${employee.lopDays} days)</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lopDeduction)}</td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Travelling Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${(() => {
-            const r = employee.appliedRules;
-            if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
-            const type = r?.latePenaltyType || 'halfDay';
-            const occ = employee.latePenaltyOccurrences || 0;
-            const late = employee.lateDaysCount;
-            if (type === 'halfDay') return `Late Penalty (${late} late × 0.5 day each)`;
-            if (type === 'fullDay') return `Late Penalty (${late} late × 1 day each)`;
-            return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
-          })()}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lateDeduction)}</td></tr>
+        const r = employee.appliedRules;
+        if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
+        const type = r?.latePenaltyType || 'halfDay';
+        const occ = employee.latePenaltyOccurrences || 0;
+        const late = employee.lateDaysCount;
+        if (type === 'halfDay') return `Late Penalty (${late} late × 0.5 day each)`;
+        if (type === 'fullDay') return `Late Penalty (${late} late × 1 day each)`;
+        return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
+      })()}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lateDeduction)}</td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Other Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
           <tr><td style="padding:5px 7px;border:1px solid #ddd;">Special</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.special)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
           <tr style="background:#eff6ff;font-weight:bold;"><td style="padding:6px 7px;border:1px solid #ddd;">GROSS EARNINGS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.gross)}</td><td style="padding:6px 7px;border:1px solid #ddd;">TOTAL DEDUCTIONS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.totalDeductions)}</td></tr>
@@ -961,244 +956,170 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-6 sticky top-0 z-10 flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold tracking-wide">Payslip Detail</h2>
-            <p className="text-blue-100 text-sm">{employee.employeeName} ({employee.employeeId})</p>
-            <p className="text-blue-200 text-xs mt-0.5 font-medium">{companyName}{companyAddress ? ` · ${companyAddress}` : ''}</p>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] flex flex-col overflow-hidden animate-fadeIn">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white p-4 sm:p-6 shrink-0 flex justify-between items-center">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight truncate">Payslip Detail</h2>
+            <p className="text-blue-100 text-xs sm:text-sm font-bold truncate">{employee.employeeName} ({employee.employeeId})</p>
+            <p className="text-blue-200 text-[10px] sm:text-xs mt-0.5 font-medium truncate italic opacity-80">{companyName}</p>
           </div>
-          <button onClick={onClose} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><span className="text-2xl">×</span></button>
+          <button onClick={onClose} className="bg-white/10 hover:bg-white/25 p-2 rounded-full transition active:scale-90 shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
         </div>
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 custom-scrollbar">
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="bg-gray-50 p-4 rounded-xl text-center border">
-              <p className="text-xs text-gray-500 font-bold uppercase">Work Summary</p>
-              <div className="flex justify-center gap-1 mt-1 flex-wrap">
-                <span className="text-xs font-bold bg-green-200 text-green-800 px-2 py-1 rounded">Full: {employee.fullDays}</span>
-                <span className="text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 rounded">Half: {employee.halfDays}</span>
-                <span className="text-xs font-bold bg-blue-200 text-blue-800 px-2 py-1 rounded">Off: {employee.weekOffDays}</span>
-                <span className="text-xs font-bold bg-emerald-200 text-emerald-800 px-2 py-1 rounded">Hol: {employee.holidayDays}</span>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="col-span-2 lg:col-span-1 bg-gray-50 p-3 sm:p-4 rounded-2xl text-center border border-gray-100 shadow-sm">
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-2">Attendance</p>
+              <div className="flex justify-center gap-1.5 flex-wrap">
+                <span className="text-[9px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full border border-green-200">F: {employee.fullDays}</span>
+                <span className="text-[9px] font-bold bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full border border-yellow-200">H: {employee.halfDays}</span>
+                <span className="text-[9px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">O: {employee.weekOffDays}</span>
               </div>
             </div>
-            <div className="bg-blue-50 p-4 rounded-xl text-center border border-blue-100">
-              <p className="text-xs text-blue-600 font-bold uppercase">Month Days</p>
-              <p className="text-xl font-extrabold text-blue-900">{employee.totalDaysInMonth}</p>
+            <div className="bg-blue-50/50 p-3 sm:p-4 rounded-2xl text-center border border-blue-100 shadow-sm">
+              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1">Month</p>
+              <p className="text-lg sm:text-xl font-black text-blue-900">{employee.totalDaysInMonth}</p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-xl text-center border border-purple-100">
-              <p className="text-xs text-purple-600 font-bold uppercase">Worked Days</p>
-              <p className="text-xl font-extrabold text-purple-900">{employee.workedDays}</p>
+            <div className="bg-purple-50/50 p-3 sm:p-4 rounded-2xl text-center border border-purple-100 shadow-sm">
+              <p className="text-[10px] text-purple-400 font-bold uppercase tracking-widest mb-1">Worked</p>
+              <p className="text-lg sm:text-xl font-black text-purple-900">{employee.workedDays}</p>
             </div>
-            <div className="bg-green-50 p-4 rounded-xl text-center border border-green-100">
-              <p className="text-xs text-green-600 font-bold uppercase">Gross Salary</p>
-              <p className="text-xl font-extrabold text-green-900">{formatCurrency(employee.breakdown.gross)}</p>
+            <div className="bg-green-50/50 p-3 sm:p-4 rounded-2xl text-center border border-green-100 shadow-sm">
+              <p className="text-[10px] text-green-400 font-bold uppercase tracking-widest mb-1">Gross</p>
+              <p className="text-lg sm:text-xl font-black text-green-900">{formatCurrency(employee.breakdown.gross).split('.')[0]}</p>
             </div>
-            <div className="bg-indigo-50 p-4 rounded-xl text-center border border-indigo-100">
-              <p className="text-xs text-indigo-600 font-bold uppercase">Net Pay</p>
-              <p className="text-xl font-extrabold text-indigo-800">{formatCurrency(employee.netPayableSalary)}</p>
+            <div className="bg-indigo-50/50 p-3 sm:p-4 rounded-2xl text-center border border-indigo-100 shadow-sm">
+              <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mb-1">Net</p>
+              <p className="text-lg sm:text-xl font-black text-indigo-800">{formatCurrency(employee.netPayableSalary).split('.')[0]}</p>
             </div>
           </div>
 
           {/* Calculation Breakdown */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-            <h4 className="font-bold text-blue-800 text-sm mb-3">📊 Salary Calculation Breakdown</h4>
-            {/* ✅ Week Off + Holiday badges */}
-            <div className="flex gap-2 mb-3 flex-wrap">
-              <span className="text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
-                📅 Week Offs (rest): {employee.weekOffDays} days (paid)
-              </span>
-              <span className="text-[11px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded border border-green-200">
-                🎉 Holidays (rest): {employee.holidayDays} days (paid)
-              </span>
-              <span className="text-[11px] text-gray-500 px-2 py-0.5 rounded border border-gray-200 bg-gray-50 italic">
-                * If worked on off/holiday → counted in Worked Days only
-              </span>
+          <div className=" p-4 sm:p-5 rounded-2xl border border-blue-100 shadow-inner">
+            <h4 className="font-black text-blue-800 text-xs sm:text-sm mb-4 uppercase tracking-wider flex items-center gap-2">
+              <span className="p-1 bg-blue-100 rounded">📊</span> Salary Calculation
+            </h4>
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className="text-[9px] sm:text-[10px] font-bold bg-white/80 text-blue-600 px-2.5 py-1 rounded-lg border border-blue-100 shadow-sm">📅 Week Offs: {employee.weekOffDays} (Paid)</span>
+              <span className="text-[9px] sm:text-[10px] font-bold bg-white/80 text-green-600 px-2.5 py-1 rounded-lg border border-green-100 shadow-sm">🎉 Holidays: {employee.holidayDays} (Paid)</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <div className="bg-white p-3 rounded border">
-                <p className="text-gray-600 text-xs">Gross Salary ÷ Total Days in Month</p>
-                <p className="font-bold text-gray-800">{formatCurrency(employee.breakdown.gross)} ÷ {employee.totalDaysInMonth} = {formatCurrency(employee.perDaySalary)}/day</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+              <div className="bg-white/60 p-3.5 rounded-xl border border-white/40 shadow-sm">
+                <p className="text-gray-400 text-[9px] font-bold uppercase tracking-tighter mb-1">Per Day Base</p>
+                <p className="font-bold text-gray-800 text-xs sm:text-sm">{formatCurrency(employee.breakdown.gross)} ÷ {employee.totalDaysInMonth} = <span className="text-blue-600">{formatCurrency(employee.perDaySalary)}</span></p>
               </div>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-gray-600 text-xs">(Worked Days + Week Offs + Holidays) × Per Day Salary</p>
-                <p className="font-bold text-gray-800">
-                  ({employee.workedDays} + <span className="text-blue-600">{employee.weekOffDays}</span> + <span className="text-green-600">{employee.holidayDays}</span>) × {formatCurrency(employee.perDaySalary)} = {formatCurrency(employee.calculatedSalary)}
+              <div className="bg-white/60 p-3.5 rounded-xl border border-white/40 shadow-sm">
+                <p className="text-gray-400 text-[9px] font-bold uppercase tracking-tighter mb-1">Total Calculated</p>
+                <p className="font-bold text-gray-800 text-xs sm:text-sm">
+                  ({employee.workedDays} + {employee.weekOffDays} + {employee.holidayDays}) × {formatCurrency(employee.perDaySalary).split('.')[0]} = <span className="text-indigo-600">{formatCurrency(employee.calculatedSalary)}</span>
                 </p>
               </div>
-              <div className="bg-white p-3 rounded border">
-                <p className="text-gray-600 text-xs">LOP Deduction ({employee.lopDays} days)</p>
-                <p className="font-bold text-red-700">{employee.lopDays} × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lopDeduction)}</p>
+              <div className="bg-white/60 p-3.5 rounded-xl border border-white/40 shadow-sm">
+                <p className="text-gray-400 text-[9px] font-bold uppercase tracking-tighter mb-1">LOP Deduction ({employee.lopDays} days)</p>
+                <p className="font-bold text-red-600 text-xs sm:text-sm">{employee.lopDays} × {formatCurrency(employee.perDaySalary).split('.')[0]} = <span className="font-black">-{formatCurrency(employee.lopDeduction)}</span></p>
               </div>
-              <div className="bg-white p-3 rounded border">
-                {(() => {
-                  const rules = employee.appliedRules;
-                  const penaltyEnabled = rules?.latePenaltyEnabled;
-                  const penaltyType = rules?.latePenaltyType || 'halfDay';
-                  const threshold = rules?.latePenaltyThreshold || 3;
-                  const manualAmt = rules?.latePenaltyManualAmount || 0;
-                  const lateCount = employee.lateDaysCount;
-                  const occurrences = employee.latePenaltyOccurrences || 0;
-
-                  if (!penaltyEnabled) {
-                    return <>
-                      <p className="text-gray-600 text-xs">Late Penalty (Disabled)</p>
-                      <p className="font-bold text-gray-400">No penalty configured</p>
-                    </>;
-                  }
-                  if (penaltyType === 'halfDay') {
-                    return <>
-                      <p className="text-gray-600 text-xs">Late Penalty ({lateCount} late logins × 0.5 day each)</p>
-                      <p className="font-bold text-red-700">{employee.latePenaltyDays} days × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lateDeduction)}</p>
-                    </>;
-                  }
-                  if (penaltyType === 'fullDay') {
-                    return <>
-                      <p className="text-gray-600 text-xs">Late Penalty ({lateCount} late logins × 1 full day each)</p>
-                      <p className="font-bold text-red-700">{employee.latePenaltyDays} days × {formatCurrency(employee.perDaySalary)} = -{formatCurrency(employee.lateDeduction)}</p>
-                    </>;
-                  }
-                  // manual
-                  return <>
-                    <p className="text-gray-600 text-xs">Late Penalty ({lateCount} late logins × ₹{manualAmt} fixed each)</p>
-                    <p className="font-bold text-red-700">{occurrences} × {formatCurrency(manualAmt)} = -{formatCurrency(employee.lateDeduction)}</p>
-                  </>;
-                })()}
+              <div className="bg-white/60 p-3.5 rounded-xl border border-white/40 shadow-sm">
+                <p className="text-gray-400 text-[9px] font-bold uppercase tracking-tighter mb-1">Late Penalty</p>
+                <p className="font-bold text-red-600 text-xs sm:text-sm font-black">-{formatCurrency(employee.lateDeduction)}</p>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-8">
+          <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
             {/* EARNINGS */}
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-green-700 mb-3 border-b pb-2">Earnings</h3>
-              <table className="w-full text-sm">
-                <thead className="text-xs text-gray-500 border-b">
-                  <tr>
-                    <th className="text-left py-2">Component</th>
-                    <th className="text-right py-2">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="py-2">Basic Salary</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.basic)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">HRA</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.hra)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">Conveyance</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.conveyance)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">Medical</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.medical)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">Travelling Allowance</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">Other Allowance</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">Special</td>
-                    <td className="text-right font-medium">{formatCurrency(employee.monthlyBreakdown.special)}</td>
-                  </tr>
-                  <tr className="bg-green-50">
-                    <td className="py-2 font-bold">Gross Total</td>
-                    <td className="text-right font-bold text-green-800">{formatCurrency(employee.breakdown.gross)}</td>
-                  </tr>
-                </tbody>
-              </table>
+            <div className="flex-1 space-y-4">
+              <h3 className="text-sm sm:text-base font-black text-green-700 uppercase tracking-widest border-b-2 border-green-100 pb-2 flex justify-between">
+                <span>Earnings</span>
+                <span className="text-xs opacity-50 font-normal italic">Credits</span>
+              </h3>
+              <div className="space-y-2">
+                {[
+                  { label: "Basic Salary", val: employee.monthlyBreakdown.basic },
+                  { label: "HRA", val: employee.monthlyBreakdown.hra },
+                  { label: "Conveyance", val: employee.monthlyBreakdown.conveyance },
+                  { label: "Medical", val: employee.monthlyBreakdown.medical },
+                  { label: "Travelling", val: employee.monthlyBreakdown.travellingAllowance },
+                  { label: "Other", val: employee.monthlyBreakdown.otherAllowance },
+                  { label: "Special", val: employee.monthlyBreakdown.special },
+                ].map(item => (
+                  <div key={item.label} className="flex justify-between text-xs sm:text-sm py-1 border-b border-gray-50 last:border-0">
+                    <span className="text-gray-600 font-medium">{item.label}</span>
+                    <span className="font-bold text-gray-800">{formatCurrency(item.val)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm sm:text-base py-3 bg-green-50/50 px-3 rounded-xl border border-green-100 mt-2">
+                  <span className="font-black text-green-800">Gross Total</span>
+                  <span className="font-black text-green-800">{formatCurrency(employee.breakdown.gross)}</span>
+                </div>
+              </div>
             </div>
 
             {/* DEDUCTIONS */}
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-red-700 mb-3 border-b pb-2">Deductions</h3>
-              <table className="w-full text-sm">
-                <thead className="text-xs text-gray-500 border-b">
-                  <tr>
-                    <th className="text-left py-2">Component</th>
-                    <th className="text-right py-2">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  <tr>
-                    <td className="py-2">
-                      {employee.appliedRules.pfCalculationMethod === 'fixed'
-                        ? 'Employee PF (Fixed)'
-                        : `Employee PF (${employee.appliedRules.pfPercentage}%)`}
-                    </td>
-                    <td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.pf)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2">
-                      {employee.appliedRules.pfCalculationMethod === 'fixed'
-                        ? 'Employer PF (Fixed)'
-                        : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`}
-                    </td>
-                    <td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.employerPf)}</td>
-                  </tr>
-                  <tr><td className="py-2">Professional Tax</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.breakdown.pt)}</td></tr>
-                  <tr><td className="py-2">LOP Deduction ({employee.lopDays} days)</td><td className="text-right font-medium text-red-600">{formatCurrency(employee.lopDeduction)}</td></tr>
-                  <tr>
-                    <td className="py-2">
-                      {(() => {
-                        const rules = employee.appliedRules;
-                        const penaltyEnabled = rules?.latePenaltyEnabled;
-                        if (!penaltyEnabled) return 'Late Penalty (Disabled)';
-                        const type = rules?.latePenaltyType || 'halfDay';
-                        const occ = employee.latePenaltyOccurrences || 0;
-                        const lateCount = employee.lateDaysCount;
-                        if (type === 'halfDay') return `Late Penalty (${lateCount} late × 0.5 day each)`;
-                        if (type === 'fullDay') return `Late Penalty (${lateCount} late × 1 day each)`;
-                        return `Late Penalty (${lateCount} late × ₹${rules?.latePenaltyManualAmount || 0} each)`;
-                      })()}
-                    </td>
-                    <td className="text-right font-medium text-red-600">{formatCurrency(employee.lateDeduction)}</td>
-                  </tr>
-                  <tr className="bg-red-50"><td className="py-2 font-bold">Total Deductions</td><td className="text-right font-bold text-red-700">{formatCurrency(employee.totalDeductions)}</td></tr>
-                </tbody>
-              </table>
+            <div className="flex-1 space-y-4">
+              <h3 className="text-sm sm:text-base font-black text-red-700 uppercase tracking-widest border-b-2 border-red-100 pb-2 flex justify-between">
+                <span>Deductions</span>
+                <span className="text-xs opacity-50 font-normal italic">Debits</span>
+              </h3>
+              <div className="space-y-2">
+                {[
+                  { label: employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Emp PF (Fixed)' : `Emp PF (${employee.appliedRules.pfPercentage}%)`, val: employee.breakdown.pf },
+                  { label: employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Comp PF (Fixed)' : `Comp PF (${employee.appliedRules.employerPfPercentage}%)`, val: employee.breakdown.employerPf },
+                  { label: "Professional Tax", val: employee.breakdown.pt },
+                  { label: `LOP (${employee.lopDays} days)`, val: employee.lopDeduction },
+                  { label: "Late Penalty", val: employee.lateDeduction },
+                ].map(item => (
+                  <div key={item.label} className="flex justify-between text-xs sm:text-sm py-1 border-b border-gray-50 last:border-0">
+                    <span className="text-gray-600 font-medium">{item.label}</span>
+                    <span className="font-bold text-red-600">{formatCurrency(item.val)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm sm:text-base py-3 bg-red-50/50 px-3 rounded-xl border border-red-100 mt-2">
+                  <span className="font-black text-red-800">Total Deductions</span>
+                  <span className="font-black text-red-800">-{formatCurrency(employee.totalDeductions)}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-gray-800 text-white p-4 rounded-lg flex justify-between items-center text-lg shadow-lg">
-            <span className="font-bold">NET SALARY PAYABLE</span>
-            <span className="font-extrabold text-2xl">{formatCurrency(employee.netPayableSalary)}</span>
+          <div className="bg-gray-900 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0 shadow-xl border border-gray-800">
+            <span className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-widest">Net Salary Payable</span>
+            <span className="font-black text-xl sm:text-3xl text-blue-400">{formatCurrency(employee.netPayableSalary)}</span>
           </div>
 
-          <div className="flex gap-4 pt-4">
-            {/* Plain Print */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-4 shrink-0">
             <button
               onClick={downloadPayslip}
-              className="flex-1 bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition text-sm"
-            >🖨️ Print (Plain)</button>
-            {/* Template-layered PDF */}
+              className="flex-1 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 hover:border-gray-300 transition active:scale-95 flex items-center justify-center gap-2"
+            >
+              <span>🖨️ Simple Print</span>
+            </button>
             <button
               onClick={() => setShowTemplatePicker(true)}
               disabled={generatingPdf}
-              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg transition text-sm disabled:opacity-60"
-            >{generatingPdf ? '⏳ Generating...' : '🖨️ Print with Letterhead'}</button>
-            <button onClick={handleExportSingle} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition">📊 Export Excel</button>
-            <button onClick={onClose} className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold text-gray-700">Close</button>
+              className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-black text-sm hover:from-blue-700 hover:to-indigo-800 shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
+            >
+              {generatingPdf ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Generating...</>
+              ) : (
+                <>📄 Custom PDF</>
+              )}
+            </button>
           </div>
-
-          {/* Template picker popup */}
-          {showTemplatePicker && (
-            <TemplatePickerModal
-              onSelect={handleTemplateSelected}
-              onClose={() => setShowTemplatePicker(false)}
-            />
-          )}
         </div>
+
+        {/* Template picker popup */}
+        {showTemplatePicker && (
+          <TemplatePickerModal
+            onSelect={handleTemplateSelected}
+            onClose={() => setShowTemplatePicker(false)}
+          />
+        )}
       </div>
     </div>
   );
@@ -1774,24 +1695,24 @@ const PayrollManagement = () => {
             </div>
 
             {/* Right: Action Buttons */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
               {/* Manage Rules Button */}
               <button
                 onClick={() => setShowConfig(true)}
-                className="group relative px-4 py-2 bg-white border border-gray-200 hover:border-blue-400 rounded-xl text-sm font-medium text-gray-700 hover:text-blue-700 transition-all duration-200 hover:shadow-md flex items-center gap-2"
+                className="group relative px-4 py-2.5 bg-white border border-gray-200 hover:border-blue-400 rounded-xl text-sm font-bold text-gray-700 hover:text-blue-700 transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2 active:scale-95"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                <span>Manage Payroll Calculations</span>
+                <span>Calculations</span>
               </button>
 
               {/* ✅ UPDATED: Release Payslip Button → opens employee selection modal */}
               <button
                 onClick={handleOpenReleaseModal}
                 disabled={saving}
-                className={`group relative px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2 shadow-sm ${saving
+                className={`group relative px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-sm ${saving
                   ? 'bg-gray-400 cursor-not-allowed text-white'
                   : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 hover:shadow-lg active:scale-95 text-white'
                   }`}
@@ -1809,7 +1730,7 @@ const PayrollManagement = () => {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
-                    <span>Release Payslip</span>
+                    <span>Release</span>
                   </>
                 )}
               </button>
@@ -1817,7 +1738,7 @@ const PayrollManagement = () => {
               {/* Export Button */}
               <button
                 onClick={handleExportAll}
-                className="group relative px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl text-sm font-medium text-white transition-all duration-200 hover:shadow-lg active:scale-95 flex items-center gap-2"
+                className="group relative px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl text-sm font-bold text-white transition-all duration-200 hover:shadow-lg active:scale-95 flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1844,78 +1765,128 @@ const PayrollManagement = () => {
           </div>
         </div>
 
-        {/* TABLE */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-          <div className="overflow-x-auto">
+        {/* TABLE SECTION */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+          {/* DESKTOP TABLE */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-bold">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-[11px] font-bold tracking-wider border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4">Employee</th>
-                  <th className="px-6 py-4 text-right">Base Salary</th>
+                  <th className="px-6 py-4 text-right">Basic Salary</th>
                   <th className="px-6 py-4 text-center">Leaves / Absent</th>
                   <th className="px-6 py-4 text-center">Worked Days</th>
                   <th className="px-6 py-4 text-center">Full / Half</th>
                   <th className="px-6 py-4 text-center">LOP / Late</th>
-                  <th className="px-6 py-4 text-right bg-indigo-50 text-indigo-700">Net Pay</th>
+                  <th className="px-6 py-4 text-right bg-indigo-50/50 text-indigo-700">Net Pay</th>
                   <th className="px-6 py-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filteredPayroll.length === 0 ? (
-                  <tr><td colSpan="8" className="text-center py-8 text-gray-500">No Full Time employees found</td></tr>
+                  <tr><td colSpan="8" className="text-center py-16 text-gray-500 font-medium">No payroll records found</td></tr>
                 ) : filteredPayroll.map((emp) => (
-                  <tr key={emp.employeeId} className="hover:bg-gray-50 transition">
+                  <tr key={emp.employeeId} className="hover:bg-gray-50 transition-colors duration-150">
                     <td className="px-6 py-4">
                       <div className="font-bold text-gray-800">{emp.employeeName}</div>
-                      <div className="text-xs text-gray-500">{emp.employeeId}</div>
+                      <div className="text-xs text-gray-500 font-mono mt-0.5">{emp.employeeId}</div>
                     </td>
-                    <td className="px-6 py-4 text-right text-gray-700 font-medium">
+                    <td className="px-6 py-4 text-right text-gray-700 font-bold">
                       {formatCurrency(emp.monthlyBreakdown.total)}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center">
-                        <div className="text-xs font-bold text-gray-700 mb-1">
+                        <div className="text-[11px] font-bold text-gray-700 mb-1">
                           Total: {emp.totalLeavesConsumed + emp.absentDays}
                         </div>
-                        <div className="flex gap-2 text-[10px]">
-                          <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        <div className="flex gap-2 text-[9px]">
+                          <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-bold uppercase">
                             L: {emp.totalLeavesConsumed}
                           </span>
-                          <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                          <span className="text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 font-bold uppercase">
                             A: {emp.absentDays}
                           </span>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="bg-purple-50 text-purple-600 px-2 py-1 rounded font-bold text-xs">{emp.workedDays}</span>
+                      <span className="bg-purple-50 text-purple-600 px-2.5 py-1 rounded-lg font-bold text-xs border border-purple-100">{emp.workedDays}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <div className="flex gap-1 justify-center">
-                        <span className="bg-green-50 text-green-700 px-2 py-1 rounded font-bold text-xs">{emp.fullDays}</span>
-                        <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded font-bold text-xs">{emp.halfDays}</span>
+                      <div className="flex gap-1.5 justify-center">
+                        <span className="bg-green-50 text-green-700 px-2 py-1 rounded-md font-bold text-[10px] border border-green-100 uppercase">F: {emp.fullDays}</span>
+                        <span className="bg-yellow-50 text-yellow-700 px-2 py-1 rounded-md font-bold text-[10px] border border-yellow-100 uppercase">H: {emp.halfDays}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center gap-1">
-                        <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lopDays > 0 ? 'bg-orange-50 text-orange-700' : 'text-gray-400'}`}>
+                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${emp.lopDays > 0 ? 'bg-orange-50 text-orange-700 border border-orange-100' : 'text-gray-400'}`}>
                           LOP: {emp.lopDays}
                         </span>
-                        <span className={`px-2 py-1 rounded font-bold text-xs ${emp.lateDaysCount > 0 ? 'bg-red-100 text-red-800' : 'text-gray-400'}`}>
+                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${emp.lateDaysCount > 0 ? 'bg-red-50 text-red-700 border border-red-100' : 'text-gray-400'}`}>
                           Late: {emp.lateDaysCount}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-indigo-600 bg-indigo-50">
+                    <td className="px-6 py-4 text-right font-black text-indigo-700 bg-indigo-50/50">
                       {formatCurrency(emp.netPayableSalary)}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button onClick={() => setSelectedEmployee(emp)} className="text-blue-600 hover:text-blue-800 font-semibold text-xs border border-blue-200 px-3 py-1.5 rounded hover:bg-blue-50">View Slip</button>
+                      <button onClick={() => setSelectedEmployee(emp)} className="text-white bg-blue-600 hover:bg-blue-700 font-bold text-[10px] px-3 py-1.5 rounded-xl shadow-md transition transform active:scale-95 uppercase tracking-wider">View Slip</button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* MOBILE LIST VIEW */}
+          <div className="block md:hidden divide-y divide-gray-100">
+            {filteredPayroll.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 font-medium italic">No payroll records found</div>
+            ) : filteredPayroll.map((emp) => (
+              <div key={emp.employeeId} className="p-4 bg-white space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold border border-blue-100">
+                      {emp.employeeName.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-800 text-sm leading-tight">{emp.employeeName}</h4>
+                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">{emp.employeeId}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Net Payable</p>
+                    <p className="text-base font-black text-indigo-600">{formatCurrency(emp.netPayableSalary)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 bg-gray-50/50 p-3 rounded-2xl border border-gray-100">
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Worked</p>
+                    <p className="text-xs font-black text-gray-700">{emp.workedDays} Days</p>
+                  </div>
+                  <div className="text-center border-x border-gray-200 px-2">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">LOP / Late</p>
+                    <p className="text-xs font-black text-orange-600">{emp.lopDays} / {emp.lateDaysCount}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Leaves</p>
+                    <p className="text-xs font-black text-blue-600">{emp.totalLeavesConsumed + emp.absentDays}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedEmployee(emp)}
+                    className="flex-1 py-2.5 bg-blue-50 text-blue-600 rounded-xl font-bold text-xs border border-blue-100 shadow-sm active:scale-95 transition"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

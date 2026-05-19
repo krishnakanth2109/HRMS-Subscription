@@ -80,7 +80,7 @@ function OfferLetterIndex() {
 
   const handleEditEmployee = (emp) => { setSelectedEmployeeForEdit(emp); setIsEmployeeViewOnly(false); setIsModalOpen(true); };
   const handleViewEmployee = (emp) => { setSelectedEmployeeForEdit(emp); setIsEmployeeViewOnly(true); setIsModalOpen(true); };
-  
+
   const handleDeleteEmployee = async (id) => {
     if (!confirm("Delete selection?")) return;
     try {
@@ -112,7 +112,7 @@ function OfferLetterIndex() {
         const htmlContent = genData.content || genData;
         const contentWithoutHeader = htmlContent.replace(/<div style="text-align: center; border-bottom: 2px solid #0056b3;[\s\S]*?<\/div>/i, '');
         const pdfDataUri = await generateOfferLetterPdf(contentWithoutHeader, template);
-        
+
         await api.sendOfferLetterEmail({
           employeeId: curId,
           pdfBase64: pdfDataUri,
@@ -133,7 +133,7 @@ function OfferLetterIndex() {
       const id = emp._id || emp.id;
       const s = searchTerm.toLowerCase();
       const matchNameOrDesig = (emp.name || "").toLowerCase().includes(s) || (emp.designation || "").toLowerCase().includes(s);
-      
+
       const statusMap = emp.status || "Pending";
       const matchStatus = filterStatus === 'All' || statusMap === filterStatus;
 
@@ -243,28 +243,28 @@ function OfferLetterIndex() {
 
             <button onClick={() => { setSelectedEmployeeForEdit(null); setIsEmployeeViewOnly(false); setIsModalOpen(true); }} style={{ background: 'var(--accent-color)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}><Plus size={14} /> New</button>
             <button onClick={() => setShowTemplateManager(true)} style={{ background: 'var(--success-text)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}><FileText size={14} /> Templates</button>
-            
+
             <button onClick={() => api.downloadOfferLetterExcelTemplate()} style={{ border: '1px solid var(--success-text)', background: 'transparent', color: 'var(--success-text)', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="Download Excel Template">
-                <Download size={14} />
+              <Download size={14} />
             </button>
-            
+
             <button onClick={() => document.getElementById('olImportFile').click()} style={{ background: 'var(--success-text)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                <Upload size={14} /> Import
+              <Upload size={14} /> Import
             </button>
-            
+
             <input type="file" accept=".xlsx, .xls, .csv" id="olImportFile" style={{ display: 'none' }} onChange={async e => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const fd = new FormData(); 
-                fd.append('file', file);
-                try {
-                    await api.uploadOfferLetterExcel(fd);
-                    fetchEmployees();
-                    alert("Bulk import successful!");
-                } catch (err) {
-                    alert("Upload failed: " + (err.response?.data?.message || err.message));
-                }
-                e.target.value = null; // reset
+              const file = e.target.files[0];
+              if (!file) return;
+              const fd = new FormData();
+              fd.append('file', file);
+              try {
+                await api.uploadOfferLetterExcel(fd);
+                fetchEmployees();
+                alert("Bulk import successful!");
+              } catch (err) {
+                alert("Upload failed: " + (err.response?.data?.message || err.message));
+              }
+              e.target.value = null; // reset
             }} />
           </div>
         </div>
@@ -276,7 +276,7 @@ function OfferLetterIndex() {
         ) : viewMode === 'grid' ? (
           <div className="ol-responsive-grid">
             {filteredEmployees.map(emp => {
-                const uniqueId = emp._id || emp.id;
+              const uniqueId = emp._id || emp.id;
               return (<div key={uniqueId} style={{
                 background: selectedIds.has(uniqueId) ? selectedBg : 'var(--card-bg)',
                 padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)',
@@ -353,7 +353,7 @@ function OfferLetterIndex() {
                 </thead>
                 <tbody>
                   {filteredEmployees.map(emp => {
-                      const uniqueId = emp._id || emp.id;
+                    const uniqueId = emp._id || emp.id;
                     return (<tr key={uniqueId} style={{ borderBottom: '1px solid var(--border-color)', background: selectedIds.has(uniqueId) ? selectedBg : 'transparent', transition: 'background 0.2s' }}>
                       <td style={{ padding: '1rem', textAlign: 'center' }}>
                         <input type="checkbox" checked={selectedIds.has(uniqueId)} onChange={() => { const s = new Set(selectedIds); s.has(uniqueId) ? s.delete(uniqueId) : s.add(uniqueId); setSelectedIds(s); }} style={{ cursor: 'pointer' }} />
@@ -373,8 +373,8 @@ function OfferLetterIndex() {
                       <td style={{ padding: '1rem', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button onClick={() => setSelectedEmployee(emp)} style={{ background: 'var(--accent-color)', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}>MANAGE</button>
-                          <button onClick={() => handleViewEmployee(emp)} style={{ padding: '6px', background: 'transparent', border:'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Eye size={16} /></button>
-                          <button onClick={() => handleEditEmployee(emp)} style={{ padding: '6px', background: 'transparent', border:'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Pencil size={16} /></button>
+                          <button onClick={() => handleViewEmployee(emp)} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Eye size={16} /></button>
+                          <button onClick={() => handleEditEmployee(emp)} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Pencil size={16} /></button>
                         </div>
                       </td>
                     </tr>)

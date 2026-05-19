@@ -281,8 +281,8 @@ const DocumentVerificationForm = () => {
                 <button onClick={() => setPreviewUrl(null)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex items-center justify-center">
-              <img src={previewUrl} alt="Document Preview" className="max-w-full shadow-lg mx-auto rounded-xl border border-slate-200" />
+            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex justify-center">
+              <img src={previewUrl} alt="Document Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-xl border border-slate-200" />
             </div>
           </div>
         </div>

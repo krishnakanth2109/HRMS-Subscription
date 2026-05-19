@@ -22,12 +22,12 @@ export const CurrentEmployeeSettingsProvider = ({ children }) => {
     return currentEmployee?._id ? `employee_settings_${currentEmployee._id}` : null;
   };
 
-  // Load settings from localStorage on component mount
+  // Load settings from sessionStorage on component mount
   useEffect(() => {
     const settingsKey = getSettingsKey();
     if (settingsKey) {
       try {
-        const savedSettings = JSON.parse(localStorage.getItem(settingsKey));
+        const savedSettings = JSON.parse(sessionStorage.getItem(settingsKey));
         if (savedSettings) {
           setSettings({ ...defaultSettings, ...savedSettings });
         }
@@ -38,7 +38,7 @@ export const CurrentEmployeeSettingsProvider = ({ children }) => {
     }
   }, [currentEmployee?._id]);
 
-  // Save settings to localStorage
+  // Save settings to sessionStorage
   const saveSettings = async (newSettings) => {
     const settingsKey = getSettingsKey();
     if (!settingsKey) return;
@@ -48,8 +48,8 @@ export const CurrentEmployeeSettingsProvider = ({ children }) => {
       // Update state
       setSettings(newSettings);
       
-      // Save to localStorage
-      localStorage.setItem(settingsKey, JSON.stringify(newSettings));
+      // Save to sessionStorage
+      sessionStorage.setItem(settingsKey, JSON.stringify(newSettings));
       
       // Here you could also make an API call to save to backend
       // await api.updateEmployeeSettings(currentEmployee._id, newSettings);
@@ -59,7 +59,7 @@ export const CurrentEmployeeSettingsProvider = ({ children }) => {
       // Revert to previous settings on error
       const settingsKey = getSettingsKey();
       try {
-        const savedSettings = JSON.parse(localStorage.getItem(settingsKey));
+        const savedSettings = JSON.parse(sessionStorage.getItem(settingsKey));
         if (savedSettings) {
           setSettings(savedSettings);
         }

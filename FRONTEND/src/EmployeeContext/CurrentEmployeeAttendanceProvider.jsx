@@ -1,13 +1,13 @@
 // ✅ CurrentEmployeeAttendanceProvider.jsx (FINAL CLEAN VERSION)
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { CurrentEmployeeAttendanceContext } from "./CurrentEmployeeAttendanceContext";
-
-const API = "http://localhost:5000";
+import { getAttendanceForEmployee, getOvertimeForEmployee } from "../api";
 
 const CurrentEmployeeAttendanceProvider = ({ children }) => {
   // ✅ Logged user
-  const loggedUser = JSON.parse(localStorage.getItem("hrmsUser"));
+  const loggedUser = JSON.parse(
+    sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser") || "null"
+  );
   const employeeId = loggedUser?.employeeId; // ✅ Use exact value (EMP101)
 
   // ✅ Manual (dummy) attendance for fallback
@@ -52,7 +52,6 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
   // ✅ Fetch Attendance
   const fetchAttendance = async () => {
     if (!employeeId) {
-      console.warn("⚠ No employeeId found → using dummy data");
       setAttendanceRecords(manualAttendance);
       return;
     }
@@ -60,10 +59,11 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
     console.log("✅ Fetching attendance for:", employeeId);
 
     try {
-      const res = await axios.get(`${API}/attendance/${employeeId}`);
+      const data = await getAttendanceForEmployee(employeeId);
+      const attendanceData = Array.isArray(data) ? data : (data.data || []);
 
-      if (Array.isArray(res.data) && res.data.length > 0) {
-        const formatted = res.data.map((rec, index) => ({
+      if (attendanceData.length > 0) {
+        const formatted = attendanceData.map((rec, index) => ({
           id: rec._id || index + 1,
           employeeId: rec.employeeId,
           name: rec.name || "Employee",
@@ -95,9 +95,14 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
 
   // ✅ Fetch Permission Requests
   const fetchPermissions = async () => {
+    if (!employeeId) {
+      setPermissionRequests([]);
+      return;
+    }
+
     try {
-      const res = await axios.get(`${API}/permissions/${employeeId}`);
-      setPermissionRequests(res.data.length ? res.data : []);
+      const data = [];
+      setPermissionRequests(Array.isArray(data) && data.length ? data : []);
     } catch (err) {
       console.error("❌ Permission fetch failed:", err);
       setPermissionRequests([]);
@@ -106,9 +111,14 @@ const CurrentEmployeeAttendanceProvider = ({ children }) => {
 
   // ✅ Fetch Overtime Requests
   const fetchOvertime = async () => {
+    if (!employeeId) {
+      setOvertimeRequests([]);
+      return;
+    }
+
     try {
-      const res = await axios.get(`${API}/overtime/${employeeId}`);
-      setOvertimeRequests(res.data.length ? res.data : []);
+      const data = await getOvertimeForEmployee(employeeId);
+      setOvertimeRequests(Array.isArray(data) && data.length ? data : []);
     } catch (err) {
       console.error("❌ Overtime fetch failed:", err);
       setOvertimeRequests([]);

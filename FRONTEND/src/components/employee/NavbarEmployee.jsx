@@ -105,7 +105,7 @@ const NavbarEmployee = ({ currentTheme, onThemeChange }) => {
           className="flex items-center gap-3 cursor-pointer"
           onClick={() => navigate("/employee/dashboard")}
         >
-          <h1 className="ps-5 text-2xl font-bold text-white tracking-wide drop-shadow">
+          <h1 className="pl-10 text-2xl font-bold text-white tracking-wide drop-shadow">
             HRMS
           </h1>
         </div>
@@ -179,9 +179,8 @@ const NavbarEmployee = ({ currentTheme, onThemeChange }) => {
               {user.name}
             </span>
             <FaChevronDown
-              className={`text-white ml-1 transition-transform duration-200 ${
-                showMenu ? "rotate-180" : ""
-              }`}
+              className={`text-white ml-1 transition-transform duration-200 ${showMenu ? "rotate-180" : ""
+                }`}
             />
 
             {showMenu && (

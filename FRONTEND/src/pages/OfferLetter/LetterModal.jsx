@@ -14,7 +14,7 @@ const PdfViewer = ({ base64Url }) => {
 
     useEffect(() => {
         if (!base64Url) return;
-        
+
         let url;
         try {
             // Using fetch to convert base64 data to completely detached Blob bypasses Chrome length limits
@@ -200,6 +200,15 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
     const [emailBody, setEmailBody] = useState("");
     const fileInputRef = React.useRef(null);
 
+    // ── Handle Escape Key ─────────────────────────────────────
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [onClose]);
+
     // Initial Fetch
     useEffect(() => {
         const loadInitialData = async () => {
@@ -252,7 +261,7 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
     useEffect(() => {
         if (!companyName || availableTemplates.length === 0) return;
         // Search by exact match first, then by partial if needed
-        const matched = availableTemplates.find(t => 
+        const matched = availableTemplates.find(t =>
             t.companyName?.toLowerCase() === companyName.toLowerCase() ||
             t.name?.toLowerCase().includes(companyName.toLowerCase())
         );
@@ -365,7 +374,7 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
     const handleDownloadDOCX = async () => {
         if (!generatedContent) return;
         const btn = document.getElementById('docxBtn');
-        if(btn) {
+        if (btn) {
             btn.innerText = 'Converting...';
             btn.disabled = true;
         }
@@ -383,15 +392,15 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
-            
-            if(btn) {
+
+            if (btn) {
                 btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> <span class="hide-mobile"> Words</span> DOCX';
                 btn.disabled = false;
             }
         } catch (error) {
             console.error("DOCX download error:", error);
             alert("Error generating DOCX document. Please try again.");
-            if(btn) {
+            if (btn) {
                 btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> <span class="hide-mobile"> Words</span> DOCX';
                 btn.disabled = false;
             }

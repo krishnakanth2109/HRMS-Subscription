@@ -88,7 +88,7 @@ const DepartmentSettings = () => {
 
       const empList = Array.isArray(employeesData) ? employeesData : (employeesData?.data || []);
       const shiftList = Array.isArray(shiftsData) ? shiftsData : (shiftsData?.data || []);
-      
+
       // ✅ FILTER ONLY ACTIVE EMPLOYEES (isActive === true)
       const activeEmployees = empList.filter(emp => emp.isActive === true);
 
@@ -128,7 +128,7 @@ const DepartmentSettings = () => {
       } else {
         const res = await addNotice(payload);
         // If created new, update config ID if response returns it, or re-fetch
-        if(res && res._id) setGroupConfigId(res._id); 
+        if (res && res._id) setGroupConfigId(res._id);
       }
       setGroups(updatedGroups);
     } catch (error) {
@@ -397,10 +397,10 @@ const DepartmentSettings = () => {
             Shift Management
           </h1>
           <div className="flex items-center gap-2 mt-1">
-             <p className="text-gray-600 text-sm">Configure timings in Indian Standard Time (IST)</p>
-             <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-orange-200">
-               🇮🇳 IST Active
-             </span>
+            <p className="text-gray-600 text-sm">Configure timings in Indian Standard Time (IST)</p>
+            <span className="bg-orange-100 text-orange-800 text-[10px] px-2 py-0.5 rounded-full font-bold border border-orange-200">
+              🇮🇳 IST Active
+            </span>
           </div>
         </div>
 
@@ -421,15 +421,15 @@ const DepartmentSettings = () => {
       {/* ✅ GROUP FILTER (Replaces Category Filter) */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800 text-sm flex gap-2 items-center"><FaLayerGroup className="text-blue-500"/> Filter by Group</h3>
+          <h3 className="font-semibold text-gray-800 text-sm flex gap-2 items-center"><FaLayerGroup className="text-blue-500" /> Filter by Group</h3>
           <button onClick={() => setIsGroupModalOpen(true)} className="flex items-center gap-2 text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"><FaUsersCog /> Manage Groups</button>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setSelectedGroupId("all")} className={`px-3 py-1 rounded-full text-xs font-semibold border ${selectedGroupId === "all" ? "bg-blue-600 text-white" : "bg-white text-gray-600"}`}>All</button>
           <button onClick={() => setSelectedGroupId("unassigned")} className={`px-3 py-1 rounded-full text-xs font-semibold border ${selectedGroupId === "unassigned" ? "bg-blue-600 text-white" : "bg-white text-gray-600"}`}>Unassigned</button>
           {groups.map((group) => (
-            <button 
-              key={group.id} 
+            <button
+              key={group.id}
               onClick={() => setSelectedGroupId(group.id)}
               className={`px-3 py-1 rounded-full text-xs font-semibold border ${selectedGroupId === group.id ? "bg-indigo-600 text-white" : "bg-white text-gray-600"}`}
             >
@@ -448,25 +448,24 @@ const DepartmentSettings = () => {
               <input type="text" placeholder="Search employees..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
             </div>
             <div className="flex justify-between items-center mt-2">
-               <p className="text-xs text-gray-500">Showing {filteredEmployees.length} employees</p>
-               {viewMode === "bulk" && (
-                 <button onClick={handleSelectAllEmployees} className="text-xs text-blue-600 font-bold hover:underline">
-                   {selectedEmployeeIds.length === filteredEmployees.length && filteredEmployees.length > 0 ? "Deselect All" : "Select All"}
-                 </button>
-               )}
+              <p className="text-xs text-gray-500">Showing {filteredEmployees.length} employees</p>
+              {viewMode === "bulk" && (
+                <button onClick={handleSelectAllEmployees} className="text-xs text-blue-600 font-bold hover:underline">
+                  {selectedEmployeeIds.length === filteredEmployees.length && filteredEmployees.length > 0 ? "Deselect All" : "Select All"}
+                </button>
+              )}
             </div>
           </div>
 
           <div className="overflow-y-auto flex-1 p-2 space-y-2">
             {filteredEmployees.map((emp) => (
-              <div 
-                key={emp.employeeId} 
+              <div
+                key={emp.employeeId}
                 onClick={() => viewMode === "bulk" ? handleBulkEmployeeToggle(emp.employeeId) : handleEmployeeSelect(emp)}
-                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                  (viewMode === "individual" && selectedEmployee?.employeeId === emp.employeeId) || (viewMode === "bulk" && selectedEmployeeIds.includes(emp.employeeId))
-                    ? "bg-blue-50 border-blue-500" 
-                    : "bg-white border-gray-100 hover:bg-gray-50"
-                }`}
+                className={`p-3 rounded-lg border cursor-pointer transition-colors ${(viewMode === "individual" && selectedEmployee?.employeeId === emp.employeeId) || (viewMode === "bulk" && selectedEmployeeIds.includes(emp.employeeId))
+                  ? "bg-blue-50 border-blue-500"
+                  : "bg-white border-gray-100 hover:bg-gray-50"
+                  }`}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-3">
@@ -484,255 +483,255 @@ const DepartmentSettings = () => {
         </div>
 
         {/* RIGHT COLUMN: FORM */}
-       <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-  {viewMode === "individual" ? (
-    selectedEmployee ? (
-      <form onSubmit={handleSaveShift} className="h-full flex flex-col">
-        <div className="mb-4 pb-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800">Edit Shift (IST)</h2>
-          <p className="text-sm text-gray-600">For <span className="font-semibold text-blue-600">{selectedEmployee.name}</span> ({selectedEmployee.employeeId})</p>
-        </div>
+        <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
+          {viewMode === "individual" ? (
+            selectedEmployee ? (
+              <form onSubmit={handleSaveShift} className="h-full flex flex-col">
+                <div className="mb-4 pb-4 border-b border-gray-100">
+                  <h2 className="text-xl font-bold text-gray-800">Edit Shift (IST)</h2>
+                  <p className="text-sm text-gray-600">For <span className="font-semibold text-blue-600">{selectedEmployee.name}</span> ({selectedEmployee.employeeId})</p>
+                </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Start Time (IST)</label>
-            <input type="time" name="shiftStartTime" value={shiftForm.shiftStartTime} onChange={handleFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">End Time (IST)</label>
-            <input type="time" name="shiftEndTime" value={shiftForm.shiftEndTime} onChange={handleFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-          </div>
-          
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Full Day Work Hours</label>
-            <input 
-              type="number" 
-              step="0.5" 
-              name="fullDayHours" 
-              value={shiftForm.fullDayHours} 
-              onChange={handleFormChange} 
-              className="w-full mt-1 p-2 border rounded-md" 
-              required 
-              min="0"
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                if (e.target.value < 0) {
-                  e.target.value = 0;
-                  handleFormChange(e);
-                }
-              }}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Half Day Work Hours</label>
-            <input 
-              type="number" 
-              step="0.5" 
-              name="halfDayHours" 
-              value={shiftForm.halfDayHours} 
-              onChange={handleFormChange} 
-              className="w-full mt-1 p-2 border rounded-md" 
-              required 
-              min="0"
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                if (e.target.value < 0) {
-                  e.target.value = 0;
-                  handleFormChange(e);
-                }
-              }}
-            />
-          </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 uppercase">Start Time (IST)</label>
+                    <input type="time" name="shiftStartTime" value={shiftForm.shiftStartTime} onChange={handleFormChange} className="w-full mt-1 p-2 border rounded-md" required />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 uppercase">End Time (IST)</label>
+                    <input type="time" name="shiftEndTime" value={shiftForm.shiftEndTime} onChange={handleFormChange} className="w-full mt-1 p-2 border rounded-md" required />
+                  </div>
 
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Grace (Mins)</label>
-            <input 
-              type="number" 
-              name="lateGracePeriod" 
-              value={shiftForm.lateGracePeriod} 
-              onChange={handleFormChange} 
-              className="w-full mt-1 p-2 border rounded-md" 
-              required 
-              min="0"
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                if (e.target.value < 0) {
-                  e.target.value = 0;
-                  handleFormChange(e);
-                }
-              }}
-            />
-          </div>
-          <div>
-             <label className="flex items-center gap-2 text-sm mt-6 cursor-pointer">
-                <input type="checkbox" name="autoExtendShift" checked={shiftForm.autoExtendShift} onChange={handleFormChange} className="w-4 h-4 text-blue-600"/>
-                Auto-extend shift if late
-             </label>
-          </div>
-        </div>
-        
-        <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded flex items-center gap-2">
-           <FaInfoCircle className="text-blue-500" />
-           Timings entered here are treated as Indian Standard Time by the server. Work hours are manual.
-        </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 uppercase">Full Day Work Hours</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      name="fullDayHours"
+                      value={shiftForm.fullDayHours}
+                      onChange={handleFormChange}
+                      className="w-full mt-1 p-2 border rounded-md"
+                      required
+                      min="0"
+                      onKeyDown={(e) => {
+                        if (e.key === '-' || e.key === 'e') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onInput={(e) => {
+                        if (e.target.value < 0) {
+                          e.target.value = 0;
+                          handleFormChange(e);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 uppercase">Half Day Work Hours</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      name="halfDayHours"
+                      value={shiftForm.halfDayHours}
+                      onChange={handleFormChange}
+                      className="w-full mt-1 p-2 border rounded-md"
+                      required
+                      min="0"
+                      onKeyDown={(e) => {
+                        if (e.key === '-' || e.key === 'e') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onInput={(e) => {
+                        if (e.target.value < 0) {
+                          e.target.value = 0;
+                          handleFormChange(e);
+                        }
+                      }}
+                    />
+                  </div>
 
-        <div className="mt-4">
-          <label className="text-xs font-bold text-gray-700 uppercase block mb-2">Weekly Offs</label>
-          <div className="flex flex-wrap gap-2">
-            {weekDays.map((d) => (
-              <button key={d.value} type="button" onClick={() => handleWeeklyOffToggle(d.value)} className={`px-3 py-1 rounded text-xs font-bold ${shiftForm.weeklyOffDays.includes(d.value) ? "bg-red-500 text-white" : "bg-gray-200 text-gray-600"}`}>{d.label}</button>
-            ))}
-          </div>
-        </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 uppercase">Grace (Mins)</label>
+                    <input
+                      type="number"
+                      name="lateGracePeriod"
+                      value={shiftForm.lateGracePeriod}
+                      onChange={handleFormChange}
+                      className="w-full mt-1 p-2 border rounded-md"
+                      required
+                      min="0"
+                      onKeyDown={(e) => {
+                        if (e.key === '-' || e.key === 'e') {
+                          e.preventDefault();
+                        }
+                      }}
+                      onInput={(e) => {
+                        if (e.target.value < 0) {
+                          e.target.value = 0;
+                          handleFormChange(e);
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm mt-6 cursor-pointer">
+                      <input type="checkbox" name="autoExtendShift" checked={shiftForm.autoExtendShift} onChange={handleFormChange} className="w-4 h-4 text-blue-600" />
+                      Auto-extend shift if late
+                    </label>
+                  </div>
+                </div>
 
-        <div className="mt-8 flex gap-3">
-          <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 flex justify-center items-center gap-2">
-            {saving ? "Saving..." : <><FaSave /> Save Shift</>}
-          </button>
-          {shifts.some(s => s.employeeId === selectedEmployee.employeeId) && (
-            <button type="button" onClick={() => handleDeleteShift(selectedEmployee.employeeId)} className="bg-red-100 text-red-600 px-4 py-2 rounded-lg hover:bg-red-200"><FaTrash /></button>
+                <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded flex items-center gap-2">
+                  <FaInfoCircle className="text-blue-500" />
+                  Timings entered here are treated as Indian Standard Time by the server. Work hours are manual.
+                </div>
+
+                <div className="mt-4">
+                  <label className="text-xs font-bold text-gray-700 uppercase block mb-2">Weekly Offs</label>
+                  <div className="flex flex-wrap gap-2">
+                    {weekDays.map((d) => (
+                      <button key={d.value} type="button" onClick={() => handleWeeklyOffToggle(d.value)} className={`px-3 py-1 rounded text-xs font-bold ${shiftForm.weeklyOffDays.includes(d.value) ? "bg-red-500 text-white" : "bg-gray-200 text-gray-600"}`}>{d.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-8 flex gap-3">
+                  <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 flex justify-center items-center gap-2">
+                    {saving ? "Saving..." : <><FaSave /> Save Shift</>}
+                  </button>
+                  {shifts.some(s => s.employeeId === selectedEmployee.employeeId) && (
+                    <button type="button" onClick={() => handleDeleteShift(selectedEmployee.employeeId)} className="bg-red-100 text-red-600 px-4 py-2 rounded-lg hover:bg-red-200"><FaTrash /></button>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                <FaUserTie className="text-5xl mb-3 opacity-20" />
+                <p>Select an employee to configure shift</p>
+              </div>
+            )
+          ) : (
+            <form onSubmit={handleBulkSaveShift} className="h-full flex flex-col">
+              <div className="mb-4 pb-4 border-b border-gray-100">
+                <h2 className="text-xl font-bold text-gray-800">Bulk Shift Update (IST)</h2>
+                <p className="text-sm text-gray-600">Applying to <span className="font-bold text-blue-600">{selectedEmployeeIds.length}</span> employees</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Start Time (IST)</label>
+                  <input type="time" name="shiftStartTime" value={bulkShiftForm.shiftStartTime} onChange={handleBulkFormChange} className="w-full mt-1 p-2 border rounded-md" required />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 uppercase">End Time (IST)</label>
+                  <input type="time" name="shiftEndTime" value={bulkShiftForm.shiftEndTime} onChange={handleBulkFormChange} className="w-full mt-1 p-2 border rounded-md" required />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Full Day Work Hours</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    name="fullDayHours"
+                    value={bulkShiftForm.fullDayHours}
+                    onChange={handleBulkFormChange}
+                    className="w-full mt-1 p-2 border rounded-md"
+                    required
+                    min="0"
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onInput={(e) => {
+                      if (e.target.value < 0) {
+                        e.target.value = 0;
+                        handleBulkFormChange(e);
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Half Day Work Hours</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    name="halfDayHours"
+                    value={bulkShiftForm.halfDayHours}
+                    onChange={handleBulkFormChange}
+                    className="w-full mt-1 p-2 border rounded-md"
+                    required
+                    min="0"
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onInput={(e) => {
+                      if (e.target.value < 0) {
+                        e.target.value = 0;
+                        handleBulkFormChange(e);
+                      }
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 uppercase">Grace (Mins)</label>
+                  <input
+                    type="number"
+                    name="lateGracePeriod"
+                    value={bulkShiftForm.lateGracePeriod}
+                    onChange={handleBulkFormChange}
+                    className="w-full mt-1 p-2 border rounded-md"
+                    required
+                    min="0"
+                    onKeyDown={(e) => {
+                      if (e.key === '-' || e.key === 'e') {
+                        e.preventDefault();
+                      }
+                    }}
+                    onInput={(e) => {
+                      if (e.target.value < 0) {
+                        e.target.value = 0;
+                        handleBulkFormChange(e);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded flex items-center gap-2">
+                <FaInfoCircle className="text-blue-500" />
+                Timings entered here are treated as Indian Standard Time by the server. Work hours are manual.
+              </div>
+
+              <div className="mt-4">
+                <label className="text-xs font-bold text-gray-700 uppercase block mb-2">Weekly Offs</label>
+                <div className="flex flex-wrap gap-2">
+                  {weekDays.map((d) => (
+                    <button key={d.value} type="button" onClick={() => handleWeeklyOffToggle(d.value, true)} className={`px-3 py-1 rounded text-xs font-bold ${bulkShiftForm.weeklyOffDays.includes(d.value) ? "bg-red-500 text-white" : "bg-gray-200 text-gray-600"}`}>{d.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-auto pt-6">
+                <button type="submit" disabled={saving || selectedEmployeeIds.length === 0} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50">
+                  {saving ? "Processing..." : `Apply to ${selectedEmployeeIds.length} Employees`}
+                </button>
+              </div>
+            </form>
           )}
         </div>
-      </form>
-    ) : (
-      <div className="h-full flex flex-col items-center justify-center text-gray-400">
-        <FaUserTie className="text-5xl mb-3 opacity-20" />
-        <p>Select an employee to configure shift</p>
-      </div>
-    )
-  ) : (
-    <form onSubmit={handleBulkSaveShift} className="h-full flex flex-col">
-      <div className="mb-4 pb-4 border-b border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800">Bulk Shift Update (IST)</h2>
-        <p className="text-sm text-gray-600">Applying to <span className="font-bold text-blue-600">{selectedEmployeeIds.length}</span> employees</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Start Time (IST)</label>
-            <input type="time" name="shiftStartTime" value={bulkShiftForm.shiftStartTime} onChange={handleBulkFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">End Time (IST)</label>
-            <input type="time" name="shiftEndTime" value={bulkShiftForm.shiftEndTime} onChange={handleBulkFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Full Day Work Hours</label>
-            <input 
-              type="number" 
-              step="0.5" 
-              name="fullDayHours" 
-              value={bulkShiftForm.fullDayHours} 
-              onChange={handleBulkFormChange} 
-              className="w-full mt-1 p-2 border rounded-md" 
-              required 
-              min="0"
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                if (e.target.value < 0) {
-                  e.target.value = 0;
-                  handleBulkFormChange(e);
-                }
-              }}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Half Day Work Hours</label>
-            <input 
-              type="number" 
-              step="0.5" 
-              name="halfDayHours" 
-              value={bulkShiftForm.halfDayHours} 
-              onChange={handleBulkFormChange} 
-              className="w-full mt-1 p-2 border rounded-md" 
-              required 
-              min="0"
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                if (e.target.value < 0) {
-                  e.target.value = 0;
-                  handleBulkFormChange(e);
-                }
-              }}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-700 uppercase">Grace (Mins)</label>
-            <input 
-              type="number" 
-              name="lateGracePeriod" 
-              value={bulkShiftForm.lateGracePeriod} 
-              onChange={handleBulkFormChange} 
-              className="w-full mt-1 p-2 border rounded-md" 
-              required 
-              min="0"
-              onKeyDown={(e) => {
-                if (e.key === '-' || e.key === 'e') {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                if (e.target.value < 0) {
-                  e.target.value = 0;
-                  handleBulkFormChange(e);
-                }
-              }}
-            />
-          </div>
-      </div>
-      
-      <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded flex items-center gap-2">
-           <FaInfoCircle className="text-blue-500" />
-           Timings entered here are treated as Indian Standard Time by the server. Work hours are manual.
-      </div>
-
-      <div className="mt-4">
-          <label className="text-xs font-bold text-gray-700 uppercase block mb-2">Weekly Offs</label>
-          <div className="flex flex-wrap gap-2">
-            {weekDays.map((d) => (
-              <button key={d.value} type="button" onClick={() => handleWeeklyOffToggle(d.value, true)} className={`px-3 py-1 rounded text-xs font-bold ${bulkShiftForm.weeklyOffDays.includes(d.value) ? "bg-red-500 text-white" : "bg-gray-200 text-gray-600"}`}>{d.label}</button>
-            ))}
-          </div>
-      </div>
-      
-      <div className="mt-auto pt-6">
-        <button type="submit" disabled={saving || selectedEmployeeIds.length === 0} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50">
-           {saving ? "Processing..." : `Apply to ${selectedEmployeeIds.length} Employees`}
-        </button>
-      </div>
-    </form>
-  )}
-</div>
       </div>
 
       {/* ✅ MANAGE GROUPS MODAL */}
       {isGroupModalOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-[95%] md:w-full max-w-4xl h-[90vh] md:h-[80vh] flex flex-col md:flex-row overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-[95%] md:w-full max-w-4xl h-[100vh] md:h-[80vh] flex flex-col md:flex-row overflow-hidden">
             {/* Left Panel: List */}
-            <div className="w-full md:w-1/3 h-[35%] md:h-full bg-slate-50 border-r border-slate-200 flex flex-col border-b md:border-b-0">
+            <div className="w-full md:w-1/3 h-[50%] md:h-full bg-slate-50 border-r border-slate-200 flex flex-col border-b md:border-b-0">
               <div className="p-5 border-b border-slate-200 bg-white"><h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><FaLayerGroup className="text-blue-600" /> My Groups</h3></div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
                 {groups.length === 0 && (<div className="text-center py-10 text-slate-400"><p>No groups created yet.</p></div>)}
@@ -749,9 +748,9 @@ const DepartmentSettings = () => {
               </div>
               <div className="p-4 bg-slate-100 border-t border-slate-200"><div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">System</div><div onClick={() => { setViewUnassigned(true); resetGroupForm(); }} className={`bg-white p-3 rounded-lg border shadow-sm cursor-pointer transition-all ${viewUnassigned ? 'border-orange-400 ring-1 ring-orange-400' : 'border-slate-200 hover:border-orange-300'}`}><div className="flex justify-between items-center"><h4 className={`font-bold text-sm ${viewUnassigned ? 'text-orange-700' : 'text-slate-600'}`}>Unassigned Employees</h4><span className={`text-xs px-2 py-0.5 rounded-full font-bold ${viewUnassigned ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'}`}>{getUnassignedEmployees().length}</span></div></div></div>
             </div>
-            
+
             {/* Right Panel: Form */}
-            <div className="w-full md:w-2/3 h-[65%] md:h-full flex flex-col bg-white">
+            <div className="w-full md:w-2/3 h-[50%] md:h-full flex flex-col bg-white">
               {viewUnassigned ? (
                 <><div className="p-5 border-b border-slate-100 flex justify-between items-center bg-orange-50/50"><div><h3 className="font-bold text-xl text-orange-800 flex items-center gap-2"><FaExclamationCircle /> Unassigned Employees</h3></div><button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100"><FaTimes size={20} /></button></div><div className="p-6 flex-1 overflow-y-auto"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{getUnassignedEmployees().length === 0 ? (<div className="col-span-2 text-center py-12 text-slate-400"><FaCheck className="mx-auto mb-2 text-green-400" size={24} /><p>All employees assigned!</p></div>) : (getUnassignedEmployees().map(emp => (<div key={emp._id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50"><div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">{emp.name.charAt(0)}</div><div className="min-w-0"><p className="text-sm font-bold text-slate-700 truncate">{emp.name}</p><p className="text-xs text-slate-500">{emp.employeeId}</p></div></div>)))}</div></div></>
               ) : (

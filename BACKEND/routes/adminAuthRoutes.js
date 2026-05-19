@@ -1,9 +1,9 @@
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 
-import { 
-    registerAdmin, 
-    loginAdmin, 
+import {
+    registerAdmin,
+    loginAdmin,
     updatePlanSettings,
     getAllAdmins,
     getAllPlanSettings,
@@ -11,11 +11,14 @@ import {
     toggleAdminLogin,
     toggleEmployeeLoginByAdmin,
     getLoginAccessStatus,
-    getAdminProfile ,
+    getAdminProfile,
     updateAdminProfile,
     getAllFeatures,
     getMyPlanFeatures,
-    changeAdminPassword
+    changeAdminPassword,
+    getSupportAdmins,
+    deleteSupportAdmin,
+    registerSupportAdmin
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -25,8 +28,11 @@ router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 
 // Protected routes (only these two)
-router.get("/profile", protect, getAdminProfile); 
+router.get("/profile", protect, getAdminProfile);
 router.put("/profile/update", protect, updateAdminProfile);
+router.post("/support-admins", protect, registerSupportAdmin);
+router.get("/support-admins", protect, getSupportAdmins);
+router.delete("/support-admins/:id", protect, deleteSupportAdmin);
 
 // Public routes (no protect)
 router.patch("/plan-settings", updatePlanSettings);
@@ -36,8 +42,8 @@ router.delete("/delete-plan/:id", deletePlan);
 router.get("/login-access", getLoginAccessStatus);
 router.patch("/login-access/admin/:adminId", toggleAdminLogin);
 router.patch("/login-access/employees/:adminId", toggleEmployeeLoginByAdmin);
-router.get("/all-features",      protect, getAllFeatures);   
-router.get("/my-plan-features",  protect, getMyPlanFeatures);
+router.get("/all-features", protect, getAllFeatures);
+router.get("/my-plan-features", protect, getMyPlanFeatures);
 router.patch("/change-password/:adminId", changeAdminPassword);
 
 export default router;

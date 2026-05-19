@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { 
-    X, UploadCloud, FileText, Trash2, 
+import {
+    X, UploadCloud, FileText, Trash2,
     CheckCircle, AlertCircle, Loader2, Plus
 } from 'lucide-react';
 import * as api from '../../api';
@@ -30,9 +30,18 @@ const ManageTemplatesModal = ({ onClose }) => {
         fetchTemplates();
     }, []);
 
+    // ── Handle Escape Key ─────────────────────────────────────
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [onClose]);
+
     const handleFileUpload = async (file) => {
         if (!file) return;
-        
+
         const formData = new FormData();
         formData.append('file', file);
         // Extract a clean name from filename
@@ -55,7 +64,7 @@ const ManageTemplatesModal = ({ onClose }) => {
 
     const handleDelete = async (id, name) => {
         if (!confirm(`Are you sure you want to delete the template "${name}"?`)) return;
-        
+
         try {
             await api.deleteOfferLetterTemplate(id);
             setTemplates(templates.filter(t => t._id !== id));
@@ -84,11 +93,15 @@ const ManageTemplatesModal = ({ onClose }) => {
     };
 
     return (
-        <div style={overlayStyle}>
+        <div
+            style={overlayStyle}
+            onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+        >
             <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 style={modalStyle}
+                onClick={(e) => e.stopPropagation()}
             >
                 <div style={headerStyle}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -109,10 +122,10 @@ const ManageTemplatesModal = ({ onClose }) => {
                     {/* OPTIONAL COMPANY NAME INPUT */}
                     <div style={inputSectionStyle}>
                         <label style={labelStyle}>Link to Company (Optional)</label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             placeholder="Example: Arah Infotech"
-                            value={companyName || ""} 
+                            value={companyName || ""}
                             onChange={(e) => setCompanyName(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
                             style={inputStyle}
@@ -123,7 +136,7 @@ const ManageTemplatesModal = ({ onClose }) => {
                     </div>
 
                     {/* UPLOAD SECTION */}
-                    <div 
+                    <div
                         onDragEnter={handleDrag}
                         onDragLeave={handleDrag}
                         onDragOver={handleDrag}
@@ -153,9 +166,9 @@ const ManageTemplatesModal = ({ onClose }) => {
                                 </p>
                             </div>
                         )}
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
+                        <input
+                            type="file"
+                            ref={fileInputRef}
                             onChange={(e) => handleFileUpload(e.target.files[0])}
                             style={{ display: 'none' }}
                             accept=".pdf,.jpg,.jpeg,.png"
@@ -192,7 +205,7 @@ const ManageTemplatesModal = ({ onClose }) => {
                                                 <div style={templateNameStyle}>{template.name}</div>
                                                 <div style={templateMetaStyle}>{template.originalFilename}</div>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => handleDelete(template._id, template.name)}
                                                 style={deleteBtnStyle}
                                                 title="Delete Template"
@@ -230,14 +243,16 @@ const overlayStyle = {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
     background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)',
     display: 'flex', justifyContent: 'center', alignItems: 'center',
-    zIndex: 4000, padding: '20px'
+    zIndex: 4000, padding: '20px',
+    cursor: 'pointer'
 };
 
 const modalStyle = {
     background: 'var(--card-bg)', width: '100%', maxWidth: '800px',
     maxHeight: '90vh', borderRadius: '24px', display: 'flex',
     flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border-color)',
-    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)'
+    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+    cursor: 'default'
 };
 
 const headerStyle = {

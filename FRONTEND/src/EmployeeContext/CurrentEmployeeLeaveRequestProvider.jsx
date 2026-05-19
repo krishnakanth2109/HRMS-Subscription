@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { CurrentEmployeeLeaveRequestContext } from "./CurrentEmployeeLeaveRequestContext";
+import api from "../api";
 
 const getMonthOptions = (requests) => {
   const months = requests.map((req) => (req.from ? req.from.slice(0, 7) : null)).filter(Boolean); // "YYYY-MM"
@@ -16,7 +17,6 @@ const ymd = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
     d.getDate()
   ).padStart(2, "0")}`;
-const monthKeyFromYMD = (s) => (s ? s.slice(0, 7) : "");
 const eachDateInclusive = (fromStr, toStr) => {
   const out = [];
   let d = parseYMD(fromStr);
@@ -32,6 +32,17 @@ const getStatusOptions = () => ["All", "Pending", "Approved", "Rejected"];
 const getLeaveTypeOptions = () => ["Sick Leave", "Casual Leave", "Emergency Leave"];
 
 const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
+  const loggedUser = useMemo(() => {
+    try {
+      return JSON.parse(
+        sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser") || "null"
+      );
+    } catch {
+      return null;
+    }
+  }, []);
+  const employeeId = loggedUser?.employeeId;
+
   // --- aggregated leaveRequests (keep this as-is; do not change the shape) ---
   const [leaveRequests, setLeaveRequests] = useState([
     {
@@ -91,11 +102,11 @@ const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
 
   // ✅ fetch aggregated leaves on mount (unchanged behavior)
   useEffect(() => {
+    if (!employeeId) return;
+
     const fetchLeaves = async () => {
       try {
-        const response = await fetch("/api/leaves/EMP101"); // Replace with real API
-        if (!response.ok) throw new Error("Failed to fetch");
-        const data = await response.json();
+        const { data } = await api.get(`/api/leaves/${employeeId}`);
         setLeaveRequests(data); // backend aggregated data replaces dummy aggregated data
       } catch (error) {
         console.error("Backend not available, using aggregated dummy data", error);
@@ -104,7 +115,7 @@ const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
     };
 
     fetchLeaves();
-  }, []);
+  }, [employeeId]);
 
   const monthOptions = useMemo(() => getMonthOptions(leaveRequests), [leaveRequests]);
   const statusOptions = useMemo(() => getStatusOptions(), []);
@@ -151,18 +162,8 @@ const applyLeave = async ({ from, to, reason, leaveType, halfDaySession, leaveDa
   };
 
   try {
-    const response = await fetch("/api/leaves", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newAggregatedLeave),
-    });
-
-    if (response.ok) {
-      const saved = await response.json();
-      setLeaveRequests((prev) => [...prev, saved]);
-    } else {
-      setLeaveRequests((prev) => [...prev, newAggregatedLeave]);
-    }
+    const { data: saved } = await api.post("/api/leaves/apply", newAggregatedLeave);
+    setLeaveRequests((prev) => [...prev, saved]);
   } catch (err) {
     console.error("Backend save failed; adding aggregated leave locally", err);
     setLeaveRequests((prev) => [...prev, newAggregatedLeave]);
@@ -175,9 +176,7 @@ const applyLeave = async ({ from, to, reason, leaveType, halfDaySession, leaveDa
   const fetchLeaveDetails = async (leaveId) => {
     try {
       // try backend endpoint (adjust path to your API)
-      const res = await fetch(`/api/leaves/${leaveId}/details`);
-      if (!res.ok) throw new Error("No details from backend");
-      const data = await res.json();
+      const { data } = await api.get(`/api/leaves/${leaveId}/details`);
       // Expecting data to be an array of per-day objects like [{date: "2025-07-10", leavecategory: "Paid"}, ...]
       return data;
     } catch (err) {

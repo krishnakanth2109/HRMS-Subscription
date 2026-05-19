@@ -9,15 +9,16 @@ import Notification from "../models/notificationModel.js";
 const buildNotificationFilterForUser = (user) => {
   if (!user) return { _id: null };
 
-  if (user.role === "admin" || user.role === "manager") {
-    // Admin sees:
-    //  1. Notifications directly addressed to them (userId == admin._id)
-    //  2. Broadcast notifications scoped to their tenant (adminId == admin._id)
+  if (user.role === "admin" || user.role === "support-admin") {
+    const rootAdminId = user.role === "admin" ? user._id : user.adminId;
+    // Admin/support-admin sees:
+    //  1. Notifications directly addressed to them (userId == user._id)
+    //  2. Broadcast notifications scoped to their tenant (adminId == rootAdminId)
     // The strict adminId check on BOTH clauses prevents cross-admin leakage.
     return {
       $or: [
-        { userId: user._id, adminId: user._id },
-        { role: "admin",    adminId: user._id },
+        { userId: user._id, adminId: rootAdminId },
+        { role: "admin",    adminId: rootAdminId },
       ],
     };
   }
@@ -100,8 +101,9 @@ export const markNotificationAsReadController = async (req, res) => {
     const user = req.user;
     
     // Security check: Is this notification meant for this user?
+    const rootAdminId = user.role === "admin" ? user._id : user.adminId;
     const isOwner = notification.userId && notification.userId.toString() === user._id.toString();
-    const isAdmin = user.role === "admin" && notification.adminId && notification.adminId.toString() === user._id.toString();
+    const isAdmin = (user.role === "admin" || user.role === "support-admin") && notification.adminId && notification.adminId.toString() === rootAdminId.toString();
 
     if (!isOwner && !isAdmin && notification.role !== 'all') {
       // Relaxed check for broadcasts, but ideally we check hierarchy

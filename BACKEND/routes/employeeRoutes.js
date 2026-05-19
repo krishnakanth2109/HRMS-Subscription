@@ -431,7 +431,7 @@ router.post("/", protect, onlyAdmin, async (req, res) => {
 router.get("/", protect, async (req, res) => {
   try {
     const query =
-      req.user.role === "admin"
+      (req.user.role === "admin" || req.user.role === "support-admin")
         ? { adminId: req.user._id }
         : { company: req.user.company };
 
@@ -450,6 +450,7 @@ router.get("/:id", protect, async (req, res) => {
 
     if (
       req.user.role !== "admin" &&
+      req.user.role !== "support-admin" &&
       req.user.employeeId !== req.params.id
     ) {
       if (req.user.company.toString() !== employee.company.toString())
@@ -465,7 +466,7 @@ router.get("/:id", protect, async (req, res) => {
 // UPDATE employee
 router.put("/:id", protect, async (req, res) => {
   try {
-    const isAdmin = req.user.role === "admin";
+    const isAdmin = req.user.role === "admin" || req.user.role === "support-admin";
     const isSelf = req.user.employeeId === req.params.id;
 
     if (!isAdmin && !isSelf) {

@@ -16,9 +16,9 @@ import { onlyAdmin } from "../middleware/roleMiddleware.js";
 const router = express.Router();
 
 router.use(protect); // Ensure login
-router.use(onlyAdmin); // Ensure Admin role
+router.use(onlyAdmin); // Ensure Admin/Support-Admin role
 
-// ✅ SPECIFIC ROUTES FIRST (more specific paths before general ones)
+ // ✅ SPECIFIC ROUTES FIRST (more specific paths before general ones)
 router.post("/generate-id", generateEmployeeId);
 router.get("/next-id/:companyId", getNextEmployeeId);
 

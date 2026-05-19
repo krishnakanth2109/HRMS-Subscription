@@ -4,7 +4,9 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { promisify } from "util";
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
+import PlanSetting from "../models/planSettingModel.js";
 
 /* ================================================================
  * generateToken
@@ -45,20 +47,26 @@ export const login = async (req, res) => {
       user = admin;
       role = "admin";
     } else {
-      // ── 2. Fall back to Employee ────────────────────────────────────────
-      const employee = await Employee.findOne({ email: normalizedEmail }).select("+password");
-      if (employee) {
-        user = employee;
-        role = "employee";
+      const supportAdmin = await SupportAdmin.findOne({ email: normalizedEmail }).select("+password");
+      if (supportAdmin) {
+        user = supportAdmin;
+        role = "support-admin";
       } else {
-        // ── 2.1 Check if this is an old email ──────────────────────────────
-        const oldEmployee = await Employee.findOne({ previousEmail: normalizedEmail });
-        if (oldEmployee) {
-          oldEmailMatch = true;
-          newEmail = oldEmployee.email;
-          // ✅ Clear previousEmail immediately so the popup only shows ONCE.
-          // Next login attempt with this old email will get "Invalid email or password".
-          await Employee.findByIdAndUpdate(oldEmployee._id, { $unset: { previousEmail: "" } });
+        // ── 2. Fall back to Employee ────────────────────────────────────────
+        const employee = await Employee.findOne({ email: normalizedEmail }).select("+password");
+        if (employee) {
+          user = employee;
+          role = "employee";
+        } else {
+          // ── 2.1 Check if this is an old email ──────────────────────────────
+          const oldEmployee = await Employee.findOne({ previousEmail: normalizedEmail });
+          if (oldEmployee) {
+            oldEmailMatch = true;
+            newEmail = oldEmployee.email;
+            // ✅ Clear previousEmail immediately so the popup only shows ONCE.
+            // Next login attempt with this old email will get "Invalid email or password".
+            await Employee.findByIdAndUpdate(oldEmployee._id, { $unset: { previousEmail: "" } });
+          }
         }
       }
     }
@@ -90,7 +98,18 @@ export const login = async (req, res) => {
       }
     }
 
-    // ── 4. Admin-specific checks (loginEnabled + plan expiry) ─────────────
+    // ── 3.1 Support-Admin specific checks ────────────────────────────────
+    if (role === "support-admin") {
+      if (user.loginEnabled === false) {
+        return res.status(403).json({
+          loginStopped: true,
+          message: "Your login access has been disabled. Please contact admin.",
+        });
+      }
+    }
+
+    // ── 4. Subscription/Plan Expiry check (for all roles that link to an Admin) ─
+    let rootAdmin = null;
     if (role === "admin") {
       if (user.loginEnabled === false) {
         return res.status(403).json({
@@ -98,21 +117,39 @@ export const login = async (req, res) => {
           message: "Admin login has been disabled.",
         });
       }
-      if (user.planExpiresAt && new Date(user.planExpiresAt) < new Date()) {
-        const expiredDaysAgo = Math.floor(
-          (new Date() - new Date(user.planExpiresAt)) / (1000 * 60 * 60 * 24)
-        );
-        return res.status(403).json({
-          expired: true,
-          adminDetails: {
-            name: user.name,
-            email: user.email,
-            plan: user.plan,
-            planActivatedAt: user.planActivatedAt,
-            planExpiresAt: user.planExpiresAt,
-            expiredDaysAgo,
-          },
-        });
+      if (user.adminId) {
+        rootAdmin = await Admin.findById(user.adminId);
+      } else {
+        rootAdmin = user;
+      }
+    } else if (role === "support-admin" || role === "employee") {
+      if (user.adminId) {
+        rootAdmin = await Admin.findById(user.adminId);
+      }
+    }
+
+    if (rootAdmin) {
+      /* === SKIP EXPIRY CHECK FOR OWNER / UNLIMITED PLAN === */
+      const planInfo = await PlanSetting.findOne({ planName: rootAdmin.plan });
+      const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
+
+      if (!isUnlimitedPlan) {
+        if (rootAdmin.planExpiresAt && new Date(rootAdmin.planExpiresAt) < new Date()) {
+          const expiredDaysAgo = Math.floor(
+            (new Date() - new Date(rootAdmin.planExpiresAt)) / (1000 * 60 * 60 * 24)
+          );
+          return res.status(403).json({
+            expired: true,
+            adminDetails: {
+              name: rootAdmin.name,
+              email: rootAdmin.email,
+              plan: rootAdmin.plan,
+              planActivatedAt: rootAdmin.planActivatedAt,
+              planExpiresAt: rootAdmin.planExpiresAt,
+              expiredDaysAgo,
+            },
+          });
+        }
       }
     }
 
@@ -128,16 +165,20 @@ export const login = async (req, res) => {
     delete userObj.password;
     userObj.role = role; // always present in the response
 
+    if (rootAdmin) {
+      userObj.plan = rootAdmin.plan;
+    }
+
     return res.status(200).json({
       message: "Login successful",
       token,
       user: userObj,
     });
-
   } catch (err) {
     console.error("❌ Login error:", err);
     return res.status(500).json({ message: "Server error during login." });
   }
+  
 };
 
 /* ================================================================
@@ -167,15 +208,29 @@ export const protect = async (req, res, next) => {
   try {
     const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-    // Check Admin first, then Employee
-    let currentUser = await Admin.findById(decoded.id).select("-password");
+    // Check Admin first, then SupportAdmin, then Employee
+    let currentUser = await Admin.findById(decoded.id).select("-password").lean();
     if (currentUser) {
       currentUser.role = "admin";
+      // Allow shared tenant access for created admins
+      currentUser.actualId = currentUser._id;
+      if (currentUser.adminId) {
+        currentUser._id = currentUser.adminId;
+      }
     } else {
-      currentUser = await Employee.findById(decoded.id).select("-password");
+      currentUser = await SupportAdmin.findById(decoded.id).select("-password").lean();
       if (currentUser) {
-        // preserve existing role field (e.g. "manager") but default to "employee"
-        currentUser.role = currentUser.role || "employee";
+        currentUser.role = "support-admin";
+        currentUser.actualId = currentUser._id;
+        if (currentUser.adminId) {
+          currentUser._id = currentUser.adminId;
+        }
+      } else {
+        currentUser = await Employee.findById(decoded.id).select("-password");
+        if (currentUser) {
+          // preserve existing role field (e.g. "support-admin") but default to "employee"
+          currentUser.role = currentUser.role || "employee";
+        }
       }
     }
 

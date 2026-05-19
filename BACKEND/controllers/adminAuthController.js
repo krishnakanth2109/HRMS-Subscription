@@ -1,4 +1,5 @@
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
 import Employee from "../models/employeeModel.js";
 import Feature from "../models/featureModel.js";
@@ -33,7 +34,7 @@ const getExpiryDate = async (planName) => {
 /* ==================== REGISTER ADMIN ==================== */
 export const registerAdmin = async (req, res) => {
   try {
-    const { name, email, password, phone, role, department, plan } = req.body;
+    const { name, email, password, phone, role, department, plan, adminId } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Name, email, and password are required" });
@@ -65,6 +66,7 @@ export const registerAdmin = async (req, res) => {
       planActivatedAt: new Date(),
       planExpiresAt: planExpiresAt,
       loginEnabled: true,
+      adminId: adminId || null,
     });
 
     const token = signToken(admin._id, admin.role);
@@ -110,27 +112,34 @@ export const loginAdmin = async (req, res) => {
       });
     }
 
+    /* === ✅ RESOLVE EFFECTIVE ROOT ADMIN FOR PLAN CHECK === */
+    let rootAdmin = admin;
+    if (admin.adminId) {
+      const resolved = await Admin.findById(admin.adminId);
+      if (resolved) rootAdmin = resolved;
+    }
+
     /* === ✅ SKIP EXPIRY CHECK FOR OWNER / UNLIMITED PLAN === */
-    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
+    const planInfo = await PlanSetting.findOne({ planName: rootAdmin.plan });
     const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
 
     if (!isUnlimitedPlan) {
       /* === PLAN EXPIRY BLOCKER (only for non-owner plans) === */
       const now = new Date();
-      const expiryDate = new Date(admin.planExpiresAt);
+      const expiryDate = new Date(rootAdmin.planExpiresAt);
 
-      if (admin.planExpiresAt && now > expiryDate) {
+      if (rootAdmin.planExpiresAt && now > expiryDate) {
         const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
 
         return res.status(403).json({
           message: "Your plan is expired. Please contact support team",
           expired: true,
           adminDetails: {
-            name: admin.name,
-            email: admin.email,
-            plan: admin.plan,
-            planActivatedAt: admin.planActivatedAt,
-            planExpiresAt: admin.planExpiresAt,
+            name: rootAdmin.name,
+            email: rootAdmin.email,
+            plan: rootAdmin.plan,
+            planActivatedAt: rootAdmin.planActivatedAt,
+            planExpiresAt: rootAdmin.planExpiresAt,
             expiredDaysAgo: expiredDaysAgo,
           },
         });
@@ -343,10 +352,15 @@ export const getAdminProfile = async (req, res) => {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
-    const admin = await Admin.findById(req.user._id);
+    let admin;
+    if (req.user.role === "support-admin") {
+      admin = await SupportAdmin.findById(req.user.actualId || req.user._id);
+    } else {
+      admin = await Admin.findById(req.user.actualId || req.user._id);
+    }
 
     if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
+      return res.status(404).json({ message: "Admin/SupportAdmin not found" });
     }
 
     res.status(200).json(admin);
@@ -365,14 +379,23 @@ export const updateAdminProfile = async (req, res) => {
       return res.status(400).json({ message: "Name and Phone are required" });
     }
 
-    const updatedAdmin = await Admin.findByIdAndUpdate(
-      req.user._id,
-      { name, phone, department },
-      { new: true, runValidators: true }
-    );
+    let updatedAdmin;
+    if (req.user.role === "support-admin") {
+      updatedAdmin = await SupportAdmin.findByIdAndUpdate(
+        req.user.actualId || req.user._id,
+        { name, phone, department },
+        { new: true, runValidators: true }
+      );
+    } else {
+      updatedAdmin = await Admin.findByIdAndUpdate(
+        req.user.actualId || req.user._id,
+        { name, phone, department },
+        { new: true, runValidators: true }
+      );
+    }
 
     if (!updatedAdmin) {
-      return res.status(404).json({ message: "Admin not found" });
+      return res.status(404).json({ message: "Admin/SupportAdmin not found" });
     }
 
     res.status(200).json({
@@ -472,5 +495,66 @@ export const changeAdminPassword = async (req, res) => {
   } catch (error) {
     console.error("❌ CHANGE ADMIN PASSWORD ERROR:", error);
     res.status(500).json({ message: "Failed to change password" });
+  }
+};
+
+/* ==================== REGISTER SUPPORT ADMIN ==================== */
+export const registerSupportAdmin = async (req, res) => {
+  try {
+    const { name, email, password, phone, department, adminId } = req.body;
+
+    if (!name || !email || !password || !adminId) {
+      return res.status(400).json({ message: "Name, email, password, and adminId are required" });
+    }
+
+    const existingSupportAdmin = await SupportAdmin.findOne({ email });
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingSupportAdmin || existingAdmin) {
+      return res.status(400).json({ message: "User with this email already exists" });
+    }
+
+    const supportAdmin = await SupportAdmin.create({
+      name,
+      email,
+      password,
+      phone: phone || "",
+      department: department || "Support Administration",
+      adminId: adminId,
+      loginEnabled: true,
+      role: "support-admin"
+    });
+
+    res.status(201).json({ message: "Support Admin registered successfully", manager: supportAdmin });
+  } catch (error) {
+    console.error("❌ REGISTER SUPPORT ADMIN ERROR:", error);
+    res.status(500).json({ message: 'Failed to register support admin' });
+  }
+};
+
+/* ==================== GET SUPPORT ADMINS ==================== */
+export const getSupportAdmins = async (req, res) => {
+  try {
+    const parentAdminId = req.user.actualId || req.user._id;
+    const supportAdmins = await SupportAdmin.find({ adminId: parentAdminId }).select('-password');
+    res.status(200).json(supportAdmins);
+  } catch (error) {
+    console.error("❌ GET SUPPORT ADMINS ERROR:", error);
+    res.status(500).json({ message: 'Failed to fetch support admins' });
+  }
+};
+
+/* ==================== DELETE SUPPORT ADMIN ==================== */
+export const deleteSupportAdmin = async (req, res) => {
+  try {
+    const parentAdminId = req.user.actualId || req.user._id;
+    const supportAdminId = req.params.id;
+    const supportAdmin = await SupportAdmin.findOneAndDelete({ _id: supportAdminId, adminId: parentAdminId });
+    if (!supportAdmin) {
+      return res.status(404).json({ message: 'Support Admin not found or unauthorized' });
+    }
+    res.status(200).json({ message: 'Support Admin deleted successfully' });
+  } catch (error) {
+    console.error("❌ DELETE SUPPORT ADMIN ERROR:", error);
+    res.status(500).json({ message: 'Failed to delete support admin' });
   }
 };

@@ -8,7 +8,7 @@ dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
 
-const seedAdminAndManager = async () => {
+const seedAdminAndSupportAdmin = async () => {
   try {
     console.log("⏳ Connecting to database...");
     await mongoose.connect(MONGO_URI);
@@ -36,24 +36,24 @@ const seedAdminAndManager = async () => {
     // }
 
     // ---------------------------
-    // 2️⃣ CREATE MANAGER ACCOUNT
+    // 2️⃣ CREATE SUPPORT-ADMIN ACCOUNT
     // ---------------------------
-    const managerEmail = "arahinfotech9@gmail.com";
+    const supportAdminEmail = "arahinfotech9@gmail.com";
 
-    let manager = await Admin.findOne({ email: managerEmail });
-    if (!manager) {
+    let supportAdmin = await Admin.findOne({ email: supportAdminEmail });
+    if (!supportAdmin) {
       await Admin.create({
         name: "AJAY",
-        email: managerEmail,
+        email: supportAdminEmail,
         password: "123456789", // hashed automatically
         phone: "9876543210",
-        role: "manager",
-        department: "Management",
+        role: "support-admin",
+        department: "Support Administration",
       });
 
-      console.log("✅ Manager account created.");
+      console.log("✅ Support Admin account created.");
     } else {
-      console.log("ℹ️ Manager already exists. Skipping...");
+      console.log("ℹ️ Support Admin already exists. Skipping...");
     }
 
     console.log("\n🎉 Seeding completed successfully!");
@@ -65,4 +65,4 @@ const seedAdminAndManager = async () => {
   }
 };
 
-seedAdminAndManager();
+seedAdminAndSupportAdmin();

@@ -1,9 +1,13 @@
 import Sidebar from "./Sidebar";  // now from admin folder
+import SidebarSupportAdmin from "../../pages/support-admin/SidebarSupportAdmin";
 import Navbar from "./Navbar";
+import NavbarSupportAdmin from "../../pages/support-admin/NavbarSupportAdmin";
 import { Outlet } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../../context/AuthContext";
 
 const LayoutAdmin = () => {
+  const { user } = useContext(AuthContext);
   const[theme, setTheme] = useState(sessionStorage.getItem("adminTheme") || "white");
   const[bubbles, setBubbles] = useState([]);
   
@@ -43,21 +47,49 @@ const LayoutAdmin = () => {
     }
   }, [theme]);
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-gray-900' : theme === 'white' ? 'bg-white' : 'bg-[#F8FAFF]'}`}>
       
       {/* SIDEBAR */}
-      {/* Given z-30 so it sits above the background, but below popups (z-50) */}
-      <div className="z-30 bg-white/70 backdrop-blur-sm shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
-        <Sidebar />
+      <div className="z-30 hidden md:block md:relative">
+        {user?.role === "support-admin" ? (
+          <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        ) : (
+          <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        )}
+      </div>
+      
+      {/* Mobile Sidebar (Portal-like behavior) */}
+      <div className="md:hidden">
+        {user?.role === "support-admin" ? (
+          <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        ) : (
+          <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        )}
       </div>
 
       <div className="flex flex-col flex-1 min-w-0">
         
         {/* NAVBAR */}
         {/* Given z-20 so it sits above the background, but below popups (z-50) */}
-        <div className="z-20 bg-white/70 backdrop-blur-sm shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
-          <Navbar currentTheme={theme} onThemeChange={toggleTheme} />
+        <div className="z-20">
+          {user?.role === "support-admin" ? (
+            <NavbarSupportAdmin 
+              currentTheme={theme} 
+              onThemeChange={toggleTheme} 
+              mobileOpen={mobileOpen}
+              setMobileOpen={setMobileOpen}
+            />
+          ) : (
+            <Navbar 
+              currentTheme={theme} 
+              onThemeChange={toggleTheme} 
+              mobileOpen={mobileOpen}
+              setMobileOpen={setMobileOpen}
+            />
+          )}
         </div>
 
         <main className="relative flex-1 overflow-hidden bg-transparent">
