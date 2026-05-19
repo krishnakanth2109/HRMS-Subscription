@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Send, Plus, X, RefreshCw, Mail, Building2, UserPlus, History,
-  CheckCircle, Clock, ShieldCheck, Trash2, FileCheck
+  CheckCircle, Clock, ShieldCheck, Trash2, FileCheck, Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { getAllCompanies } from '../api';
 import api from '../api';
 import Swal from 'sweetalert2';
@@ -335,6 +336,101 @@ const DocVerifyInvite = () => {
     setBulkRows(updated);
   };
 
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        "Full Name": "John Doe",
+        "Email": "johndoe@example.com",
+        "Role": "Software Engineer",
+        "Department": "IT",
+        "Employment Type": "Full-Time"
+      },
+      {
+        "Full Name": "Jane Smith",
+        "Email": "janesmith@example.com",
+        "Role": "HR Specialist",
+        "Department": "NON-IT",
+        "Employment Type": "Intern"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "document_verification_template.xlsx");
+  };
+
+  const handleExcelImport = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Empty File',
+            text: 'The selected sheet contains no rows.',
+            confirmButtonColor: '#7c3aed'
+          });
+          return;
+        }
+
+        const mappedRows = data.map(row => {
+          const getVal = (fields) => {
+            const foundKey = Object.keys(row).find(k => fields.includes(k.toLowerCase().trim()));
+            return foundKey ? String(row[foundKey]).trim() : '';
+          };
+
+          const email = getVal(['email', 'email address', 'mail']);
+          const fullName = getVal(['fullname', 'full name', 'name', 'employee name', 'candidate name']);
+          const name = fullName.split(' ')[0] || '';
+          const role = getVal(['role', 'designation', 'job title', 'position']);
+          const department = getVal(['department', 'dept']) || 'IT';
+          const employmentType = getVal(['employmenttype', 'employment type', 'type']);
+
+          return { email, name, fullName, role, department, employmentType };
+        });
+
+        const validRows = mappedRows.filter(r => r.email || r.fullName);
+
+        if (validRows.length === 0) {
+          Swal.fire({
+            icon: 'error',
+            title: 'No Valid Data',
+            text: 'Could not find columns for Email or Full Name in the Excel file.',
+            confirmButtonColor: '#7c3aed'
+          });
+          return;
+        }
+
+        setBulkRows(validRows);
+        Swal.fire({
+          icon: 'success',
+          title: 'Import Successful',
+          text: `Loaded ${validRows.length} rows from Excel.`,
+          confirmButtonColor: '#7c3aed'
+        });
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Import Failed',
+          text: err.message,
+          confirmButtonColor: '#7c3aed'
+        });
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = null; // reset
+  };
+
   const statusColor = (status) => {
     if (status === 'verified') return 'bg-emerald-100 text-emerald-700';
     if (status === 'submitted') return 'bg-blue-100 text-blue-700';
@@ -523,6 +619,37 @@ const DocVerifyInvite = () => {
             {/* BULK INVITE */}
             {activeTab === 'bulk' && (
               <div className="space-y-4">
+                {/* Excel Import Toolbar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                    <UserPlus size={16} className="text-violet-600" />
+                    <span>BULK INVITE TOOLKIT</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={downloadTemplate}
+                      type="button"
+                      className="px-4 py-2 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      <Download size={14} /> Download Template
+                    </button>
+                    <button
+                      onClick={() => document.getElementById('excelBulkImport').click()}
+                      type="button"
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                    >
+                      <Upload size={14} /> Import Excel
+                    </button>
+                    <input
+                      id="excelBulkImport"
+                      type="file"
+                      accept=".xlsx, .xls"
+                      style={{ display: 'none' }}
+                      onChange={handleExcelImport}
+                    />
+                  </div>
+                </div>
+
                 {bulkRows.map((row, idx) => (
                   <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
                     <div className="flex flex-wrap gap-2 mb-2">

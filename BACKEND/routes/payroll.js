@@ -9,7 +9,7 @@ router.use(protect);
 
 // ✅ FIX: Custom Safe Admin Check (Handles "Admin" vs "admin" casing which causes 401 errors)
 const safeAdminCheck = (req, res, next) => {
-  if (req.user && req.user.role && req.user.role.toLowerCase() === 'admin') {
+  if (req.user && req.user.role && (req.user.role.toLowerCase() === 'admin' || req.user.role.toLowerCase() === 'support-admin')) {
     next();
   } else {
     res.status(401).json({ message: 'Not authorized as an admin' });
@@ -19,7 +19,7 @@ const safeAdminCheck = (req, res, next) => {
 // GET RULES (Scoped)
 router.get('/rules', async (req, res) => {
   try {
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === 'admin';
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === 'admin' || req.user.role.toLowerCase() === 'support-admin');
     const query = isAdmin 
         ? { adminId: req.user._id } 
         : { companyId: req.user.company };
@@ -117,7 +117,7 @@ router.get('/record/:employeeId', async (req, res) => {
     const { month } = req.query; 
     if (!month) return res.status(400).json({ message: "Month required" });
 
-    const isAdmin = req.user.role && req.user.role.toLowerCase() === 'admin';
+    const isAdmin = req.user.role && (req.user.role.toLowerCase() === 'admin' || req.user.role.toLowerCase() === 'support-admin');
 
     // Validate access (Admin or Self)
     if(!isAdmin && req.user.employeeId !== employeeId) {

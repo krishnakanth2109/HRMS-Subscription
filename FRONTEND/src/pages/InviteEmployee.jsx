@@ -926,7 +926,7 @@ useEffect(() => {
                     <Plus size={18} /> Add Employee Row
                   </button>
                   <button onClick={handleSendBulk} disabled={sending || !selectedCompany} className="flex-[2] py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-xl disabled:bg-slate-300">
-                    {sending ? "Blasting Emails..." : `Confirm & Send ${bulkRows.length} Invitations`}
+                    {sending ? "Blasting Emails..." : "Confirm & Send"}
                   </button>
                 </div>
               </div>

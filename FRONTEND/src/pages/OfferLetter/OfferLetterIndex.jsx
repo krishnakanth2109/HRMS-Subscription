@@ -90,7 +90,7 @@ function OfferLetterIndex() {
   };
 
   const toggleAllSelection = () => {
-    const visibleIds = filteredEmployees.map(e => e._id || e.id);
+    const visibleIds = filteredActiveEmployees.map(e => e._id || e.id);
     const allSelected = visibleIds.every(id => selectedIds.has(id));
     const next = new Set(selectedIds);
     if (allSelected) visibleIds.forEach(id => next.delete(id));
@@ -168,6 +168,44 @@ function OfferLetterIndex() {
     pending: employees.filter(e => e.status === 'Pending' || !e.status).length
   }), [employees]);
 
+  const acceptedEmployees = useMemo(() => {
+    return employees.filter(emp => emp.status === 'Accepted');
+  }, [employees]);
+
+  const filteredActiveEmployees = useMemo(() => {
+    return filteredEmployees.filter(emp => emp.status !== 'Accepted');
+  }, [filteredEmployees]);
+
+  const filteredAcceptedEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      if (emp.status !== 'Accepted') return false;
+
+      const s = searchTerm.toLowerCase();
+      const matchNameOrDesig = (emp.name || "").toLowerCase().includes(s) || (emp.designation || "").toLowerCase().includes(s);
+
+      let matchDate = true;
+      if (fromDate || toDate) {
+        const dateVal = emp.createdAt || emp.joining_date;
+        const d = dateVal ? new Date(dateVal) : null;
+        if (d && !isNaN(d.getTime())) {
+          if (fromDate) {
+            const start = new Date(fromDate);
+            start.setHours(0, 0, 0, 0);
+            if (d < start) matchDate = false;
+          }
+          if (toDate) {
+            const end = new Date(toDate);
+            end.setHours(23, 59, 59, 999);
+            if (d > end) matchDate = false;
+          }
+        } else {
+          matchDate = false;
+        }
+      }
+      return matchNameOrDesig && matchDate;
+    });
+  }, [employees, searchTerm, fromDate, toDate]);
+
   const selectedBg = 'var(--accent-soft)';
 
   return (
@@ -197,7 +235,7 @@ function OfferLetterIndex() {
         <div className="ol-toolbar-container" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2rem', padding: '0.4rem 0.6rem', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border-color)', overflowX: 'auto', scrollbarWidth: 'thin', whiteSpace: 'nowrap' }}>
           <div className="ol-toolbar-group" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
             <div style={{ display: 'flex', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: '10px' }}>
-              {['All', 'Pending', 'Offer Sent', 'Accepted', 'Rejected'].map(s => (
+              {['All', 'Pending', 'Offer Sent', 'Rejected'].map(s => (
                 <button key={s} onClick={() => setFilterStatus(s)} style={{ padding: '4px 8px', borderRadius: '6px', border: 'none', background: filterStatus === s ? 'var(--card-bg)' : 'transparent', color: filterStatus === s ? 'var(--accent-color)' : 'var(--text-muted)', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>{s}</button>
               ))}
             </div>
@@ -225,7 +263,7 @@ function OfferLetterIndex() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-tertiary)', padding: '4px 6px', borderRadius: '8px', border: '1px solid var(--border-color)', cursor: 'pointer' }} onClick={toggleAllSelection}>
               <input
                 type="checkbox"
-                checked={filteredEmployees.length > 0 && filteredEmployees.every(e => selectedIds.has(e._id || e.id))}
+                checked={filteredActiveEmployees.length > 0 && filteredActiveEmployees.every(e => selectedIds.has(e._id || e.id))}
                 onChange={() => { }}
                 style={{ width: '14px', height: '14px', cursor: 'pointer' }}
               />
@@ -269,13 +307,13 @@ function OfferLetterIndex() {
           </div>
         </div>
 
-        {filteredEmployees.length === 0 ? (
+        {filteredActiveEmployees.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem', background: 'var(--bg-tertiary)', borderRadius: '24px', border: '2px dashed var(--border-color)', color: 'var(--text-muted)' }}>
-            No employees found.
+            No pending or sent offer letters found.
           </div>
         ) : viewMode === 'grid' ? (
           <div className="ol-responsive-grid">
-            {filteredEmployees.map(emp => {
+            {filteredActiveEmployees.map(emp => {
               const uniqueId = emp._id || emp.id;
               return (<div key={uniqueId} style={{
                 background: selectedIds.has(uniqueId) ? selectedBg : 'var(--card-bg)',
@@ -342,7 +380,7 @@ function OfferLetterIndex() {
                 <thead style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
                   <tr>
                     <th style={{ padding: '1rem', width: '48px', textAlign: 'center' }}>
-                      <input type="checkbox" checked={filteredEmployees.length > 0 && filteredEmployees.every(e => selectedIds.has(e._id || e.id))} onChange={toggleAllSelection} style={{ cursor: 'pointer' }} />
+                      <input type="checkbox" checked={filteredActiveEmployees.length > 0 && filteredActiveEmployees.every(e => selectedIds.has(e._id || e.id))} onChange={toggleAllSelection} style={{ cursor: 'pointer' }} />
                     </th>
                     <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Name</th>
                     <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Designation</th>
@@ -352,7 +390,7 @@ function OfferLetterIndex() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredEmployees.map(emp => {
+                  {filteredActiveEmployees.map(emp => {
                     const uniqueId = emp._id || emp.id;
                     return (<tr key={uniqueId} style={{ borderBottom: '1px solid var(--border-color)', background: selectedIds.has(uniqueId) ? selectedBg : 'transparent', transition: 'background 0.2s' }}>
                       <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -384,6 +422,60 @@ function OfferLetterIndex() {
             </div>
           </div>
         )}
+
+        {/* Accepted Candidates Section */}
+        <div style={{ marginTop: '3.5rem', paddingTop: '2.5rem', borderTop: '2px dashed var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
+            <CheckCircle size={20} style={{ color: 'var(--success-text)' }} />
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Accepted Candidates</h2>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: 'var(--success-bg)', color: 'var(--success-text)' }}>
+              {acceptedEmployees.length}
+            </span>
+          </div>
+
+          {filteredAcceptedEmployees.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '2.5rem', background: 'var(--bg-tertiary)', borderRadius: '16px', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              No accepted candidates found matching search filters.
+            </div>
+          ) : (
+            <div style={{ background: 'var(--card-bg)', borderRadius: '16px', border: '1px solid var(--border-color)', overflow: 'hidden', boxShadow: 'var(--card-shadow)' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' }}>
+                  <thead style={{ background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-color)' }}>
+                    <tr>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Name</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Designation</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Email</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>Date Accepted</th>
+                      <th style={{ padding: '1rem', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAcceptedEmployees.map(emp => {
+                      const uniqueId = emp._id || emp.id;
+                      return (
+                        <tr key={uniqueId} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }}>
+                          <td style={{ padding: '1rem' }}><div style={{ fontWeight: 750 }}>{emp.name || "Unnamed"}</div></td>
+                          <td style={{ padding: '1rem' }}>{emp.designation || "N/A"}</td>
+                          <td style={{ padding: '1rem' }}>{emp.email || "N/A"}</td>
+                          <td style={{ padding: '1rem' }}>
+                            {emp.updatedAt ? new Date(emp.updatedAt).toLocaleDateString() : (emp.createdAt ? new Date(emp.createdAt).toLocaleDateString() : 'N/A')}
+                          </td>
+                          <td style={{ padding: '1rem', textAlign: 'right' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                              <button onClick={() => setSelectedEmployee(emp)} style={{ background: 'var(--success-text)', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.8rem' }}>VIEW OFFER</button>
+                              <button onClick={() => handleViewEmployee(emp)} style={{ padding: '6px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><Eye size={16} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </motion.div>
 
       <AnimatePresence>

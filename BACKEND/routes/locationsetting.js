@@ -27,10 +27,10 @@ const transporter = nodemailer.createTransport({
    SCOPE HELPERS
 =============================================================== */
 const getScopeQuery = (user) =>
-  user.role === "admin" ? { adminId: user._id } : { company: user.company };
+  (user.role === "admin" || user.role === "support-admin") ? { adminId: user._id } : { company: user.company };
 
 const getAdminId = (user) =>
-  user.role === "admin" ? user._id : user.adminId;
+  (user.role === "admin" || user.role === "support-admin") ? user._id : user.adminId;
 
 const getCompanyId = (user) =>
   user.company || user.companyId || user._id;
@@ -822,7 +822,7 @@ router.put("/requests/action", protect, async (req, res) => {
 router.delete("/requests/:id", protect, async (req, res) => {
   try {
     const query = { _id: req.params.id };
-    if (req.user.role === "admin") {
+    if (req.user.role === "admin" || req.user.role === "support-admin") {
       query.adminId = req.user._id;
     } else {
       query.employeeId = req.user.employeeId;
@@ -843,7 +843,7 @@ router.delete("/requests/:id", protect, async (req, res) => {
 router.delete("/requests/my/clear/:employeeId", protect, async (req, res) => {
   try {
     const { employeeId } = req.params;
-    if (req.user.role !== "admin" && req.user.employeeId !== employeeId) {
+    if (req.user.role !== "admin" && req.user.role !== "support-admin" && req.user.employeeId !== employeeId) {
       return res.status(403).json({ message: "Unauthorized" });
     }
     await WorkModeRequest.deleteMany({ employeeId });

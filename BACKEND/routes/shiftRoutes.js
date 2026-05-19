@@ -59,7 +59,7 @@ router.get('/:employeeId', async (req, res) => {
   try {
     const requestedId = req.params.employeeId;
 
-    if (req.user.role !== "admin" && req.user.employeeId !== requestedId) {
+    if (req.user.role !== "admin" && req.user.role !== "support-admin" && req.user.employeeId !== requestedId) {
       return res.status(403).json({ message: "Access denied" });
     }
 

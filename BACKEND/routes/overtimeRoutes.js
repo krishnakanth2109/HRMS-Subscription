@@ -516,7 +516,7 @@ router.patch("/cancel/:id", async (req, res) => {
 ====================================================== */
 router.get("/:employeeId", async (req, res) => {
   try {
-    if (req.user.employeeId !== req.params.employeeId && req.user.role !== "admin") {
+    if (req.user.employeeId !== req.params.employeeId && req.user.role !== "admin" && req.user.role !== "support-admin") {
       return res.status(403).json({ message: "Access denied" });
     }
 

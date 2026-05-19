@@ -65,8 +65,8 @@ export const createNotification = async (req, res) => {
 
     // Determine Hierarchy based on creator
     // Assuming creator is Admin or Employee from req.user
-    const adminId = req.user.role === 'admin' ? req.user._id : req.user.adminId;
-    const companyId = req.user.role === 'admin' ? null : req.user.company; // Admin might target any company, logic depends on frontend payload
+    const adminId = (req.user.role === 'admin' || req.user.role === 'support-admin') ? req.user._id : req.user.adminId;
+    const companyId = (req.user.role === 'admin' || req.user.role === 'support-admin') ? null : req.user.company; // Admin might target any company, logic depends on frontend payload
 
     const notification = await Notification.create({
       adminId, 

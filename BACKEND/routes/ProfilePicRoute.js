@@ -67,8 +67,9 @@ router.get('/:employeeId', protect, async (req, res) => {
 // GET ALL PROFILES FOR ADMIN
 router.get('/all/profiles', protect, async (req, res) => {
   try {
-    const adminId = req.user.role === 'admin' ? req.user._id : req.user.adminId;
-    const companyId = req.user.role === 'admin' ? null : req.user.company;
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'support-admin';
+    const adminId = isAdmin ? req.user._id : req.user.adminId;
+    const companyId = isAdmin ? null : req.user.company;
 
     let query = { adminId };
     if (companyId) query.companyId = companyId;
@@ -99,8 +100,9 @@ router.put('/photo', protect, upload.single('image'), async (req, res) => {
   try {
     const { employeeId, name, email, phone } = req.body;
     // Inject Hierarchy
-    const adminId = req.user.role === 'admin' ? req.user._id : req.user.adminId;
-    const companyId = req.user.role === 'admin' ? null : req.user.company;
+    const isAdmin = req.user.role === 'admin' || req.user.role === 'support-admin';
+    const adminId = isAdmin ? req.user._id : req.user.adminId;
+    const companyId = isAdmin ? null : req.user.company;
 
     if (!employeeId || !name || !email) return res.status(400).json({ message: 'Required fields missing' });
     if (!req.file) return res.status(400).json({ message: 'No image' });
