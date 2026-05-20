@@ -183,7 +183,9 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       gain.gain.setValueAtTime(0.1, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.3);
-    } catch { }
+    } catch (error) {
+      console.error("Error playing notification sound:", error);
+    }
   }, []);
 
   const fetchAndCalculateUnreadNotices = useCallback(async (forceUpdate = false) => {
@@ -191,12 +193,21 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       const data = await getAllNoticesForAdmin();
       const cfg = data.find((n) => n.title === "__SYSTEM_READ_STATE__");
       let state = {};
-      if (cfg) { try { state = JSON.parse(cfg.description); setServerReadState(state); } catch { } }
+      if (cfg) {
+        try {
+          state = JSON.parse(cfg.description);
+          setServerReadState(state);
+        } catch (error) {
+          console.error("Error parsing notice read state:", error);
+        }
+      }
       const real = data.filter((n) => !n.title.startsWith("__SYSTEM_"));
       const count = calculateUnreadNotices(real, state);
       actualUnreadCount.current = count;
       if (!tempHideNoticeBadge || forceUpdate) setUnreadNoticeCount(count);
-    } catch { }
+    } catch (error) {
+      console.error("Error fetching notices:", error);
+    }
   }, [tempHideNoticeBadge]);
 
   const fetchLateRequests = useCallback(async () => {
@@ -255,14 +266,18 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     try {
       const data = await getAllOvertimeRequests();
       setPendingOvertime(data.filter((o) => isPending(o.status)).length);
-    } catch { }
+    } catch (error) {
+      console.error("Error fetching overtime requests:", error);
+    }
   }, []);
 
   const fetchLeaveRequests = useCallback(async () => {
     try {
       const data = await getLeaveRequests();
       setPendingLeaves(data.filter((l) => isPending(l.status)).length);
-    } catch { }
+    } catch (error) {
+      console.error("Error fetching leave requests:", error);
+    }
   }, []);
 
   const fetchPunchOutRequests = useCallback(async () => {
@@ -334,8 +349,13 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     s.on("connect", () => {
       try {
         const raw = sessionStorage.getItem("hrmsUser");
-        if (raw) { const u = JSON.parse(raw); if (u?._id || u?.id) s.emit("register", u?._id || u?.id); }
-      } catch { }
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u?._id || u?.id) s.emit("register", u?._id || u?.id);
+        }
+      } catch (error) {
+        console.error("Error retrieving user from session storage:", error);
+      }
     });
     setSocket(s);
     return () => s.disconnect();
