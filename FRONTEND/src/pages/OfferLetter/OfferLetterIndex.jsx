@@ -282,13 +282,8 @@ function OfferLetterIndex() {
             <button onClick={() => { setSelectedEmployeeForEdit(null); setIsEmployeeViewOnly(false); setIsModalOpen(true); }} style={{ background: 'var(--accent-color)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}><Plus size={14} /> New</button>
             <button onClick={() => setShowTemplateManager(true)} style={{ background: 'var(--success-text)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}><FileText size={14} /> Templates</button>
 
-            <button onClick={() => api.downloadOfferLetterExcelTemplate()} style={{ border: '1px solid var(--success-text)', background: 'transparent', color: 'var(--success-text)', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }} title="Download Excel Template">
-              <Download size={14} />
-            </button>
-
-            <button onClick={() => document.getElementById('olImportFile').click()} style={{ background: 'var(--success-text)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              <Upload size={14} /> Import
-            </button>
+       
+           
 
             <input type="file" accept=".xlsx, .xls, .csv" id="olImportFile" style={{ display: 'none' }} onChange={async e => {
               const file = e.target.files[0];

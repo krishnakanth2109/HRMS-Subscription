@@ -1791,7 +1791,7 @@ const PayrollManagement = () => {
               <thead className="bg-gray-50 text-gray-500 uppercase text-[11px] font-bold tracking-wider border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4">Employee</th>
-                  <th className="px-6 py-4 text-right">Base Salary</th>
+                  <th className="px-6 py-4 text-right">Basic Salary</th>
                   <th className="px-6 py-4 text-center">Leaves / Absent</th>
                   <th className="px-6 py-4 text-center">Worked Days</th>
                   <th className="px-6 py-4 text-center">Full / Half</th>
