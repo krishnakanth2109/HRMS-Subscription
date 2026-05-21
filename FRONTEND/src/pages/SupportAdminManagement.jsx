@@ -16,6 +16,9 @@ import {
 } from "react-icons/fa";
 import api from "../api";
 
+const ADMINISTRATION_LABEL = "Administration";
+const ADMINISTRATION_USER_LABEL = "Administration User";
+
 const formatDate = (value) => {
   if (!value) return "--";
   const date = new Date(value);
@@ -36,6 +39,20 @@ const getInitials = (name = "") =>
     .join("")
     .toUpperCase() || "SA";
 
+const ALL_SIDEBAR_FEATURES = [
+  { id: "/employees", label: "Employee Management", category: "Main" },
+  { id: "/attendance", label: "Employees Attendance", category: "Main" },
+  { id: "/admin/settings", label: "Shift Management", category: "Management" },
+  { id: "/admin/shifttype", label: "Location Settings", category: "Management" },
+  { id: "/admin/leave-summary", label: "Leave Summary", category: "Management" },
+  { id: "/admin/payroll", label: "Payroll", category: "Management" },
+  { id: "/admin/admin-Leavemanage", label: "Leave Management", category: "Requests" },
+  { id: "/admin/late-requests", label: "Attendance Requests", category: "Requests" },
+  { id: "/admin/admin-overtime", label: "Overtime Requests", category: "Requests" },
+  { id: "/admin/live-tracking", label: "Idle Tracking", category: "System" },
+  { id: "/admin/payrollcandidates", label: "Payroll Candidates", category: "System" },
+];
+
 const SupportAdminManagement = () => {
   const [supportAdmins, setSupportAdmins] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -47,13 +64,16 @@ const SupportAdminManagement = () => {
   const [editAdminLoading, setEditAdminLoading] = useState(false);
   const [newAdminForm, setNewAdminForm] = useState({
     supportAdminId: "",
+    positionName: "",
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
+    assignedFeatures: ALL_SIDEBAR_FEATURES.map((f) => f.id),
   });
   const [editAdminForm, setEditAdminForm] = useState({
     supportAdminId: "",
+    positionName: "",
     name: "",
     email: "",
     phone: "",
@@ -61,11 +81,52 @@ const SupportAdminManagement = () => {
     loginEnabled: true,
     password: "",
     confirmPassword: "",
+    assignedFeatures: [],
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [showEditConfirmPassword, setShowEditConfirmPassword] = useState(false);
+
+  const [isFeatureModalOpen, setIsFeatureModalOpen] = useState(false);
+  const [featureModalMode, setFeatureModalMode] = useState("create"); // "create" or "edit"
+
+  const handleToggleFeature = (featureId) => {
+    if (featureModalMode === "create") {
+      setNewAdminForm((prev) => {
+        const current = prev.assignedFeatures || [];
+        const updated = current.includes(featureId)
+          ? current.filter((id) => id !== featureId)
+          : [...current, featureId];
+        return { ...prev, assignedFeatures: updated };
+      });
+    } else {
+      setEditAdminForm((prev) => {
+        const current = prev.assignedFeatures || [];
+        const updated = current.includes(featureId)
+          ? current.filter((id) => id !== featureId)
+          : [...current, featureId];
+        return { ...prev, assignedFeatures: updated };
+      });
+    }
+  };
+
+  const handleSelectAllFeatures = () => {
+    const allIds = ALL_SIDEBAR_FEATURES.map((f) => f.id);
+    if (featureModalMode === "create") {
+      setNewAdminForm((prev) => ({ ...prev, assignedFeatures: allIds }));
+    } else {
+      setEditAdminForm((prev) => ({ ...prev, assignedFeatures: allIds }));
+    }
+  };
+
+  const handleClearAllFeatures = () => {
+    if (featureModalMode === "create") {
+      setNewAdminForm((prev) => ({ ...prev, assignedFeatures: [] }));
+    } else {
+      setEditAdminForm((prev) => ({ ...prev, assignedFeatures: [] }));
+    }
+  };
 
   const loadProfile = useCallback(async () => {
     try {
@@ -85,7 +146,7 @@ const SupportAdminManagement = () => {
       console.error("Failed to fetch support admins:", error);
       Swal.fire({
         icon: "error",
-        title: "Unable to load support admins",
+        title: `Unable to load ${ADMINISTRATION_LABEL.toLowerCase()} users`,
         text: error.response?.data?.message || "Please try again.",
       });
       setSupportAdmins([]);
@@ -107,7 +168,7 @@ const SupportAdminManagement = () => {
   const handleDelete = async (admin) => {
     const result = await Swal.fire({
       icon: "warning",
-      title: "Delete support admin?",
+      title: `Delete ${ADMINISTRATION_USER_LABEL.toLowerCase()}?`,
       text: `${admin.name} will no longer be able to access the admin panel.`,
       showCancelButton: true,
       confirmButtonText: "Delete",
@@ -124,7 +185,7 @@ const SupportAdminManagement = () => {
       Swal.fire({
         icon: "success",
         title: "Deleted",
-        text: "Support admin removed successfully.",
+        text: `${ADMINISTRATION_USER_LABEL} removed successfully.`,
         timer: 1600,
         showConfirmButton: false,
       });
@@ -143,7 +204,7 @@ const SupportAdminManagement = () => {
     event.preventDefault();
 
     if (!newAdminForm.supportAdminId.trim()) {
-      Swal.fire({ icon: "warning", title: "Support Admin ID required", text: "Please enter a unique ID for this support admin." });
+      Swal.fire({ icon: "warning", title: `${ADMINISTRATION_LABEL} ID required`, text: `Please enter a unique ID for this ${ADMINISTRATION_USER_LABEL.toLowerCase()}.` });
       return;
     }
 
@@ -161,20 +222,30 @@ const SupportAdminManagement = () => {
     try {
       await api.post("/api/admin/support-admins", {
         supportAdminId: newAdminForm.supportAdminId.trim(),
+        positionName: newAdminForm.positionName || ADMINISTRATION_LABEL,
         name: newAdminForm.name,
         email: newAdminForm.email,
         password: newAdminForm.password,
         phone: profile?.phone || "",
-        department: profile?.department || "Support Administration",
+        department: profile?.department || ADMINISTRATION_LABEL,
         adminId: profile?.adminId || profile?._id,
+        assignedFeatures: newAdminForm.assignedFeatures,
       });
 
       setIsCreateModalOpen(false);
-      setNewAdminForm({ supportAdminId: "", name: "", email: "", password: "", confirmPassword: "" });
+      setNewAdminForm({
+        supportAdminId: "",
+        positionName: "",
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        assignedFeatures: ALL_SIDEBAR_FEATURES.map((f) => f.id),
+      });
       await loadSupportAdmins();
       Swal.fire({
         icon: "success",
-        title: "Support admin created",
+        title: `${ADMINISTRATION_USER_LABEL} created`,
         timer: 1600,
         showConfirmButton: false,
       });
@@ -193,13 +264,15 @@ const SupportAdminManagement = () => {
     setEditingAdmin(admin);
     setEditAdminForm({
       supportAdminId: admin.supportAdminId || "",
+      positionName: admin.positionName || ADMINISTRATION_LABEL,
       name: admin.name || "",
       email: admin.email || "",
       phone: admin.phone || "",
-      department: admin.department || "Support Administration",
+      department: admin.department || ADMINISTRATION_LABEL,
       loginEnabled: admin.loginEnabled !== false,
       password: "",
       confirmPassword: "",
+      assignedFeatures: admin.assignedFeatures || ALL_SIDEBAR_FEATURES.map((f) => f.id),
     });
   };
 
@@ -214,7 +287,7 @@ const SupportAdminManagement = () => {
     if (!editingAdmin) return;
 
     if (!editAdminForm.supportAdminId.trim()) {
-      Swal.fire({ icon: "warning", title: "Support Admin ID required", text: "Please enter a unique ID for this support admin." });
+      Swal.fire({ icon: "warning", title: `${ADMINISTRATION_LABEL} ID required`, text: `Please enter a unique ID for this ${ADMINISTRATION_USER_LABEL.toLowerCase()}.` });
       return;
     }
 
@@ -233,11 +306,13 @@ const SupportAdminManagement = () => {
     try {
       const payload = {
         supportAdminId: editAdminForm.supportAdminId.trim(),
+        positionName: editAdminForm.positionName || ADMINISTRATION_LABEL,
         name: editAdminForm.name,
         email: editAdminForm.email,
         phone: editAdminForm.phone,
         department: editAdminForm.department,
         loginEnabled: editAdminForm.loginEnabled,
+        assignedFeatures: editAdminForm.assignedFeatures,
       };
 
       if (editAdminForm.password) {
@@ -249,7 +324,7 @@ const SupportAdminManagement = () => {
       await loadSupportAdmins();
       Swal.fire({
         icon: "success",
-        title: "Support admin updated",
+        title: `${ADMINISTRATION_USER_LABEL} updated`,
         timer: 1600,
         showConfirmButton: false,
       });
@@ -273,7 +348,7 @@ const SupportAdminManagement = () => {
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-2 rounded-2xl bg-purple-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700"
           >
-            <FaPlus size={14} /> Create Support Admin
+            <FaPlus size={14} /> Create {ADMINISTRATION_LABEL}
           </button>
         </div>
 
@@ -284,10 +359,10 @@ const SupportAdminManagement = () => {
                 <FaUserShield /> Admin Team
               </div>
               <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900 md:text-3xl">
-                Support Admin Management
+                {ADMINISTRATION_LABEL} Management
               </h1>
               <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500">
-                View support admin accounts and their access status.
+                View administration accounts, positions, and their access status.
               </p>
             </div>
 
@@ -307,7 +382,7 @@ const SupportAdminManagement = () => {
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-slate-500">
-              <FaShieldAlt className="text-indigo-500" /> Support Admins
+              <FaShieldAlt className="text-indigo-500" /> {ADMINISTRATION_LABEL}
             </h2>
           </div>
 
@@ -317,6 +392,7 @@ const SupportAdminManagement = () => {
                 <tr>
                   <th className="px-6 py-4">Name</th>
                   <th className="whitespace-nowrap px-6 py-4">ID</th>
+                  <th className="px-6 py-4">Position</th>
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4">Phone</th>
                   <th className="px-6 py-4">Department</th>
@@ -329,7 +405,7 @@ const SupportAdminManagement = () => {
                 {loading ? (
                   Array.from({ length: 4 }).map((_, index) => (
                     <tr key={index} className="animate-pulse">
-                      {Array.from({ length: 8 }).map((__, cell) => (
+                      {Array.from({ length: 9 }).map((__, cell) => (
                         <td key={cell} className="px-6 py-5">
                           <div className="h-4 rounded bg-slate-100" />
                         </td>
@@ -338,8 +414,8 @@ const SupportAdminManagement = () => {
                   ))
                 ) : supportAdmins.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="px-6 py-16 text-center text-sm font-bold text-slate-400">
-                      No support admins found.
+                    <td colSpan="9" className="px-6 py-16 text-center text-sm font-bold text-slate-400">
+                      No administration users found.
                     </td>
                   </tr>
                 ) : (
@@ -359,13 +435,14 @@ const SupportAdminManagement = () => {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-6 py-5 font-black text-slate-700">{admin.supportAdminId || "--"}</td>
+                      <td className="px-6 py-5 font-bold text-slate-600">{admin.positionName || ADMINISTRATION_LABEL}</td>
                       <td className="px-6 py-5">
                         <a href={`mailto:${admin.email}`} className="font-bold text-slate-700 hover:text-indigo-600">
                           {admin.email}
                         </a>
                       </td>
                       <td className="px-6 py-5 font-bold text-slate-600">{admin.phone || "--"}</td>
-                      <td className="px-6 py-5 font-bold text-slate-600">{admin.department || "Support Administration"}</td>
+                      <td className="px-6 py-5 font-bold text-slate-600">{admin.department || ADMINISTRATION_LABEL}</td>
                       <td className="px-6 py-5 font-bold text-slate-600">{formatDate(admin.createdAt)}</td>
                       <td className="px-6 py-5 text-center">
                         <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${admin.loginEnabled === false ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}>
@@ -386,7 +463,7 @@ const SupportAdminManagement = () => {
                             type="button"
                             onClick={() => openEditModal(admin)}
                             className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-blue-600 transition hover:bg-blue-100"
-                            title="Edit Support Admin"
+                            title={`Edit ${ADMINISTRATION_USER_LABEL}`}
                           >
                             <FaEdit />
                           </button>
@@ -395,7 +472,7 @@ const SupportAdminManagement = () => {
                             onClick={() => handleDelete(admin)}
                             disabled={deletingId === admin._id}
                             className="rounded-xl border border-red-100 bg-red-50 p-2 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
-                            title="Delete Support Admin"
+                            title={`Delete ${ADMINISTRATION_USER_LABEL}`}
                           >
                             <FaTrash />
                           </button>
@@ -415,7 +492,7 @@ const SupportAdminManagement = () => {
               ))
             ) : supportAdmins.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center text-sm font-bold text-slate-400">
-                No support admins found.
+                No administration users found.
               </div>
             ) : (
               supportAdmins.map((admin) => (
@@ -431,6 +508,9 @@ const SupportAdminManagement = () => {
                           <p className="mt-1 flex items-center gap-1 whitespace-nowrap text-xs font-black text-indigo-600">
                             <FaIdBadge /> {admin.supportAdminId || "--"}
                           </p>
+                          <p className="mt-1 text-xs font-black uppercase tracking-widest text-blue-600">
+                            {admin.positionName || ADMINISTRATION_LABEL}
+                          </p>
                           <p className="mt-1 flex items-center gap-1 text-xs font-bold text-slate-500">
                             <FaEnvelope /> {admin.email}
                           </p>
@@ -442,7 +522,7 @@ const SupportAdminManagement = () => {
                       <div className="mt-4 grid grid-cols-2 gap-3 text-xs font-bold text-slate-600">
                         <div className="rounded-xl bg-slate-50 p-3">
                           <p className="text-[9px] uppercase tracking-widest text-slate-400">Department</p>
-                          <p className="mt-1">{admin.department || "Support Administration"}</p>
+                          <p className="mt-1">{admin.department || ADMINISTRATION_LABEL}</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 p-3">
                           <p className="text-[9px] uppercase tracking-widest text-slate-400">Created</p>
@@ -493,12 +573,12 @@ const SupportAdminManagement = () => {
               <FaTimes size={20} />
             </button>
             <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
-              <FaUser className="text-purple-600" /> Create New Support Admin
+              <FaUser className="text-purple-600" /> Create New {ADMINISTRATION_USER_LABEL}
             </h2>
 
             <form onSubmit={handleCreateSupportAdmin} className="space-y-4">
               <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Support Admin ID</label>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{ADMINISTRATION_LABEL} ID</label>
                 <input
                   type="text"
                   required
@@ -506,6 +586,18 @@ const SupportAdminManagement = () => {
                   onChange={(event) => setNewAdminForm({ ...newAdminForm, supportAdminId: event.target.value })}
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
                   placeholder="SA-001"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Position</label>
+                <input
+                  type="text"
+                  required
+                  value={newAdminForm.positionName}
+                  onChange={(event) => setNewAdminForm({ ...newAdminForm, positionName: event.target.value })}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+                  placeholder="Admin, Manager"
                 />
               </div>
 
@@ -578,11 +670,22 @@ const SupportAdminManagement = () => {
               </div>
 
               <button
+                type="button"
+                onClick={() => {
+                  setFeatureModalMode("create");
+                  setIsFeatureModalOpen(true);
+                }}
+                className="flex w-full justify-center items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-3 font-bold text-purple-700 transition hover:bg-purple-100"
+              >
+                <FaShieldAlt size={14} /> Plan Features
+              </button>
+
+              <button
                 type="submit"
                 disabled={createAdminLoading}
                 className="flex w-full justify-center rounded-xl bg-purple-600 py-3 font-bold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700 disabled:opacity-70"
               >
-                {createAdminLoading ? <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" /> : "Create Support Admin"}
+                {createAdminLoading ? <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" /> : `Create ${ADMINISTRATION_LABEL}`}
               </button>
             </form>
           </div>
@@ -600,13 +703,13 @@ const SupportAdminManagement = () => {
               <FaTimes size={20} />
             </button>
             <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
-              <FaEdit className="text-blue-600" /> Edit Support Admin
+              <FaEdit className="text-blue-600" /> Edit {ADMINISTRATION_USER_LABEL}
             </h2>
 
             <form onSubmit={handleUpdateSupportAdmin} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Support Admin ID</label>
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{ADMINISTRATION_LABEL} ID</label>
                   <input
                     type="text"
                     required
@@ -618,6 +721,19 @@ const SupportAdminManagement = () => {
                 </div>
 
                 <div>
+                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Position</label>
+                  <input
+                    type="text"
+                    required
+                    value={editAdminForm.positionName}
+                    onChange={(event) => setEditAdminForm({ ...editAdminForm, positionName: event.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                    placeholder="Admin, Manager"
+                  />
+                </div>
+              </div>
+
+              <div>
                   <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
                   <input
                     type="text"
@@ -626,7 +742,6 @@ const SupportAdminManagement = () => {
                     onChange={(event) => setEditAdminForm({ ...editAdminForm, name: event.target.value })}
                     className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
                   />
-                </div>
               </div>
 
               <div>
@@ -659,7 +774,7 @@ const SupportAdminManagement = () => {
                     value={editAdminForm.department}
                     onChange={(event) => setEditAdminForm({ ...editAdminForm, department: event.target.value })}
                     className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                    placeholder="Support Administration"
+                    placeholder={ADMINISTRATION_LABEL}
                   />
                 </div>
               </div>
@@ -722,6 +837,17 @@ const SupportAdminManagement = () => {
                 </div>
               </div>
 
+              <button
+                type="button"
+                onClick={() => {
+                  setFeatureModalMode("edit");
+                  setIsFeatureModalOpen(true);
+                }}
+                className="flex w-full justify-center items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-3 font-bold text-blue-700 transition hover:bg-blue-100 mb-4"
+              >
+                <FaShieldAlt size={14} /> Plan Features
+              </button>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -739,6 +865,94 @@ const SupportAdminManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isFeatureModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setIsFeatureModalOpen(false)}
+              className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
+            >
+              <FaTimes size={20} />
+            </button>
+            <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-gray-900">
+              <FaShieldAlt className={featureModalMode === "create" ? "text-purple-600" : "text-blue-600"} /> Plan Features
+            </h2>
+            <p className="mb-6 text-xs font-semibold text-slate-500">
+              Configure which sidebar pages this administration user can access.
+            </p>
+
+            <div className="mb-6 flex gap-3">
+              <button
+                type="button"
+                onClick={handleSelectAllFeatures}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAllFeatures}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                Clear All
+              </button>
+            </div>
+
+            <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
+              {Object.entries(
+                ALL_SIDEBAR_FEATURES.reduce((acc, feature) => {
+                  if (!acc[feature.category]) acc[feature.category] = [];
+                  acc[feature.category].push(feature);
+                  return acc;
+                }, {})
+              ).map(([category, features]) => (
+                <div key={category} className="space-y-2">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1">
+                    {category}
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {features.map((feature) => {
+                      const isChecked = featureModalMode === "create"
+                        ? (newAdminForm.assignedFeatures || []).includes(feature.id)
+                        : (editAdminForm.assignedFeatures || []).includes(feature.id);
+                      return (
+                        <label
+                          key={feature.id}
+                          className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 transition hover:bg-slate-50"
+                        >
+                          <span className="text-sm font-bold text-slate-700">{feature.label}</span>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleFeature(feature.id)}
+                            className={`h-5 w-5 rounded-lg ${featureModalMode === "create" ? "accent-purple-600" : "accent-blue-600"}`}
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8">
+              <button
+                type="button"
+                onClick={() => setIsFeatureModalOpen(false)}
+                className={`w-full rounded-xl py-3 font-bold text-white shadow-lg transition-all ${
+                  featureModalMode === "create"
+                    ? "bg-purple-600 shadow-purple-200 hover:bg-purple-700"
+                    : "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
+                }`}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

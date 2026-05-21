@@ -101,7 +101,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           icon: LayoutDashboard,
         },
         {
-          label: "Support Admin",
+          label: "Administration",
           icon: Users,
           children: [
             {
@@ -109,14 +109,14 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                 ? `/support-admin/attendance/profile/${supportAdminId}`
                 : "/support-admin/my-attendance",
               route: "/support-admin/attendance/profile",
-              label: "Support Admin Attendance",
+              label: "Attendance",
               icon: UserCheck,
               alwaysAllowed: true,
             },
             {
               to: "/support-admin/management",
               route: "/support-admin/management",
-              label: "Support Admin Management",
+              label: "Management",
               icon: Users,
               alwaysAllowed: true,
             },

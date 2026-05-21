@@ -44,6 +44,55 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("hrmsUser");
+      if (raw) {
+        setCurrentUser(JSON.parse(raw));
+      }
+    } catch (error) {
+      console.error("Error retrieving user from session storage:", error);
+    }
+  }, []);
+
+  const MANDATORY_ROUTES = [
+    "/support-admin/dashboard",
+    "/admin/dashboard",
+    "/support-admin/my-attendance",
+    "/admin/holiday-calendar",
+    "/support-admin/leave-requests",
+    "/admin/notices",
+    "/admin/setup-face"
+  ];
+
+  const isFeatureAssignedToSupportAdmin = (link) => {
+    if (!currentUser || currentUser.role !== "support-admin") return true;
+
+    if (
+      MANDATORY_ROUTES.includes(link.to) ||
+      MANDATORY_ROUTES.includes(link.route)
+    ) {
+      return true;
+    }
+
+    if (currentUser.assignedFeatures === undefined || currentUser.assignedFeatures === null) {
+      return true;
+    }
+
+    const assigned = Array.isArray(currentUser.assignedFeatures) ? currentUser.assignedFeatures : [];
+    return assigned.includes(link.to) || assigned.includes(link.route);
+  };
+
+  const handleSupportAdminRestrictedClick = () => {
+    Swal.fire({
+      icon: "warning",
+      title: "please contact admin for access",
+      confirmButtonColor: "#4f46e5",
+    });
+  };
+
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [pendingOvertime, setPendingOvertime] = useState(0);
   const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
@@ -614,25 +663,44 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                       return (
                         <div key={lIdx}>
                           {isAllowed ? (
-                            <NavLink
-                              to={link.to}
-                              className={({ isActive }) => `
-                                group flex items-center gap-3 px-3 min-h-[44px] rounded-md transition-all duration-200
-                                ${isActive 
-                                  ? "bg-indigo-500/10 text-indigo-400 border-l-2 border-indigo-500" 
-                                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-l-2 border-transparent"}
-                                ${collapsed && !isMobile ? "justify-center px-0" : ""}
-                              `}
-                              title={collapsed && !isMobile ? link.label : ""}
-                            >
-                              <Icon size={20} className="shrink-0" />
-                              {(!collapsed || isMobile) && (
-                                <>
-                                  <span className="text-[14px] font-medium truncate">{link.label}</span>
-                                  {renderBadge(link)}
-                                </>
-                              )}
-                            </NavLink>
+                            isFeatureAssignedToSupportAdmin(link) ? (
+                              <NavLink
+                                to={link.to}
+                                className={({ isActive }) => `
+                                  group flex items-center gap-3 px-3 min-h-[44px] rounded-md transition-all duration-200
+                                  ${isActive 
+                                    ? "bg-indigo-500/10 text-indigo-400 border-l-2 border-indigo-500" 
+                                    : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-l-2 border-transparent"}
+                                  ${collapsed && !isMobile ? "justify-center px-0" : ""}
+                                `}
+                                title={collapsed && !isMobile ? link.label : ""}
+                              >
+                                <Icon size={20} className="shrink-0" />
+                                {(!collapsed || isMobile) && (
+                                  <>
+                                    <span className="text-[14px] font-medium truncate">{link.label}</span>
+                                    {renderBadge(link)}
+                                  </>
+                                )}
+                              </NavLink>
+                            ) : (
+                              <div
+                                onClick={handleSupportAdminRestrictedClick}
+                                className={`
+                                  flex items-center gap-3 px-3 min-h-[44px] rounded-md text-slate-600 cursor-pointer hover:bg-slate-800/30 transition-all
+                                  ${collapsed && !isMobile ? "justify-center px-0" : ""}
+                                `}
+                                title={collapsed && !isMobile ? link.label : ""}
+                              >
+                                <Icon size={20} className="shrink-0 opacity-50" />
+                                {(!collapsed || isMobile) && (
+                                  <>
+                                    <span className="text-[14px] font-medium truncate">{link.label}</span>
+                                    <Lock size={12} className="ml-auto opacity-50 text-red-500" />
+                                  </>
+                                )}
+                              </div>
+                            )
                           ) : (
                             <div
                               onClick={() => handleDisabledClick(link.label)}
@@ -643,16 +711,16 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                             >
                               <Icon size={20} className="shrink-0 opacity-50" />
                               {(!collapsed || isMobile) && (
-                                <>
-                                  <span className="text-[14px] font-medium truncate">{link.label}</span>
-                                  <Lock size={12} className="ml-auto opacity-50" />
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                                  <>
+                                    <span className="text-[14px] font-medium truncate">{link.label}</span>
+                                    <Lock size={12} className="ml-auto opacity-50" />
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               );

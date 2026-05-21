@@ -117,7 +117,6 @@ const SupportAdminDashboard = () => {
   const { getDashboardData } = useContext(AttendanceContext);
   const { leaveRequests: ctxLeaveRequests } = useContext(LeaveRequestContext);
   const navigate = useNavigate();
-
   // Profile & Attendance States for Support Admin Personal Section
   const [profileImage, setProfileImage] = useState(
     sessionStorage.getItem("profileImage_supportAdmin") || null
@@ -145,6 +144,7 @@ const SupportAdminDashboard = () => {
   const alarmPlayedRef = useRef(false);
 
   const targetEmployeeId = user?.employeeId || user?.actualId || user?._id;
+  const displayAdministrationId = adminProfile?.supportAdminId || user?.supportAdminId || targetEmployeeId;
   const todayIso = new Date().toISOString().split("T")[0];
 
   const speak = (text) => {
@@ -822,7 +822,7 @@ const SupportAdminDashboard = () => {
       <div className="relative z-10 w-full h-full overflow-y-auto p-6 pb-20 internal-scroll">
         
       {/* Profile Section */}
-      <div className="bg-white/60 backdrop-blur-md border border-gray-200 rounded-2xl shadow-lg p-5 md:p-6 mb-8 flex flex-col md:flex-row items-center md:items-start gap-6 relative z-10 overflow-visible">
+      <div className="bg-white/60 backdrop-blur-md border border-gray-200 rounded-2xl shadow-lg p-5 md:p-6 mb-8 flex flex-col md:flex-row items-center md:items-start gap-6 relative z-30 overflow-visible">
         <div className="flex flex-col items-center shrink-0">
           <div className="relative group/profile">
             <img
@@ -869,7 +869,7 @@ const SupportAdminDashboard = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-gray-600 mt-2 text-sm font-medium border-t border-gray-100 pt-4 md:border-none md:pt-0">
                 <div className="flex items-center justify-between md:justify-start md:gap-2">
-                  <b className="text-gray-800">ID:</b> <span>{targetEmployeeId}</span>
+                  <b className="text-gray-800">ID:</b> <span>{displayAdministrationId}</span>
                 </div>
                 <div className="flex items-center justify-between md:justify-start md:gap-2">
                   <b className="text-gray-800">Email:</b> <span className="truncate max-w-[150px] md:max-w-none">{adminProfile?.email || user?.email || ""}</span>
@@ -923,7 +923,7 @@ const SupportAdminDashboard = () => {
 
                 {shiftTimings && (
                   <div className="relative grow sm:grow-0" ref={dropdownRef}>
-                    <button onClick={() => setIsShiftDropdownOpen(!isShiftDropdownOpen)} className="flex items-center justify-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-4 py-2 rounded-xl shadow-sm hover:bg-indigo-50 transition-all text-xs font-bold h-11 w-full sm:w-auto"> <FaRegClock /> Shift <FaChevronDown className={`transform transition-transform ${isShiftDropdownOpen ? 'rotate-180' : ''}`} size={10} /> </button>
+                    <button onClick={() => setIsShiftDropdownOpen(!isShiftDropdownOpen)} className="flex items-center justify-center gap-2 bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-xl shadow-sm hover:bg-blue-50 transition-all text-xs font-bold h-11 w-full sm:w-auto"> <FaRegClock /> Shift <FaChevronDown className={`transform transition-transform ${isShiftDropdownOpen ? 'rotate-180' : ''}`} size={10} /> </button>
                     {isShiftDropdownOpen && (
                       <div className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 mt-2 sm:w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[100] p-5 animate-fade-in-down"
                         onClick={(e) => e.stopPropagation()}>
@@ -932,13 +932,13 @@ const SupportAdminDashboard = () => {
                           <div className="flex justify-between"><span>Start Time:</span> <span className="font-bold text-gray-900">{formatTimeDisplay(shiftTimings.shiftStartTime)}</span></div>
                           <div className="flex justify-between"><span>End Time:</span> <span className="font-bold text-gray-900">{formatTimeDisplay(shiftTimings.shiftEndTime)}</span></div>
 
-                          <div className="flex justify-between bg-indigo-50 p-2 rounded-lg border border-indigo-100 mt-2"><span>Required:</span> <span className="font-bold text-indigo-700">{calculatedTargetHours}</span></div>
+                          <div className="flex justify-between bg-blue-50 p-2 rounded-lg border border-blue-100 mt-2"><span>Required:</span> <span className="font-bold text-blue-700">{getTargetWorkHours()}</span></div>
                           <div className="flex justify-between text-[11px] text-gray-500"><span>Min Half Day:</span> <span>{getTargetHalfDayHours()}</span></div>
                           <div className="flex justify-between text-[11px] text-gray-500"><span>Grace:</span> <span>{shiftTimings.lateGracePeriod} mins</span></div>
 
                           <div className="pt-3 border-t border-gray-100 mt-2">
                             <span className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">Weekly Offs:</span>
-                            <div className="font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded text-xs">{getDayNames(shiftTimings.weeklyOffDays)}</div>
+                            <div className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded text-xs">{getDayNames(shiftTimings.weeklyOffDays)}</div>
                           </div>
                         </div>
                       </div>

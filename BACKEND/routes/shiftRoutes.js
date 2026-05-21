@@ -2,11 +2,47 @@
 import express from 'express';
 import Shift from '../models/shiftModel.js';
 import Employee from '../models/employeeModel.js';
+import SupportAdmin from '../models/supportAdminModel.js';
+import Company from '../models/CompanyModel.js';
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 router.use(protect);
+
+const resolveShiftCandidate = async (candidateId, adminId) => {
+  const cleanId = String(candidateId || "").trim();
+  if (!cleanId) return null;
+
+  const employee = await Employee.findOne({ employeeId: cleanId, adminId });
+  if (employee) {
+    return {
+      employeeId: cleanId,
+      companyId: employee.company,
+      employeeName: employee.name,
+      email: employee.email,
+      department: employee.currentDepartment || employee.department || "N/A",
+      role: employee.currentRole || employee.role || "Employee",
+    };
+  }
+
+  const supportAdmin = await SupportAdmin.findOne({ _id: cleanId, adminId });
+  if (!supportAdmin) return null;
+
+  const company = await Company.findOne({ adminId, isActive: true }).sort({ createdAt: 1 });
+  if (!company) {
+    throw new Error("No active company found for assigning administration shift");
+  }
+
+  return {
+    employeeId: cleanId,
+    companyId: company._id,
+    employeeName: supportAdmin.name,
+    email: supportAdmin.email,
+    department: supportAdmin.department || "Administration",
+    role: supportAdmin.positionName || "Administration",
+  };
+};
 
 /* ============================================================
    🟥 ADMIN ONLY → CREATE / UPDATE SHIFT
@@ -14,20 +50,22 @@ router.use(protect);
 router.post('/create', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, ...shiftData } = req.body;
-    const cleanId = employeeId.trim();
+    const cleanId = String(employeeId || "").trim();
 
-    // Verify Employee belongs to Admin
-    const employee = await Employee.findOne({ employeeId: cleanId, adminId: req.user._id });
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+    const candidate = await resolveShiftCandidate(cleanId, req.user._id);
+    if (!candidate) return res.status(404).json({ message: 'Employee or administration user not found' });
 
     // Update or Create Shift with Hierarchy
     const shift = await Shift.findOneAndUpdate(
         { employeeId: cleanId },
         { 
             adminId: req.user._id,
-            companyId: employee.company,
+            companyId: candidate.companyId,
             ...shiftData, 
-            employeeName: employee.name,
+            employeeName: candidate.employeeName,
+            email: candidate.email,
+            department: candidate.department,
+            role: candidate.role,
             isActive: true 
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -114,15 +152,18 @@ router.post('/bulk-create', onlyAdmin, async (req, res) => {
     }
 
     const promises = employeeIds.map(async (empId) => {
-      const cleanId = empId.trim();
-      const employee = await Employee.findOne({ employeeId: cleanId, adminId: req.user._id });
-      if (!employee) return;
+      const cleanId = String(empId || "").trim();
+      const candidate = await resolveShiftCandidate(cleanId, req.user._id);
+      if (!candidate) return;
 
       const updateData = {
         ...shiftData,
         adminId: req.user._id,
-        companyId: employee.company,
-        employeeName: employee.name,
+        companyId: candidate.companyId,
+        employeeName: candidate.employeeName,
+        email: candidate.email,
+        department: candidate.department,
+        role: candidate.role,
         isActive: true
       };
 

@@ -32,6 +32,7 @@ const supportAdminSchema = new mongoose.Schema(
       default: "support-admin",
     },
 
+    positionName: { type: String, default: "Administration" },
     phone: { type: String, default: "" },
     department: { type: String, default: "Support Administration" },
     
@@ -40,6 +41,9 @@ const supportAdminSchema = new mongoose.Schema(
 
     /* ==================== LOGIN ACCESS CONTROL ==================== */
     loginEnabled: { type: Boolean, default: true },
+
+    /* ==================== ASSIGNED FEATURES ==================== */
+    assignedFeatures: { type: [String], default: undefined },
   },
   { timestamps: true }
 );

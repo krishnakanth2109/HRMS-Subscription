@@ -501,7 +501,7 @@ export const changeAdminPassword = async (req, res) => {
 /* ==================== REGISTER SUPPORT ADMIN ==================== */
 export const registerSupportAdmin = async (req, res) => {
   try {
-    const { supportAdminId, name, email, password, phone, department, adminId } = req.body;
+    const { supportAdminId, name, email, password, positionName, phone, department, adminId, assignedFeatures } = req.body;
 
     if (!supportAdminId || !name || !email || !password || !adminId) {
       return res.status(400).json({ message: "Support Admin ID, name, email, password, and adminId are required" });
@@ -523,11 +523,13 @@ export const registerSupportAdmin = async (req, res) => {
       name,
       email,
       password,
+      positionName: positionName || "Administration",
       phone: phone || "",
       department: department || "Support Administration",
       adminId: adminId,
       loginEnabled: true,
-      role: "support-admin"
+      role: "support-admin",
+      assignedFeatures: assignedFeatures
     });
 
     res.status(201).json({ message: "Support Admin registered successfully", manager: supportAdmin });
@@ -542,7 +544,7 @@ export const updateSupportAdmin = async (req, res) => {
   try {
     const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
     const { id } = req.params;
-    const { supportAdminId, name, email, phone, department, loginEnabled, password } = req.body;
+    const { supportAdminId, name, email, positionName, phone, department, loginEnabled, password, assignedFeatures } = req.body;
 
     if (!supportAdminId || !name || !email) {
       return res.status(400).json({ message: "Support Admin ID, name, and email are required" });
@@ -571,9 +573,14 @@ export const updateSupportAdmin = async (req, res) => {
     supportAdmin.supportAdminId = supportAdminId;
     supportAdmin.name = name;
     supportAdmin.email = email;
+    supportAdmin.positionName = positionName || "Administration";
     supportAdmin.phone = phone || "";
     supportAdmin.department = department || "Support Administration";
     supportAdmin.loginEnabled = loginEnabled !== false;
+
+    if (assignedFeatures) {
+      supportAdmin.assignedFeatures = assignedFeatures;
+    }
 
     if (password) {
       if (password.length < 8) {
