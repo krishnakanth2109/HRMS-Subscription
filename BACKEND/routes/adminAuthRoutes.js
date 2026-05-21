@@ -18,7 +18,8 @@ import {
     changeAdminPassword,
     getSupportAdmins,
     deleteSupportAdmin,
-    registerSupportAdmin
+    registerSupportAdmin,
+    updateSupportAdmin
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -32,6 +33,7 @@ router.get("/profile", protect, getAdminProfile);
 router.put("/profile/update", protect, updateAdminProfile);
 router.post("/support-admins", protect, registerSupportAdmin);
 router.get("/support-admins", protect, getSupportAdmins);
+router.put("/support-admins/:id", protect, updateSupportAdmin);
 router.delete("/support-admins/:id", protect, deleteSupportAdmin);
 
 // Public routes (no protect)

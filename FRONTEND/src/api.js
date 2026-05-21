@@ -29,12 +29,15 @@ api.interceptors.request.use(
 
     // 2. If no Master token, check for regular Admin/Employee tokens
     if (!token) {
-      token = sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
+      token =
+        sessionStorage.getItem("token") || sessionStorage.getItem("hrms-token");
     }
 
     // 3. If still not found, try finding it inside the user object (Legacy support)
     if (!token) {
-      const savedUser = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+      const savedUser =
+        sessionStorage.getItem("hrmsUser") ||
+        sessionStorage.getItem("hrmsUser");
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
@@ -53,7 +56,7 @@ api.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 /* =============================================================================
@@ -62,11 +65,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => {
     // Read logged user to determine role
-    const rawUser = sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
+    const rawUser =
+      sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser");
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;
-    } catch { }
+    } catch {}
 
     const isEmployee = user?.role === "Employee";
 
@@ -81,7 +85,7 @@ api.interceptors.response.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 /* =============================================================================
@@ -136,7 +140,10 @@ export const registerFaceApi = async (descriptors) => {
     const response = await api.post("/api/face-auth/register", { descriptors });
     return response.data;
   } catch (error) {
-    console.error("Face register failed:", error.response?.data || error.message);
+    console.error(
+      "Face register failed:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
@@ -146,7 +153,10 @@ export const checkFaceStatusApi = async () => {
     const response = await api.get("/api/face-auth/status");
     return response.data;
   } catch (error) {
-    console.error("Face status check failed:", error.response?.data || error.message);
+    console.error(
+      "Face status check failed:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
@@ -160,7 +170,6 @@ export const deleteFaceApi = async () => {
     throw error;
   }
 };
-
 
 /* =============================================================================
    EMPLOYEE MANAGEMENT
@@ -231,9 +240,13 @@ export const generateAnnouncementAI = async (title) => {
 
 export const sendAdminReplyWithImage = async (noticeId, formData) => {
   try {
-    const response = await api.post(`/api/notices/${noticeId}/admin-reply`, formData, {
-      headers: { "Content-Type": "multipart/form-data" }
-    });
+    const response = await api.post(
+      `/api/notices/${noticeId}/admin-reply`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return response.data;
   } catch (error) {
     console.error("Admin reply with image failed:", error);
@@ -243,9 +256,13 @@ export const sendAdminReplyWithImage = async (noticeId, formData) => {
 
 export const sendReplyWithImage = async (noticeId, formData) => {
   try {
-    const response = await api.post(`/api/notices/${noticeId}/reply`, formData, {
-      headers: { "Content-Type": "multipart/form-data" }
-    });
+    const response = await api.post(
+      `/api/notices/${noticeId}/reply`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return response.data;
   } catch (error) {
     console.error("Reply with image failed:", error);
@@ -337,8 +354,6 @@ export const punchOut = async (data) =>
 export const adminPunchOut = async (data) =>
   (await api.post("/api/attendance/admin-punch-out", data)).data;
 
-
-
 // --- Advanced Correction System ---
 export const requestCorrectionAdvanced = async (data) =>
   (await api.post("/api/attendance/request-correction-advanced", data)).data;
@@ -374,7 +389,7 @@ export const uploadProfilePic = async (formData) => {
   } catch (error) {
     console.error(
       "Upload Profile Pic Error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -387,7 +402,7 @@ export const getProfilePic = async () => {
   } catch (error) {
     console.error(
       "Get Profile Pic Error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -400,7 +415,7 @@ export const deleteProfilePic = async () => {
   } catch (error) {
     console.error(
       "Delete Profile Pic Error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -413,7 +428,7 @@ export const getProfilePicByEmployeeId = async (employeeId) => {
   } catch (error) {
     console.error(
       "Get Profile Pic by ID Error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -432,8 +447,7 @@ export const getAllProfiles = async () => {
 /* =============================================================================
    SHIFTS
 ============================================================================= */
-export const getAllShifts = async () =>
-  (await api.get("/api/shifts/all")).data;
+export const getAllShifts = async () => (await api.get("/api/shifts/all")).data;
 
 export const getShiftByEmployeeId = async (employeeId) => {
   try {
@@ -545,7 +559,7 @@ export const updateEmployeeWorkMode = async (employeeId, mode) => {
   try {
     const response = await api.put("/api/admin/settings/employee-mode", {
       employeeId,
-      mode
+      mode,
     });
     return response.data;
   } catch (error) {
@@ -611,7 +625,6 @@ export const deleteGroupApi = async (groupId) => {
   const res = await api.delete(`/api/groups/${groupId}`);
   return res.data;
 };
-
 
 /* =============================================================================
    RULES & REGULATIONS
@@ -740,7 +753,9 @@ export const getNextEmployeeId = async (companyId) => {
 
 export const generateEmployeeId = async (companyId) => {
   try {
-    const response = await api.post("/api/companies/generate-id", { companyId });
+    const response = await api.post("/api/companies/generate-id", {
+      companyId,
+    });
     return response.data;
   } catch (error) {
     console.error("Generate employee ID error:", error);
@@ -887,11 +902,13 @@ export const sendIdleActivity = async (data) => {
     const response = await api.post("/api/idletime", data);
     return response.data;
   } catch (error) {
-    console.error("Idle time API error:", error.response?.data || error.message);
+    console.error(
+      "Idle time API error:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
-
 
 export const getIdleTimeForEmployeeByDate = async (employeeId, date) => {
   try {
@@ -930,7 +947,7 @@ export const getAllIdleTimeRecords = async () => {
   } catch (error) {
     console.error(
       "Get all idle time error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     throw error;
   }
@@ -960,12 +977,16 @@ export const deleteOfferLetterEmployee = async (id) =>
   (await api.delete(`/api/offer-letters/employees/${id}`)).data;
 
 export const uploadOfferLetterExcel = async (formData) =>
-  (await api.post("/api/offer-letters/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })).data;
+  (
+    await api.post("/api/offer-letters/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+  ).data;
 
 export const downloadOfferLetterExcelTemplate = async () => {
-  const response = await api.get("/api/offer-letters/template", { responseType: 'blob' });
+  const response = await api.get("/api/offer-letters/template", {
+    responseType: "blob",
+  });
   const url = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement("a");
   link.href = url;
@@ -984,7 +1005,7 @@ export const sendOfferLetterEmail = async (data) => {
 
 export const downloadOfferLetterDocx = async (data) => {
   const response = await api.post("/api/offer-letters/download-docx", data, {
-    responseType: "blob"
+    responseType: "blob",
   });
   return response.data;
 };
@@ -998,12 +1019,18 @@ export const getOfferLetterTemplates = async () =>
   (await api.get("/api/offer-letters/templates")).data;
 
 export const getOfferLetterTemplate = async (companyName) =>
-  (await api.get(`/api/offer-letters/templates/${encodeURIComponent(companyName)}`)).data;
+  (
+    await api.get(
+      `/api/offer-letters/templates/${encodeURIComponent(companyName)}`,
+    )
+  ).data;
 
 export const uploadOfferLetterTemplate = async (formData) =>
-  (await api.post("/api/offer-letters/templates/upload", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })).data;
+  (
+    await api.post("/api/offer-letters/templates/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+  ).data;
 
 export const deleteOfferLetterTemplate = async (id) =>
   (await api.delete(`/api/offer-letters/templates/${id}`)).data;
@@ -1027,7 +1054,10 @@ export const getDemoRequests = async (params) => {
     const response = await api.get("/api/demo-request", { params });
     return response.data;
   } catch (error) {
-    console.error("Get demo requests error:", error.response?.data || error.message);
+    console.error(
+      "Get demo requests error:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
@@ -1035,10 +1065,15 @@ export const getDemoRequests = async (params) => {
 // Update demo request status
 export const updateDemoRequestStatus = async (id, status) => {
   try {
-    const response = await api.patch(`/api/demo-request/${id}/status`, { status });
+    const response = await api.patch(`/api/demo-request/${id}/status`, {
+      status,
+    });
     return response.data;
   } catch (error) {
-    console.error("Update demo request status error:", error.response?.data || error.message);
+    console.error(
+      "Update demo request status error:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
@@ -1049,12 +1084,19 @@ export const deleteDemoRequest = async (id) => {
     const response = await api.delete(`/api/demo-request/${id}`);
     return response.data;
   } catch (error) {
-    console.error("Delete demo request error:", error.response?.data || error.message);
+    console.error(
+      "Delete demo request error:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
 export const changeEmployeePassword = async (employeeId, newPassword) =>
-  (await api.patch(`/api/employees/${employeeId}/change-password`, { newPassword })).data;
+  (
+    await api.patch(`/api/employees/${employeeId}/change-password`, {
+      newPassword,
+    })
+  ).data;
 
 /* =============================================================================
    PAYROLL CANDIDATE MANAGEMENT
@@ -1062,12 +1104,13 @@ export const changeEmployeePassword = async (employeeId, newPassword) =>
 export const getPayrollCandidates = async () =>
   (await api.get("/api/payroll/all")).data;
 
-
 export const managePayrollCandidate = async (formData, id = null) => {
   const url = id ? `/api/payroll/manage/${id}` : "/api/payroll/manage";
-  return (await api.post(url, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })).data;
+  return (
+    await api.post(url, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+  ).data;
 };
 
 export const deletePayrollCandidate = async (id) =>
@@ -1082,11 +1125,14 @@ export const submitMorningWork = async (payload) =>
 export const submitEveningWork = async (
   description,
   images = [],
-  employee_submitted_percentage
+  employee_submitted_percentage,
 ) => {
   const formData = new FormData();
   formData.append("description", description);
-  formData.append("employee_submitted_percentage", employee_submitted_percentage);
+  formData.append(
+    "employee_submitted_percentage",
+    employee_submitted_percentage,
+  );
 
   images.forEach((image) => {
     formData.append("images", image);
@@ -1120,7 +1166,7 @@ export const getWebAuthnRegistrationOptions = async () =>
 export const verifyWebAuthnRegistration = async (
   credential,
   challenge,
-  deviceName
+  deviceName,
 ) =>
   (
     await api.post("/api/webauthn/register/verify", {
@@ -1188,7 +1234,8 @@ export const updateLeavePolicy = async (data) =>
  *                               Omit to reset ALL leave types at once.
  */
 export const resetLeavePaidDays = async (leaveType = null) =>
-  (await api.post("/api/leaves/policy/reset", leaveType ? { leaveType } : {})).data;
+  (await api.post("/api/leaves/policy/reset", leaveType ? { leaveType } : {}))
+    .data;
 
 /* =============================================================================
    LEAVE BALANCE  (Employee: how many paid days remain per leave type)
@@ -1211,7 +1258,7 @@ export const getLeaveBalance = async () =>
 export const getAllVerifiedDocCandidates = async () => {
   const res = await api.get("/api/doc-verification/all");
   const records = res.data.data || [];
-  return records.filter(r => r.status === 'verified');
+  return records.filter((r) => r.status === "verified");
 };
 
 export default api;

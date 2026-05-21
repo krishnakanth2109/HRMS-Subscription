@@ -84,6 +84,8 @@ const getDaysInMonth = (year, month) => {
   return days;
 };
 
+const ATTENDANCE_PAGE_SIZE = 7;
+
 // Convert Date to YYYY-MM-DD for accurate comparison
 const toISODateString = (date) => {
   if (!date) return "";
@@ -92,6 +94,18 @@ const toISODateString = (date) => {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const getAccountStartDate = (user) => {
+  const currentExperience = Array.isArray(user?.experienceDetails)
+    ? user.experienceDetails.find((exp) => exp.lastWorkingDate === "Present") || user.experienceDetails[0]
+    : null;
+  const rawDate = user?.createdAt || user?.joiningDate || currentExperience?.joiningDate;
+  if (!rawDate) return null;
+  const date = new Date(rawDate);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  return date;
 };
 
 const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
@@ -161,6 +175,7 @@ const SummaryCard = ({ title, count, icon, colorClass, bgClass }) => (
 const EmployeeDailyAttendance = () => {
   const { user } = useContext(AuthContext);
   const { socket } = useContext(NotificationContext);
+  const targetEmployeeId = user?.employeeId || user?.actualId || user?._id;
 
   // State
   const [attendance, setAttendance] = useState([]);
@@ -171,6 +186,7 @@ const EmployeeDailyAttendance = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Request Modals
   const [showRequestsModal, setShowRequestsModal] = useState(false);
@@ -210,6 +226,7 @@ const EmployeeDailyAttendance = () => {
   // --- NEW: Scroll Indicator State ---
   const tableContainerRef = useRef(null);
   const [showScrollArrow, setShowScrollArrow] = useState(false);
+  const accountStartDate = useMemo(() => getAccountStartDate(user), [user]);
 
   // --- Fetch Data ---
   const loadData = useCallback(async (empId) => {
@@ -244,19 +261,19 @@ const EmployeeDailyAttendance = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.employeeId) {
-      loadData(user.employeeId);
+    if (targetEmployeeId) {
+      loadData(targetEmployeeId);
     } else {
       setLoading(false);
     }
-  }, [user, loadData]);
+  }, [user, loadData, targetEmployeeId]);
 
   // ✅ Real-time refresh when Admin approves/rejects
   useEffect(() => {
-    if (socket && user?.employeeId) {
+    if (socket && targetEmployeeId) {
       const handleStatusUpdate = (data) => {
         console.log("⚡ Attendance Status Update received via Socket:", data);
-        loadData(user.employeeId);
+        loadData(targetEmployeeId);
 
         // Optional: Show a subtle toast or notification
         if (data.status === "APPROVED") {
@@ -307,6 +324,7 @@ const EmployeeDailyAttendance = () => {
     return daysInMonth.map(dayDate => {
       const currentDateISO = toISODateString(dayDate);
       const isFuture = dayDate > today;
+      const isBeforeAccountCreation = accountStartDate && dayDate < accountStartDate;
       const dayOfWeek = dayDate.getDay();
 
       const record = attendance.find(a => toISODateString(a.date) === currentDateISO);
@@ -374,6 +392,7 @@ const EmployeeDailyAttendance = () => {
       return {
         date: dayDate.toISOString(),
         dayObj: dayDate,
+        isBeforeAccountCreation,
         punchIn: record?.punchIn || null,
         punchOut: record?.punchOut || null,
         displayTime,
@@ -386,7 +405,7 @@ const EmployeeDailyAttendance = () => {
         fullDayRequest: record?.fullDayRequest || { hasRequest: false }
       };
     });
-  }, [selectedDate, attendance, shiftDetails, holidays, leaves]);
+  }, [selectedDate, attendance, shiftDetails, holidays, leaves, accountStartDate]);
 
   // --- Filter Logic ---
   const filteredData = useMemo(() => {
@@ -396,7 +415,7 @@ const EmployeeDailyAttendance = () => {
 
     data = data.filter(item => {
       const d = new Date(item.date);
-      return d <= today && item.workedStatus !== "Upcoming";
+      return d <= today && item.workedStatus !== "Upcoming" && !item.isBeforeAccountCreation;
     });
 
     if (searchTerm) {
@@ -420,6 +439,22 @@ const EmployeeDailyAttendance = () => {
     return data;
   }, [processedCalendarData, searchTerm, sortConfig]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ATTENDANCE_PAGE_SIZE));
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * ATTENDANCE_PAGE_SIZE;
+    return filteredData.slice(start, start + ATTENDANCE_PAGE_SIZE);
+  }, [filteredData, currentPage]);
+  const paginationStart = filteredData.length === 0 ? 0 : (currentPage - 1) * ATTENDANCE_PAGE_SIZE + 1;
+  const paginationEnd = Math.min(currentPage * ATTENDANCE_PAGE_SIZE, filteredData.length);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDate, searchTerm, sortConfig]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   // --- Calculate Yearly Stats for Graph ---
   const yearlyStats = useMemo(() => {
     const year = selectedDate.getFullYear();
@@ -442,6 +477,7 @@ const EmployeeDailyAttendance = () => {
       const days = getDaysInMonth(year, m);
       days.forEach(dayDate => {
         if (dayDate > today) return;
+        if (accountStartDate && dayDate < accountStartDate) return;
         const currentDateISO = toISODateString(dayDate);
         const dayOfWeek = dayDate.getDay();
         const record = attendance.find(a => toISODateString(a.date) === currentDateISO);
@@ -477,13 +513,13 @@ const EmployeeDailyAttendance = () => {
       });
     }
     return statsPerMonth;
-  }, [selectedDate, attendance, shiftDetails, holidays, leaves]);
+  }, [selectedDate, attendance, shiftDetails, holidays, leaves, accountStartDate]);
 
   // --- Summary Stats for the Cards & Donut ---
   const summaryStats = useMemo(() => {
     const m = selectedDate.getMonth();
     const stats = yearlyStats[m];
-    const currentMonthData = processedCalendarData.filter(d => d.workedStatus !== "Upcoming");
+    const currentMonthData = processedCalendarData.filter(d => d.workedStatus !== "Upcoming" && !d.isBeforeAccountCreation);
     const weekOffs = currentMonthData.filter(d => d.workedStatus === "Week Off").length;
     const absentTotal = stats.absent + stats.leave;
 
@@ -683,7 +719,7 @@ const EmployeeDailyAttendance = () => {
 
       // Send as is - let the backend handle it as IST
       await requestStatusCorrection({
-        employeeId: user.employeeId,
+        employeeId: targetEmployeeId,
         date: correctionData.date,
         requestedPunchOut: localDateTimeStr, // Send full datetime string
         reason: statusReason
@@ -697,7 +733,7 @@ const EmployeeDailyAttendance = () => {
         showConfirmButton: false
       });
       setShowStatusModal(false);
-      loadData(user.employeeId);
+      loadData(targetEmployeeId);
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -731,7 +767,7 @@ const EmployeeDailyAttendance = () => {
     setFullDaySubmitting(true);
     try {
       await requestFullDay({
-        employeeId: user.employeeId,
+        employeeId: targetEmployeeId,
         date: fullDayData.date,
         reason: fullDayReason
       });
@@ -743,7 +779,7 @@ const EmployeeDailyAttendance = () => {
         showConfirmButton: false
       });
       setShowFullDayModal(false);
-      loadData(user.employeeId);
+      loadData(targetEmployeeId);
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -783,7 +819,7 @@ const EmployeeDailyAttendance = () => {
     setIsSubmittingCorrection(true);
     try {
       await requestCorrectionAdvanced({
-        employeeId: user.employeeId,
+        employeeId: targetEmployeeId,
         ...advancedReqData
       });
 
@@ -795,7 +831,7 @@ const EmployeeDailyAttendance = () => {
         showConfirmButton: false
       });
       setShowAdvancedModal(false);
-      loadData(user.employeeId);
+      loadData(targetEmployeeId);
     } catch (error) {
       Swal.fire({
         icon: 'error',
@@ -1113,8 +1149,8 @@ const EmployeeDailyAttendance = () => {
               <tbody className="divide-y divide-gray-50 bg-white">
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} />)
-                ) : filteredData.length > 0 ? (
-                  filteredData.map((row) => {
+                ) : paginatedData.length > 0 ? (
+                  paginatedData.map((row) => {
                     const isWeekend = row.workedStatus === 'Week Off';
                     const isAbsent = row.workedStatus === 'Absent';
                     const correctionReq = myCorrections.find(c => c.date === toISODateString(row.date));
@@ -1210,8 +1246,8 @@ const EmployeeDailyAttendance = () => {
                     </div>
                   </div>
                 ))
-              ) : filteredData.length > 0 ? (
-                filteredData.map((row) => {
+              ) : paginatedData.length > 0 ? (
+                paginatedData.map((row) => {
                   const isWeekend = row.workedStatus === 'Week Off';
                   const isAbsent = row.workedStatus === 'Absent';
                   const correctionReq = myCorrections.find(c => c.date === toISODateString(row.date));
@@ -1297,6 +1333,35 @@ const EmployeeDailyAttendance = () => {
               )}
             </div>
           </div>
+
+          {!loading && filteredData.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-4 border-t border-gray-100 bg-white">
+              <p className="text-xs font-bold text-gray-500 text-center sm:text-left">
+                Showing {paginationStart}-{paginationEnd} of {filteredData.length} records
+              </p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-black text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Prev
+                </button>
+                <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-600 text-xs font-black border border-blue-100">
+                  Page {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-black text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* --- MODALS (IMPROVED UI & DATA MAPPING) --- */}

@@ -20,10 +20,12 @@ import {
   ReceiptText,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Lock,
   Menu,
   X,
+  IndianRupee,
 } from "lucide-react";
 
 import { io } from "socket.io-client";
@@ -43,6 +45,10 @@ const SOCKET_URL =
 const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [openGroups, setOpenGroups] = useState({
+    "Support Admin": true,
+    Employee: true,
+  });
 
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [pendingOvertime, setPendingOvertime] = useState(0);
@@ -73,44 +79,166 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
 
   const [tempHideNoticeBadge, setTempHideNoticeBadge] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const currentUser = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem("hrmsUser");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+  const supportAdminId = currentUser?.employeeId || currentUser?.actualId || currentUser?._id || currentUser?.id;
 
   // ⭐ NAV SECTIONS
   const NAV_SECTIONS = [
     {
       title: "Main",
       links: [
-        { to: "/admin/dashboard", route: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/employees", route: "/employees", label: "Employee Management", icon: Users, isPunchOutRequests: true },
-        { to: "/attendance", route: "/attendance", label: "Employees Attendance", icon: UserCheck },
-      ]
+        {
+          to: "/admin/dashboard",
+          route: "/admin/dashboard",
+          label: "Dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          label: "Support Admin",
+          icon: Users,
+          children: [
+            {
+              to: supportAdminId
+                ? `/support-admin/attendance/profile/${supportAdminId}`
+                : "/support-admin/my-attendance",
+              route: "/support-admin/attendance/profile",
+              label: "Support Admin Attendance",
+              icon: UserCheck,
+              alwaysAllowed: true,
+            },
+            {
+              to: "/support-admin/management",
+              route: "/support-admin/management",
+              label: "Support Admin Management",
+              icon: Users,
+              alwaysAllowed: true,
+            },
+          ],
+        },
+        {
+          label: "Employee",
+          icon: Users,
+          children: [
+            {
+              to: "/attendance",
+              route: "/attendance",
+              label: "Employee Attendance",
+              icon: UserCheck,
+              isPunchOutRequests: true,
+            },
+            {
+              to: "/employees",
+              route: "/employees",
+              label: "Employee Management",
+              icon: Users,
+            },
+          ],
+        },
+      ],
     },
     {
       title: "Management",
       links: [
-        { to: "/admin/settings", route: "/admin/settings", label: "Shift Management", icon: UserPlus },
-        { to: "/admin/shifttype", route: "/admin/shifttype", label: "Location Settings", icon: MapPin, isWorkModeRequests: true },
-        { to: "/admin/leave-summary", route: "/admin/leave-summary", label: "Leave Summary", icon: PieChart },
-        { to: "/admin/holiday-calendar", route: "/admin/holiday-calendar", label: "Holiday Calendar", icon: Calendar },
-        { to: "/admin/payroll", route: "/admin/payroll", label: "Payroll", icon: CircleDollarSign },
-      ]
+        {
+          to: "/admin/settings",
+          route: "/admin/settings",
+          label: "Shift Management",
+          icon: UserPlus,
+        },
+        {
+          to: "/admin/shifttype",
+          route: "/admin/shifttype",
+          label: "Location Settings",
+          icon: MapPin,
+          isWorkModeRequests: true,
+        },
+        {
+          to: "/admin/leave-summary",
+          route: "/admin/leave-summary",
+          label: "Leave Summary",
+          icon: PieChart,
+        },
+        {
+          to: "/admin/holiday-calendar",
+          route: "/admin/holiday-calendar",
+          label: "Holiday Calendar",
+          icon: Calendar,
+        },
+        {
+          to: "/admin/payroll",
+          route: "/admin/payroll",
+          label: "Payroll",
+          icon: IndianRupee,
+        },
+      ],
     },
     {
       title: "Requests",
       links: [
-        { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests", icon: ClipboardCheck, isLeave: true },
-        { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Requests", icon: Clock, isLateRequests: true },
-        { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: Briefcase, isOvertime: true },
-      ]
+        {
+          to: "/admin/admin-Leavemanage",
+          route: "/admin/admin-Leavemanage",
+          label: "Leave Management",
+          icon: ClipboardCheck,
+          isLeave: true,
+        },
+        {
+          to: "/admin/late-requests",
+          route: "/admin/late-requests",
+          label: "Attendance Requests",
+          icon: Clock,
+          isLateRequests: true,
+        },
+        {
+          to: "/admin/admin-overtime",
+          route: "/admin/admin-overtime",
+          label: "Overtime Requests",
+          icon: Briefcase,
+          isOvertime: true,
+        },
+      ],
     },
     {
       title: "System",
       links: [
-        { to: "/admin/notices", route: "/admin/notices", label: "Announcements", icon: Megaphone, isNotice: true },
-        { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: MapPin, isLiveTracking: true },
-        { to: "/admin/setup-face", route: "/admin/setup-face", label: "Settings", icon: Settings, alwaysAllowed: true },
-        { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: ReceiptText, isPayrollCandidates: true, ownerOnly: true },
-      ]
-    }
+        {
+          to: "/admin/notices",
+          route: "/admin/notices",
+          label: "Announcements",
+          icon: Megaphone,
+          isNotice: true,
+        },
+        {
+          to: "/admin/live-tracking",
+          route: "/admin/live-tracking",
+          label: "Idle Tracking",
+          icon: MapPin,
+          isLiveTracking: true,
+        },
+        {
+          to: "/admin/setup-face",
+          route: "/admin/setup-face",
+          label: "Settings",
+          icon: Settings,
+          alwaysAllowed: true,
+        },
+        // {
+        //   to: "/admin/payrollcandidates",
+        //   route: "/admin/payrollcandidates",
+        //   label: "Payroll Candidates",
+        //   icon: ReceiptText,
+        //   isPayrollCandidates: true,
+        //   ownerOnly: true,
+        // },
+      ],
+    },
   ];
 
   const calculateUnreadNotices = (notices, readState) => {
@@ -389,6 +517,9 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   }, [socket, fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchAndCalculateUnreadNotices, fetchFullDayRequests, fetchWorkModeRequests]);
 
   const getBadgeCount = (link) => {
+    if (link.children) {
+      return link.children.reduce((total, child) => total + getBadgeCount(child), 0);
+    }
     if (link.isLeave) return pendingLeaves;
     if (link.isOvertime) return pendingOvertime;
     if (link.isPunchOutRequests) return punchOutRequestsCount;
@@ -407,6 +538,35 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
         {count > 99 ? "99+" : count}
       </span>
     );
+  };
+
+  const isRouteVisible = (link) => {
+    if (link.ownerOnly && !isOwnerPlan) return false;
+    if (link.children) return link.children.some(isRouteVisible);
+    return true;
+  };
+
+  const isRouteAllowed = (link) => {
+    if (!link.route) return true;
+    return isOwnerPlan || link.alwaysAllowed || allowedRoutes.includes(link.route);
+  };
+
+  const isLinkActive = (link) => {
+    if (!link.to && !link.route) return false;
+    const target = link.route || link.to;
+    return location.pathname === link.to || location.pathname === target || location.pathname.startsWith(`${target}/`);
+  };
+
+  const isGroupActive = (link) => link.children?.some(isLinkActive);
+
+  const toggleGroup = (label) => {
+    if (collapsed && !isMobile) {
+      setCollapsed(false);
+      setOpenGroups((prev) => ({ ...prev, [label]: true }));
+      return;
+    }
+
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
   const sidebarClasses = `
@@ -474,10 +634,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
             </div>
           ) : (
             NAV_SECTIONS.map((section, sIdx) => {
-              const visibleLinks = section.links.filter(link => {
-                if (link.ownerOnly && !isOwnerPlan) return false;
-                return true;
-              });
+              const visibleLinks = section.links.filter(isRouteVisible);
 
               if (visibleLinks.length === 0) return null;
 
@@ -490,8 +647,93 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                   )}
                   <div className="space-y-1">
                     {visibleLinks.map((link, lIdx) => {
-                      const isAllowed = isOwnerPlan || link.alwaysAllowed || allowedRoutes.includes(link.route);
                       const Icon = link.icon;
+                      const childLinks = link.children?.filter(isRouteVisible) || [];
+
+                      if (childLinks.length > 0) {
+                        const isOpen = openGroups[link.label] ?? true;
+                        const groupActive = isGroupActive(link);
+                        const GroupChevron = isOpen ? ChevronDown : ChevronRight;
+                        const groupBadgeCount = getBadgeCount(link);
+
+                        return (
+                          <div key={lIdx} className="space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleGroup(link.label)}
+                              className={`
+                                w-full group flex items-center gap-3 px-3 min-h-[44px] rounded-md transition-all duration-200 border-l-2
+                                ${groupActive
+                                  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500"
+                                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-transparent"}
+                                ${collapsed && !isMobile ? "justify-center px-0" : ""}
+                              `}
+                              title={collapsed && !isMobile ? link.label : ""}
+                            >
+                              <Icon size={20} className="shrink-0" />
+                              {(!collapsed || isMobile) && (
+                                <>
+                                  <span className="text-[14px] font-medium truncate">{link.label}</span>
+                                  {renderBadge(link)}
+                                  <GroupChevron
+                                    size={16}
+                                    className={`${groupBadgeCount ? "" : "ml-auto"} shrink-0 transition-transform duration-200`}
+                                  />
+                                </>
+                              )}
+                            </button>
+
+                            {(!collapsed || isMobile) && (
+                              <div
+                                className={`
+                                  grid transition-all duration-300 ease-in-out
+                                  ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}
+                                `}
+                              >
+                                <div className="overflow-hidden">
+                                  <div className="ml-5 pl-3 border-l border-slate-800 space-y-1">
+                                    {childLinks.map((child, childIdx) => {
+                                      const isAllowed = isRouteAllowed(child);
+                                      const ChildIcon = child.icon;
+
+                                      return (
+                                        <div key={childIdx}>
+                                          {isAllowed ? (
+                                            <NavLink
+                                              to={child.to}
+                                              className={({ isActive }) => `
+                                                group flex items-center gap-3 px-3 min-h-[40px] rounded-md transition-all duration-200
+                                                ${isActive
+                                                  ? "bg-indigo-500/10 text-indigo-400 border-l-2 border-indigo-500"
+                                                  : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-l-2 border-transparent"}
+                                              `}
+                                            >
+                                              <ChildIcon size={18} className="shrink-0" />
+                                              <span className="text-[13px] font-medium truncate">{child.label}</span>
+                                              {renderBadge(child)}
+                                            </NavLink>
+                                          ) : (
+                                            <div
+                                              onClick={() => handleDisabledClick(child.label)}
+                                              className="flex items-center gap-3 px-3 min-h-[40px] rounded-md text-slate-600 cursor-pointer hover:bg-slate-800/30 transition-all"
+                                            >
+                                              <ChildIcon size={18} className="shrink-0 opacity-50" />
+                                              <span className="text-[13px] font-medium truncate">{child.label}</span>
+                                              <Lock size={12} className="ml-auto opacity-50" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      const isAllowed = isRouteAllowed(link);
 
                       return (
                         <div key={lIdx}>

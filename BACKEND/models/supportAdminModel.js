@@ -4,6 +4,12 @@ import bcrypt from "bcryptjs";
 const supportAdminSchema = new mongoose.Schema(
   {
     /* ==================== BASIC INFO ==================== */
+    supportAdminId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     name: { type: String, required: [true, "Please provide a name"] },
 
     email: {

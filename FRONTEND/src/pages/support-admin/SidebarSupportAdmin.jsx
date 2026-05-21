@@ -9,7 +9,6 @@ import {
   MapPin,
   PieChart,
   Calendar,
-  CircleDollarSign,
   Megaphone,
   ClipboardCheck,
   Clock,
@@ -22,7 +21,9 @@ import {
   LogOut,
   Lock,
   Menu,
-  X
+  X,
+  IndianRupee,
+  CalendarPlus,
 } from "lucide-react";
 
 import { io } from "socket.io-client";
@@ -78,38 +79,137 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     {
       title: "Main",
       links: [
-        { to: "/support-admin/dashboard", route: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { to: "/employees", route: "/employees", label: "Employee Management", icon: Users, isPunchOutRequests: true },
-        { to: "/attendance", route: "/attendance", label: "Employees Attendance", icon: UserCheck },
-      ]
+        {
+          to: "/support-admin/dashboard",
+          route: "/admin/dashboard",
+          label: "Dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          to: "/support-admin/my-attendance",
+          route: "/support-admin/my-attendance",
+          label: "Attendance",
+          icon: Clock,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/employees",
+          route: "/employees",
+          label: "Employee Management",
+          icon: Users,
+          isPunchOutRequests: true,
+        },
+        {
+          to: "/attendance",
+          route: "/attendance",
+          label: "Employees Attendance",
+          icon: UserCheck,
+        },
+      ],
     },
     {
       title: "Management",
       links: [
-        { to: "/admin/settings", route: "/admin/settings", label: "Shift Management", icon: UserPlus },
-        { to: "/admin/shifttype", route: "/admin/shifttype", label: "Location Settings", icon: MapPin, isWorkModeRequests: true },
-        { to: "/admin/leave-summary", route: "/admin/leave-summary", label: "Leave Summary", icon: PieChart },
-        { to: "/admin/holiday-calendar", route: "/admin/holiday-calendar", label: "Holiday Calendar", icon: Calendar },
-        { to: "/admin/payroll", route: "/admin/payroll", label: "Payroll", icon: CircleDollarSign },
-      ]
+        {
+          to: "/admin/settings",
+          route: "/admin/settings",
+          label: "Shift Management",
+          icon: UserPlus,
+        },
+        {
+          to: "/admin/shifttype",
+          route: "/admin/shifttype",
+          label: "Location Settings",
+          icon: MapPin,
+          isWorkModeRequests: true,
+        },
+        {
+          to: "/admin/leave-summary",
+          route: "/admin/leave-summary",
+          label: "Leave Summary",
+          icon: PieChart,
+        },
+        {
+          to: "/admin/holiday-calendar",
+          route: "/admin/holiday-calendar",
+          label: "Holiday Calendar",
+          icon: Calendar,
+        },
+        {
+          to: "/admin/payroll",
+          route: "/admin/payroll",
+          label: "Payroll",
+          icon: IndianRupee,
+        },
+      ],
     },
     {
       title: "Requests",
       links: [
-        { to: "/admin/admin-Leavemanage", route: "/admin/admin-Leavemanage", label: "Leave Requests", icon: ClipboardCheck, isLeave: true },
-        { to: "/admin/late-requests", route: "/admin/late-requests", label: "Attendance Requests", icon: Clock, isLateRequests: true },
-        { to: "/admin/admin-overtime", route: "/admin/admin-overtime", label: "Overtime Requests", icon: Briefcase, isOvertime: true },
-      ]
+        {
+          to: "/support-admin/leave-requests",
+          route: "/support-admin/leave-requests",
+          label: "My Leave Requests",
+          icon: CalendarPlus,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/admin/admin-Leavemanage",
+          route: "/admin/admin-Leavemanage",
+          label: "Leave Management",
+          icon: ClipboardCheck,
+          isLeave: true,
+        },
+        {
+          to: "/admin/late-requests",
+          route: "/admin/late-requests",
+          label: "Attendance Requests",
+          icon: Clock,
+          isLateRequests: true,
+        },
+        {
+          to: "/admin/admin-overtime",
+          route: "/admin/admin-overtime",
+          label: "Overtime Requests",
+          icon: Briefcase,
+          isOvertime: true,
+        },
+      ],
     },
     {
       title: "System",
       links: [
-        { to: "/admin/notices", route: "/admin/notices", label: "Announcements", icon: Megaphone, isNotice: true },
-        { to: "/admin/live-tracking", route: "/admin/live-tracking", label: "Idle Tracking", icon: MapPin, isLiveTracking: true },
-        { to: "/admin/setup-face", route: "/admin/setup-face", label: "Settings", icon: Settings, alwaysAllowed: true },
-        { to: "/admin/payrollcandidates", route: "/admin/payrollcandidates", label: "Payroll Candidates", icon: ReceiptText, isPayrollCandidates: true, ownerOnly: true },
-      ]
-    }
+        {
+          to: "/admin/notices",
+          route: "/admin/notices",
+          label: "Announcements",
+          icon: Megaphone,
+          isNotice: true,
+        },
+        {
+          to: "/admin/live-tracking",
+          route: "/admin/live-tracking",
+          label: "Idle Tracking",
+          icon: MapPin,
+          isLiveTracking: true,
+        },
+        {
+          to: "/admin/setup-face",
+          route: "/admin/setup-face",
+          label: "Settings",
+          icon: Settings,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/admin/payrollcandidates",
+          route: "/admin/payrollcandidates",
+          label: "Payroll Candidates",
+          icon: ReceiptText,
+          isPayrollCandidates: true,
+          ownerOnly: true,
+        },
+      ],
+    },
   ];
 
   const calculateUnreadNotices = (notices, readState) => {
@@ -421,7 +521,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     const count = getBadgeCount(link);
     if (!count) return null;
     return (
-      <span className="flex items-center justify-center ml-auto h-5 min-w-[20px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+      <span className="flex items-center justify-center ml-auto h-5 min-w-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
         {count > 99 ? "99+" : count}
       </span>
     );

@@ -4,6 +4,8 @@ import LeaveRequest, { LeavePolicy } from "../models/LeaveRequest.js";
 import Notification from "../models/notificationModel.js";
 import Employee from "../models/employeeModel.js";
 import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
+import Company from "../models/CompanyModel.js";
 import Attendance from "../models/Attendance.js";
 import nodemailer from "nodemailer";
 
@@ -58,14 +60,18 @@ function getCycleStartDateStr(resetMonthStr) {
    This completely isolates balances per employee and removes 
    the bug where one employee's leave decreases everyone's balance!
 =============================================================== */
-async function getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStartDateStr) {
+function leaveQueryForRequester(employeeId, requesterType = "employee") {
+  const base = { employeeId: String(employeeId), status: { $in: ["Pending", "Approved"] } };
+  if (requesterType === "support-admin") {
+    return { ...base, requesterType: "support-admin" };
+  }
+  return { ...base, $or: [{ requesterType: "employee" }, { requesterType: { $exists: false } }] };
+}
+
+async function getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStartDateStr, requesterType = "employee") {
   if (!employeeId) return 0;
-  
-  // Find all Pending and Approved leaves for this employee
-  const leaves = await LeaveRequest.find({
-    employeeId,
-    status: { $in: ["Pending", "Approved"] },
-  }).lean();
+
+  const leaves = await LeaveRequest.find(leaveQueryForRequester(employeeId, requesterType)).lean();
 
   let used = 0;
   const targetType = leaveType.trim().toLowerCase();
@@ -97,7 +103,7 @@ async function getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStartDateS
    For a truly per-employee carry-forward, we compute it dynamically
    from the previous cycle's usage when the cycle resets.
 =============================================================== */
-async function getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc) {
+async function getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc, requesterType = "employee") {
   if (!policyDoc?.carryForwardEnabled) return 0;
 
   const policy = policyDoc.policies.find(
@@ -116,11 +122,16 @@ async function getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc) 
   const prevCycleStart = `${currentCycleYear - 1}-${String(rMonth).padStart(2, "0")}-01`;
   const prevCycleEnd   = `${currentCycleYear}-${String(rMonth).padStart(2, "0")}-01`;
 
-  // Count how many paid days this employee used in the PREVIOUS cycle
-  const leaves = await LeaveRequest.find({
-    employeeId,
-    status: { $in: ["Approved"] },
-  }).lean();
+  const approvedQuery =
+    requesterType === "support-admin"
+      ? { employeeId: String(employeeId), status: "Approved", requesterType: "support-admin" }
+      : {
+          employeeId: String(employeeId),
+          status: "Approved",
+          $or: [{ requesterType: "employee" }, { requesterType: { $exists: false } }],
+        };
+
+  const leaves = await LeaveRequest.find(approvedQuery).lean();
 
   let usedInPrevCycle = 0;
   const targetType = leaveType.trim().toLowerCase();
@@ -147,7 +158,7 @@ async function getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc) 
    HELPER: Resolve paid/unpaid split for a new leave request
    ✅ UPDATED: Now considers carry-forward balance when enabled
 =============================================================== */
-async function resolveLeaveCategoryForRequest(adminId, employeeId, leaveType, leaveDayType, dates) {
+async function resolveLeaveCategoryForRequest(adminId, employeeId, leaveType, leaveDayType, dates, requesterType = "employee") {
   const totalDays = countLeaveDays(dates, leaveDayType);
   const policyDoc = await LeavePolicy.findOne({ adminId });
   if (!policyDoc) return { leavecategory: "UnPaid", paidDays: 0, unpaidDays: totalDays };
@@ -161,12 +172,12 @@ async function resolveLeaveCategoryForRequest(adminId, employeeId, leaveType, le
 
   // ✅ Get accurate personal balance dynamically
   const cycleStart = getCycleStartDateStr(policyDoc.resetMonth);
-  const personalUsedPaidDays = await getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStart);
+  const personalUsedPaidDays = await getUsedPaidDaysForEmployee(employeeId, leaveType, cycleStart, requesterType);
 
   // ✅ NEW: Add carry-forward days to effective limit when feature is ON
   let effectiveLimit = policy.paidDaysLimit;
   if (policyDoc.carryForwardEnabled) {
-    const carriedDays = await getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc);
+    const carriedDays = await getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc, requesterType);
     effectiveLimit = policy.paidDaysLimit + carriedDays;
   }
 
@@ -277,15 +288,43 @@ export const createLeave = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
+    const isSupportAdmin = loggedUser.role === "support-admin";
+    if (!isSupportAdmin && !loggedUser.employeeId) {
+      return res.status(400).json({ message: "Invalid user context for leave application." });
+    }
+
+    const requesterKey = isSupportAdmin
+      ? String(loggedUser.actualId || loggedUser._id)
+      : String(loggedUser.employeeId);
+
+    let adminIdForLeave = loggedUser.adminId;
+    let companyIdForLeave = loggedUser.companyId || loggedUser.company || loggedUser.adminId;
+
+    if (isSupportAdmin) {
+      if (!adminIdForLeave) {
+        return res.status(400).json({ message: "Support admin is not linked to an organization." });
+      }
+      const company = await Company.findOne({ adminId: adminIdForLeave }).select("_id").lean();
+      if (!company?._id) {
+        return res.status(400).json({
+          message: "No company found for this organization. Ask your admin to create a company before applying for leave.",
+        });
+      }
+      companyIdForLeave = company._id;
+    }
+
+    const requesterType = isSupportAdmin ? "support-admin" : "employee";
+    const requesterName = loggedUser.name || loggedUser.email || "User";
+
     const monthKey = from.slice(0, 7);
     const dates    = listDates(from, to);
 
-    // ✅ Check if employee is trying to apply for previous days and was present/punched-in
+    // ✅ Check past days vs attendance (same rules; support admin uses attendance employeeId = actualId)
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const pastDates = dates.filter((d) => d < todayStr);
 
     if (pastDates.length > 0) {
-      const attendanceDoc = await Attendance.findOne({ employeeId: loggedUser.employeeId });
+      const attendanceDoc = await Attendance.findOne({ employeeId: requesterKey });
       if (attendanceDoc) {
         for (const date of pastDates) {
           const entry = attendanceDoc.attendance.find((e) => e.date === date);
@@ -304,18 +343,21 @@ export const createLeave = async (req, res) => {
     }
 
     const { leavecategory, paidDays } = await resolveLeaveCategoryForRequest(
-      loggedUser.adminId, 
-      loggedUser.employeeId, // ✅ Pass employee ID to fetch personal balance
-      leaveType, 
-      leaveDayType, 
-      dates
+      adminIdForLeave,
+      requesterKey,
+      leaveType,
+      leaveDayType,
+      dates,
+      requesterType
     );
     const details = buildDetailsWithCategory(dates, leaveType, leaveDayType, paidDays);
 
     const doc = await LeaveRequest.create({
-      adminId:        loggedUser.adminId,
-      companyId:      loggedUser.companyId || loggedUser.company || loggedUser.adminId,
-      employeeId:     loggedUser.employeeId || null,
+      adminId:        adminIdForLeave,
+      companyId:      companyIdForLeave,
+      employeeId:     requesterKey,
+      requesterType,
+      requesterName,
       from, to, reason,
       leaveType,
       leaveDayType, halfDaySession,
@@ -326,16 +368,17 @@ export const createLeave = async (req, res) => {
       details,
     });
 
-    const admin = await Admin.findById(loggedUser.adminId).lean();
+    const admin = await Admin.findById(adminIdForLeave).lean();
     if (admin) {
       if (admin.email) {
         try {
+          const whoLabel = isSupportAdmin ? "Support Admin" : "Employee";
           await transporter.sendMail({
             from:    `"HRMS Leave Notification" <${process.env.SMTP_USER}>`,
             to:      admin.email,
-            subject: `New Leave Request from ${loggedUser.name}`,
+            subject: `New Leave Request (${whoLabel}) from ${requesterName}`,
             html:    adminLeaveNotificationEmail({
-              name: loggedUser.name, employeeId: loggedUser.employeeId,
+              name: requesterName, employeeId: requesterKey,
               email: loggedUser.email, leaveType, from, to, reason,
             }),
           });
@@ -345,13 +388,15 @@ export const createLeave = async (req, res) => {
         adminId: admin._id, companyId: doc.companyId,
         userId: admin._id.toString(), userType: "Admin",
         title: "New Leave Request",
-        message: `${loggedUser.name} submitted a leave request (${from} → ${to})`,
+        message: `${requesterName} (${isSupportAdmin ? "Support Admin" : "Employee"}) submitted a leave request (${from} → ${to})`,
         type: "leave", isRead: false,
       });
       const io = req.app.get("io");
-      // ✅ FEATURE 2 + BUG 3 FIX — emit only to this admin's private room
       if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
     }
+
+    const ioAll = req.app.get("io");
+    if (ioAll) ioAll.emit("leave:new", doc);
 
     return res.status(201).json(doc);
   } catch (err) {
@@ -365,9 +410,17 @@ export const createLeave = async (req, res) => {
 // ===================================================================================
 export const listLeavesForEmployee = async (req, res) => {
   try {
-    const { employeeId } = req.user;
+    const isSupportAdmin = req.user.role === "support-admin";
+    const requesterKey = isSupportAdmin
+      ? String(req.user.actualId || req.user._id)
+      : req.user.employeeId;
     const { month, status } = req.query;
-    const query = { employeeId };
+    const query = { employeeId: String(requesterKey) };
+    if (isSupportAdmin) {
+      query.requesterType = "support-admin";
+    } else {
+      query.$or = [{ requesterType: "employee" }, { requesterType: { $exists: false } }];
+    }
     if (month) query.monthKey = month;
     if (status && status !== "All") query.status = status;
     const docs = await LeaveRequest.find(query).sort({ requestDate: -1 }).lean();
@@ -398,13 +451,20 @@ export const getLeaveDetails = async (req, res) => {
   try {
     const doc = await LeaveRequest.findById(req.params.id).lean();
     if (!doc) return res.status(404).json({ message: "Not found" });
-    const isAdmin = req.user.role === "admin" || req.user.role === "support-admin";
-    if (isAdmin) {
+    const isTenantAdmin = req.user.role === "admin" || req.user.role === "support-admin";
+    if (isTenantAdmin) {
       if (doc.adminId && doc.adminId.toString() !== req.user._id.toString())
         return res.status(403).json({ message: "Unauthorized" });
     } else {
-      if (doc.employeeId !== req.user.employeeId)
+      const ownsEmployeeLeave =
+        (!doc.requesterType || doc.requesterType === "employee") &&
+        doc.employeeId === req.user.employeeId;
+      const ownsSupportAdminLeave =
+        doc.requesterType === "support-admin" &&
+        String(doc.employeeId) === String(req.user.actualId || req.user._id);
+      if (!ownsEmployeeLeave && !ownsSupportAdminLeave) {
         return res.status(403).json({ message: "Unauthorized" });
+      }
     }
     res.json(doc.details || []);
   } catch (err) {
@@ -424,8 +484,15 @@ export const updateLeaveStatus = async (req, res) => {
     if (!["Approved", "Rejected", "Cancelled"].includes(status))
       return res.status(400).json({ message: "Invalid status" });
 
-    // ✅ FIX: We no longer modify `LeavePolicy` databases manually here!
-    // The balance is calculated fully dynamically on the fly based on the request's status!
+    const existing = await LeaveRequest.findOne({ _id: req.params.id, adminId: req.user._id }).lean();
+    if (!existing) return res.status(404).json({ message: "Leave request not found or unauthorized" });
+
+    if (existing.requesterType === "support-admin" && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only the main admin can approve or reject support admin leave requests.",
+      });
+    }
+
     const doc = await LeaveRequest.findOneAndUpdate(
       { _id: req.params.id, adminId: req.user._id },
       { status, approvedBy, actionDate: new Date().toISOString().slice(0, 10) },
@@ -434,34 +501,54 @@ export const updateLeaveStatus = async (req, res) => {
 
     if (!doc) return res.status(404).json({ message: "Leave request not found or unauthorized" });
 
-    const employee = await Employee.findOne({ employeeId: doc.employeeId });
-    if (employee) {
-      const notif = await Notification.create({
-        adminId: req.user._id, companyId: doc.companyId,
-        userId: employee._id, userType: "Employee",
-        title: "Leave Status Update",
-        message: `Your leave request (${doc.from} → ${doc.to}) has been ${status} by ${approvedBy}.`,
-        type: "leave-status", isRead: false,
-      });
-      const io = req.app.get("io");
-      // ✅ FEATURE 2 + BUG 3 FIX — emit only to this employee's private room
-      if (io) io.to(`user_${employee._id}`).emit("newNotification", notif);
-
-      if (employee.email) {
+    if (doc.requesterType === "support-admin") {
+      const sa = await SupportAdmin.findById(doc.employeeId).lean();
+      if (sa?.email) {
         try {
           await transporter.sendMail({
             from:    `"Leave Management" <${process.env.SMTP_USER}>`,
-            to:      employee.email,
+            to:      sa.email,
             subject: `Leave Request ${status}: ${doc.from} – ${doc.to}`,
             html:    employeeLeaveStatusEmail({
-              employeeName: employee.name, status,
+              employeeName: sa.name || doc.requesterName || "Support Admin", status,
               from: doc.from, to: doc.to,
               leaveType: doc.leaveType, reason: doc.reason, approvedBy,
             }),
           });
-        } catch (e) { console.error("❌ Leave status email to employee failed:", e); }
+        } catch (e) { console.error("❌ Leave status email to support admin failed:", e); }
+      }
+    } else {
+      const employee = await Employee.findOne({ employeeId: doc.employeeId });
+      if (employee) {
+        const notif = await Notification.create({
+          adminId: req.user._id, companyId: doc.companyId,
+          userId: employee._id, userType: "Employee",
+          title: "Leave Status Update",
+          message: `Your leave request (${doc.from} → ${doc.to}) has been ${status} by ${approvedBy}.`,
+          type: "leave-status", isRead: false,
+        });
+        const io = req.app.get("io");
+        if (io) io.to(`user_${employee._id}`).emit("newNotification", notif);
+
+        if (employee.email) {
+          try {
+            await transporter.sendMail({
+              from:    `"Leave Management" <${process.env.SMTP_USER}>`,
+              to:      employee.email,
+              subject: `Leave Request ${status}: ${doc.from} – ${doc.to}`,
+              html:    employeeLeaveStatusEmail({
+                employeeName: employee.name, status,
+                from: doc.from, to: doc.to,
+                leaveType: doc.leaveType, reason: doc.reason, approvedBy,
+              }),
+            });
+          } catch (e) { console.error("❌ Leave status email to employee failed:", e); }
+        }
       }
     }
+
+    const ioUpd = req.app.get("io");
+    if (ioUpd) ioUpd.emit("leave:updated", { leaveId: doc._id });
 
     return res.json(doc);
   } catch (err) {
@@ -477,7 +564,15 @@ export const cancelLeave = async (req, res) => {
   try {
     const leave = await LeaveRequest.findById(req.params.id);
     if (!leave) return res.status(404).json({ message: "Not found" });
-    if (leave.employeeId !== req.user.employeeId) return res.status(403).json({ message: "Unauthorized" });
+
+    const isSupportAdmin = req.user.role === "support-admin";
+    const supportAdminKey = isSupportAdmin ? String(req.user.actualId || req.user._id) : null;
+    const owns = isSupportAdmin
+      ? leave.requesterType === "support-admin" && String(leave.employeeId) === supportAdminKey
+      : leave.employeeId === req.user.employeeId &&
+        (!leave.requesterType || leave.requesterType === "employee");
+
+    if (!owns) return res.status(403).json({ message: "Unauthorized" });
     if (leave.status !== "Pending") return res.status(400).json({ message: "Cannot cancel this leave" });
 
     await LeaveRequest.findByIdAndDelete(req.params.id);
@@ -492,7 +587,6 @@ export const cancelLeave = async (req, res) => {
         type: "leave", isRead: false,
       });
       const io = req.app.get("io");
-      // ✅ FEATURE 2 + BUG 3 FIX — emit only to this admin's private room
       if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
     }
 
@@ -609,7 +703,8 @@ export const resetUsedPaidDays = async (req, res) => {
 =================================================================================== */
 export const getLeavePolicyBalanceForEmployee = async (req, res) => {
   try {
-    const policyDoc = await LeavePolicy.findOne({ adminId: req.user.adminId }).lean();
+    const adminId = req.user.adminId || req.user._id;
+    const policyDoc = await LeavePolicy.findOne({ adminId }).lean();
     if (!policyDoc || !policyDoc.policies.length) {
       return res.json({
         balance: [],
@@ -621,24 +716,34 @@ export const getLeavePolicyBalanceForEmployee = async (req, res) => {
 
     const cycleStart = getCycleStartDateStr(policyDoc.resetMonth);
 
+    const requesterKey =
+      req.user.role === "support-admin"
+        ? String(req.user.actualId || req.user._id)
+        : req.user.employeeId;
+    const requesterType = req.user.role === "support-admin" ? "support-admin" : "employee";
+
+    if (!requesterKey) {
+      return res.status(400).json({ message: "Unable to resolve user for leave balance." });
+    }
+
     // Map through the Admin's policies, but fetch actual history for the Employee
     const balancePromises = policyDoc.policies.map(async (p) => {
       const personalUsedPaidDays = await getUsedPaidDaysForEmployee(
-        req.user.employeeId, 
-        p.leaveType, 
-        cycleStart
+        requesterKey,
+        p.leaveType,
+        cycleStart,
+        requesterType
       );
 
       // ✅ NEW: Calculate carry-forward for this employee + leave type
       let carriedForwardDays = 0;
       if (policyDoc.carryForwardEnabled) {
-        // We need a non-lean policyDoc for getCarriedForwardDays — pass the lean version
-        // with the carryForwardEnabled flag set
         carriedForwardDays = await getCarriedForwardDays(
-          req.user.adminId,
-          req.user.employeeId,
+          adminId,
+          requesterKey,
           p.leaveType,
-          policyDoc
+          policyDoc,
+          requesterType
         );
       }
 

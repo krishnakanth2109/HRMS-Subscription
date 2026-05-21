@@ -1251,6 +1251,13 @@ const EmployeeLeavemanagement = () => {
     fetchAllData();
   };
 
+  const handleOpenModal = async () => {
+    // Reset policy loaded ref so it forces a fresh fetch
+    dataLoadedRef.current.policy = false;
+    await fetchLeavePolicies();
+    setModalOpen(true);
+  };
+
   if (loading && !leaveList.length) return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="text-center">
@@ -1306,7 +1313,7 @@ const EmployeeLeavemanagement = () => {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setModalOpen(true)}
+              onClick={handleOpenModal}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg transition duration-200"
             >
               📅 Apply for Leave

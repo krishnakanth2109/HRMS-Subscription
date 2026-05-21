@@ -40,7 +40,7 @@ const upload = multer({
 // GET ME
 router.get('/me', protect, async (req, res) => {
   try {
-    const employeeProfile = await ProfilePic.findOne({ employeeId: req.user.employeeId });
+    const employeeProfile = await ProfilePic.findOne({ employeeId: req.user.employeeId || req.user.actualId || req.user._id });
     if (!employeeProfile || !employeeProfile.profilePhoto) {
       return res.status(200).json({ profilePhoto: null });
     }
@@ -141,7 +141,7 @@ router.put('/photo', protect, upload.single('image'), async (req, res) => {
 // DELETE PHOTO
 router.delete('/photo', protect, async (req, res) => {
   try {
-    const profile = await ProfilePic.findOne({ employeeId: req.user.employeeId });
+    const profile = await ProfilePic.findOne({ employeeId: req.user.employeeId || req.user.actualId || req.user._id });
     if (!profile) return res.status(404).json({ message: 'No profile found' });
 
     if (profile.profilePhoto.public_id) {

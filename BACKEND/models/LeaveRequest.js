@@ -45,6 +45,11 @@ const leaveRequestSchema = new mongoose.Schema(
     companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
     employeeId: { type: String, required: true },
 
+    /** "employee" (default) | "support-admin" — scoped paid-day balance & admin approval rules */
+    requesterType: { type: String, enum: ["employee", "support-admin"], default: "employee" },
+    /** Display name at time of request (used when row is not an Employee record) */
+    requesterName: { type: String, default: "" },
+
     // ── LEAVE DATES & REASON ───────────────────────────────────────────────
     from:   { type: String, required: true },
     to:     { type: String, required: true },

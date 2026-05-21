@@ -19,6 +19,7 @@ import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import SupportAdminDashboard from "./pages/support-admin/SupportAdminDashboard";
 import EmployeeManagement from "./pages/EmployeeManagement";
+import SupportAdminManagement from "./pages/SupportAdminManagement";
 import AddEmployee from "./pages/AddEmployee";
 import ReactivateEmployee from "./pages/ReactivateEmployee";
 import EditEmployee from "./pages/EditEmployee";
@@ -27,12 +28,14 @@ import LeaveManagement from "./pages/LeaveManagement";
 import AdminLeaveSummary from "./pages/AdminLeaveSummary";
 import AdminProfile from "./pages/AdminProfile";
 import SupportAdminProfile from "./pages/support-admin/SupportAdminProfile";
+import SupportAdminLeaveRequests from "./pages/support-admin/SupportAdminLeaveRequests";
 import EmployeeProfile from "./pages/EmployeeProfile";
 import EmployeeLeaveSummary from "./pages/EmployeeLeaveSummary";
 import AdminNotifications from "./pages/AdminNotifications";
 import EmployeesOnLeaveToday from "./pages/EmployeesOnLeaveToday";
 import ForgotPassword from "./pages/ForgotPassword";
 import EmployeeAttendanceProfile from "./pages/EmployeeAttendanceProfile";
+import SupportAdminAttendanceProfile from "./pages/SupportAdminAttendanceProfile";
 import AdminNotices from "./pages/AdminNotices.jsx";
 import AdminHolidayCalendarPage from "./pages/AdminHolidayCalendarPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
@@ -244,9 +247,12 @@ function App() {
       >
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/support-admin/dashboard" element={<SupportAdminDashboard />} />
+        <Route path="/support-admin/my-attendance" element={<EmployeeDailyAttendance />} />
         <Route path="/admin/profile" element={<AdminProfile />} />
         <Route path="/support-admin/profile" element={<SupportAdminProfile />} />
+        <Route path="/support-admin/leave-requests" element={<SupportAdminLeaveRequests />} />
         <Route path="/employees" element={<EmployeeManagement />} />
+        <Route path="/support-admin/management" element={<SupportAdminManagement />} />
         <Route path="/employees/add" element={<AddEmployee />} />
         <Route path="/employees/reactivate/:id" element={<ReactivateEmployee />} />
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
@@ -274,6 +280,7 @@ function App() {
         />
 
         <Route path="/attendance/profile/:employeeId" element={<EmployeeAttendanceProfile />} />
+        <Route path="/support-admin/attendance/profile/:employeeId" element={<SupportAdminAttendanceProfile />} />
         <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
         <Route path="/admin/settings" element={<SettingsPage />} />

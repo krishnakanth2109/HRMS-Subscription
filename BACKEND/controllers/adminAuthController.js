@@ -501,10 +501,10 @@ export const changeAdminPassword = async (req, res) => {
 /* ==================== REGISTER SUPPORT ADMIN ==================== */
 export const registerSupportAdmin = async (req, res) => {
   try {
-    const { name, email, password, phone, department, adminId } = req.body;
+    const { supportAdminId, name, email, password, phone, department, adminId } = req.body;
 
-    if (!name || !email || !password || !adminId) {
-      return res.status(400).json({ message: "Name, email, password, and adminId are required" });
+    if (!supportAdminId || !name || !email || !password || !adminId) {
+      return res.status(400).json({ message: "Support Admin ID, name, email, password, and adminId are required" });
     }
 
     const existingSupportAdmin = await SupportAdmin.findOne({ email });
@@ -513,7 +513,13 @@ export const registerSupportAdmin = async (req, res) => {
       return res.status(400).json({ message: "User with this email already exists" });
     }
 
+    const existingSupportAdminId = await SupportAdmin.findOne({ supportAdminId, adminId });
+    if (existingSupportAdminId) {
+      return res.status(400).json({ message: "Support Admin ID already exists" });
+    }
+
     const supportAdmin = await SupportAdmin.create({
+      supportAdminId,
       name,
       email,
       password,
@@ -531,10 +537,66 @@ export const registerSupportAdmin = async (req, res) => {
   }
 };
 
+/* ==================== UPDATE SUPPORT ADMIN ==================== */
+export const updateSupportAdmin = async (req, res) => {
+  try {
+    const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
+    const { id } = req.params;
+    const { supportAdminId, name, email, phone, department, loginEnabled, password } = req.body;
+
+    if (!supportAdminId || !name || !email) {
+      return res.status(400).json({ message: "Support Admin ID, name, and email are required" });
+    }
+
+    const supportAdmin = await SupportAdmin.findOne({ _id: id, adminId: parentAdminId }).select("+password");
+    if (!supportAdmin) {
+      return res.status(404).json({ message: "Support Admin not found or unauthorized" });
+    }
+
+    const emailOwner = await SupportAdmin.findOne({ email: email.toLowerCase(), _id: { $ne: id } });
+    const adminEmailOwner = await Admin.findOne({ email: email.toLowerCase() });
+    if (emailOwner || adminEmailOwner) {
+      return res.status(400).json({ message: "User with this email already exists" });
+    }
+
+    const idOwner = await SupportAdmin.findOne({
+      supportAdminId,
+      adminId: parentAdminId,
+      _id: { $ne: id },
+    });
+    if (idOwner) {
+      return res.status(400).json({ message: "Support Admin ID already exists" });
+    }
+
+    supportAdmin.supportAdminId = supportAdminId;
+    supportAdmin.name = name;
+    supportAdmin.email = email;
+    supportAdmin.phone = phone || "";
+    supportAdmin.department = department || "Support Administration";
+    supportAdmin.loginEnabled = loginEnabled !== false;
+
+    if (password) {
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+      supportAdmin.password = password;
+    }
+
+    await supportAdmin.save();
+    const updatedSupportAdmin = supportAdmin.toObject();
+    delete updatedSupportAdmin.password;
+
+    res.status(200).json({ message: "Support Admin updated successfully", supportAdmin: updatedSupportAdmin });
+  } catch (error) {
+    console.error("âŒ UPDATE SUPPORT ADMIN ERROR:", error);
+    res.status(500).json({ message: "Failed to update support admin" });
+  }
+};
+
 /* ==================== GET SUPPORT ADMINS ==================== */
 export const getSupportAdmins = async (req, res) => {
   try {
-    const parentAdminId = req.user.actualId || req.user._id;
+    const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
     const supportAdmins = await SupportAdmin.find({ adminId: parentAdminId }).select('-password');
     res.status(200).json(supportAdmins);
   } catch (error) {
@@ -546,7 +608,7 @@ export const getSupportAdmins = async (req, res) => {
 /* ==================== DELETE SUPPORT ADMIN ==================== */
 export const deleteSupportAdmin = async (req, res) => {
   try {
-    const parentAdminId = req.user.actualId || req.user._id;
+    const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
     const supportAdminId = req.params.id;
     const supportAdmin = await SupportAdmin.findOneAndDelete({ _id: supportAdminId, adminId: parentAdminId });
     if (!supportAdmin) {

@@ -126,7 +126,7 @@ const LeaveWithModal = () => {
   const fetchBalance = useCallback(async () => {
     try {
       const data = await getLeaveBalance();
-      const list = Array.isArray(data) ? data : [];
+      const list = Array.isArray(data?.balance) ? data.balance : Array.isArray(data) ? data : [];
       setBalance(list);
       // Pre-select the first available leave type in the form
       if (list.length > 0) {
@@ -207,7 +207,12 @@ const LeaveWithModal = () => {
           <p className="text-slate-500 text-[11px] sm:text-sm mt-0.5">View your leave history and paid leave balance.</p>
         </div>
         <button
-          onClick={() => { setModalOpen(true); setError(""); setSuccess(""); }}
+          onClick={async () => {
+            await fetchBalance();
+            setError("");
+            setSuccess("");
+            setModalOpen(true);
+          }}
           className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-3 sm:py-2.5 rounded-xl font-bold shadow-md shadow-emerald-100 text-sm transition-all active:scale-95"
         >
           + Apply for Leave

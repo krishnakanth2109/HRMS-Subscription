@@ -11,6 +11,7 @@ import Holiday from "../models/Holiday.js";
 import Overtime from "../models/Overtime.js";
 import Admin from "../models/adminModel.js";
 import Employee from "../models/employeeModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 import Notification from "../models/notificationModel.js";
 import AttendanceRequest from "../models/AttendanceRequest.js";
 import Company from "../models/CompanyModel.js";
@@ -276,6 +277,34 @@ const sendUninformedAbsenceEmail = async (employeeEmail, employeeName, absentDat
 
 router.use(protect);
 
+const resolveAttendanceScope = async (req, employeeId) => {
+  const employee = await Employee.findOne({ employeeId }).select("adminId company").lean();
+  if (employee) {
+    return {
+      adminId: employee.adminId || req.user._id,
+      companyId: employee.company || req.user.company || req.user.companyId,
+    };
+  }
+
+  const adminId = req.user.adminId || req.user._id;
+  let companyId = req.user.company || req.user.companyId;
+
+  if (!companyId) {
+    const company = await Company.findOne({ adminId }).select("_id").lean();
+    companyId = company?._id;
+  }
+
+  return { adminId, companyId };
+};
+
+const getEmployeeAttendanceIds = async (req, audience = "employee") => {
+  if (audience === "support-admin") {
+    const supportAdminIds = await SupportAdmin.find({ adminId: req.user._id }).distinct("_id");
+    return supportAdminIds.map((id) => id.toString());
+  }
+  return Employee.find({ adminId: req.user._id }).distinct("employeeId");
+};
+
 
 /* ==========================================================
    5. SIMPLE ADMIN — GET ALL (Scoped to admin)
@@ -283,7 +312,8 @@ router.use(protect);
 
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    const records = await Attendance.find({ adminId: req.user._id });
+    const employeeIds = await getEmployeeAttendanceIds(req);
+    const records = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
     const sortedRecords = records.map(rec => {
       rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
       return rec;
@@ -304,11 +334,12 @@ router.get('/all', onlyAdmin, async (req, res) => {
  */
 router.get('/admin/date-range', onlyAdmin, async (req, res) => {
   try {
-    const { start, end } = req.query;
+    const { start, end, audience = "employee" } = req.query;
     if (!start || !end) return res.status(400).json({ message: "start and end query params are required" });
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id } },
+      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": { $gte: start, $lte: end } } },
       {
@@ -355,11 +386,12 @@ router.get('/admin/date-range', onlyAdmin, async (req, res) => {
  */
 router.get('/admin/daily-counts', onlyAdmin, async (req, res) => {
   try {
-    const { date } = req.query;
+    const { date, audience = "employee" } = req.query;
     if (!date) return res.status(400).json({ message: "Date is required" });
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id } },
+      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": date } },
       {
@@ -396,10 +428,11 @@ router.get('/admin/daily-counts', onlyAdmin, async (req, res) => {
  */
 router.get('/admin/daily-log', onlyAdmin, async (req, res) => {
   try {
-    const { start, end, page = 1, limit = 10, search = '' } = req.query;
+    const { start, end, page = 1, limit = 10, search = '', audience = "employee" } = req.query;
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id } },
+      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": { $gte: start, $lte: end } } }
     ];
@@ -531,10 +564,11 @@ router.post('/admin/date-range-for-employees', onlyAdmin, async (req, res) => {
  */
 router.get('/admin/daily-status-list', onlyAdmin, async (req, res) => {
   try {
-    const { date, type } = req.query;
+    const { date, type, audience = "employee" } = req.query;
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id } },
+      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": date } }
     ];
@@ -573,7 +607,8 @@ router.get('/admin/daily-status-list', onlyAdmin, async (req, res) => {
  */
 router.get('/admin/status-correction-requests', onlyAdmin, async (req, res) => {
   try {
-    const allRecords = await Attendance.find({ adminId: req.user._id });
+    const employeeIds = await getEmployeeAttendanceIds(req);
+    const allRecords = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
     const requests = [];
 
     allRecords.forEach(empRecord => {
@@ -671,10 +706,18 @@ router.post('/punch-in', async (req, res) => {
 
     let attendance = await Attendance.findOne({ employeeId });
     if (!attendance) {
+      const { adminId, companyId } = await resolveAttendanceScope(req, employeeId);
+      if (!adminId || !companyId) {
+        return res.status(400).json({
+          success: false,
+          message: "Unable to resolve company for attendance. Please create a company before punching in.",
+        });
+      }
+
       // Inject hierarchy fields (adminId, companyId) preserved from old code
       attendance = new Attendance({
-        adminId: req.user.adminId,
-        companyId: req.user.company,
+        adminId,
+        companyId,
         employeeId,
         employeeName,
         attendance: []
@@ -1526,7 +1569,8 @@ router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
  */
 router.get("/all", protect, onlyAdmin, async (req, res) => {
   try {
-    const records = await Attendance.find({ adminId: req.user._id });
+    const employeeIds = await getEmployeeAttendanceIds(req);
+    const records = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
     res.json({ success: true, data: records });
   } catch (err) {
     console.error("Error fetching all attendance records:", err);
@@ -1719,7 +1763,8 @@ router.post("/request-full-day", protect, async (req, res) => {
  */
 router.get("/admin/full-day-requests", protect, onlyAdmin, async (req, res) => {
   try {
-    const allRecords = await Attendance.find({ adminId: req.user._id });
+    const employeeIds = await getEmployeeAttendanceIds(req);
+    const allRecords = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
 
     const pendingRequests = [];
 
@@ -1978,6 +2023,7 @@ router.post("/request-correction-advanced", protect, async (req, res) => {
 router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) => {
   try {
     let companyIds = [];
+    const employeeIds = await getEmployeeAttendanceIds(req);
 
     if (req.user.role === 'admin' || req.user.role === 'support-admin') {
       // Find all companies owned by this admin
@@ -1990,6 +2036,7 @@ router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) =>
 
     const requests = await AttendanceRequest.find({
       companyId: { $in: companyIds },
+      employeeId: { $in: employeeIds },
       requestStatus: 'pending'
     }).sort({ requestedAt: -1 });
 

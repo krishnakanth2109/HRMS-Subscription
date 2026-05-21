@@ -343,14 +343,14 @@ const AdminProfile = () => {
     <div className="min-h-screen p-4 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
-        <div className="flex justify-end">
+        {/* <div className="flex justify-end">
           <button
             onClick={() => setIsSupportAdminsModalOpen(true)}
             className="flex items-center gap-2 bg-purple-600 text-white px-6 py-2.5 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
           >
             <FaUsers size={14} /> Support Admins
           </button>
-        </div>
+        </div> */}
 
         {/* HEADER SECTION */}
         <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
@@ -368,7 +368,8 @@ const AdminProfile = () => {
               <h1 className="text-3xl font-bold text-gray-900">{profile?.name}</h1>
             )}
             <p className="text-gray-500 font-medium uppercase tracking-widest text-[10px] mt-1">
-              {profile?.role} • {profile?.department}
+              {profile?.role} 
+              {/* • {profile?.department} */}
             </p>
           </div>
 

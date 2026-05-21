@@ -2,15 +2,9 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useLocation } from "react-router-dom";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
-import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
+import api, { getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
 import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaExchangeAlt, FaCheck, FaHome, FaList, FaLayerGroup, FaChevronDown, FaChevronUp, FaInfoCircle, FaCoffee, FaSpinner } from "react-icons/fa";
 import { toBlob } from 'html-to-image';
-import { io } from "socket.io-client";
-
-const SOCKET_URL =
-  import.meta.env.MODE === "production"
-    ? import.meta.env.VITE_API_URL_PRODUCTION
-    : import.meta.env.VITE_API_URL_DEVELOPMENT;
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -191,7 +185,7 @@ const PunchOutRequestsModal = ({ isOpen, onClose, requests, loading, onAction, o
                 <div key={req._id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                      <div className="text-sm text-gray-500">Employee</div>
+                      <div className="text-sm text-gray-500">Support Admin</div>
                       <div className="font-semibold text-gray-900">{req.employeeName || req.employeeId}</div>
                     </div>
                     <div className="text-sm text-gray-500">Requested Date</div>
@@ -549,7 +543,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">{isOnBreakModal && <FaCoffee className="text-amber-500" />}{title}</h3>
-            {!loading && <p className="text-sm text-gray-500 font-medium mt-0.5">{employees.length} Employees</p>}
+            {!loading && <p className="text-sm text-gray-500 font-medium mt-0.5">{employees.length} Support Admins</p>}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={20} /></button>
         </div>
@@ -563,7 +557,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
                 <table className="min-w-full text-sm text-left whitespace-nowrap">
                   <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200">
                     <tr>
-                      <th className="px-4 sm:px-6 py-4">Employee</th>
+                      <th className="px-4 sm:px-6 py-4">Support Admin</th>
                       <th className="px-6 py-4 hidden md:table-cell">Role</th>
                       {isOnBreakModal && <th className="px-4 sm:px-6 py-4">Break At</th>}
                       {isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Total Break Time</th>}
@@ -670,7 +664,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
                 })}
               </div>
             </div>
-          ) : <p className="text-center text-slate-500 py-8">No employees in this category.</p>}
+          ) : <p className="text-center text-slate-500 py-8">No support admins in this category.</p>}
         </div>
       </div>
     </div>
@@ -706,7 +700,7 @@ const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange, setIt
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
-const AdminAttendance = () => {
+const SupportAdminAttendance = () => {
   const location = useLocation();
   const todayISO = new Date().toISOString().split("T")[0];
   const [startDate, setStartDate] = useState(todayISO);
@@ -741,7 +735,6 @@ const AdminAttendance = () => {
   const [summarySearchTerm, setSummarySearchTerm] = useState("");
   const [employeeImages, setEmployeeImages] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
-  const [employeeWorkModes, setEmployeeWorkModes] = useState({});
   const [punchOutRequests, setPunchOutRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [isPunchOutRequestsOpen, setIsPunchOutRequestsOpen] = useState(false);
@@ -767,25 +760,26 @@ const AdminAttendance = () => {
 
   const fetchAllEmployees = useCallback(async () => {
     setEmployeesLoading(true);
-    try { const data = await getEmployees(); setAllEmployees(data); }
-    catch (error) { setAllEmployees([], error); }
+    try {
+      const response = await api.get("/api/admin/support-admins");
+      const supportAdmins = Array.isArray(response.data)
+        ? response.data
+        : response.data?.data || [];
+      const normalizedSupportAdmins = supportAdmins.map((admin) => ({
+        ...admin,
+        employeeId: admin.employeeId || admin._id,
+        name: admin.name || admin.email || "Support Admin",
+        isActive: admin.loginEnabled !== false,
+      }));
+      setAllEmployees(normalizedSupportAdmins);
+    }
+    catch (error) { setAllEmployees([]); }
     finally { setEmployeesLoading(false); }
   }, []);
 
   const fetchOvertimeData = useCallback(async () => {
     try { const data = await getAllOvertimeRequests(); setOvertimeData(data); }
-    catch (error) { setOvertimeData([], error); }
-  }, []);
-
-  const fetchEmployeeWorkModes = useCallback(async () => {
-    try {
-      const { data } = await api.get("/api/admin/settings/employees-modes");
-      if (data && data.employees) {
-        const modeMap = {};
-        data.employees.forEach(emp => { modeMap[emp.employeeId] = { currentEffectiveMode: emp.currentEffectiveMode || 'WFO', ruleType: emp.ruleType || 'Global' }; });
-        setEmployeeWorkModes(modeMap);
-      }
-    } catch (error) { console.error("Error fetching employee work modes:", error); }
+    catch (error) { setOvertimeData([]); }
   }, []);
 
   const fetchPunchOutRequests = useCallback(async () => {
@@ -845,7 +839,7 @@ const AdminAttendance = () => {
   // Daily counts uses scoped API (backend already filters by adminId via middleware)
   const fetchDailyCounts = useCallback(async (date) => {
     try {
-      const { data } = await api.get(`/api/attendance/admin/daily-counts?date=${date}`);
+      const { data } = await api.get(`/api/attendance/admin/daily-counts?date=${date}&audience=support-admin`);
       setDailyCounts({
         working: data.workingCount,
         completed: data.completedCount,
@@ -860,14 +854,14 @@ const AdminAttendance = () => {
   const fetchDailyData = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get(`/api/attendance/admin/daily-log?start=${startDate}&end=${endDate}&page=${dailyCurrentPage}&limit=${dailyItemsPerPage}&search=${dailySearchTerm}`);
+      const { data } = await api.get(`/api/attendance/admin/daily-log?start=${startDate}&end=${endDate}&page=${dailyCurrentPage}&limit=${dailyItemsPerPage}&search=${dailySearchTerm}&audience=support-admin`);
       setRawDailyData(data.data || []);
       setDailyTotalItems(data.total || 0);
     } catch (error) { setRawDailyData([]); setDailyTotalItems(0); }
     finally { setLoading(false); }
   }, [startDate, endDate, dailyCurrentPage, dailyItemsPerPage, dailySearchTerm]);
 
-  useEffect(() => { fetchShifts(); fetchHolidays(); fetchEmployeeWorkModes(); fetchAllEmployees(); fetchOvertimeData(); fetchPunchOutRequests(); }, [fetchPunchOutRequests, fetchEmployeeWorkModes, fetchHolidays, fetchShifts, fetchAllEmployees, fetchOvertimeData]);
+  useEffect(() => { fetchShifts(); fetchHolidays(); fetchAllEmployees(); fetchOvertimeData(); fetchPunchOutRequests(); }, [fetchPunchOutRequests, fetchHolidays, fetchShifts, fetchAllEmployees, fetchOvertimeData]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => { fetchDailyData(); }, 500);
@@ -875,24 +869,6 @@ const AdminAttendance = () => {
   }, [fetchDailyData]);
 
   useEffect(() => { if (startDate === endDate && allEmployees.length > 0) fetchDailyCounts(startDate); }, [startDate, endDate, fetchDailyCounts, allEmployees]);
-
-  useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
-    const refreshPunchOutRequests = async () => {
-      await fetchPunchOutRequests();
-      await fetchDailyData();
-      if (startDate === endDate) await fetchDailyCounts(startDate);
-    };
-
-    socket.on("punchout:new", refreshPunchOutRequests);
-    socket.on("punchout:updated", refreshPunchOutRequests);
-
-    return () => {
-      socket.off("punchout:new", refreshPunchOutRequests);
-      socket.off("punchout:updated", refreshPunchOutRequests);
-      socket.disconnect();
-    };
-  }, [fetchPunchOutRequests, fetchDailyData, fetchDailyCounts, startDate, endDate]);
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -986,7 +962,7 @@ const AdminAttendance = () => {
         adminId: 'Admin', date: dateOfRecord
       });
       if (response.data.success) {
-        alert('Employee punched out successfully!');
+        alert('Support admin punched out successfully!');
         await fetchDailyData();
         if (startDate === endDate) fetchDailyCounts(startDate);
       }
@@ -1012,16 +988,15 @@ const AdminAttendance = () => {
       const shift = shiftsMap[item.employeeId];
       const adminFullDayHours = shift?.fullDayHours || 9;
       const adminHalfDayHours = shift?.halfDayHours || 4.5;
-      const realName = empNameMap[item.employeeId] || item.employeeName || item.employeeId;
-      const workMode = employeeWorkModes[item.employeeId]?.currentEffectiveMode || 'WFO';
+      const supportAdminName = empNameMap[item.employeeId] || item.name || item.employeeName || item.employeeId;
       return {
-        ...item, employeeName: realName, assignedHours: adminFullDayHours,
+        ...item, supportAdminName, assignedHours: adminFullDayHours,
         workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, adminFullDayHours, adminHalfDayHours),
         displayLoginStatus: calculateLoginStatus(item.punchIn, shift, item.loginStatus),
-        workMode: workMode, isOnBreak: item.isOnBreak || false
+        isOnBreak: item.isOnBreak || false
       };
     });
-  }, [rawDailyData, shiftsMap, empNameMap, employeeWorkModes]);
+  }, [rawDailyData, shiftsMap, empNameMap]);
 
   const toggleBreakDropdown = async (item) => {
     const id = item._id || `${item.employeeId}-${item.date}`;
@@ -1066,7 +1041,7 @@ const AdminAttendance = () => {
   // Export: fetches ALL records for date range (backend scoped by adminId)
   const exportDailyLogToExcel = async () => {
     try {
-      const { data } = await api.get(`/api/attendance/admin/date-range?start=${startDate}&end=${endDate}`);
+      const { data } = await api.get(`/api/attendance/admin/date-range?start=${startDate}&end=${endDate}&audience=support-admin`);
       const mapped = data.map(item => ({
         ...item,
         employeeName: empNameMap[item.employeeId] || item.employeeName,
@@ -1075,8 +1050,8 @@ const AdminAttendance = () => {
         workedStatus: getWorkedStatus(item.punchIn, item.punchOut, item.status, shiftsMap[item.employeeId]?.fullDayHours || 9, shiftsMap[item.employeeId]?.halfDayHours || 4.5)
       }));
       exportToExcel(mapped, `Daily_Log_${startDate}_to_${endDate}`, [
-        { label: "Employee Name", value: item => item.employeeName },
-        { label: "Employee ID", value: item => item.employeeId },
+        { label: "Support Admin Name", value: item => item.employeeName },
+        { label: "Support Admin ID", value: item => item.employeeId },
         { label: "Date", value: item => formatDateDMY(item.date) },
         { label: "Punch In", value: item => item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" },
         { label: "Punch Out", value: item => item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" },
@@ -1114,8 +1089,8 @@ const AdminAttendance = () => {
         return stats;
       });
       exportToExcel(fullSummary, `Attendance_Summary_${summaryStartDate}_to_${summaryEndDate}`, [
-        { label: "Employee ID", value: item => item.employeeId },
-        { label: "Employee Name", value: item => item.employeeName },
+        { label: "Support Admin ID", value: item => item.employeeId },
+        { label: "Support Admin Name", value: item => item.employeeName },
         { label: "Assigned Work Hours", value: item => formatDecimalHours(item.assignedHours) },
         { label: "Present Days", value: item => item.presentDays },
         { label: "On-Time Days", value: item => item.onTimeDays },
@@ -1152,7 +1127,7 @@ const AdminAttendance = () => {
     } else {
       setStatusListModal({ isOpen: true, title: "Loading...", employees: [], loading: true });
       try {
-        const { data } = await api.get(`/api/attendance/admin/daily-status-list?date=${startDate}&type=${type}`);
+        const { data } = await api.get(`/api/attendance/admin/daily-status-list?date=${startDate}&type=${type}&audience=support-admin`);
         let title = type === 'WORKING' ? 'Currently Working' : type === 'COMPLETED' ? 'Shift Completed' : 'On Break';
         setStatusListModal({ isOpen: true, title, employees: data, loading: false });
       } catch (e) { setStatusListModal({ isOpen: false, title: "", employees: [], loading: false }); }
@@ -1225,7 +1200,7 @@ const AdminAttendance = () => {
               <table className="min-w-full text-sm text-left whitespace-nowrap">
                 <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider">
                   <tr>
-                    <th className="px-4 sm:px-6 py-4">Employee</th>
+                    <th className="px-4 sm:px-6 py-4">Support Admin</th>
                     <th className="px-6 py-4 hidden md:table-cell">Date</th>
                     <th className="px-4 sm:px-6 py-4">Punch In</th>
                     <th className="px-4 sm:px-6 py-4">Punch Out</th>
@@ -1248,7 +1223,6 @@ const AdminAttendance = () => {
                     const punchInColor = item.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600';
                     const punchOutColor = item.workedStatus === 'Full Day' ? 'text-green-600' : 'text-red-600';
                     const profilePic = employeeImages ? employeeImages[item.employeeId] : null;
-                    const isWorkFromHome = item.workMode === 'WFH';
                     const breakState = fetchedBreaks[item._id || `${item.employeeId}-${item.date}`];
                     const rowBreakSessions = breakState?.data || [];
                     const rowTotalBreakSecs = calcTotalBreakSeconds(rowBreakSessions);
@@ -1258,13 +1232,12 @@ const AdminAttendance = () => {
                         <td className="px-4 sm:px-6 py-4">
                           <div className="flex items-center gap-3 sm:gap-4">
                             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-shadow shrink-0" onClick={() => profilePic && setPreviewImage(profilePic)}>
-                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.employeeName || "U").charAt(0)}
+                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.supportAdminName || "U").charAt(0)}
                             </div>
                             <div className="min-w-0">
-                              <div className="font-bold text-gray-800 text-xs sm:text-sm truncate">{item.employeeName}</div>
+                              <div className="font-bold text-gray-800 text-xs sm:text-sm truncate">{item.supportAdminName}</div>
                               <div className="flex items-center gap-2 mt-0.5">
                                 <span className="text-gray-500 font-mono text-[10px]">{item.employeeId}</span>
-                                {isWorkFromHome && (<span className="flex items-center justify-center" title="Working from Home"><img src="https://image2url.com/r2/default/images/1771229256808-7f17d81e-c508-495b-91f1-f6fda3c6ac5b.png" alt="Home" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" /></span>)}
                               </div>
                               <div className="text-[10px] text-gray-400 md:hidden mt-1">{formatDateDMY(item.date)}</div>
                             </div>
@@ -1373,10 +1346,10 @@ const AdminAttendance = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold overflow-hidden bg-gray-50 shrink-0" onClick={() => profilePic && setPreviewImage(profilePic)}>
-                          {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.employeeName || "U").charAt(0)}
+                          {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (item.supportAdminName || "U").charAt(0)}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-bold text-gray-800 text-sm truncate">{item.employeeName}</div>
+                          <div className="font-bold text-gray-800 text-sm truncate">{item.supportAdminName}</div>
                           <div className="text-[10px] text-gray-500 font-mono truncate">{item.employeeId}</div>
                         </div>
                       </div>
@@ -1429,19 +1402,19 @@ const AdminAttendance = () => {
         </div>
 
         {/* ========================================== */}
-        {/* Employee Attendance Summary Section */}
+        {/* Support Admin Attendance Summary Section */}
         {/* ========================================== */}
         <div className="flex flex-col space-y-6 mt-10">
           <div className="p-6 border border-gray-200 shadow-sm bg-white rounded-2xl flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3"><div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><FaUsers size={20} /></div><h2 className="text-xl font-bold text-gray-800">Employees Attendance Summary</h2></div>
+              <div className="flex items-center gap-3"><div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><FaUsers size={20} /></div><h2 className="text-xl font-bold text-gray-800">Support Admin Attendance Summary</h2></div>
               <div className="flex items-center gap-2 sm:gap-3">
                 {!isCompareMode ? (
                   <button onClick={() => setIsCompareMode(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95"><FaExchangeAlt className="text-blue-500" /> Compare</button>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2 animate-in slide-in-from-right duration-300">
                     <span className="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-full">{selectedCompareIds.length} Selected</span>
-                    <button onClick={() => { if (selectedCompareIds.length < 2) alert("Select at least 2 employees to compare."); else setIsComparisonModalOpen(true); }} className="px-4 py-2.5 bg-green-600 text-white text-xs font-bold rounded-xl shadow hover:bg-green-700 transition-all">Proceed</button>
+                    <button onClick={() => { if (selectedCompareIds.length < 2) alert("Select at least 2 support admins to compare."); else setIsComparisonModalOpen(true); }} className="px-4 py-2.5 bg-green-600 text-white text-xs font-bold rounded-xl shadow hover:bg-green-700 transition-all">Proceed</button>
                     <button onClick={() => { setIsCompareMode(false); setSelectedCompareIds([]); }} className="px-4 py-2.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
                   </div>
                 )}
@@ -1450,7 +1423,7 @@ const AdminAttendance = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 items-end">
               <div className="relative group w-full">
-                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1 block">Search Employee</label>
+                <label className="text-[9px] font-bold text-gray-500 uppercase tracking-wider ml-1 mb-1 block">Search Support Admin</label>
                 <div className="relative">
                   <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500" />
                   <input type="text" placeholder="Name or ID..." value={summarySearchTerm} onChange={(e) => { setSummarySearchTerm(e.target.value); setSummaryCurrentPage(1); }} className="pl-10 pr-4 py-2.5 w-full bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all shadow-sm text-sm font-medium" />
@@ -1477,7 +1450,7 @@ const AdminAttendance = () => {
                 <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20 shadow-sm">
                   <tr>
                     {isCompareMode && <th className="px-4 sm:px-6 py-4 text-center">Sel</th>}
-                    <th className="px-4 sm:px-6 py-4">Employee</th>
+                    <th className="px-4 sm:px-6 py-4">Support Admin</th>
                     <th className="px-6 py-4 text-center hidden lg:table-cell">Assigned</th>
                     <th className="px-4 sm:px-6 py-4 text-center">Pres</th>
                     <th className="px-6 py-4 text-center hidden sm:table-cell">On Time</th>
@@ -1597,7 +1570,7 @@ const AdminAttendance = () => {
         allEmployees={allEmployees}
         date={startDate}
         onPunchOut={(emp) => {
-          // Prepare employee object for AdminPunchOutModal
+          // Prepare support admin object for AdminPunchOutModal
           // StatusListModal employees have slightly different structure from rawDailyData
           const empForPunchOut = {
             ...emp,
@@ -1623,4 +1596,4 @@ const AdminAttendance = () => {
   );
 };
 
-export default AdminAttendance;
+export default SupportAdminAttendance;

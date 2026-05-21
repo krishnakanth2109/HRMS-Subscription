@@ -478,6 +478,22 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
 const AdminLeavePanel = () => {
   const location = useLocation();
 
+  const currentUserRole = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem("hrmsUser");
+      if (!raw) return "";
+      const u = JSON.parse(raw);
+      return (u.role || "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const canApproveRejectLeave = (lv) => {
+    if (lv?.requesterType === "support-admin" && currentUserRole === "support-admin") return false;
+    return true;
+  };
+
   const [leaveList, setLeaveList]         = useState([]);
   const [employeesMap, setEmployeesMap]   = useState(new Map());
   const [allEmployeesList, setAllEmployeesList] = useState([]);
@@ -524,7 +540,7 @@ const AdminLeavePanel = () => {
       if (!leaveList.length) return;
       
       const idsToFetch = [...new Set(leaveList.map((l) => l.employeeId))]
-        .filter((id) => id && !employeeImages[id]);
+        .filter((id) => id && !employeeImages[id] && employeesMap.has(id));
       
       if (idsToFetch.length === 0) return;
 
@@ -548,7 +564,7 @@ const AdminLeavePanel = () => {
       }
     };
     fetchImages();
-  }, [leaveList]);
+  }, [leaveList, employeesMap, employeeImages]);
 
   const enrichedLeaveList = useMemo(() => leaveList.map((leave) => {
     const emp = employeesMap.get(leave.employeeId);
@@ -557,8 +573,11 @@ const AdminLeavePanel = () => {
       : null;
     return {
       ...leave,
-      employeeName: emp?.name || leave.employeeName || "Unknown",
-      department:   emp?.currentDepartment || exp?.department || "Unassigned",
+      employeeName: leave.requesterName || emp?.name || leave.employeeName || "Unknown",
+      department:
+        leave.requesterType === "support-admin"
+          ? "Support Admin"
+          : (emp?.currentDepartment || exp?.department || "Unassigned"),
     };
   }), [leaveList, employeesMap]);
 
@@ -598,6 +617,17 @@ const AdminLeavePanel = () => {
   const handleAction = async (id, action) => {
     setOpenDropdownId(null);
     const isApprove = action === "approve";
+
+    const targetLeave = enrichedLeaveList.find((l) => l._id === id);
+    if (targetLeave && !canApproveRejectLeave(targetLeave)) {
+      await Swal.fire({
+        icon: "info",
+        title: "Action restricted",
+        text: "Only the main admin can approve or reject support admin leave requests.",
+        confirmButtonColor: "#6366f1",
+      });
+      return;
+    }
 
     if (isApprove) {
       const leave = enrichedLeaveList.find((l) => l._id === id);
@@ -800,8 +830,16 @@ const AdminLeavePanel = () => {
                 </div>
               </div>
               <div className="flex flex-row xl:flex-col gap-3 shrink-0">
-                <button onClick={() => handleAction(lv._id, "approve")} className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest"><FaCheck /> Approve</button>
-                <button onClick={() => handleAction(lv._id, "reject")}  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest"><FaTimes /> Reject</button>
+                {canApproveRejectLeave(lv) ? (
+                  <>
+                    <button onClick={() => handleAction(lv._id, "approve")} className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest"><FaCheck /> Approve</button>
+                    <button onClick={() => handleAction(lv._id, "reject")}  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest"><FaTimes /> Reject</button>
+                  </>
+                ) : (
+                  <div className="text-[11px] font-bold text-slate-500 bg-slate-100 px-4 py-3 rounded-xl border border-slate-200 text-center max-w-[220px] self-center">
+                    Only the main admin can approve support admin leave requests.
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -850,8 +888,14 @@ const AdminLeavePanel = () => {
                   {isOpen && (
                     <div className="absolute right-0 top-11 w-44 bg-white rounded-2xl shadow-2xl border border-slate-100 z-40 overflow-hidden animate-fadeIn">
                       <div className="p-2 space-y-1">
-                        <button onClick={() => handleAction(lv._id, "approve")} className="w-full text-left px-4 py-2.5 text-xs font-black text-emerald-600 hover:bg-emerald-50 rounded-xl flex items-center gap-2 transition-colors uppercase tracking-widest"><FaCheck size={12} /> Approve</button>
-                        <button onClick={() => handleAction(lv._id, "reject")}  className="w-full text-left px-4 py-2.5 text-xs font-black text-rose-600   hover:bg-rose-50   rounded-xl flex items-center gap-2 transition-colors uppercase tracking-widest"><FaTimes size={12} /> Reject</button>
+                        {canApproveRejectLeave(lv) ? (
+                          <>
+                            <button onClick={() => handleAction(lv._id, "approve")} className="w-full text-left px-4 py-2.5 text-xs font-black text-emerald-600 hover:bg-emerald-50 rounded-xl flex items-center gap-2 transition-colors uppercase tracking-widest"><FaCheck size={12} /> Approve</button>
+                            <button onClick={() => handleAction(lv._id, "reject")}  className="w-full text-left px-4 py-2.5 text-xs font-black text-rose-600   hover:bg-rose-50   rounded-xl flex items-center gap-2 transition-colors uppercase tracking-widest"><FaTimes size={12} /> Reject</button>
+                          </>
+                        ) : (
+                          <div className="px-3 py-2 text-[10px] font-bold text-slate-500">Main admin only for support admin leaves.</div>
+                        )}
                       </div>
                     </div>
                   )}

@@ -110,7 +110,7 @@ const AttendanceSchema = new mongoose.Schema({
   // ✅ HIERARCHY: Scoped to admin and company
   adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
-
+  
   employeeId: { type: String, required: true, unique: true },
   employeeName: { type: String, required: true },
   attendance: [DailySchema],

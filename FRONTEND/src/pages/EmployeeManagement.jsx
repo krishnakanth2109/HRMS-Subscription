@@ -887,7 +887,7 @@ const EmployeeManagement = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [allResignations, setAllResignations] = useState([]);
-  const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
+  // const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState(null);
 
@@ -952,8 +952,8 @@ const EmployeeManagement = () => {
       ]);
       setEmployees(empRes);
       setAllResignations(resignationRes.data || []);
-      const pendingPunchOuts = (punchOutRes.data || []).filter(r => r.status === "Pending").length;
-      setPunchOutRequestsCount(pendingPunchOuts);
+      // const pendingPunchOuts = (punchOutRes.data || []).filter(r => r.status === "Pending").length;
+      // setPunchOutRequestsCount(pendingPunchOuts);
       setCompanies(Array.isArray(companiesRes) ? companiesRes : companiesRes.data || []);
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -972,21 +972,22 @@ const EmployeeManagement = () => {
   // Real-time updates
   useEffect(() => {
     if (!socket) return;
-    const handlePunchOutUpdate = () => {
-      // Re-fetch only the count to minimize overhead
-      api.get("/api/punchoutreq/all").then(res => {
-        const pending = (res.data || []).filter(r => r.status === "Pending").length;
-        setPunchOutRequestsCount(pending);
-      });
-    };
+    // const handlePunchOutUpdate = () => {
+    //   // Re-fetch only the count to minimize overhead
+    //   api.get("/api/punchoutreq/all").then(res => {
+    //     const pending = (res.data || []).filter(r => r.status === "Pending").length;
+    //     setPunchOutRequestsCount(pending);
+    //   }
+    // );
+    // };
 
-    socket.on("punchout:new", handlePunchOutUpdate);
-    socket.on("punchout:updated", handlePunchOutUpdate);
+    // socket.on("punchout:new", handlePunchOutUpdate);
+    // socket.on("punchout:updated", handlePunchOutUpdate);
     socket.on("resignation:updated", fetchAllData); // Assuming resignation also has updates
 
     return () => {
-      socket.off("punchout:new", handlePunchOutUpdate);
-      socket.off("punchout:updated", handlePunchOutUpdate);
+      // socket.off("punchout:new", handlePunchOutUpdate);
+      // socket.off("punchout:updated", handlePunchOutUpdate);
       socket.off("resignation:updated", fetchAllData);
     };
   }, [socket, fetchAllData]);
@@ -1142,9 +1143,9 @@ const EmployeeManagement = () => {
                   className="w-full md:w-auto bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 shadow-md font-bold flex items-center justify-center gap-2 transition-all duration-200 transform hover:scale-[1.02] md:hover:scale-105 relative text-sm sm:text-base"
                 >
                   <FaClipboardList /> HR Activities
-                  {(allResignations.filter(r => r.status === "Pending").length + punchOutRequestsCount) > 0 && (
+                  {(allResignations.filter(r => r.status === "Pending").length ) > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm animate-bounce">
-                      {allResignations.filter(r => r.status === "Pending").length + punchOutRequestsCount}
+                      {allResignations.filter(r => r.status === "Pending").length }
                     </span>
                   )}
                   <FaChevronDown className={`text-xs transition-transform duration-200 ${hrActivitiesOpen ? "rotate-180" : ""}`} />
@@ -1226,7 +1227,7 @@ const EmployeeManagement = () => {
                     </button>
 
                     {/* Punch Out Requests */}
-                    <button
+                    {/* <button
                       onClick={() => { navigate("/attendance", { state: { openPunchOutRequests: true } }); setHrActivitiesOpen(false); }}
                       className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center justify-between transition-all duration-150 border-b border-slate-100"
                     >
@@ -1238,7 +1239,7 @@ const EmployeeManagement = () => {
                           {punchOutRequestsCount} New
                         </span>
                       )}
-                    </button>
+                    </button> */}
 
                     {/* Welcome Kit */}
                     <button
