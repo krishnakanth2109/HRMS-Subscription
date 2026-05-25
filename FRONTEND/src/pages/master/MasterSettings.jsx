@@ -31,17 +31,37 @@ const FALLBACK_FEATURES = [
   { label: "Platform Analytics", route: "/master/analytics", description: "Owner-only: Usage analytics across all tenants" },
 ];
 
+const DEFAULT_PER_PERSON_PRICE = 50;
+const DEFAULT_DURATION_DAYS = 30;
+const OWNER_PLAN_NAME = "owner";
+const OWNER_FEATURE_ROUTES = new Set([
+  "/master/dashboard",
+  "/master/admins",
+  "/master/plans",
+  "/master/login-access",
+  "/master/settings",
+  "/master/billing",
+  "/master/analytics",
+]);
+const EXCLUDED_FEATURE_ROUTES = new Set(["/admin/users-limit", ...OWNER_FEATURE_ROUTES]);
+
+const getAdminFeatures = (features) =>
+  features.filter((feature) => !EXCLUDED_FEATURE_ROUTES.has(feature.route));
+
+const isOwnerPlan = (plan) =>
+  plan?.isOwnerPlan || plan?.planName?.trim().toLowerCase() === OWNER_PLAN_NAME;
+
 const PlanSettings = () => {
   const [planName, setPlanName] = useState("");
-  const [price, setPrice] = useState(0);
-  const [durationDays, setDurationDays] = useState(30);
+  const [price, setPrice] = useState(DEFAULT_PER_PERSON_PRICE);
+  const [durationDays, setDurationDays] = useState(DEFAULT_DURATION_DAYS);
   const [maxUsers, setMaxUsers] = useState(30);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [existingPlans, setExistingPlans] = useState([]);
 
-  const [allFeatures, setAllFeatures] = useState(FALLBACK_FEATURES);
+  const [allFeatures, setAllFeatures] = useState(getAdminFeatures(FALLBACK_FEATURES));
   const [featuresLoading, setFeaturesLoading] = useState(true);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -64,14 +84,13 @@ const PlanSettings = () => {
       setFeaturesLoading(true);
       const res = await api.get("/api/admin/all-features");
       if (res.data && res.data.length > 0) {
-        // Filter out Users Limit-30 from dynamic features too if it exists
-        const filtered = res.data.filter(f => f.route !== "/admin/users-limit");
+        const filtered = getAdminFeatures(res.data);
         setAllFeatures(filtered);
       } else {
-        setAllFeatures(FALLBACK_FEATURES);
+        setAllFeatures(getAdminFeatures(FALLBACK_FEATURES));
       }
     } catch {
-      setAllFeatures(FALLBACK_FEATURES);
+      setAllFeatures(getAdminFeatures(FALLBACK_FEATURES));
     } finally {
       setFeaturesLoading(false);
     }
@@ -80,7 +99,7 @@ const PlanSettings = () => {
   const fetchPlans = async () => {
     try {
       const res = await api.get("/api/admin/all-plans");
-      setExistingPlans(res.data);
+      setExistingPlans((res.data || []).filter((plan) => !isOwnerPlan(plan)));
     } catch {
       console.log("Could not fetch plans");
     }
@@ -105,7 +124,7 @@ const PlanSettings = () => {
     }
 
     // ✅ Prevent editing the protected Owner plan via the form
-    if (planName.trim().toLowerCase() === "owner") {
+    if (planName.trim().toLowerCase() === OWNER_PLAN_NAME) {
       return Swal.fire({
         icon: "warning",
         title: "Protected Plan",
@@ -113,19 +132,17 @@ const PlanSettings = () => {
       });
     }
 
-    if (selectedFeatures.length === 0) {
-      return Swal.fire({ icon: "error", title: "Action Required", text: "Please select at least one feature for this plan." });
-    }
-
     setLoading(true);
 
     try {
+      const includedFeatures = allFeatures.map((feature) => feature.route);
+
       await api.patch("/api/admin/plan-settings", {
         planName,
         price: Number(price),
-        durationDays: Number(durationDays),
+        durationDays: DEFAULT_DURATION_DAYS,
         maxUsers: maxUsers === "" ? null : Number(maxUsers),
-        features: selectedFeatures,
+        features: includedFeatures,
       });
 
       Swal.fire({
@@ -137,8 +154,8 @@ const PlanSettings = () => {
       });
 
       setPlanName("");
-      setPrice(0);
-      setDurationDays(30);
+      setPrice(DEFAULT_PER_PERSON_PRICE);
+      setDurationDays(DEFAULT_DURATION_DAYS);
       setMaxUsers(30);
       setSelectedFeatures([]);
       setIsDropdownOpen(false);
@@ -156,7 +173,7 @@ const PlanSettings = () => {
 
   // --- EDIT (blocked for Owner plan) ---
   const handleEdit = (plan) => {
-    if (plan.isOwnerPlan) {
+    if (isOwnerPlan(plan)) {
       return Swal.fire({
         icon: "info",
         title: "Protected Plan",
@@ -164,16 +181,16 @@ const PlanSettings = () => {
       });
     }
     setPlanName(plan.planName);
-    setPrice(plan.price);
-    setDurationDays(plan.durationDays);
+    setPrice(plan.price ?? DEFAULT_PER_PERSON_PRICE);
+    setDurationDays(plan.durationDays || DEFAULT_DURATION_DAYS);
     setMaxUsers(plan.maxUsers === null ? "" : plan.maxUsers);
-    setSelectedFeatures(plan.features || []);
+    setSelectedFeatures([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // --- DELETE (blocked for Owner plan) ---
   const handleDelete = async (id, plan) => {
-    if (plan.isOwnerPlan) {
+    if (isOwnerPlan(plan)) {
       return Swal.fire({
         icon: "info",
         title: "Protected Plan",
@@ -234,9 +251,9 @@ const PlanSettings = () => {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Price (INR)</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Per Person Price (INR)</label>
                 <input
                   type="number"
                   value={price}
@@ -244,7 +261,7 @@ const PlanSettings = () => {
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
                 />
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Days</label>
                 <input
                   type="number"
@@ -252,7 +269,7 @@ const PlanSettings = () => {
                   onChange={(e) => setDurationDays(e.target.value)}
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
                 />
-              </div>
+              </div> */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">User Limit</label>
                 <input
@@ -265,7 +282,8 @@ const PlanSettings = () => {
               </div>
             </div>
 
-            {/* ⭐ DYNAMIC DROPDOWN FOR FEATURES */}
+            {/* Plan features dropdown is commented out because every admin feature is included automatically. */}
+            {false && (
             <div className="relative" ref={dropdownRef}>
               <div className="flex justify-between items-center mb-1 ml-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Plan Features</label>
@@ -346,6 +364,7 @@ const PlanSettings = () => {
                 </div>
               )}
             </div>
+            )}
 
             <button
               type="submit"
@@ -367,11 +386,11 @@ const PlanSettings = () => {
 
           <div className="border border-white/10 bg-white/5 p-8 rounded-2xl backdrop-blur-md">
             <h4 className="text-3xl font-bold mb-1">{planName || "New Plan"}</h4>
-            <p className="text-slate-400 text-sm mb-6 font-medium tracking-tight">Access for {durationDays} days</p>
+            <p className="text-slate-400 text-sm mb-6 font-medium tracking-tight">All admin features included</p>
 
             <div className="flex items-baseline gap-1 mb-8">
               <span className="text-5xl font-black">₹{price}</span>
-              <span className="text-slate-400 text-sm font-bold uppercase">/ {durationDays} Days</span>
+              <span className="text-slate-400 text-sm font-bold uppercase">/ Person</span>
             </div>
 
             <div className="mb-8">
@@ -382,20 +401,16 @@ const PlanSettings = () => {
 
             <div className="space-y-4">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Included Features</p>
-              {selectedFeatures.length === 0 ? (
-                <p className="text-slate-500 text-sm italic">No features selected yet</p>
-              ) : (
-                <ul className="space-y-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar-dark">
-                  {selectedFeatures.map((route, i) => (
-                    <li key={i} className="flex items-center gap-3 text-sm text-slate-200">
-                      <div className="w-5 h-5 bg-indigo-500/20 rounded-full flex items-center justify-center shrink-0">
-                        <FaCheck size={8} className="text-indigo-400" />
-                      </div>
-                      {getLabelForRoute(route)}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <ul className="space-y-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar-dark">
+                {allFeatures.map((feature, i) => (
+                  <li key={`${feature.route}-${i}`} className="flex items-center gap-3 text-sm text-slate-200">
+                    <div className="w-5 h-5 bg-indigo-500/20 rounded-full flex items-center justify-center shrink-0">
+                      <FaCheck size={8} className="text-indigo-400" />
+                    </div>
+                    {feature.label}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -410,9 +425,10 @@ const PlanSettings = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingPlans.map((plan) => {
               const isExpanded = expandedPlans[plan._id];
-              const displayedFeatures = isExpanded ? plan.features : plan.features.slice(0, 3);
-              const extraCount = plan.features.length - 3;
-              const isOwner = plan.isOwnerPlan;
+              const featureRoutes = allFeatures.map((feature) => feature.route);
+              const displayedFeatures = isExpanded ? featureRoutes : featureRoutes.slice(0, 3);
+              const extraCount = featureRoutes.length - 3;
+              const isOwner = isOwnerPlan(plan);
 
               return (
                 <div
@@ -434,7 +450,7 @@ const PlanSettings = () => {
                       <h4 className="font-bold text-gray-900 text-xl">{plan.planName}</h4>
                       <div className="flex gap-2 mt-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md inline-block bg-purple-100 text-purple-600">
-                          {isOwner ? "Unlimited" : `${plan.durationDays} Days`}
+                          Per Person Billing
                         </p>
                         <p className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md inline-block bg-indigo-100 text-indigo-600">
                           {plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}
@@ -464,7 +480,7 @@ const PlanSettings = () => {
                   </div>
 
                   <div className="text-3xl font-black text-gray-800 mb-4">
-                    {isOwner ? "∞ Free" : `₹${plan.price}`}
+                    ₹{plan.price}<span className="text-sm font-bold text-gray-400 uppercase"> / Person</span>
                   </div>
 
                   <ul className="text-sm text-gray-600 space-y-2 mb-2 transition-all">

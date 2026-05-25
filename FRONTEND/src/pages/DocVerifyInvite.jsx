@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Send, Plus, X, RefreshCw, Mail, Building2, UserPlus, History,
-  CheckCircle, Clock, ShieldCheck, Trash2, FileCheck, Download, Upload
+  CheckCircle, Clock, ShieldCheck, Trash2, FileCheck, Download, Upload,
+  User, Briefcase, ChevronDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getAllCompanies } from '../api';
@@ -31,7 +32,7 @@ HR Team
 [COMPANY]`;
 
 const DocVerifyInvite = () => {
-  const [activeTab, setActiveTab] = useState('single');
+  const [activeTab, setActiveTab] = useState('bulk');
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -108,6 +109,23 @@ const DocVerifyInvite = () => {
     }
   };
 
+  const normalizeDepartment = (dept) => {
+    if (!dept) return 'IT';
+    const upper = dept.toString().toUpperCase().trim();
+    if (upper === 'IT') return 'IT';
+    if (upper.includes('NON')) return 'NON-IT';
+    return 'IT';
+  };
+
+  const normalizeEmploymentType = (type) => {
+    if (!type) return '';
+    const clean = type.toString().toLowerCase().trim();
+    if (clean.includes('full')) return 'Full-Time';
+    if (clean.includes('intern')) return 'Intern';
+    if (clean.includes('contract')) return 'Contract';
+    return '';
+  };
+
   const getCurrentRole = (employee) => {
     return employee?.currentRole || employee?.designation || employee?.role || employee?.experienceDetails?.[employee.experienceDetails.length - 1]?.role || '';
   };
@@ -135,8 +153,8 @@ const DocVerifyInvite = () => {
         name: emp.name || '',
         fullName: emp.name || '',
         role: getCurrentRole(emp),
-        department: getCurrentDepartment(emp) || 'IT',
-        employmentType: getCurrentEmploymentType(emp) || ''
+        department: normalizeDepartment(getCurrentDepartment(emp)),
+        employmentType: normalizeEmploymentType(getCurrentEmploymentType(emp))
       });
     } catch (e) {
       console.error('Error fetching employee details:', e);
@@ -393,9 +411,9 @@ const DocVerifyInvite = () => {
           const fullName = getVal(['fullname', 'full name', 'name', 'employee name', 'candidate name']);
           const name = fullName.split(' ')[0] || '';
           const role = getVal(['role', 'designation', 'job title', 'position']);
-          const department = getVal(['department', 'dept']) || 'IT';
-          const employmentType = getVal(['employmenttype', 'employment type', 'type']);
-
+          const department = normalizeDepartment(getVal(['department', 'dept']));
+          const employmentType = normalizeEmploymentType(getVal(['employmenttype', 'employment type', 'type']));
+          
           return { email, name, fullName, role, department, employmentType };
         });
 
@@ -503,7 +521,7 @@ const DocVerifyInvite = () => {
               </select>
             )}
 
-            {selectedCompany && (
+            {/* {selectedCompany && (
               <div>
                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
                   <UserPlus size={14} className="text-violet-500" /> Select Existing Employee
@@ -529,25 +547,30 @@ const DocVerifyInvite = () => {
                   </select>
                 )}
               </div>
-            )}
+            )} */}
           </div>
 
           {/* INVITE FORMS */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex gap-2 mb-6 border-b border-slate-200">
-              {['single', 'bulk'].map(tab => (
+              {/* {['single', 'bulk'].map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`px-6 py-3 font-bold text-sm capitalize transition-all ${activeTab === tab ? 'text-violet-600 border-b-2 border-violet-600' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                  {tab === 'single' ? 'Single Invite' : 'Bulk Invite'}
+                  {tab === 'bulk' ? 'Bulk Invite' : 'Single Invite'}
                 </button>
-              ))}
+              ))} */}
+              <button
+                className="px-6 py-3 font-bold text-sm capitalize transition-all text-violet-600 border-b-2 border-violet-600"
+              >
+                Bulk Invite
+              </button>
             </div>
 
             {/* SINGLE INVITE */}
-            {activeTab === 'single' && (
+            {/* {activeTab === 'single' && (
               <form onSubmit={handleSendSingle} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -558,14 +581,14 @@ const DocVerifyInvite = () => {
                       onChange={e => setSingleData({ ...singleData, email: e.target.value })}
                     />
                   </div>
-                  {/* <div>
+                  <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">First Name *</label>
                     <input required placeholder="John"
                       className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
                       value={singleData.name}
                       onChange={e => setSingleData({ ...singleData, name: e.target.value })}
                     />
-                  </div> */}
+                  </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-500 block mb-1">Full Name *</label>
                     <input required placeholder="John Michael Doe"
@@ -614,7 +637,7 @@ const DocVerifyInvite = () => {
                   {sending ? 'Sending...' : 'Send Document Verification Invitation'}
                 </button>
               </form>
-            )}
+            )} */}
 
             {/* BULK INVITE */}
             {activeTab === 'bulk' && (
@@ -651,43 +674,102 @@ const DocVerifyInvite = () => {
                 </div>
 
                 {bulkRows.map((row, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      <div className="flex-1 min-w-[180px]">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Email</label>
-                        <input placeholder="email@company.com" className="w-full p-2 text-sm border rounded-lg outline-none focus:ring-1 ring-violet-500" value={row.email} onChange={e => updateBulkRow(idx, 'email', e.target.value)} />
+                  <div key={idx} className="p-6 bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 relative group space-y-4">
+                    
+                    {/* Header of the Row Card */}
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-lg">
+                          Candidate #{idx + 1}
+                        </span>
                       </div>
-                      {/* <div className="flex-1 min-w-[100px]">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Name</label>
-                        <input placeholder="Name" className="w-full p-2 text-sm border rounded-lg outline-none" value={row.name} onChange={e => updateBulkRow(idx, 'name', e.target.value)} />
-                      </div> */}
-                      <div className="flex-1 min-w-[140px]">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Full Name</label>
-                        <input placeholder="Full Name" className="w-full p-2 text-sm border rounded-lg outline-none" value={row.fullName} onChange={e => updateBulkRow(idx, 'fullName', e.target.value)} />
-                      </div>
-                      <div className="flex-1 min-w-[100px]">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Role</label>
-                        <input placeholder="Role" className="w-full p-2 text-sm border rounded-lg outline-none" value={row.role} onChange={e => updateBulkRow(idx, 'role', e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Dept</label>
-                        <select className="p-2 text-sm border rounded-lg bg-white outline-none" value={row.department} onChange={e => updateBulkRow(idx, 'department', e.target.value)}>
-                          <option value="IT">IT</option>
-                          <option value="NON-IT">NON-IT</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Type</label>
-                        <select className="p-2 text-sm border rounded-lg bg-white outline-none" value={row.employmentType} onChange={e => updateBulkRow(idx, 'employmentType', e.target.value)}>
-                          <option value="">Type</option>
-                          <option value="Full-Time">FT</option>
-                          <option value="Intern">INT</option>
-                          <option value="Contract">CON</option>
-                        </select>
-                      </div>
-                      <button onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))} className="self-end p-2 text-slate-300 hover:text-red-500 transition-colors">
-                        <X size={18} />
+                      <button
+                        onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                        title="Remove candidate"
+                      >
+                        <X size={16} />
                       </button>
+                    </div>
+
+                    {/* Row 1: Email & Full Name */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Email Address</label>
+                        <div className="relative flex items-center">
+                          <Mail className="absolute left-3 text-slate-400" size={16} />
+                          <input
+                            type="email"
+                            placeholder="candidate@email.com"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                            value={row.email}
+                            onChange={e => updateBulkRow(idx, 'email', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Full Name</label>
+                        <div className="relative flex items-center">
+                          <User className="absolute left-3 text-slate-400" size={16} />
+                          <input
+                            type="text"
+                            placeholder="John Doe"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                            value={row.fullName}
+                            onChange={e => updateBulkRow(idx, 'fullName', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Role, Dept & Type */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Role / Designation</label>
+                        <div className="relative flex items-center">
+                          <Briefcase className="absolute left-3 text-slate-400" size={16} />
+                          <input
+                            type="text"
+                            placeholder="Software Engineer"
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                            value={row.role}
+                            onChange={e => updateBulkRow(idx, 'role', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Department</label>
+                        <div className="relative flex items-center">
+                          <select
+                            className="w-full pl-4 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
+                            value={row.department}
+                            onChange={e => updateBulkRow(idx, 'department', e.target.value)}
+                          >
+                            <option value="IT">IT</option>
+                            <option value="NON-IT">NON-IT</option>
+                          </select>
+                          <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Employment Type</label>
+                        <div className="relative flex items-center">
+                          <select
+                            className="w-full pl-4 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
+                            value={row.employmentType}
+                            onChange={e => updateBulkRow(idx, 'employmentType', e.target.value)}
+                          >
+                            <option value="">Select Type</option>
+                            <option value="Full-Time">Full-Time</option>
+                            <option value="Intern">Intern</option>
+                            <option value="Contract">Contract</option>
+                          </select>
+                          <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -19,7 +19,8 @@ import {
     getSupportAdmins,
     deleteSupportAdmin,
     registerSupportAdmin,
-    updateSupportAdmin
+    updateSupportAdmin,
+    freeUpgradeToOwner
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -31,6 +32,7 @@ router.post("/login", loginAdmin);
 // Protected routes (only these two)
 router.get("/profile", protect, getAdminProfile);
 router.put("/profile/update", protect, updateAdminProfile);
+router.post("/free-upgrade-to-owner", protect, freeUpgradeToOwner);
 router.post("/support-admins", protect, registerSupportAdmin);
 router.get("/support-admins", protect, getSupportAdmins);
 router.put("/support-admins/:id", protect, updateSupportAdmin);
