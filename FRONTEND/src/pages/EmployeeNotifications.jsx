@@ -5,7 +5,7 @@ import { CurrentEmployeeNotificationContext } from "../EmployeeContext/CurrentEm
 import {
   FaBell, FaCheckCircle, FaTrash,
   FaExclamationCircle, FaArrowLeft, FaEnvelope, FaEnvelopeOpen,
-} from "react-icons/fa";
+} from "react-icons/fa";  
 
 // sessionStorage key for system-level read state (notice-type items)
 const READ_SYSTEM_KEY = "employee_read_system_notifications";
