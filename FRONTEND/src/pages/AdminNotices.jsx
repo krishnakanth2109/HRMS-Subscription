@@ -22,7 +22,9 @@ import {
   FaCalendarAlt,
   FaClock,
   FaLink,
-  FaExternalLinkAlt
+  FaExternalLinkAlt,
+  FaUserPlus,
+  FaUserMinus
 } from 'react-icons/fa';
 
 import { getAttendanceByDateRange } from "../api";
@@ -123,7 +125,14 @@ const AdminNotices = () => {
   const [groupForm, setGroupForm] = useState({ name: "", members: [] });
   const [editingGroupId, setEditingGroupId] = useState(null);
   const [groupSearchTerm, setGroupSearchTerm] = useState("");
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
+  const [detailSearchTerm, setDetailSearchTerm] = useState("");
   const [viewUnassigned, setViewUnassigned] = useState(false);
+  
+  // New layout states for modern UI
+  const [groupModalView, setGroupModalView] = useState("list"); // "list" | "details" | "form"
+  const [selectedGroupDetails, setSelectedGroupDetails] = useState(null);
+  const [membersFilterTab, setMembersFilterTab] = useState("all"); // "all" | "selected" | "unassigned"
 
   const saveGroupsToBackend = async (updatedGroups) => {
     try {
@@ -172,13 +181,29 @@ const AdminNotices = () => {
     setEditingGroupId(group.id);
     setGroupForm({ name: group.name, members: group.members });
     setViewUnassigned(false);
+    setGroupModalView("form");
   };
 
-  const handleDeleteGroup = (groupId) => {
-    if (window.confirm("Are you sure you want to delete this group?")) {
+  const handleDeleteGroup = async (groupId) => {
+    const result = await Swal.fire({
+      title: "Delete Group?",
+      text: "Are you sure you want to delete this communication group? This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "Yes, Delete"
+    });
+
+    if (result.isConfirmed) {
       const updatedGroups = groups.filter(g => g.id !== groupId);
-      saveGroupsToBackend(updatedGroups);
-      if (editingGroupId === groupId) resetGroupForm();
+      await saveGroupsToBackend(updatedGroups);
+      Swal.fire("Deleted", "Group removed successfully.", "success");
+      if (editingGroupId === groupId || selectedGroupDetails?.id === groupId) {
+        resetGroupForm();
+      } else {
+        setGroupModalView("list");
+      }
     }
   };
 
@@ -186,7 +211,12 @@ const AdminNotices = () => {
     setGroupForm({ name: "", members: [] });
     setEditingGroupId(null);
     setGroupSearchTerm("");
+    setMemberSearchTerm("");
+    setDetailSearchTerm("");
     setViewUnassigned(false);
+    setMembersFilterTab("all");
+    setGroupModalView("list");
+    setSelectedGroupDetails(null);
   };
 
   const toggleGroupMemberSelection = (employeeId) => {
@@ -1296,43 +1326,514 @@ Meeting Link: ${meetingLink}`;
 
       {/* MANAGE GROUPS MODAL */}
       {isGroupModalOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col md:flex-row overflow-hidden">
-            <div className="w-full md:w-1/3 bg-slate-50 border-r border-slate-200 flex flex-col">
-              <div className="p-5 border-b border-slate-200 bg-white flex justify-between items-center">
-                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                  <FaLayerGroup className="text-indigo-600" /> My Groups
-                </h3>
-                <button
-                  type="button"
-                  onClick={resetGroupForm}
-                  className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1 cursor-pointer"
-                >
-                  <FaPlus size={10} /> Create New
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {groups.length === 0 && (<div className="text-center py-10 text-slate-400"><p>No groups created yet.</p></div>)}
-                {groups.map(group => (
-                  <div
-                    key={group.id}
-                    onClick={() => handleEditGroup(group)}
-                    className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex justify-between items-center group cursor-pointer hover:border-indigo-400 hover:shadow-md transition-all"
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[90vh] sm:h-[80vh] flex flex-col overflow-hidden relative border border-slate-200/50">
+            
+            {/* Premium Top Gradient Line */}
+            <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 h-1.5 w-full absolute top-0 left-0"></div>
+
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white mt-1.5 shrink-0">
+              <div className="flex items-center gap-3">
+                {groupModalView !== "list" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (groupModalView === "form" && editingGroupId && selectedGroupDetails) {
+                        setGroupModalView("details");
+                      } else {
+                        setGroupModalView("list");
+                      }
+                    }}
+                    className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all cursor-pointer"
+                    title="Back"
                   >
-                    <div className="min-w-0 flex-1"><h4 className="font-bold text-slate-700 truncate">{group.name}</h4><p className="text-xs text-slate-500">{group.members.length} members</p></div>
-                    <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><FaTrash /></button>
-                  </div>
-                ))}
+                    <FaArrowLeft size={16} />
+                  </button>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                    <FaLayerGroup className="text-indigo-600 animate-pulse" />
+                    {groupModalView === "list" && "Group Management"}
+                    {groupModalView === "details" && `${selectedGroupDetails?.name || "Group Details"}`}
+                    {groupModalView === "form" && (editingGroupId ? "Modify Group" : "Create New Group")}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {groupModalView === "list" && "Create, edit, and organize employee communication groups"}
+                    {groupModalView === "details" && `${selectedGroupDetails?.members?.length || 0} Members in this group`}
+                    {groupModalView === "form" && (editingGroupId ? "Change group name and edit members" : "Design a new employee communication group")}
+                  </p>
+                </div>
               </div>
-              <div className="p-4 bg-slate-100 border-t border-slate-200"><div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">System</div><div onClick={() => setViewUnassigned(true)} className={`bg-white p-3 rounded-lg border shadow-sm cursor-pointer transition-all ${viewUnassigned ? 'border-orange-400 ring-1 ring-orange-400' : 'border-slate-200 hover:border-orange-300'}`}><div className="flex justify-between items-center"><h4 className={`font-bold text-sm ${viewUnassigned ? 'text-orange-700' : 'text-slate-600'}`}>Unassigned Employees</h4><span className={`text-xs px-2 py-0.5 rounded-full font-bold ${viewUnassigned ? 'bg-orange-100 text-orange-700' : 'bg-slate-200 text-slate-600'}`}>{getUnassignedEmployees().length}</span></div></div></div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsGroupModalOpen(false);
+                  resetGroupForm();
+                }} 
+                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-all"
+              >
+                <FaTimes size={20} />
+              </button>
             </div>
-            <div className="w-full md:w-2/3 flex flex-col bg-white">
-              {viewUnassigned ? (
-                <><div className="p-5 border-b border-slate-100 flex justify-between items-center bg-orange-50/50"><div><h3 className="font-bold text-xl text-orange-800 flex items-center gap-2"><FaExclamationCircle /> Unassigned Employees</h3></div><button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100"><FaTimes size={20} /></button></div><div className="p-6 flex-1 overflow-y-auto"><div className="grid grid-cols-1 md:grid-cols-2 gap-3">{getUnassignedEmployees().length === 0 ? (<div className="col-span-2 text-center py-12 text-slate-400"><FaCheck className="mx-auto mb-2 text-green-400" size={24} /><p>All employees assigned!</p></div>) : (getUnassignedEmployees().map(emp => (<div key={emp._id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg bg-slate-50"><div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">{emp.name.charAt(0)}</div><div className="min-w-0"><p className="text-sm font-bold text-slate-700 truncate">{emp.name}</p><p className="text-xs text-slate-500">{emp.employeeId}</p></div></div>)))}</div></div></>
-              ) : (
-                <><div className="p-5 border-b border-slate-100 flex justify-between items-center"><div><h3 className="font-bold text-xl text-slate-800">{editingGroupId ? 'Edit Group' : 'Create New Group'}</h3></div><button onClick={() => setIsGroupModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100"><FaTimes size={20} /></button></div><div className="p-6 flex-1 overflow-y-auto"><div className="mb-6"><label className="block text-sm font-bold text-slate-700 mb-2">Group Name</label><input type="text" placeholder="e.g. Marketing Team" value={groupForm.name} onChange={e => setGroupForm({ ...groupForm, name: e.target.value })} className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none" /></div><div className="mb-3 flex justify-between items-end"><label className="block text-sm font-bold text-slate-700">Select Members ({groupForm.members.length})</label><input type="text" placeholder="Search..." value={groupSearchTerm} onChange={e => setGroupSearchTerm(e.target.value)} className="text-sm border border-slate-300 rounded-md px-3 py-1.5 focus:border-indigo-500 outline-none" /></div><div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto bg-slate-50/50">{employees.filter(e => e.name.toLowerCase().includes(groupSearchTerm.toLowerCase())).map(emp => { const isSelected = groupForm.members.includes(emp._id); return (<div key={emp._id} onClick={() => toggleGroupMemberSelection(emp._id)} className={`flex items-center gap-3 p-3 border-b border-slate-100 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 hover:bg-indigo-100' : 'hover:bg-white'}`}><div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'}`}>{isSelected && <FaCheck className="text-white text-xs" />}</div><div><p className={`text-sm font-semibold ${isSelected ? 'text-indigo-800' : 'text-slate-700'}`}>{emp.name}</p><p className="text-xs text-slate-500">{emp.employeeId}</p></div></div>) })}</div></div><div className="p-5 border-t border-slate-100 flex justify-end gap-3 bg-slate-50">{editingGroupId && (<button onClick={resetGroupForm} className="px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-white border border-transparent hover:border-slate-200 rounded-lg">Cancel Edit</button>)}<button onClick={handleSaveGroup} className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md flex items-center gap-2">{editingGroupId ? <FaSave /> : <FaPlus size={12} />} {editingGroupId ? 'Update' : 'Create'}</button></div></>
-              )}
-            </div>
+
+            {/* 1. VIEW: LIST */}
+            {groupModalView === "list" && (
+              <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50 p-6 overflow-y-auto">
+                {/* Search and Quick Filters */}
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 shrink-0">
+                  <div className="relative w-full sm:max-w-xs">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <FaSearch size={14} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search groups..."
+                      value={groupSearchTerm}
+                      onChange={e => setGroupSearchTerm(e.target.value)}
+                      className="w-full border border-slate-200 bg-white rounded-xl pl-9 pr-4 py-2 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-semibold text-slate-700 shadow-sm"
+                    />
+                  </div>
+                  <div className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200/50">
+                    Total: <span className="text-indigo-600 font-extrabold">{groups.length}</span> Groups
+                  </div>
+                </div>
+
+                {/* Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pb-6">
+                  {/* Create New Group Card */}
+                  <div
+                    onClick={() => {
+                      resetGroupForm();
+                      setGroupModalView("form");
+                    }}
+                    className="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-3 cursor-pointer group transition-all duration-200 min-h-[160px] text-center shadow-sm hover:shadow-md"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center text-slate-500 group-hover:text-indigo-600 transition-colors">
+                      <FaPlus size={18} />
+                    </div>
+                    <div>
+                      <span className="font-bold text-slate-700 group-hover:text-indigo-600 block transition-colors text-sm">Create New Group</span>
+                      <span className="text-xs text-slate-400">Organize a new list of members</span>
+                    </div>
+                  </div>
+
+                  {/* Existing Group Cards */}
+                  {(() => {
+                    const filteredGroups = groups.filter(g =>
+                      g.name.toLowerCase().includes(groupSearchTerm.toLowerCase())
+                    );
+                    if (filteredGroups.length === 0 && groupSearchTerm.trim() !== "") {
+                      return (
+                        <div className="col-span-full text-center py-12 text-slate-400">
+                          No groups match your search.
+                        </div>
+                      );
+                    }
+                    return filteredGroups.map(group => (
+                      <div
+                        key={group.id}
+                        onClick={() => {
+                          setSelectedGroupDetails(group);
+                          setGroupModalView("details");
+                        }}
+                        className="bg-white border border-slate-200 hover:border-indigo-400 hover:shadow-md rounded-2xl p-5 flex flex-col justify-between cursor-pointer transition-all duration-200 min-h-[160px] group relative overflow-hidden shadow-sm"
+                      >
+                        {/* Background shape */}
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 group-hover:bg-indigo-50 rounded-bl-full transition-colors duration-200 pointer-events-none flex items-center justify-center pl-4 pb-4">
+                          <FaUsers className="text-slate-300 group-hover:text-indigo-300 transition-colors" size={18} />
+                        </div>
+
+                        <div className="pr-8">
+                          <h4 className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors text-base truncate mb-1.5">
+                            {group.name}
+                          </h4>
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full w-fit border border-indigo-100">
+                            <span>{group.members.length} Members</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-6">
+                          <span className="text-[10px] font-semibold text-slate-400 group-hover:text-indigo-500 flex items-center gap-1 transition-colors">
+                            Click to view details
+                          </span>
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingGroupId(group.id);
+                                setGroupForm({ name: group.name, members: group.members });
+                                setGroupModalView("form");
+                              }}
+                              className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 rounded-xl transition-all cursor-pointer"
+                              title="Edit Group"
+                            >
+                              <FaEdit size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteGroup(group.id)}
+                              className="p-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-transparent hover:border-rose-100 rounded-xl transition-all cursor-pointer"
+                              title="Delete Group"
+                            >
+                              <FaTrash size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {/* 2. VIEW: DETAILS */}
+            {groupModalView === "details" && selectedGroupDetails && (
+              <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50 p-6 overflow-hidden">
+                {/* Header Action Row */}
+                <div className="flex justify-between items-center mb-6 gap-4 shrink-0 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setGroupModalView("list")}
+                    className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 px-3 py-2 rounded-xl transition-all text-xs font-bold border border-slate-200 cursor-pointer"
+                  >
+                    <FaArrowLeft size={10} /> Back to Groups
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingGroupId(selectedGroupDetails.id);
+                        setGroupForm({ name: selectedGroupDetails.name, members: selectedGroupDetails.members });
+                        setGroupModalView("form");
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 hover:text-indigo-800 rounded-xl transition-all shadow-sm cursor-pointer"
+                    >
+                      <FaEdit size={12} /> Edit Group
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGroup(selectedGroupDetails.id)}
+                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-100 hover:bg-rose-100 hover:text-rose-800 rounded-xl transition-all shadow-sm cursor-pointer"
+                    >
+                      <FaTrash size={12} /> Delete Group
+                    </button>
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="flex-1 flex flex-col min-h-0">
+                  {/* Search and Title Row */}
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 shrink-0 px-1">
+                    <h3 className="text-sm font-extrabold text-slate-400 uppercase tracking-wider">
+                      Group Members ({selectedGroupDetails.members.length})
+                    </h3>
+                    
+                    <div className="relative w-full sm:w-60">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                        <FaSearch size={12} />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Search members in group..."
+                        value={detailSearchTerm}
+                        onChange={e => setDetailSearchTerm(e.target.value)}
+                        className="text-xs border border-slate-200 bg-white rounded-xl pl-8 pr-3 py-2 w-full focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none font-semibold text-slate-700 shadow-sm transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 border border-slate-200/85 rounded-2xl bg-white overflow-y-auto custom-scrollbar shadow-sm mb-6">
+                    {(() => {
+                      const groupMembers = selectedGroupDetails.members
+                        .map(mid => employees.find(e => e._id === mid))
+                        .filter(Boolean);
+
+                      if (groupMembers.length === 0) {
+                        return (
+                          <div className="text-center py-16">
+                            <FaUsers size={36} className="mx-auto text-slate-300 mb-3" />
+                            <p className="text-slate-500 font-semibold text-sm">No members in this group</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingGroupId(selectedGroupDetails.id);
+                                setGroupForm({ name: selectedGroupDetails.name, members: selectedGroupDetails.members });
+                                setGroupModalView("form");
+                              }}
+                              className="text-xs font-bold text-indigo-600 hover:underline mt-1"
+                            >
+                              Add Members Now
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      const filteredMembers = groupMembers.filter(emp =>
+                        emp.name.toLowerCase().includes(detailSearchTerm.toLowerCase()) ||
+                        (emp.employeeId && emp.employeeId.toLowerCase().includes(detailSearchTerm.toLowerCase()))
+                      );
+
+                      if (filteredMembers.length === 0) {
+                        return (
+                          <div className="text-center py-12 text-slate-400 text-xs italic">
+                            No members match your search
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="divide-y divide-slate-100 bg-white">
+                          {filteredMembers.map(emp => (
+                            <div
+                              key={emp._id}
+                              className="flex items-center justify-between py-2.5 px-4 bg-white hover:bg-slate-50/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                {/* Small Avatar */}
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600 border border-slate-200/60 shrink-0">
+                                  {emp.name.charAt(0)}
+                                </div>
+                                
+                                {/* Name and ID */}
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
+                                  <p className="text-xs font-bold text-slate-700 truncate">
+                                    {emp.name}
+                                  </p>
+                                  <span className="hidden sm:inline text-slate-300 text-[10px]">•</span>
+                                  <p className="text-[10px] text-slate-400 font-semibold truncate">
+                                    ID: {emp.employeeId || 'N/A'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Department Badge on Right */}
+                              {emp.department && (
+                                <span className="text-[9px] font-semibold px-2.5 py-0.5 bg-slate-50 border border-slate-200/50 rounded-full text-slate-400">
+                                  {emp.department}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 3. VIEW: FORM */}
+            {groupModalView === "form" && (
+              <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50 p-6 overflow-hidden">
+                {/* Form Wrapper */}
+                <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm flex-1 flex flex-col md:flex-row gap-6 min-h-0 overflow-hidden">
+                  
+                  {/* Left Column: Group Settings */}
+                  <div className="w-full md:w-72 shrink-0 flex flex-col justify-between gap-6 border-b md:border-b-0 md:border-r border-slate-200 pb-6 md:pb-0 md:pr-6">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Group Display Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., Development Team, Support Staff"
+                          value={groupForm.name}
+                          onChange={e => setGroupForm({ ...groupForm, name: e.target.value })}
+                          className="w-full border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-sm font-semibold text-slate-700 shadow-sm"
+                        />
+                      </div>
+                      
+                      {/* Premium Helper Stats Card */}
+                      <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 space-y-2.5">
+                        <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">Group Statistics</h4>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-500 font-semibold">Selected Members:</span>
+                          <span className="font-extrabold text-indigo-700">{groupForm.members.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-500 font-semibold">Unassigned Employees:</span>
+                          <span className="font-extrabold text-slate-700">{getUnassignedEmployees().length}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions Footer inside Left Column */}
+                    <div className="flex md:flex-col lg:flex-row gap-3 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (editingGroupId && selectedGroupDetails) {
+                            setGroupModalView("details");
+                          } else {
+                            setGroupModalView("list");
+                          }
+                        }}
+                        className="flex-1 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer text-center"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveGroup}
+                        className="flex-1 px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-indigo-700/10"
+                      >
+                        {editingGroupId ? <FaSave size={12} /> : <FaPlus size={10} />}
+                        {editingGroupId ? 'Update' : 'Create'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Member Selection */}
+                  <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    {/* Search and Filters row */}
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4 shrink-0">
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Select Group Members
+                        </label>
+                        <p className="text-[11px] text-indigo-600 font-semibold mt-0.5">
+                          {groupForm.members.length} employee{groupForm.members.length !== 1 ? 's' : ''} selected
+                        </p>
+                      </div>
+                      
+                      <div className="relative w-full sm:w-48">
+                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <FaSearch size={12} />
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Filter employees..."
+                          value={memberSearchTerm}
+                          onChange={e => setMemberSearchTerm(e.target.value)}
+                          className="text-xs border border-slate-200 bg-white rounded-xl pl-8 pr-3 py-2 w-full focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none font-semibold text-slate-700 shadow-sm transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Filter Tabs */}
+                    <div className="flex gap-1 p-1 bg-slate-100 border border-slate-200/50 rounded-xl mb-3 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setMembersFilterTab('all')}
+                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                          membersFilterTab === 'all'
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        All Active ({employees.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMembersFilterTab('selected')}
+                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                          membersFilterTab === 'selected'
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Selected ({groupForm.members.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMembersFilterTab('unassigned')}
+                        className={`flex-1 py-1.5 text-[10px] font-bold rounded-lg transition-all cursor-pointer ${
+                          membersFilterTab === 'unassigned'
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Unassigned ({getUnassignedEmployees().length})
+                      </button>
+                    </div>
+
+                    {/* Employee Checklist Grid */}
+                    <div className="flex-1 border border-slate-200/80 rounded-xl overflow-hidden bg-white overflow-y-auto custom-scrollbar shadow-inner">
+                      {(() => {
+                        let filteredList = employees;
+                        if (memberSearchTerm.trim()) {
+                          filteredList = filteredList.filter(e => 
+                            e.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+                            (e.employeeId && e.employeeId.toLowerCase().includes(memberSearchTerm.toLowerCase()))
+                          );
+                        }
+                        if (membersFilterTab === 'selected') {
+                          filteredList = filteredList.filter(e => groupForm.members.includes(e._id));
+                        } else if (membersFilterTab === 'unassigned') {
+                          const unassignedList = getUnassignedEmployees();
+                          const unassignedIds = new Set(unassignedList.map(e => String(e._id)));
+                          filteredList = filteredList.filter(e => unassignedIds.has(String(e._id)));
+                        }
+                        if (filteredList.length === 0) {
+                          return (
+                            <div className="text-center py-12 px-4 text-slate-400 text-xs italic">
+                              No employees match this filter
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="divide-y divide-slate-100 bg-white">
+                            {filteredList.map(emp => {
+                              const isSelected = groupForm.members.includes(emp._id);
+                              const otherGroup = Array.isArray(groups) && groups.find(g => g.id !== editingGroupId && Array.isArray(g.members) && g.members.includes(emp._id));
+                              return (
+                                <div
+                                  key={emp._id}
+                                  onClick={() => toggleGroupMemberSelection(emp._id)}
+                                  className={`flex items-center justify-between py-2 px-4 cursor-pointer hover:bg-slate-50/80 transition-colors ${
+                                    isSelected ? 'bg-indigo-50/20' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    {/* Checkbox */}
+                                    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0 ${
+                                      isSelected ? 'bg-indigo-600 border-indigo-600 shadow-sm' : 'border-slate-300 bg-white'
+                                    }`}>
+                                      {isSelected && <FaCheck className="text-white text-[8px]" />}
+                                    </div>
+                                    
+                                    {/* Avatar */}
+                                    <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 border border-slate-200/50 shrink-0">
+                                      {emp.name.charAt(0)}
+                                    </div>
+                                    
+                                    {/* Name and ID */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 min-w-0">
+                                      <p className={`text-xs font-bold truncate ${isSelected ? 'text-indigo-900' : 'text-slate-700'}`}>
+                                        {emp.name}
+                                      </p>
+                                      <span className="hidden sm:inline text-slate-300 text-[10px]">•</span>
+                                      <p className="text-[10px] text-slate-400 font-semibold truncate">
+                                        ID: {emp.employeeId || 'N/A'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Right side group indicator / department */}
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {emp.department && (
+                                      <span className="hidden md:inline text-[9px] font-semibold px-2 py-0.5 bg-slate-50 border border-slate-200/50 rounded-full text-slate-400">
+                                        {emp.department}
+                                      </span>
+                                    )}
+                                    {otherGroup && (
+                                      <span className="text-[9px] font-bold px-2 py-0.5 bg-amber-50 border border-amber-100 rounded text-amber-600 max-w-[120px] truncate" title={`Already in: ${otherGroup.name}`}>
+                                        {otherGroup.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}

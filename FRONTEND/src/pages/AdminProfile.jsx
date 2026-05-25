@@ -30,6 +30,7 @@ const AdminProfile = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [upgradeLoadingFree, setUpgradeLoadingFree] = useState(false);
 
   // Create Admin Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -311,6 +312,22 @@ const AdminProfile = () => {
     }
   };
 
+  const handleFreeUpgrade = async () => {
+    if (!window.confirm("Are you sure you want to upgrade your plan to Owner for free?")) {
+      return;
+    }
+    setUpgradeLoadingFree(true);
+    try {
+      const res = await api.post("/api/admin/free-upgrade-to-owner");
+      alert(res.data.message || "Upgraded successfully!");
+      await fetchProfile(); // Refresh profile to reflect the changes
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to upgrade plan");
+    } finally {
+      setUpgradeLoadingFree(false);
+    }
+  };
+
   const location = useLocation();
 
   useEffect(() => {
@@ -353,19 +370,19 @@ const AdminProfile = () => {
         </div> */}
 
         {/* HEADER SECTION */}
-        <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
-          <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg shrink-0">
+        <div className="bg-white  p-8 shadow-sm border border-gray-100 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden">
+          <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg shrink-0">
             {profile?.name?.charAt(0)}
           </div>
           <div className="text-center md:text-left flex-1">
             {isEditing ? (
               <input
-                className="text-3xl font-bold text-gray-900 border-b-2 border-purple-200 outline-none focus:border-purple-600 bg-transparent w-full md:w-auto"
+                className="text-xl font-bold text-gray-900 border-b-2 border-purple-200 outline-none focus:border-purple-600 bg-transparent w-full md:w-auto"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             ) : (
-              <h1 className="text-3xl font-bold text-gray-900">{profile?.name}</h1>
+              <h1 className="text-xl font-bold text-gray-900">{profile?.name}</h1>
             )}
             <p className="text-gray-500 font-medium uppercase tracking-widest text-[10px] mt-1">
               {profile?.role} 
@@ -405,7 +422,7 @@ const AdminProfile = () => {
 
           {/* BASIC INFORMATION CARD */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100">
+            <div className="bg-white rounded-[0.5rem] p-6 shadow-sm border border-gray-100">
               <h3 className="text-gray-900 font-bold mb-6 flex items-center gap-2">
                 <FaUser className="text-purple-500 text-sm" /> Basic Information
               </h3>
@@ -456,9 +473,9 @@ const AdminProfile = () => {
             </div>
           </div>
 
-          {/* SUBSCRIPTION DETAILS (Non-Editable) */}
+          {/* SUBSCRIPTION DETAILS */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100 relative overflow-hidden h-full">
+            <div className="bg-white rounded-[0.5rem] p-8 shadow-sm border border-gray-100 relative overflow-hidden h-full">
               <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
                 <FaCrown size={120} />
               </div>
@@ -468,7 +485,7 @@ const AdminProfile = () => {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                <div className="bg-gray-50 rounded-3xl p-6 border border-gray-100">
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Current Plan</p>
                   <h4 className="text-2xl font-black text-purple-600 capitalize">{profile?.plan}</h4>
                   <div className="mt-4 flex items-center gap-2 text-sm font-bold">
@@ -478,9 +495,10 @@ const AdminProfile = () => {
                       <><FaTimesCircle className="text-amber-500" /> <span className="text-amber-600 uppercase">Trial / Unpaid</span></>
                     )}
                   </div>
+
                 </div>
 
-                <div className="bg-gray-50 rounded-3xl p-6 border border-gray-100">
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Account Status</p>
                   <h4 className={`text-2xl font-black ${profile?.loginEnabled ? "text-emerald-600" : "text-red-600"}`}>
                     {profile?.loginEnabled ? "Fully Accessible" : "Access Blocked"}
@@ -509,7 +527,7 @@ const AdminProfile = () => {
         </div>
 
         {/* COMPANY SELECTOR SECTION */}
-        <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-[0.5rem] p-5 shadow-sm border border-gray-200">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
             <h3 className="text-gray-900 font-bold flex items-center gap-2">
               <FaBuilding className="text-purple-500 text-sm" /> Company Details
@@ -588,7 +606,7 @@ const AdminProfile = () => {
         </div>
 
         {/* PLANS SECTION — last */}
-        <div id="plans" className="bg-white rounded-[2rem] p-8 shadow-sm border border-gray-100">
+        <div id="plans" className="bg-white rounded-[0.5rem] p-8 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-gray-900 font-bold flex items-center gap-2">
               <FaCrown className="text-purple-500 text-sm" /> Available Plans &amp; Upgrade
@@ -601,7 +619,7 @@ const AdminProfile = () => {
               return (
                 <div
                   key={plan._id}
-                  className={`relative p-6 rounded-3xl border-2 transition-all flex flex-col ${isCurrentPlan ? "border-purple-500 bg-purple-50/50" : "border-gray-100 bg-gray-50 hover:border-purple-200"}`}
+                  className={`relative p-6 rounded-xl border-2 transition-all flex flex-col ${isCurrentPlan ? "border-purple-500 bg-purple-50/50" : "border-gray-100 bg-gray-50 hover:border-purple-200"}`}
                 >
                   {isCurrentPlan && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
@@ -650,7 +668,7 @@ const AdminProfile = () => {
       {/* CREATE SUPPORT ADMIN MODAL */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md p-8 shadow-2xl relative">
+          <div className="bg-white rounded-[0.5rem] w-full max-w-md p-8 shadow-2xl relative">
             <button
               onClick={() => setIsCreateModalOpen(false)}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
@@ -742,7 +760,7 @@ const AdminProfile = () => {
       {/* Support Admins Modal */}
       {isSupportAdminsModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-3xl rounded-[2rem] shadow-2xl p-8 relative flex flex-col max-h-[90vh]">
+          <div className="bg-white w-full max-w-xl rounded-[0.5rem] shadow-2xl p-8 relative flex flex-col max-h-[90vh]">
             <button
               onClick={() => setIsSupportAdminsModalOpen(false)}
               className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"

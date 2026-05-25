@@ -627,3 +627,54 @@ export const deleteSupportAdmin = async (req, res) => {
     res.status(500).json({ message: 'Failed to delete support admin' });
   }
 };
+
+/* ==================== FREE UPGRADE TO OWNER PLAN ==================== */
+export const freeUpgradeToOwner = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "User not authenticated" });
+    }
+
+    if (req.user.role === "support-admin") {
+      return res.status(403).json({ message: "Support admins cannot upgrade plans" });
+    }
+
+    const admin = await Admin.findById(req.user._id || req.user.actualId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Check if the current plan is Free
+    const currentPlanLower = (admin.plan || "").toLowerCase();
+    if (!currentPlanLower.includes("free")) {
+      return res.status(400).json({ message: "Only users on the Free plan can upgrade to Owner for free." });
+    }
+
+    const ownerPlan = await PlanSetting.findOne({ planName: "Owner" });
+    if (!ownerPlan) {
+      return res.status(404).json({ message: "Owner plan not found in settings. Please contact support." });
+    }
+
+    const planExpiresAt = await getExpiryDate("Owner");
+
+    admin.plan = "Owner";
+    admin.isPaid = true;
+    admin.planActivatedAt = new Date();
+    admin.planExpiresAt = planExpiresAt;
+
+    await admin.save();
+
+    res.status(200).json({
+      message: "Upgraded to Owner plan successfully!",
+      admin: {
+        plan: admin.plan,
+        isPaid: admin.isPaid,
+        planActivatedAt: admin.planActivatedAt,
+        planExpiresAt: admin.planExpiresAt,
+      }
+    });
+  } catch (error) {
+    console.error("❌ FREE UPGRADE TO OWNER ERROR:", error);
+    res.status(500).json({ message: "Failed to upgrade plan. Server error." });
+  }
+};

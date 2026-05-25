@@ -144,6 +144,37 @@ const AdminDashboard = () => {
     setActiveIndex(-1); // Reset back to default (100% total)
   };
 
+  // --- Window Resize and Pie sizing ---
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const pieSize = useMemo(() => {
+    if (windowWidth < 640) return 160; // Mobile
+    if (windowWidth < 1024) return 180; // Tablet (wide)
+    if (windowWidth < 1280) return 140; // lg (narrow)
+    if (windowWidth < 1536) return 150; // xl (narrower than 2xl)
+    return 180; // 2xl (wide)
+  }, [windowWidth]);
+
+  const { innerRadius, outerRadius } = useMemo(() => {
+    switch (pieSize) {
+      case 140:
+        return { innerRadius: 45, outerRadius: 62 };
+      case 150:
+        return { innerRadius: 50, outerRadius: 68 };
+      case 160:
+        return { innerRadius: 52, outerRadius: 72 };
+      case 180:
+      default:
+        return { innerRadius: 60, outerRadius: 80 };
+    }
+  }, [pieSize]);
+
   // Context-based stat cards
   const { statCards } = useMemo(
     () => getDashboardData(ctxEmployees, ctxLeaveRequests), [ctxEmployees, ctxLeaveRequests, getDashboardData]
@@ -775,17 +806,22 @@ const AdminDashboard = () => {
           </div>
 
           {/* Employee Distribution Card - DYNAMIC HOVER LOGIC ADDED HERE */}
-          <div className="bg-white/70 backdrop-blur-md rounded-[24px] p-6 shadow-sm border border-white/50">
-            <h3 className="text-[#2B3674] font-bold text-lg mb-4">
+          <div className="bg-white/70 backdrop-blur-md rounded-[24px] p-4 sm:p-6 lg:p-4 xl:p-6 shadow-sm border border-white/50 flex flex-col justify-between">
+            <h3 className="text-[#2B3674] font-bold text-lg mb-4 shrink-0">
               Employee Distribution
             </h3>
-            <div className="flex justify-center h-[180px] min-h-[180px] w-full min-w-0 overflow-hidden relative">
-              <ResponsiveContainer width="100%" height={180} minWidth={240} minHeight={180}>
-                <PieChart>
+            
+            <div className="flex flex-col sm:flex-row lg:flex-col 2xl:flex-row items-center justify-center gap-4 sm:gap-6 lg:gap-3 xl:gap-6 w-full min-h-[180px] overflow-hidden">
+              {/* PieChart Wrapper with center text overlay */}
+              <div 
+                className="relative shrink-0 flex items-center justify-center bg-white/20 rounded-full"
+                style={{ width: pieSize, height: pieSize }}
+              >
+                <PieChart width={pieSize} height={pieSize}>
                   <Pie
                     data={departmentData}
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={innerRadius}
+                    outerRadius={outerRadius}
                     dataKey="value"
                     startAngle={90}
                     endAngle={-270}
@@ -799,42 +835,62 @@ const AdminDashboard = () => {
                     ))}
                   </Pie>
                 </PieChart>
-              </ResponsiveContainer>
 
-              {/* Dynamic Center Text Overlay */}
-              <div className="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-[#2B3674] font-bold text-xl">
-                  {activeIndex === -1 || departmentData.length === 0
-                    ? "100%"
-                    : `${((departmentData[activeIndex].value / totalEmployeesCount) * 100).toFixed(0)}%`}
-                </span>
-                <span className="text-gray-400 text-[10px]">
-                  {activeIndex === -1 || departmentData.length === 0
-                    ? "Total"
-                    : departmentData[activeIndex].name}
-                </span>
+                {/* Center text overlay */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span 
+                    className="text-[#2B3674] font-black leading-none mb-0.5"
+                    style={{ fontSize: pieSize >= 180 ? '1.25rem' : pieSize >= 150 ? '1.1rem' : '0.95rem' }}
+                  >
+                    {activeIndex === -1 || departmentData.length === 0
+                      ? "100%"
+                      : `${((departmentData[activeIndex].value / totalEmployeesCount) * 100).toFixed(0)}%`}
+                  </span>
+                  <span 
+                    className="text-gray-450 font-bold truncate text-center"
+                    style={{ 
+                      fontSize: pieSize >= 180 ? '10px' : '9px',
+                      maxWidth: pieSize >= 180 ? '100px' : pieSize >= 150 ? '80px' : '70px'
+                    }}
+                  >
+                    {activeIndex === -1 || departmentData.length === 0
+                      ? "Total"
+                      : departmentData[activeIndex].name}
+                  </span>
+                </div>
               </div>
 
-              {/* Dynamic Legend */}
-              <div className="absolute top-0 right-0 text-right space-y-1 h-[180px] overflow-y-auto pr-2 custom-scrollbar internal-scroll">
-                <div>
-                  <p className="text-xs font-bold text-[#2B3674]">Total</p>
-                  <p className="text-[10px] text-gray-400">{activeEmployees.length} members</p>
+              {/* Dynamic Scrollable Legend Panel */}
+              <div 
+                className="flex-1 w-full min-w-0 overflow-y-auto pr-1 custom-scrollbar internal-scroll space-y-1.5"
+                style={{ maxHeight: pieSize }}
+              >
+                <div className="bg-slate-50/60 p-1.5 rounded-xl border border-slate-100 flex justify-between items-center text-[11px]">
+                  <span className="font-bold text-[#2B3674]">Total Members</span>
+                  <span className="font-extrabold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{activeEmployees.length}</span>
                 </div>
-                {departmentData.map((dept, idx) => (
-                  <div key={idx}>
-                    <div className="flex items-center justify-end gap-1">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                      <p className="text-xs font-bold text-[#2B3674]">{dept.name}</p>
+
+                <div className="space-y-1">
+                  {departmentData.map((dept, idx) => (
+                    <div 
+                      key={idx}
+                      className="flex items-center justify-between p-1 rounded-lg border border-transparent hover:bg-slate-50/70 hover:border-slate-100/50 transition-all duration-200"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                        <span className="text-[11px] font-bold text-slate-700 truncate">{dept.name}</span>
+                      </div>
+                      <span className="text-[9px] font-extrabold text-slate-400 shrink-0 bg-slate-100/50 px-1.5 py-0.5 rounded">
+                        {dept.value}
+                      </span>
                     </div>
-                    <p className="text-[10px] text-gray-400">{dept.value} members</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Dynamic Percentage Bar */}
-            <div className="mt-4 bg-[#F4F7FE] rounded-full h-4 w-full flex overflow-hidden">
+            <div className="mt-4 bg-[#F4F7FE] rounded-full h-4 w-full flex overflow-hidden shrink-0">
               {departmentData.map((dept, idx) => {
                 const percentage = ((dept.value / totalEmployeesCount) * 100).toFixed(0);
                 if (percentage === "0") return null;
@@ -848,7 +904,7 @@ const AdminDashboard = () => {
                     }}
                     title={`${dept.name}: ${percentage}%`}
                   >
-                    {percentage}%
+                    {Number(percentage) >= 10 && `${percentage}%`}
                   </div>
                 );
               })}

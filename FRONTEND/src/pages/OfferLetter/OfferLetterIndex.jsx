@@ -25,6 +25,12 @@ function OfferLetterIndex() {
   const [toDate, setToDate] = useState('');
   const [viewMode, setViewMode] = useState('list');
   const [isDark, setIsDark] = useState(false);
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('All');
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [selectedCompanyId]);
 
   // Detect dark mode on mount and when theme changes
   useEffect(() => {
@@ -58,8 +64,17 @@ function OfferLetterIndex() {
     setLoadingOffer(false);
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const res = await api.getAllCompanies();
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || res);
+      setCompanies(data || []);
+    } catch { }
+  };
+
   useEffect(() => {
     fetchEmployees();
+    fetchCompanies();
     const interval = setInterval(() => fetchEmployees(), 10000);
     return () => clearInterval(interval);
   }, []);
@@ -128,8 +143,15 @@ function OfferLetterIndex() {
     alert("Bulk sending process completed! Check individual statuses.");
   };
 
-  const filteredEmployees = useMemo(() => {
+  const filteredByCompanyEmployees = useMemo(() => {
     return employees.filter(emp => {
+      const empCompanyId = emp.companyId?._id || emp.companyId;
+      return selectedCompanyId === 'All' || String(empCompanyId) === String(selectedCompanyId);
+    });
+  }, [employees, selectedCompanyId]);
+
+  const filteredEmployees = useMemo(() => {
+    return filteredByCompanyEmployees.filter(emp => {
       const id = emp._id || emp.id;
       const s = searchTerm.toLowerCase();
       const matchNameOrDesig = (emp.name || "").toLowerCase().includes(s) || (emp.designation || "").toLowerCase().includes(s);
@@ -158,26 +180,26 @@ function OfferLetterIndex() {
       }
       return matchNameOrDesig && matchStatus && matchDate;
     });
-  }, [employees, searchTerm, filterStatus, fromDate, toDate]);
+  }, [filteredByCompanyEmployees, searchTerm, filterStatus, fromDate, toDate]);
 
   const offerStats = useMemo(() => ({
-    total: employees.length,
-    sent: employees.filter(e => e.status === 'Offer Sent').length,
-    accepted: employees.filter(e => e.status === 'Accepted').length,
-    rejected: employees.filter(e => e.status === 'Rejected').length,
-    pending: employees.filter(e => e.status === 'Pending' || !e.status).length
-  }), [employees]);
+    total: filteredByCompanyEmployees.length,
+    sent: filteredByCompanyEmployees.filter(e => e.status === 'Offer Sent').length,
+    accepted: filteredByCompanyEmployees.filter(e => e.status === 'Accepted').length,
+    rejected: filteredByCompanyEmployees.filter(e => e.status === 'Rejected').length,
+    pending: filteredByCompanyEmployees.filter(e => e.status === 'Pending' || !e.status).length
+  }), [filteredByCompanyEmployees]);
 
   const acceptedEmployees = useMemo(() => {
-    return employees.filter(emp => emp.status === 'Accepted');
-  }, [employees]);
+    return filteredByCompanyEmployees.filter(emp => emp.status === 'Accepted');
+  }, [filteredByCompanyEmployees]);
 
   const filteredActiveEmployees = useMemo(() => {
     return filteredEmployees.filter(emp => emp.status !== 'Accepted');
   }, [filteredEmployees]);
 
   const filteredAcceptedEmployees = useMemo(() => {
-    return employees.filter(emp => {
+    return filteredByCompanyEmployees.filter(emp => {
       if (emp.status !== 'Accepted') return false;
 
       const s = searchTerm.toLowerCase();
@@ -204,7 +226,7 @@ function OfferLetterIndex() {
       }
       return matchNameOrDesig && matchDate;
     });
-  }, [employees, searchTerm, fromDate, toDate]);
+  }, [filteredByCompanyEmployees, searchTerm, fromDate, toDate]);
 
   const selectedBg = 'var(--accent-soft)';
 
@@ -281,6 +303,28 @@ function OfferLetterIndex() {
 
             <button onClick={() => { setSelectedEmployeeForEdit(null); setIsEmployeeViewOnly(false); setIsModalOpen(true); }} style={{ background: 'var(--accent-color)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}><Plus size={14} /> New</button>
             <button onClick={() => setShowTemplateManager(true)} style={{ background: 'var(--success-text)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}><FileText size={14} /> Templates</button>
+            <select
+              value={selectedCompanyId}
+              onChange={e => setSelectedCompanyId(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '130px',
+                height: '30px'
+              }}
+            >
+              <option value="All">All Companies</option>
+              {companies.map(c => (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
 
        
            

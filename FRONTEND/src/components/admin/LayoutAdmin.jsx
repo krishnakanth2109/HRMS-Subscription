@@ -125,7 +125,7 @@ const LayoutAdmin = () => {
 
           {/* CONTENT */}
           {/* Removed specific z-indexes here so your Modals can freely escape and cover the Sidebar! */}
-          <div className="relative h-full w-full overflow-y-auto px-2 md:p-4 lg:p-8">
+          <div className="relative h-full w-full overflow-y-auto px-2 md:p-4 lg:p-8 lg:pt-0">
             <Outlet />
           </div>
         </main>

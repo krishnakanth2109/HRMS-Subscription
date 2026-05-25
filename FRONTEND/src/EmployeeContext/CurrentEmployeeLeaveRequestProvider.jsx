@@ -44,62 +44,7 @@ const CurrentEmployeeLeaveRequestProvider = ({ children }) => {
   const employeeId = loggedUser?.employeeId;
 
   // --- aggregated leaveRequests (keep this as-is; do not change the shape) ---
-  const [leaveRequests, setLeaveRequests] = useState([
-    {
-      id: 1,
-      employeeId: "EMP101",
-      name: "John Doe",
-      from: "2025-07-10",
-      to: "2025-07-15",
-      reason: "Vacation",
-      requestDate: "2025-07-08",
-      status: "Approved",
-      leaveDayType: "Full Day",
-      halfDaySession: null,
-      leaveType: "CASUAL",
-      actionDate: "2025-07-09",
-      leavecategory: "Paid",
-      approvedBy: "Manager1",
-    },
-    {
-      id: 2,
-      employeeId: "EMP101",
-      name: "John Doe",
-      from: "2025-07-20",
-      to: "2025-07-22",
-      reason: "Medical Leave",
-      requestDate: "2025-07-18",
-      status: "Pending",
-      leaveDayType: "Full Day",
-      leaveType: "SICK",
-      halfDaySession: null,
-      actionDate: null,
-      leavecategory: "UnPaid",
-      approvedBy: null,
-    },
-    // ...rest of your aggregated dummy data (unchanged)...
-  ]);
-
-  // --- NEW: per-day dummy details (used only as fallback when fetching "show more" details fails)
-  // Each entry references parentId (the aggregated leave id).
-  // DO NOT modify the above aggregated dummy; this is a separate dataset.
-  const leaveDetailsDummy = [
-    // entries for aggregated leave id 1 (2025-07-10 -> 2025-07-15)
-    { id: 101, parentId: 1, date: "2025-07-10", leavecategory: "Paid", leaveType: "CASUAL", leaveDayType: "Full Day" },
-    { id: 102, parentId: 1, date: "2025-07-11", leavecategory: "UnPaid", leaveType: "CASUAL", leaveDayType: "Full Day" },
-    { id: 103, parentId: 1, date: "2025-07-12", leavecategory: "UnPaid", leaveType: "CASUAL", leaveDayType: "Full Day" },
-    { id: 104, parentId: 1, date: "2025-07-13", leavecategory: "UnPaid", leaveType: "CASUAL", leaveDayType: "Full Day" },
-    { id: 105, parentId: 1, date: "2025-07-14", leavecategory: "UnPaid", leaveType: "CASUAL", leaveDayType: "Full Day" },
-    { id: 106, parentId: 1, date: "2025-07-15", leavecategory: "UnPaid", leaveType: "CASUAL", leaveDayType: "Full Day" },
-
-    // entries for aggregated leave id 2 (2025-07-20 -> 2025-07-22)
-    { id: 201, parentId: 2, date: "2025-07-20", leavecategory: "UnPaid", leaveType: "SICK", leaveDayType: "Full Day" },
-    { id: 202, parentId: 2, date: "2025-07-21", leavecategory: "UnPaid", leaveType: "SICK", leaveDayType: "Full Day" },
-    { id: 203, parentId: 2, date: "2025-07-22", leavecategory: "UnPaid", leaveType: "SICK", leaveDayType: "Full Day" },
-
-    // (You can add additional per-day dummy entries here for other aggregated leaves.)
-  ];
-
+  const [leaveRequests, setLeaveRequests] = useState([]);
   // ✅ fetch aggregated leaves on mount (unchanged behavior)
   useEffect(() => {
     if (!employeeId) return;
@@ -182,15 +127,15 @@ const applyLeave = async ({ from, to, reason, leaveType, halfDaySession, leaveDa
     } catch (err) {
       console.warn(`Failed to fetch details for leaveId ${leaveId}, using dummy`, err);
       // fallback to per-day dummy entries for this parentId
-      return leaveDetailsDummy
-        .filter((d) => d.parentId === leaveId)
-        .map(({ id, date, leavecategory, leaveType, leaveDayType }) => ({
-          id,
-          date,
-          leavecategory,
-          leaveType,
-          leaveDayType,
-        }));
+      // return leaveDetailsDummy
+      //   .filter((d) => d.parentId === leaveId)
+      //   .map(({ id, date, leavecategory, leaveType, leaveDayType }) => ({
+      //     id,
+      //     date,
+      //     leavecategory,
+      //     leaveType,
+      //     leaveDayType,
+      //   }));
     }
   };
 
