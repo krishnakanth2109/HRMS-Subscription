@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   Send, Plus, X, Trash2, RefreshCw, Briefcase, Mail, Building2, UserPlus, History, Banknote,
-  CheckCircle, Clock, FileText, Upload, Download, File, Paperclip
+  CheckCircle, Clock, FileText, Upload, Download, File, Paperclip,
+  User, ChevronDown
 } from 'lucide-react';
 import { getAllCompanies, getEmployees } from '../api';
 import api from '../api';
 
 const SendOnboardingForm = () => {
-  const [activeTab, setActiveTab] = useState('single');
+  const [activeTab, setActiveTab] = useState('bulk');
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -141,6 +142,23 @@ useEffect(() => {
     }
   };
 
+  const normalizeDepartment = (dept) => {
+    if (!dept) return 'IT';
+    const upper = dept.toString().toUpperCase().trim();
+    if (upper === 'IT') return 'IT';
+    if (upper.includes('NON')) return 'NON-IT';
+    return 'IT';
+  };
+
+  const normalizeEmploymentType = (type) => {
+    if (!type) return '';
+    const clean = type.toString().toLowerCase().trim();
+    if (clean.includes('full')) return 'Full-Time';
+    if (clean.includes('intern')) return 'Intern';
+    if (clean.includes('contract')) return 'Contract';
+    return '';
+  };
+
   const handleAutofillCandidate = (candidateId) => {
     const cand = acceptedCandidates.find(c => c._id === candidateId);
     if (!cand) return;
@@ -149,8 +167,8 @@ useEffect(() => {
       email: cand.email || '',
       name: cand.name || '',
       role: cand.designation || '',
-      department: (cand.department === 'IT' || cand.department === 'NON-IT') ? cand.department : 'IT',
-      employmentType: cand.employment_type || '',
+      department: normalizeDepartment(cand.department),
+      employmentType: normalizeEmploymentType(cand.employment_type),
       salary: cand.compensation?.gross_salary || ''
     });
 
@@ -167,8 +185,8 @@ useEffect(() => {
     email: candidate.email || '',
     name: candidate.name || '',
     role: candidate.designation || '',
-    department: (candidate.department === 'IT' || candidate.department === 'NON-IT') ? candidate.department : 'IT',
-    employmentType: candidate.employment_type || ''
+    department: normalizeDepartment(candidate.department),
+    employmentType: normalizeEmploymentType(candidate.employment_type)
   });
 
   const bulkCandidateOptions = acceptedCandidates.filter(candidate => {
@@ -464,12 +482,12 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-800">
       <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-
         {/* LEFT COLUMN: SETUP & FORM */}
         <div className="lg:col-span-8 space-y-6">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-black tracking-tight text-slate-900 flex items-center gap-3">
-              <UserPlus className="text-blue-600" size={32} /> Invite Employee to Onboarding Process
+              <UserPlus className="text-blue-600" size={32} /> Invite Employee
+              to Onboarding Process
             </h1>
           </div>
 
@@ -480,25 +498,48 @@ useEffect(() => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 ml-1">Subject Line</label>
-                <input value={emailSubject} onChange={e => setEmailSubject(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                <label className="text-xs font-semibold text-slate-500 ml-1">
+                  Subject Line
+                </label>
+                <input
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 ml-1">Onboarding Link</label>
-                <input value={formLink} onChange={e => setFormLink(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" />
+                <label className="text-xs font-semibold text-slate-500 ml-1">
+                  Onboarding Link
+                </label>
+                <input
+                  value={formLink}
+                  onChange={(e) => setFormLink(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                />
               </div>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-500 ml-1">Message Template</label>
-              <textarea rows={10} value={emailMessage} onChange={e => setEmailMessage(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs leading-relaxed" />
+              <label className="text-xs font-semibold text-slate-500 ml-1">
+                Message Template
+              </label>
+              <textarea
+                rows={10}
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-xs leading-relaxed"
+              />
               <div className="text-[10px] text-slate-400 mt-1 flex flex-wrap gap-x-4">
-                <span>💡 Use:[NAME], [ROLE], [DEPT], [EMPLOYMENT_TYPE], [COMPANY],[ONBOARDING_LINK]</span>
+                <span>
+                  💡 Use:[NAME], [ROLE], [DEPT], [EMPLOYMENT_TYPE],
+                  [COMPANY],[ONBOARDING_LINK]
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 2. COMPANY SELECTION */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
+
+          {/* Autofill Candidates  */}
+          {/* <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
               <CheckCircle size={14} className="text-emerald-500" /> Autofill from Accepted Offers
             </label>
@@ -516,8 +557,9 @@ useEffect(() => {
                 <option disabled>No accepted candidates available</option>
               )}
             </select>
-          </div>
+          </div> */}
 
+          {/* 2. COMPANY SELECTION */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
             <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
               <Building2 size={14} className="text-blue-500" /> Select Company
@@ -525,7 +567,9 @@ useEffect(() => {
             {loadingCompanies ? (
               <div className="flex items-center gap-2 p-4 bg-slate-50 rounded-lg">
                 <RefreshCw className="animate-spin text-blue-500" size={18} />
-                <span className="text-slate-500 text-sm">Loading companies...</span>
+                <span className="text-slate-500 text-sm">
+                  Loading companies...
+                </span>
               </div>
             ) : (
               <select
@@ -542,8 +586,8 @@ useEffect(() => {
               </select>
             )}
           </div>
-
-          {selectedCompany && (
+          {/* Select Exisiting Employee  */}
+          {/* {selectedCompany && (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
               <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <Building2 size={14} className="text-blue-500" /> Select Existing Employee
@@ -570,7 +614,7 @@ useEffect(() => {
                 </select>
               )}
             </div>
-          )}
+          )} */}
 
           {/* 2.5 DOCUMENT MANAGEMENT SECTION */}
           {selectedCompany && (
@@ -591,8 +635,12 @@ useEffect(() => {
                 <div className="mb-4 p-4 bg-blue-50 rounded-xl border-2 border-dashed border-blue-200">
                   <label className="cursor-pointer flex flex-col items-center gap-2">
                     <Upload className="text-blue-600" size={32} />
-                    <span className="text-sm font-semibold text-blue-700">Click to upload document</span>
-                    <span className="text-xs text-slate-500">PDF, DOCX, JPG, PNG (Max 10MB)</span>
+                    <span className="text-sm font-semibold text-blue-700">
+                      Click to upload document
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      PDF, DOCX, JPG, PNG (Max 10MB)
+                    </span>
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
@@ -611,35 +659,52 @@ useEffect(() => {
               )}
 
               <div className="space-y-2">
-                <h4 className="text-xs font-bold text-slate-500 uppercase">Available Documents ({documents.length})</h4>
+                <h4 className="text-xs font-bold text-slate-500 uppercase">
+                  Available Documents ({documents.length})
+                </h4>
                 {documents.length === 0 ? (
                   <div className="text-center py-8 bg-slate-50 rounded-xl">
                     <File className="mx-auto text-slate-300" size={40} />
-                    <p className="text-sm text-slate-400 mt-2">No documents uploaded yet</p>
-                    <p className="text-xs text-slate-400 mt-1">Upload documents to make them available for employees</p>
+                    <p className="text-sm text-slate-400 mt-2">
+                      No documents uploaded yet
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Upload documents to make them available for employees
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {documents.map(doc => (
-                      <div key={doc._id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-300 transition-all">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc._id}
+                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 hover:border-blue-300 transition-all"
+                      >
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <File className="text-blue-600 flex-shrink-0" size={16} />
-                              <h5 className="text-sm font-bold text-slate-900 truncate">{doc.fileName}</h5>
+                              <File
+                                className="text-blue-600 flex-shrink-0"
+                                size={16}
+                              />
+                              <h5 className="text-sm font-bold text-slate-900 truncate">
+                                {doc.fileName}
+                              </h5>
                             </div>
                             <p className="text-xs text-slate-500 mt-1">
-                              {doc.fileType?.toUpperCase()} • {(doc.fileSize / 1024).toFixed(1)} KB
+                              {doc.fileType?.toUpperCase()} •{" "}
+                              {(doc.fileSize / 1024).toFixed(1)} KB
                             </p>
                             <p className="text-xs text-slate-400 mt-1">
-                              Uploaded: {new Date(doc.uploadedAt).toLocaleDateString()}
+                              Uploaded:{" "}
+                              {new Date(doc.uploadedAt).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
                         <div className="flex gap-1">
-
                           <button
-                            onClick={() => handleDownloadDocument(doc.fileUrl, doc.fileName)}
+                            onClick={() =>
+                              handleDownloadDocument(doc.fileUrl, doc.fileName)
+                            }
                             className="flex-1 px-3 py-2 text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-all text-xs font-semibold flex items-center justify-center gap-1"
                             title="Download"
                           >
@@ -664,20 +729,28 @@ useEffect(() => {
 
           {/* 3. INVITE FORMS */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex gap-2 mb-6 border-b border-slate-200">
-              <button onClick={() => setActiveTab('single')} className={`px-6 py-3 font-bold text-sm transition-all ${activeTab === 'single' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+            <div className="flex mb-6 border-b border-slate-200">
+              {/* <button
+                onClick={() => setActiveTab("single")}
+                className={`px-6 py-3 font-bold text-sm transition-all ${activeTab === "single" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"}`}
+              >
                 Single Invite
-              </button>
-              <button onClick={() => setActiveTab('bulk')} className={`px-6 py-3 font-bold text-sm transition-all ${activeTab === 'bulk' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+              </button> */}
+              <button
+                onClick={() => setActiveTab("bulk")}
+                className={`px-6 py-3 font-bold text-sm transition-all ${activeTab === "bulk" ? "text-blue-600 border-b-2 border-blue-600" : "text-slate-400 hover:text-slate-600"}`}
+              >
                 Bulk Invite
               </button>
             </div>
 
-            {activeTab === 'single' && (
+            {/* {activeTab === "single" && (
               <form onSubmit={handleSendSingle} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Email Address*</label>
+                    <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">
+                      Email Address*
+                    </label>
                     <input
                       required
                       type="email"
@@ -686,8 +759,6 @@ useEffect(() => {
                       value={singleData.email}
                       onChange={(e) => {
                         let value = e.target.value;
-
-                        // Stop typing after .com
                         const index = value.indexOf(".com");
                         if (index !== -1) {
                           value = value.substring(0, index + 4);
@@ -713,7 +784,7 @@ useEffect(() => {
                       }}
                       className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                       value={singleData.name}
-                      onChange={e =>
+                      onChange={(e) =>
                         setSingleData({ ...singleData, name: e.target.value })
                       }
                     />
@@ -734,21 +805,45 @@ useEffect(() => {
                       }}
                       className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
                       value={singleData.role}
-                      onChange={e =>
+                      onChange={(e) =>
                         setSingleData({ ...singleData, role: e.target.value })
                       }
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Department*</label>
-                    <select required className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={singleData.department} onChange={e => setSingleData({ ...singleData, department: e.target.value })}>
+                    <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">
+                      Department*
+                    </label>
+                    <select
+                      required
+                      className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={singleData.department}
+                      onChange={(e) =>
+                        setSingleData({
+                          ...singleData,
+                          department: e.target.value,
+                        })
+                      }
+                    >
                       <option value="IT">IT</option>
                       <option value="NON-IT">NON-IT</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Employment Type*</label>
-                    <select required className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none" value={singleData.employmentType} onChange={e => setSingleData({ ...singleData, employmentType: e.target.value })}>
+                    <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">
+                      Employment Type*
+                    </label>
+                    <select
+                      required
+                      className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={singleData.employmentType}
+                      onChange={(e) =>
+                        setSingleData({
+                          ...singleData,
+                          employmentType: e.target.value,
+                        })
+                      }
+                    >
                       <option value="">Select Type</option>
                       <option value="Full-Time">Full-Time</option>
                       <option value="Intern">Intern</option>
@@ -757,15 +852,22 @@ useEffect(() => {
                   </div>
                   {singleData.employmentType && (
                     <div>
-                      <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Salary (Optional)</label>
+                      <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">
+                        Salary (Optional)
+                      </label>
                       <input
                         type="number"
                         placeholder="50000"
                         min="0"
                         value={singleData.salary}
-                        onChange={(e) => setSingleData({ ...singleData, salary: e.target.value })}
+                        onChange={(e) =>
+                          setSingleData({
+                            ...singleData,
+                            salary: e.target.value,
+                          })
+                        }
                         onKeyDown={(e) => {
-                          if (e.key === '-' || e.key === 'e') {
+                          if (e.key === "-" || e.key === "e") {
                             e.preventDefault();
                           }
                         }}
@@ -775,15 +877,19 @@ useEffect(() => {
                   )}
                 </div>
 
-                {/* Required Documents Selection */}
+                  // Required Documents Selection
                 {documents.length > 0 && (
                   <div className="mt-4 p-4 bg-amber-50 rounded-xl border border-amber-200">
                     <h4 className="text-sm font-bold text-amber-800 mb-3 flex items-center gap-2">
-                      <Paperclip size={16} /> Select Required Documents for this Employee
+                      <Paperclip size={16} /> Select Required Documents for this
+                      Employee
                     </h4>
                     <div className="space-y-2">
-                      {documents.map(doc => (
-                        <label key={doc._id} className="flex items-center gap-3 p-2 hover:bg-amber-100 rounded-lg cursor-pointer">
+                      {documents.map((doc) => (
+                        <label
+                          key={doc._id}
+                          className="flex items-center gap-3 p-2 hover:bg-amber-100 rounded-lg cursor-pointer"
+                        >
                           <input
                             type="checkbox"
                             checked={selectedDocuments.includes(doc._id)}
@@ -791,23 +897,30 @@ useEffect(() => {
                             className="w-4 h-4 text-blue-600 rounded"
                           />
                           <File className="text-blue-600" size={14} />
-                          <span className="text-sm font-medium text-slate-700">{doc.fileName}</span>
+                          <span className="text-sm font-medium text-slate-700">
+                            {doc.fileName}
+                          </span>
                         </label>
                       ))}
                     </div>
                     <p className="text-xs text-amber-700 mt-3">
-                      Selected documents ({selectedDocuments.length}) will be required for this employee during onboarding
+                      Selected documents ({selectedDocuments.length}) will be
+                      required for this employee during onboarding
                     </p>
                   </div>
                 )}
 
-                <button type="submit" disabled={sending || !selectedCompany} className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-bold hover:from-blue-700 hover:to-blue-800 transition-all shadow-xl disabled:from-slate-300 disabled:to-slate-300">
+                <button
+                  type="submit"
+                  disabled={sending || !selectedCompany}
+                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-bold hover:from-blue-700 hover:to-blue-800 transition-all shadow-xl disabled:from-slate-300 disabled:to-slate-300"
+                >
                   {sending ? "Sending..." : "Send Invitation"}
                 </button>
               </form>
-            )}
+            )} */}
 
-            {activeTab === 'bulk' && (
+            {activeTab === "bulk" && (
               <div className="space-y-4">
                 <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
@@ -822,7 +935,11 @@ useEffect(() => {
                     <button
                       type="button"
                       onClick={toggleAllBulkCandidates}
-                      disabled={!selectedCompany || loadingCandidates || bulkCandidateOptions.length === 0}
+                      disabled={
+                        !selectedCompany ||
+                        loadingCandidates ||
+                        bulkCandidateOptions.length === 0
+                      }
                       className="px-4 py-2 bg-white border border-emerald-300 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-100 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {allBulkCandidatesSelected ? "Clear All" : "Select All"}
@@ -831,11 +948,13 @@ useEffect(() => {
 
                   {!selectedCompany ? (
                     <p className="text-xs text-emerald-700 bg-white/70 border border-emerald-100 rounded-lg p-3">
-                      Select a company first to load accepted candidates for bulk invite.
+                      Select a company first to load accepted candidates for
+                      bulk invite.
                     </p>
                   ) : loadingCandidates ? (
                     <div className="flex items-center gap-2 text-sm text-emerald-700">
-                      <RefreshCw className="animate-spin" size={16} /> Loading accepted candidates...
+                      <RefreshCw className="animate-spin" size={16} /> Loading
+                      accepted candidates...
                     </div>
                   ) : bulkCandidateOptions.length === 0 ? (
                     <p className="text-xs text-emerald-700 bg-white/70 border border-emerald-100 rounded-lg p-3">
@@ -843,8 +962,11 @@ useEffect(() => {
                     </p>
                   ) : (
                     <div className="max-h-56 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-2 pr-1">
-                      {bulkCandidateOptions.map(candidate => (
-                        <label key={candidate._id} className="flex items-start gap-3 p-3 bg-white border border-emerald-100 rounded-lg hover:border-emerald-300 cursor-pointer">
+                      {bulkCandidateOptions.map((candidate) => (
+                        <label
+                          key={candidate._id}
+                          className="flex items-start gap-3 p-3 bg-white border border-emerald-100 rounded-lg hover:border-emerald-300 cursor-pointer"
+                        >
                           <input
                             type="checkbox"
                             checked={bulkCandidateIds.includes(candidate._id)}
@@ -852,9 +974,15 @@ useEffect(() => {
                             className="mt-1 w-4 h-4 text-emerald-600 rounded"
                           />
                           <span className="min-w-0">
-                            <span className="block text-sm font-bold text-slate-800 truncate">{candidate.name || candidate.email}</span>
-                            <span className="block text-xs text-slate-500 truncate">{candidate.email}</span>
-                            <span className="block text-[10px] text-emerald-700 font-bold uppercase mt-1">{candidate.designation || "Accepted Candidate"}</span>
+                            <span className="block text-sm font-bold text-slate-800 truncate">
+                              {candidate.name || candidate.email}
+                            </span>
+                            <span className="block text-xs text-slate-500 truncate">
+                              {candidate.email}
+                            </span>
+                            <span className="block text-[10px] text-emerald-700 font-bold uppercase mt-1">
+                              {candidate.designation || "Accepted Candidate"}
+                            </span>
                           </span>
                         </label>
                       ))}
@@ -864,55 +992,129 @@ useEffect(() => {
 
                 <div className="space-y-3">
                   {bulkRows.map((row, idx) => (
-                    <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                      <div className="flex flex-wrap gap-3 mb-3">
-                        <div className="flex-1 min-w-[200px]">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Email</label>
-                          <input placeholder="email@company.com" className="w-full p-2 text-sm border rounded-lg focus:ring-1 ring-blue-500 outline-none" value={row.email} onChange={e => updateBulkRow(idx, 'email', e.target.value)} />
+                    <div key={idx} className="p-6 bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 relative group space-y-4">
+                      
+                      {/* Header of the Row Card */}
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">
+                            Employee #{idx + 1}
+                          </span>
                         </div>
-                        <div className="flex-1 min-w-[120px]">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Name</label>
-                          <input placeholder="Name" className="w-full p-2 text-sm border rounded-lg focus:ring-1 ring-blue-500 outline-none" value={row.name} onChange={e => updateBulkRow(idx, 'name', e.target.value)} />
-                        </div>
-                        <div className="flex-1 min-w-[100px]">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Role</label>
-                          <input placeholder="Role" className="w-full p-2 text-sm border rounded-lg focus:ring-1 ring-blue-500 outline-none" value={row.role} onChange={e => updateBulkRow(idx, 'role', e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Dept</label>
-                          <select className="p-2 text-sm border rounded-lg bg-white outline-none" value={row.department} onChange={e => updateBulkRow(idx, 'department', e.target.value)}>
-                            <option value="IT">IT</option>
-                            <option value="NON-IT">NON-IT</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Type</label>
-                          <select className="p-2 text-sm border rounded-lg bg-white outline-none" value={row.employmentType} onChange={e => updateBulkRow(idx, 'employmentType', e.target.value)}>
-                            <option value="">Type</option>
-                            <option value="Full-time">FT</option>
-                            <option value="Intern">INT</option>
-                            <option value="Contract">CON</option>
-                          </select>
-                        </div>
-                        <button onClick={() => removeBulkRow(idx)} className="mb-1 p-2 text-slate-300 hover:text-red-500 transition-colors">
-                          <X size={18} />
+                        <button
+                          onClick={() => removeBulkRow(idx)}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                          title="Remove employee"
+                        >
+                          <X size={16} />
                         </button>
+                      </div>
+
+                      {/* Row 1: Email & Name */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Email Address</label>
+                          <div className="relative flex items-center">
+                            <Mail className="absolute left-3 text-slate-400" size={16} />
+                            <input
+                              type="email"
+                              placeholder="employee@company.com"
+                              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                              value={row.email}
+                              onChange={(e) => updateBulkRow(idx, "email", e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Full Name</label>
+                          <div className="relative flex items-center">
+                            <User className="absolute left-3 text-slate-400" size={16} />
+                            <input
+                              type="text"
+                              placeholder="John Doe"
+                              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                              value={row.name}
+                              onChange={(e) => updateBulkRow(idx, "name", e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Role, Dept & Type */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Role / Designation</label>
+                          <div className="relative flex items-center">
+                            <Briefcase className="absolute left-3 text-slate-400" size={16} />
+                            <input
+                              type="text"
+                              placeholder="Software Engineer"
+                              className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                              value={row.role}
+                              onChange={(e) => updateBulkRow(idx, "role", e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Department</label>
+                          <div className="relative flex items-center">
+                            <select
+                              className="w-full pl-4 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
+                              value={row.department}
+                              onChange={(e) => updateBulkRow(idx, "department", e.target.value)}
+                            >
+                              <option value="IT">IT</option>
+                              <option value="NON-IT">NON-IT</option>
+                            </select>
+                            <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Employment Type</label>
+                          <div className="relative flex items-center">
+                            <select
+                              className="w-full pl-4 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
+                              value={row.employmentType}
+                              onChange={(e) => updateBulkRow(idx, "employmentType", e.target.value)}
+                            >
+                              <option value="">Select Type</option>
+                              <option value="Full-Time">Full-Time</option>
+                              <option value="Intern">Intern</option>
+                              <option value="Contract">Contract</option>
+                            </select>
+                            <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                        </div>
                       </div>
 
                       {/* Document Selection for Each Employee */}
                       {documents.length > 0 && (
                         <div className="mt-2 p-3 bg-white rounded-lg border border-amber-200">
-                          <h5 className="text-xs font-bold text-slate-600 mb-2">Required Documents:</h5>
+                          <h5 className="text-xs font-bold text-slate-600 mb-2">
+                            Required Documents:
+                          </h5>
                           <div className="flex flex-wrap gap-2">
-                            {documents.map(doc => (
-                              <label key={doc._id} className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-md hover:bg-blue-50 cursor-pointer text-xs">
+                            {documents.map((doc) => (
+                              <label
+                                key={doc._id}
+                                className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-md hover:bg-blue-50 cursor-pointer text-xs"
+                              >
                                 <input
                                   type="checkbox"
-                                  checked={(bulkSelectedDocuments[idx] || []).includes(doc._id)}
-                                  onChange={() => toggleBulkDocumentSelection(idx, doc._id)}
+                                  checked={(
+                                    bulkSelectedDocuments[idx] || []
+                                  ).includes(doc._id)}
+                                  onChange={() =>
+                                    toggleBulkDocumentSelection(idx, doc._id)
+                                  }
                                   className="w-3 h-3 text-blue-600 rounded"
                                 />
-                                <span className="text-slate-700">{doc.fileName}</span>
+                                <span className="text-slate-700">
+                                  {doc.fileName}
+                                </span>
                               </label>
                             ))}
                           </div>
@@ -922,10 +1124,17 @@ useEffect(() => {
                   ))}
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={addBulkRow} className="flex-1 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all flex items-center justify-center gap-2">
+                  <button
+                    onClick={addBulkRow}
+                    className="flex-1 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all flex items-center justify-center gap-2"
+                  >
                     <Plus size={18} /> Add Employee Row
                   </button>
-                  <button onClick={handleSendBulk} disabled={sending || !selectedCompany} className="flex-[2] py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-xl disabled:bg-slate-300">
+                  <button
+                    onClick={handleSendBulk}
+                    disabled={sending || !selectedCompany}
+                    className="flex-[2] py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-xl disabled:bg-slate-300"
+                  >
                     {sending ? "Blasting Emails..." : "Confirm & Send"}
                   </button>
                 </div>
@@ -939,10 +1148,18 @@ useEffect(() => {
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col h-[calc(100vh-100px)] sticky top-8">
             <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
               <div>
-                <h2 className="font-black text-xl flex items-center gap-2 italic tracking-tighter"><History size={20} />Onboarding Logs</h2>
-                <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Employees Onboarding Status</p>
+                <h2 className="font-black text-xl flex items-center gap-2 italic tracking-tighter">
+                  <History size={20} />
+                  Onboarding Logs
+                </h2>
+                <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+                  Employees Onboarding Status
+                </p>
               </div>
-              <button onClick={() => fetchHistory(selectedCompany || null, companies)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all">
+              <button
+                onClick={() => fetchHistory(selectedCompany || null, companies)}
+                className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all"
+              >
                 <RefreshCw size={18} />
               </button>
             </div>
@@ -950,23 +1167,37 @@ useEffect(() => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50/50">
               {sentHistory.length === 0 && (
                 <div className="text-center py-20">
-                  <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300"><History size={32} /></div>
-                  <p className="text-slate-400 text-sm font-medium">Select your company to View Respective onboarding logs</p>
+                  <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                    <History size={32} />
+                  </div>
+                  <p className="text-slate-400 text-sm font-medium">
+                    Select your company to View Respective onboarding logs
+                  </p>
                 </div>
               )}
               {sentHistory.map((item) => (
-                <div key={item._id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-200 transition-all group">
+                <div
+                  key={item._id}
+                  className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-blue-200 transition-all group"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <h4 className="font-bold text-slate-900 truncate">{item.name || 'Unnamed Employee'}</h4>
+                      <h4 className="font-bold text-slate-900 truncate">
+                        {item.name || "Unnamed Employee"}
+                      </h4>
                       <p className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
                         <Mail size={10} /> {item.email}
                       </p>
                     </div>
-                    <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${item.status === 'onboarded' ? 'bg-green-100 text-green-700' :
-                      item.status === 'revoked' ? 'bg-orange-100 text-orange-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
+                    <span
+                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${
+                        item.status === "onboarded"
+                          ? "bg-green-100 text-green-700"
+                          : item.status === "revoked"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
                       {item.status}
                     </span>
                   </div>
@@ -974,13 +1205,14 @@ useEffect(() => {
                   <div className="bg-slate-50 rounded-xl p-2.5 space-y-1 mb-3">
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
                       <Building2 size={12} className="text-blue-500" />
-                      {item.company?.name || 'Unknown Company'}
+                      {item.company?.name || "Unknown Company"}
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
-                      <Briefcase size={12} /> {item.role} • <span className="text-blue-600">{item.department}</span>
+                      <Briefcase size={12} /> {item.role} •{" "}
+                      <span className="text-blue-600">{item.department}</span>
                     </div>
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
-                      <span>{item.employmentType || 'FT'}</span>
+                      <span>{item.employmentType || "FT"}</span>
                       {item.salary && (
                         <span className="text-green-600 ml-2 flex items-center gap-1">
                           <Banknote size={10} /> {item.salary}
@@ -989,21 +1221,32 @@ useEffect(() => {
                     </div>
 
                     <div className="flex items-center gap-2 text-[10px] font-bold mt-2 pt-2 border-t border-slate-200">
-                      <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] ${item.policyStatus === 'accepted' ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                        {item.policyStatus === 'accepted' ? <CheckCircle size={8} /> : <FileText size={8} />}
-                        Policy: {item.policyStatus || 'not accepted'}
+                      <span
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] ${
+                          item.policyStatus === "accepted"
+                            ? "bg-green-50 text-green-700"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {item.policyStatus === "accepted" ? (
+                          <CheckCircle size={8} />
+                        ) : (
+                          <FileText size={8} />
+                        )}
+                        Policy: {item.policyStatus || "not accepted"}
                       </span>
                       {item.onboardedAt && (
                         <span className="text-slate-500 flex items-center gap-1">
                           <CheckCircle size={8} />
-                          Onboarded: {new Date(item.onboardedAt).toLocaleDateString()}
+                          Onboarded:{" "}
+                          {new Date(item.onboardedAt).toLocaleDateString()}
                         </span>
                       )}
                       {item.policyAcceptedAt && (
                         <span className="text-slate-500 flex items-center gap-1">
                           <Clock size={8} />
-                          Policy: {new Date(item.policyAcceptedAt).toLocaleDateString()}
+                          Policy:{" "}
+                          {new Date(item.policyAcceptedAt).toLocaleDateString()}
                         </span>
                       )}
                     </div>
@@ -1030,14 +1273,22 @@ useEffect(() => {
             </div>
           </div>
         </div>
-
       </div>
 
       <style jsx>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #cbd5e1;
+        }
       `}</style>
     </div>
   );
