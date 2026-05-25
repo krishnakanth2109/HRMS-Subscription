@@ -1,5 +1,6 @@
 import express from 'express';
 import multer from 'multer';
+import axios from 'axios';
 import { v2 as cloudinary } from 'cloudinary';
 import { v4 as uuidv4 } from 'uuid';
 import DocumentVerification from '../models/DocumentVerification.js';
@@ -290,17 +291,20 @@ router.post('/upload-doc/:token', upload.single('file'), async (req, res) => {
     const record = await DocumentVerification.findOne({ token });
     if (!record) return res.status(404).json({ success: false, error: 'Invalid link' });
 
-    if (!req.file.mimetype.startsWith('image/')) {
-      return res.status(400).json({ success: false, error: 'Only image files (JPG, PNG) are allowed.' });
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimes.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: 'Only image files (JPG, PNG, WEBP) and PDF are allowed.' });
     }
 
-    // Upload to Cloudinary (Enforced as Image Only)
+    // Upload to Cloudinary
     const b64 = Buffer.from(req.file.buffer).toString('base64');
     const dataURI = `data:${req.file.mimetype};base64,${b64}`;
 
+    const isPdf = req.file.mimetype === 'application/pdf';
     const cldRes = await cloudinary.uploader.upload(dataURI, {
       folder: 'hrms_doc_verification',
-      resource_type: 'image',
+      resource_type: isPdf ? 'raw' : 'image',
+      public_id: isPdf ? `${uuidv4()}.pdf` : undefined,
     });
 
     // Update document in the array
@@ -511,6 +515,129 @@ router.delete('/:id', protect, restrictTo('admin', 'support-admin'), async (req,
     res.status(200).json({ success: true, message: 'Record deleted' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ---------------------------------------------------
+// SIGN URL FOR PPT ONLINE PREVIEW (MICROSOFT COMPATIBILITY)
+// ---------------------------------------------------
+router.get('/sign-url', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).json({ error: 'No URL provided' });
+
+    let signedUrl = url;
+
+    if (url.includes('cloudinary.com')) {
+      const match = url.match(/\/(raw|image|video)\/upload\/(?:v\d+\/)?(.+)$/);
+      if (match) {
+        const resourceType = match[1];
+        let publicId = match[2].split('?')[0];
+        publicId = decodeURIComponent(publicId);
+
+        if (resourceType === 'raw') {
+          signedUrl = cloudinary.utils.private_download_url(publicId, undefined, {
+            resource_type: 'raw',
+            type: 'upload',
+          });
+        } else {
+          signedUrl = cloudinary.url(publicId, {
+            resource_type: resourceType,
+            type: 'upload',
+            sign_url: true,
+            secure: true,
+          });
+        }
+      }
+    }
+
+    res.status(200).json({ signedUrl });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---------------------------------------------------
+// PROXY DOCUMENT FOR IFRAME PREVIEW
+// ---------------------------------------------------
+router.get('/proxy-doc', async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) return res.status(400).send('No URL provided');
+
+    console.log('🔗 Proxy doc URL:', url);
+
+    let fetchUrl = url;
+
+    // If it is a Cloudinary URL, let's generate a signed URL using Cloudinary SDK
+    if (url.includes('cloudinary.com')) {
+      const match = url.match(/\/(raw|image|video)\/upload\/(?:v\d+\/)?(.+)$/);
+      if (match) {
+        const resourceType = match[1];
+        let publicId = match[2].split('?')[0];
+        publicId = decodeURIComponent(publicId);
+
+        // Generate signed URL using Cloudinary SDK
+        let signedUrl;
+        if (resourceType === 'raw') {
+          signedUrl = cloudinary.utils.private_download_url(publicId, undefined, {
+            resource_type: 'raw',
+            type: 'upload',
+          });
+        } else {
+          signedUrl = cloudinary.url(publicId, {
+            resource_type: resourceType,
+            type: 'upload',
+            sign_url: true,
+            secure: true,
+          });
+        }
+
+        console.log('🔑 Generated signed URL:', signedUrl);
+        fetchUrl = signedUrl;
+      }
+    }
+
+    // Fetch using Node's native fetch
+    const response = await fetch(fetchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'no-cache',
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Cloudinary responded with status ${response.status}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    console.log('✅ Proxy doc fetch success, bytes:', buffer.length);
+
+    let contentType = response.headers.get('content-type') || 'application/octet-stream';
+
+    // Inspect magic bytes for PDF
+    if (contentType === 'application/octet-stream' || contentType === 'text/plain') {
+      const magic = buffer.slice(0, 4).toString('utf-8');
+      if (magic === '%PDF') {
+        contentType = 'application/pdf';
+      } else if (url.toLowerCase().endsWith('.pdf') || url.toLowerCase().includes('pdf')) {
+        contentType = 'application/pdf';
+      }
+    }
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(buffer);
+  } catch (error) {
+    console.error('❌ Proxy document error details:', {
+      message: error.message,
+      url: req.query.url,
+    });
+    res.status(500).send('Failed to proxy document: ' + error.message);
   }
 });
 

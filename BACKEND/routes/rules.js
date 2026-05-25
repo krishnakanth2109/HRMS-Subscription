@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
-import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { v4 as uuidv4 } from 'uuid';
 import Rule from '../models/Rule.js';
 import { protect } from '../middleware/protect.js';
 
@@ -14,22 +14,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// 2. UPDATED STORAGE CONFIGURATION
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'company_rules',
-    // CHANGED: Restrict to image formats only (removed PDF logic)
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-    // Optional: Transformation to resize images if they are too huge
-    // transformation: [{ width: 1000, crop: "limit" }]
-  },
-});
-
-// CHANGED: Use 'array' instead of 'single'. 
-// 'images' must match the formData.append('images', ...) in frontend.
-// 10 is the max number of files allowed per upload.
-const upload = multer({ storage });
+// 2. Memory Storage for Multipurpose File Uploads (Images, PDFs, PPTs)
+const storage = multer.memoryStorage();
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // 3. POST Route
 router.post('/', protect, upload.array('images', 10), async (req, res) => {
@@ -41,15 +28,34 @@ router.post('/', protect, upload.array('images', 10), async (req, res) => {
     const adminId = req.body.adminId || req.user?._id;
     const companyId = req.body.companyId || req.user?.companyId;
 
-    // CHANGED: Handle Multiple Files
     let imageArray = [];
 
-    // req.files contains the array of files from Cloudinary
     if (req.files && req.files.length > 0) {
-      imageArray = req.files.map((file) => ({
-        url: file.path,       // Cloudinary URL
-        publicId: file.filename // Cloudinary Public ID
-      }));
+      for (const file of req.files) {
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        
+        const originalName = file.originalname || '';
+        const ext = originalName.includes('.') ? originalName.substring(originalName.lastIndexOf('.')) : '';
+        const isPdf = file.mimetype === 'application/pdf' || ext.toLowerCase() === '.pdf';
+        const isPpt = file.mimetype.includes('powerpoint') || 
+                      file.mimetype.includes('presentation') || 
+                      ext.toLowerCase() === '.ppt' || 
+                      ext.toLowerCase() === '.pptx';
+                      
+        const isRaw = isPdf || isPpt;
+        
+        const cldRes = await cloudinary.uploader.upload(dataURI, {
+          folder: 'company_rules',
+          resource_type: isRaw ? 'raw' : 'image',
+          public_id: isRaw ? `${uuidv4()}${ext}` : undefined,
+        });
+
+        imageArray.push({
+          url: cldRes.secure_url,
+          publicId: cldRes.public_id
+        });
+      }
     }
 
     const newRule = new Rule({

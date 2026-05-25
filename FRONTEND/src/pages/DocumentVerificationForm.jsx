@@ -95,7 +95,7 @@ const UploadCard = ({ fieldKey, label, required, uploadedUrl, uploading, onUploa
             </p>
             {isUploaded
               ? <p className="text-xs text-emerald-600 font-medium">✓ Uploaded</p>
-              : <p className="text-xs text-slate-400">JPG, PNG (max 5MB)</p>
+              : <p className="text-xs text-slate-400">JPG, PNG, PDF (max 5MB)</p>
             }
           </div>
         </div>
@@ -106,7 +106,7 @@ const UploadCard = ({ fieldKey, label, required, uploadedUrl, uploading, onUploa
             </button>
           )}
           <label className="cursor-pointer">
-            <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp"
+            <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf"
               onChange={e => e.target.files[0] && onUpload(fieldKey, e.target.files[0])}
               disabled={uploading === fieldKey}
             />
@@ -121,6 +121,21 @@ const UploadCard = ({ fieldKey, label, required, uploadedUrl, uploading, onUploa
   );
 };
 
+const getCleanPreviewUrl = (url) => {
+  if (!url) return '';
+  const parts = url.split('?');
+  let baseUrl = parts[0];
+  if (baseUrl.includes('/raw/upload/') && !baseUrl.toLowerCase().endsWith('.pdf')) {
+    baseUrl = `${baseUrl}.pdf`;
+  }
+  return parts[1] ? `${baseUrl}?${parts[1]}` : baseUrl;
+};
+
+const openInNewTab = (url) => {
+  const cleanUrl = getCleanPreviewUrl(url);
+  window.open(cleanUrl, '_blank');
+};
+
 // ─── Main Form ──────────────────────────────────────────────────────────────
 const DocumentVerificationForm = () => {
   const [token, setToken] = useState('');
@@ -131,7 +146,7 @@ const DocumentVerificationForm = () => {
   const [uploadedMap, setUploadedMap] = useState({}); // { fieldKey: url }
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -269,20 +284,76 @@ const DocumentVerificationForm = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/40 to-purple-50/30 font-sans py-10 px-4">
       {/* Preview Modal */}
-      {previewUrl && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setPreviewUrl(null)}>
+      {previewFile && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
           <div className="bg-white rounded-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b">
               <span className="font-bold text-slate-700">Document Preview</span>
               <div className="flex gap-2">
-                <a href={previewUrl.includes('/upload/') ? previewUrl.replace('/upload/', '/upload/fl_attachment/') : previewUrl} download target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-indigo-200">
-                  <Upload size={16} className="rotate-180" /> Download Orig.
-                </a>
-                <button onClick={() => setPreviewUrl(null)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
+                <button onClick={async () => {
+                  try {
+                    const MIME_EXT = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+                    const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(previewFile.url)}`;
+                    const res = await fetch(proxyUrl);
+                    const ct = (res.headers.get('content-type') || '').split(';')[0].trim();
+                    const blob = await res.blob();
+                    
+                    let ext = '';
+                    if (ct && MIME_EXT[ct]) {
+                      ext = MIME_EXT[ct];
+                    } else {
+                      try {
+                        const header = await blob.slice(0, 4).text();
+                        if (header === '%PDF') ext = 'pdf';
+                      } catch (e) {}
+                    }
+                    
+                    if (!ext) {
+                      const lastSegment = previewFile.url.split('?')[0].split('/').pop() || '';
+                      if (lastSegment.includes('.')) {
+                        ext = lastSegment.split('.').pop();
+                      } else {
+                        ext = previewFile.url.toLowerCase().includes('pdf') ? 'pdf' : 'jpg';
+                      }
+                    }
+                    
+                    const safeName = (previewFile.label || 'document').replace(/\.[^/.]+$/, '');
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = blobUrl;
+                    a.download = `${safeName}.${ext}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+                  } catch {
+                    const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(previewFile.url)}`;
+                    const a = document.createElement('a');
+                    a.href = proxyUrl; a.target = '_blank'; a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                  }
+                }} className="px-4 py-2 bg-indigo-100 text-indigo-700 font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-indigo-200">
+                  <Upload size={16} className="rotate-180" /> Download
+                </button>
+                <button onClick={() => {
+                  const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(previewFile.url)}`;
+                  openInNewTab(proxyUrl);
+                }} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700">
+                  Open in New Tab
+                </button>
+                <button onClick={() => setPreviewFile(null)} className="p-2 hover:bg-slate-100 rounded-xl"><X size={20} /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex justify-center">
-              <img src={previewUrl} alt="Document Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-xl border border-slate-200" />
+            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex justify-center items-center min-h-[50vh]">
+              {(() => {
+                const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(previewFile.url)}`;
+                const url = previewFile.url.toLowerCase();
+                const isPdf = url.endsWith('.pdf') || url.includes('/raw/upload/');
+                if (isPdf) {
+                  return <iframe src={proxyUrl} title="Document Preview" className="w-full h-[75vh] rounded-xl border border-slate-200 shadow-lg" />;
+                }
+                return <img src={proxyUrl} alt="Document Preview" className="max-w-full max-h-full object-contain shadow-lg rounded-xl border border-slate-200" />;
+              })()}
             </div>
           </div>
         </div>
@@ -342,7 +413,7 @@ const DocumentVerificationForm = () => {
           <div>
             <p className="font-bold text-amber-800 text-sm mb-1">Upload Instructions</p>
             <ul className="text-xs text-amber-700 space-y-0.5 list-disc list-inside">
-              <li>Accepted formats: JPG, JPEG, PNG (max 5MB each)</li>
+              <li>Accepted formats: JPG, JPEG, PNG, PDF (max 5MB each)</li>
               <li>Ensure documents are clear, readable, and not blurry</li>
               <li>Fields marked with <span className="text-red-500 font-bold">*</span> are mandatory</li>
               <li>Once submitted you cannot make changes – review carefully</li>
@@ -375,7 +446,7 @@ const DocumentVerificationForm = () => {
                       uploadedUrl={uploadedMap[field.fieldKey]}
                       uploading={uploading}
                       onUpload={handleUpload}
-                      onView={setPreviewUrl}
+                      onView={url => setPreviewFile({ url, label: field.label })}
                     />
                   ))}
                 </div>

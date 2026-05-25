@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck, Users, CheckCircle2, Clock, Eye, Building2,
   RefreshCw, FileText, X, AlertCircle, Search, ChevronRight,
-  Download, StickyNote, Trash2, CheckSquare, Square
+  Download, StickyNote, Trash2, CheckSquare, Square, Upload, Loader2
 } from 'lucide-react';
 import { getAllCompanies } from '../api';
 import api from '../api';
@@ -81,10 +81,76 @@ const statusBadge = {
 };
 
 // ─── Document Row in viewer ─────────────────────────────────────────────────
-const DocRow = ({ doc, onToggleVerify, onView }) => {
+const MIME_TO_EXT = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+const handleDownloadFile = async (url, filename) => {
+  try {
+    const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    const contentType = (res.headers.get('content-type') || '').split(';')[0].trim();
+    const blob = await res.blob();
+    
+    let ext = '';
+    if (contentType && MIME_TO_EXT[contentType]) {
+      ext = MIME_TO_EXT[contentType];
+    } else {
+      try {
+        const header = await blob.slice(0, 4).text();
+        if (header === '%PDF') ext = 'pdf';
+      } catch (e) {}
+    }
+    
+    if (!ext) {
+      const lastSegment = url.split('?')[0].split('/').pop() || '';
+      if (lastSegment.includes('.')) {
+        ext = lastSegment.split('.').pop();
+      } else {
+        ext = url.toLowerCase().includes('pdf') ? 'pdf' : 'jpg';
+      }
+    }
+    
+    const safeName = (filename || 'document').replace(/\.[^/.]+$/, '');
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = `${safeName}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch {
+    const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(url)}`;
+    window.open(proxyUrl, '_blank');
+  }
+};
+
+const getCleanPreviewUrl = (url) => {
+  if (!url) return '';
+  const parts = url.split('?');
+  let baseUrl = parts[0];
+  if (baseUrl.includes('/raw/upload/') && !baseUrl.toLowerCase().endsWith('.pdf')) {
+    baseUrl = `${baseUrl}.pdf`;
+  }
+  return parts[1] ? `${baseUrl}?${parts[1]}` : baseUrl;
+};
+
+const openInNewTab = (url) => {
+  const cleanUrl = getCleanPreviewUrl(url);
+  window.open(cleanUrl, '_blank');
+};
+
+const DocRow = ({ doc, onToggleVerify, onView, onUpload, uploading }) => {
+  const inputRef = useRef(null);
   const hasFile = !!doc.fileUrl;
+  const isUploading = uploading === doc.fieldKey;
   return (
-    <div className={`flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all ${hasFile ? doc.adminVerified ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200 bg-white' : 'border-dashed border-slate-200 bg-slate-50/50 opacity-60'}`}>
+    <div className={`flex items-center justify-between gap-3 p-4 rounded-2xl border-2 transition-all ${hasFile ? doc.adminVerified ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-200 bg-white' : 'border-dashed border-slate-200 bg-slate-50/50'}`}>
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Admin verify checkbox */}
         <button
@@ -101,25 +167,42 @@ const DocRow = ({ doc, onToggleVerify, onView }) => {
         <div className="min-w-0">
           <p className={`font-semibold text-sm ${hasFile ? 'text-slate-800' : 'text-slate-400'}`}>{doc.label}</p>
           {doc.uploadedAt && <p className="text-[10px] text-slate-400">Uploaded: {new Date(doc.uploadedAt).toLocaleDateString('en-IN')}</p>}
-          {!hasFile && <p className="text-[10px] text-slate-400 italic">Not uploaded by candidate</p>}
+          {!hasFile && <p className="text-[10px] text-slate-400 italic">Not uploaded</p>}
         </div>
       </div>
-      {hasFile && (
-        <div className="flex gap-2 flex-shrink-0">
-          <button onClick={() => onView(doc.fileUrl)} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 flex items-center gap-1 transition-all">
-            <Eye size={12} /> View
-          </button>
-          <a href={doc.fileUrl.includes('/upload/') ? doc.fileUrl.replace('/upload/', '/upload/fl_attachment/') : doc.fileUrl} download target="_blank" rel="noopener noreferrer"
-            className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 flex items-center gap-1 transition-all">
-            <Download size={12} /> Download
-          </a>
-          {doc.adminVerified && (
-            <span className="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-1">
-              <CheckCircle2 size={12} /> Verified
-            </span>
-          )}
-        </div>
-      )}
+      <div className="flex gap-2 flex-shrink-0">
+        {hasFile && (
+          <>
+            <button onClick={() => onView({ url: doc.fileUrl, label: doc.label })} className="px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-100 flex items-center gap-1 transition-all">
+              <Eye size={12} /> View
+            </button>
+          </>
+        )}
+        {/* Upload / Replace button */}
+        <label className="cursor-pointer">
+          <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf"
+            onChange={e => { if (e.target.files[0]) { onUpload(doc.fieldKey, e.target.files[0]); e.target.value = ''; } }}
+            disabled={isUploading}
+          />
+          <div className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${isUploading ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : hasFile ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'}`}>
+            {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+            {isUploading ? 'Uploading...' : hasFile ? 'Replace' : 'Upload'}
+          </div>
+        </label>
+        {hasFile && (
+          <>
+            <button onClick={() => handleDownloadFile(doc.fileUrl, doc.label)}
+              className="px-3 py-2 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 flex items-center gap-1 transition-all">
+              <Download size={12} /> Download
+            </button>
+            {doc.adminVerified && (
+              <span className="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-1">
+                <CheckCircle2 size={12} /> Verified
+              </span>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };
@@ -133,9 +216,10 @@ const DocVerifyAdmin = () => {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [uploading, setUploading] = useState(null);
 
   useEffect(() => { fetchCompanies(); }, []);
   useEffect(() => { if (selectedCompany) fetchRecords(selectedCompany); else setRecords([]); }, [selectedCompany]);
@@ -200,7 +284,7 @@ const DocVerifyAdmin = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this verification record permanently?')) return;
+    if (!window.confirm('Delete this record permanently?')) return;
     try {
       await api.delete(`/api/doc-verification/${id}`);
       setRecords(prev => prev.filter(r => r._id !== id));
@@ -222,6 +306,31 @@ const DocVerifyAdmin = () => {
     pending: records.filter(r => r.status === 'pending').length,
   };
 
+  const handleAdminUpload = async (fieldKey, file) => {
+    if (!selectedRecord?.token) { alert('No token found for this record.'); return; }
+    setUploading(fieldKey);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('fieldKey', fieldKey);
+      const res = await api.post(`/api/doc-verification/upload-doc/${selectedRecord.token}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.data.success) {
+        // Refresh the record to get updated document list
+        const updatedRes = await api.get(`/api/doc-verification/company/${selectedCompany}`);
+        const updatedRecords = updatedRes.data.data || [];
+        setRecords(updatedRecords);
+        const updatedRecord = updatedRecords.find(r => r._id === selectedRecord._id);
+        if (updatedRecord) setSelectedRecord(updatedRecord);
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Upload failed.');
+    } finally {
+      setUploading(null);
+    }
+  };
+
   // Build doc map for selected record
   const docMap = {};
   (selectedRecord?.documents || []).forEach(d => { docMap[d.fieldKey] = d; });
@@ -229,18 +338,32 @@ const DocVerifyAdmin = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans">
       {/* Preview Modal */}
-      {previewUrl && (
-        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4" onClick={() => setPreviewUrl(null)}>
+      {previewFile && (
+        <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4" onClick={() => setPreviewFile(null)}>
           <div className="bg-white rounded-2xl overflow-hidden max-w-5xl w-full max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b bg-slate-50">
               <span className="font-bold text-slate-700">Document Preview</span>
               <div className="flex gap-2">
-                <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700">Open in New Tab</a>
-                <button onClick={() => setPreviewUrl(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X size={20} /></button>
+                <button onClick={() => handleDownloadFile(previewFile.url, previewFile.label)} className="px-4 py-2 bg-indigo-100 text-indigo-700 text-sm font-bold rounded-xl hover:bg-indigo-200 flex items-center gap-1">
+                  <Download size={14} /> Download
+                </button>
+                <button onClick={() => {
+                  const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(previewFile.url)}`;
+                  openInNewTab(proxyUrl);
+                }} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700">Open in New Tab</button>
+                <button onClick={() => setPreviewFile(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-all"><X size={20} /></button>
               </div>
             </div>
-            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex justify-center">
-              <img src={previewUrl} alt="Document Preview" className="max-w-full max-h-full object-contain mx-auto rounded-xl shadow-lg border border-slate-200" />
+            <div className="flex-1 overflow-auto p-4 bg-slate-50 flex justify-center items-center min-h-[50vh]">
+              {(() => {
+                const proxyUrl = `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(previewFile.url)}`;
+                const url = previewFile.url.toLowerCase();
+                const isPdf = url.endsWith('.pdf') || url.includes('/raw/upload/');
+                if (isPdf) {
+                  return <iframe src={proxyUrl} title="Document Preview" className="w-full h-[75vh] rounded-xl border border-slate-200 shadow-lg" />;
+                }
+                return <img src={proxyUrl} alt="Document Preview" className="max-w-full max-h-full object-contain mx-auto rounded-xl shadow-lg border border-slate-200" />;
+              })()}
             </div>
           </div>
         </div>
@@ -431,7 +554,6 @@ const DocVerifyAdmin = () => {
                         return existing || { fieldKey: f.fieldKey, label: f.label, fileUrl: null, adminVerified: false };
                       });
                       const uploaded = catDocs.filter(d => d.fileUrl).length;
-                      if (uploaded === 0) return null; // Don't render if no docs in this category
 
                       return (
                         <div key={cat.title} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -443,21 +565,14 @@ const DocVerifyAdmin = () => {
                           </div>
                           <div className="p-4 space-y-3">
                             {catDocs.map(doc => (
-                              <DocRow key={doc.fieldKey} doc={doc} onToggleVerify={handleToggleVerify} onView={setPreviewUrl} />
+                              <DocRow key={doc.fieldKey} doc={doc} onToggleVerify={handleToggleVerify} onView={setPreviewFile} onUpload={handleAdminUpload} uploading={uploading} />
                             ))}
                           </div>
                         </div>
                       );
                     })}
 
-                    {/* Show all empty categories too if nothing was uploaded */}
-                    {selectedRecord.documents?.filter(d => d.fileUrl).length === 0 && (
-                      <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
-                        <AlertCircle className="mx-auto mb-3 text-slate-300" size={48} />
-                        <p className="font-bold text-slate-400 text-lg">No documents uploaded yet</p>
-                        <p className="text-slate-400 text-sm mt-1">The candidate has not uploaded any documents yet</p>
-                      </div>
-                    )}
+
                   </div>
 
 

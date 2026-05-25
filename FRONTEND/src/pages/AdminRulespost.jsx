@@ -1,9 +1,224 @@
 import React, { useState, useEffect, useContext } from 'react';
 import Swal from 'sweetalert2';
 import { AuthContext } from '../context/AuthContext';
-// 1. Remove axios import
-// 2. Import the new functions from your api.js file
-import { getRules, createRule, deleteRule } from '../api'; // Adjust path if api.js is in a different folder
+import api, { getRules, createRule, deleteRule } from '../api'; 
+
+const getProxyUrl = (url) => {
+  if (!url) return '';
+  return `${api.defaults.baseURL || ''}/api/doc-verification/proxy-doc?url=${encodeURIComponent(url)}`;
+};
+
+const getFileType = (url) => {
+  const path = (url || '').split('?')[0].toLowerCase();
+  if (path.endsWith('.pdf')) return 'pdf';
+  if (path.endsWith('.ppt') || path.endsWith('.pptx')) return 'ppt';
+  if ((url || '').includes('/raw/upload/')) {
+    if ((url || '').toLowerCase().includes('pdf')) return 'pdf';
+    if ((url || '').toLowerCase().includes('ppt') || (url || '').toLowerCase().includes('pptx')) return 'ppt';
+    return 'raw';
+  }
+  return 'image';
+};
+
+const PptPreview = ({ url, isModal }) => {
+  const [signedUrl, setSignedUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const fetchSigned = async () => {
+      try {
+        const res = await api.get(`/api/doc-verification/sign-url?url=${encodeURIComponent(url)}`);
+        if (active) {
+          setSignedUrl(res.data.signedUrl);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (active) {
+          setError(true);
+          setLoading(false);
+        }
+      }
+    };
+    fetchSigned();
+    return () => { active = false; };
+  }, [url]);
+
+  if (loading) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50 text-slate-400 p-6 select-none rounded-xl border border-slate-200/60 shadow-sm">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2" />
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Loading Slide Preview...</span>
+      </div>
+    );
+  }
+
+  if (error || !signedUrl) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-orange-50 text-orange-950 p-6 select-none rounded-xl border border-orange-100 shadow-sm relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-24 h-24 bg-orange-200/30 rounded-full blur-xl" />
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-orange-600 mb-2 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 00-2 2z" />
+        </svg>
+        <span className="font-extrabold text-slate-800 text-xs tracking-wide uppercase">PowerPoint Presentation</span>
+        <span className="text-[10px] text-orange-600/70 mt-1 font-medium bg-white/80 px-2 py-0.5 rounded-full shadow-sm">Click card to download file</span>
+      </div>
+    );
+  }
+
+  const pptViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
+
+  if (isModal) {
+    return (
+      <div className="w-full h-full flex flex-col bg-slate-900 overflow-hidden">
+        <div className="bg-slate-950 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800 pr-16">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
+            <span className="text-xs font-bold text-slate-300 ml-2 tracking-wide uppercase">Interactive Slide Viewer</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => window.open(pptViewerUrl, '_blank')}
+              className="text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              Open in New Tab
+            </button>
+            <span className="text-[10px] font-extrabold bg-orange-600/30 text-orange-400 px-3 py-1 rounded-full border border-orange-500/20 uppercase tracking-wider">All Slides</span>
+          </div>
+        </div>
+        <iframe 
+          src={pptViewerUrl} 
+          title="PPT Preview" 
+          className="w-full flex-1 border-0 bg-white"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full flex flex-col bg-slate-50 border border-slate-200/60 rounded-xl overflow-hidden relative shadow-sm group-hover:shadow-md transition-shadow duration-300">
+      <div className="bg-slate-100 px-3 py-2 flex items-center gap-1.5 border-b border-slate-200/50">
+        <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
+        <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" />
+        <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />
+        <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider ml-1">Slide deck</span>
+      </div>
+      <div className="flex-grow relative overflow-hidden bg-white">
+        <iframe 
+          src={pptViewerUrl}
+          title="PPT Slide 1 Preview" 
+          className="w-full h-full border-0 pointer-events-none scale-105 origin-top"
+        />
+        <div className="absolute inset-0 bg-transparent" />
+      </div>
+    </div>
+  );
+};
+
+const renderFilePreview = (url, isModal = false) => {
+  const type = getFileType(url);
+  const proxyUrl = getProxyUrl(url);
+  
+  if (type === 'pdf') {
+    if (isModal) {
+      return (
+        <div className="w-full h-full flex flex-col bg-slate-900 overflow-hidden">
+          <div className="bg-slate-950 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800 pr-16">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
+              <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
+              <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
+              <span className="text-xs font-bold text-slate-300 ml-2 tracking-wide uppercase">Interactive PDF Viewer</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => window.open(proxyUrl, '_blank')}
+                className="text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                Open in New Tab
+              </button>
+              <span className="text-[10px] font-extrabold bg-rose-600/30 text-rose-400 px-3 py-1 rounded-full border border-rose-500/20 uppercase tracking-wider">All Pages</span>
+            </div>
+          </div>
+          <iframe 
+            src={proxyUrl} 
+            title="PDF Preview" 
+            className="w-full flex-1 border-0 bg-white"
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="w-full h-full flex flex-col bg-slate-50 border border-slate-200/60 rounded-xl overflow-hidden relative shadow-sm group-hover:shadow-md transition-shadow duration-300">
+        <div className="bg-slate-100 px-3 py-2 flex items-center gap-1.5 border-b border-slate-200/50">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-400 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" />
+          <span className="w-2.5 h-2.5 rounded-full bg-green-400 inline-block" />
+          <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-wider ml-1">Document Preview</span>
+        </div>
+        <div className="flex-grow relative overflow-hidden bg-white">
+          <iframe 
+            src={`${proxyUrl}#page=1&toolbar=0&navpanes=0`}
+            title="PDF Page 1 Preview" 
+            className="w-full h-full border-0 pointer-events-none scale-105 origin-top"
+          />
+          <div className="absolute inset-0 bg-transparent" />
+        </div>
+      </div>
+    );
+  }
+  
+  if (type === 'ppt') {
+    return <PptPreview url={url} isModal={isModal} />;
+  }
+
+  if (isModal) {
+    return (
+      <div className="w-full h-full flex flex-col bg-slate-900 overflow-hidden">
+        <div className="bg-slate-950 px-6 py-4 flex items-center justify-between text-white border-b border-slate-800 pr-16">
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
+            <span className="text-xs font-bold text-slate-300 ml-2 tracking-wide uppercase">Image Viewer</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => window.open(proxyUrl, '_blank')}
+              className="text-[10px] font-bold bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-full border border-white/10 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+              Open in New Tab
+            </button>
+            <span className="text-[10px] font-extrabold bg-blue-600/30 text-blue-400 px-3 py-1 rounded-full border border-blue-500/20 uppercase tracking-wider">Image</span>
+          </div>
+        </div>
+        <div className="flex-grow w-full h-full flex items-center justify-center p-6 bg-slate-950/20 relative">
+          <img 
+            src={proxyUrl} 
+            alt="Preview" 
+            className="max-w-full max-h-full object-contain" 
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <img 
+      src={proxyUrl} 
+      alt="Preview" 
+      className="max-w-full max-h-full object-contain" 
+      onError={(e) => { e.target.style.display = 'none'; }}
+    />
+  );
+};
 
 // --- SUB-COMPONENT: Single Rule Card ---
 const RuleCard = ({ rule, onDelete }) => {
@@ -43,7 +258,31 @@ const RuleCard = ({ rule, onDelete }) => {
     setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   };
 
-  const openModal = () => {
+  const openModal = async () => {
+    const currentUrl = images[currentImageIndex];
+    if (getFileType(currentUrl) === 'ppt') {
+      try {
+        Swal.fire({
+          title: 'Opening presentation...',
+          html: 'Generating secure viewer link...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+        const res = await api.get(`/api/doc-verification/sign-url?url=${encodeURIComponent(currentUrl)}`);
+        Swal.close();
+        if (res.data.signedUrl) {
+          const pptViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(res.data.signedUrl)}`;
+          window.open(pptViewerUrl, '_blank');
+        }
+      } catch (err) {
+        Swal.close();
+        const proxyUrl = getProxyUrl(currentUrl);
+        window.open(proxyUrl, '_blank');
+      }
+      return;
+    }
     setModalIndex(currentImageIndex);
     setIsModalOpen(true);
     setIsHovered(true);
@@ -103,16 +342,11 @@ const RuleCard = ({ rule, onDelete }) => {
               onClick={openModal}
             >
               <div className="w-full h-full flex items-center justify-center bg-black">
-                <img 
-                  src={images[currentImageIndex]} 
-                  alt={`Slide ${currentImageIndex}`} 
-                  className="max-w-full max-h-full object-contain transition-transform duration-700" 
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
+                {renderFilePreview(images[currentImageIndex])}
               </div>
               <div className="absolute bottom-0 w-full bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end items-end h-full pointer-events-none">
                  <button className="bg-white text-gray-900 text-xs font-bold px-4 py-2 rounded-full shadow-lg flex items-center gap-2 pointer-events-auto hover:bg-gray-100">
-                   Click to Expand
+                   {getFileType(images[currentImageIndex]) === 'ppt' ? 'Open in New Tab' : 'Click to Expand'}
                  </button>
               </div>
 
@@ -145,21 +379,21 @@ const RuleCard = ({ rule, onDelete }) => {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-          <button onClick={closeModal} className="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all z-50">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center">
+          <button onClick={closeModal} className="absolute top-3 right-4 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all z-[10000]" title="Close Preview">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
-          <div className="relative w-full h-full flex items-center justify-center">
-            <img src={images[modalIndex]} alt="Full Screen" className="max-h-screen max-w-full object-contain shadow-2xl rounded-sm select-none" />
+          <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+            {renderFilePreview(images[modalIndex], true)}
             {images.length > 1 && (
               <>
-                <button onClick={handleModalPrev} className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-sm transition-all hover:scale-110">
+                <button onClick={handleModalPrev} className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-sm transition-all hover:scale-110 z-[10000]">
                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <button onClick={handleModalNext} className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-sm transition-all hover:scale-110">
+                <button onClick={handleModalNext} className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-sm transition-all hover:scale-110 z-[10000]">
                    <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-1 rounded-full text-white text-sm border border-white/20">
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 px-4 py-1 rounded-full text-white text-sm border border-white/20 z-[10000]">
                   {modalIndex + 1} / {images.length}
                 </div>
               </>
@@ -387,15 +621,15 @@ const AdminRulesPost = () => {
                   <textarea name="description" value={formData.description} onChange={handleChange} rows="4" required className="w-full px-4 py-3 rounded-lg bg-gray-50 border focus:border-blue-500 outline-none resize-none" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Attach Images</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Attach Files</label>
                   <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:bg-blue-50 cursor-pointer bg-gray-50">
-                    <input type="file" onChange={handleImageChange} accept="image/*" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
+                    <input type="file" onChange={handleImageChange} accept="image/*,.pdf,.ppt,.pptx" multiple className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"/>
                     <div className="space-y-1">
                       <svg className="mx-auto h-8 w-8 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                         <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       <span className="text-gray-500 text-sm block">
-                        {selectedImages.length > 0 ? `${selectedImages.length} files selected` : "Drag images or click to upload"}
+                        {selectedImages.length > 0 ? `${selectedImages.length} files selected` : "Drag files or click to upload"}
                       </span>
                     </div>
                   </div>
