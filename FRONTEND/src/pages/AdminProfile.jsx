@@ -385,7 +385,7 @@ const AdminProfile = () => {
               <h1 className="text-xl font-bold text-gray-900">{profile?.name}</h1>
             )}
             <p className="text-gray-500 font-medium uppercase tracking-widest text-[10px] mt-1">
-              {profile?.role} 
+              {profile?.role}
               {/* • {profile?.department} */}
             </p>
           </div>

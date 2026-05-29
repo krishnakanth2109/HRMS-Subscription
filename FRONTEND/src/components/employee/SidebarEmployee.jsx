@@ -61,7 +61,7 @@ const NAV_SECTIONS = [
 
 const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const { user } = useContext(AuthContext);
   const [unreadCount, setUnreadCount] = useState(0);
   const lastCountRef = useRef(0);
@@ -122,7 +122,13 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
     return () => clearInterval(interval);
   }, [fetchUnreadCount]);
 
-  useEffect(() => { if (isMobile) setMobileOpen(false); }, [location.pathname, isMobile, setMobileOpen]);
+  useEffect(() => {
+    if (isMobile) {
+      setMobileOpen(false);
+    } else {
+      setCollapsed(true);
+    }
+  }, [location.pathname, isMobile, setMobileOpen]);
 
   const sidebarClasses = `
     h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50
@@ -137,7 +143,24 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setMobileOpen(false)} />
       )}
 
-      <aside className={sidebarClasses}>
+      <aside 
+        className={sidebarClasses}
+        onClick={() => {
+          if (collapsed && !isMobile) {
+            setCollapsed(false);
+          }
+        }}
+        onMouseEnter={() => {
+          if (!isMobile) {
+            setCollapsed(false);
+          }
+        }}
+        onMouseLeave={() => {
+          if (!isMobile) {
+            setCollapsed(true);
+          }
+        }}
+      >
         <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
           {!collapsed || isMobile ? (
              <div className="flex items-center gap-2 overflow-hidden h-[68px]">
@@ -214,7 +237,10 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
         <div className="p-3 border-t border-slate-800">
           {!isMobile && (
             <button
-              onClick={() => setCollapsed(!collapsed)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCollapsed(!collapsed);
+              }}
               className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all mb-2"
             >
               {collapsed ? <ChevronRight size={20} /> : (

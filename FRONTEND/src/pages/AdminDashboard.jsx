@@ -2,6 +2,7 @@
 
 import React, { useState, useContext, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import Swal from "sweetalert2";
 import {
   FaUsers,
   FaUserClock,
@@ -462,6 +463,7 @@ const AdminDashboard = () => {
           role: getDeptRole(e).role,
           month: dob.getMonth(),
           day: dob.getDate(),
+          dob: e.personalDetails.dob,
         };
       });
 
@@ -535,6 +537,85 @@ const AdminDashboard = () => {
       await rejectLeaveRequestById(leaveId);
       fetchDashboardData();
     } catch (e) { console.error(e); }
+  };
+
+  const showBirthdayProfile = (b) => {
+    const formattedDob = b.dob 
+      ? new Date(b.dob).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+      : "Not specified";
+      
+    const initials = getInitials(b.name);
+    
+    const colorMap = {
+      "bg-blue-500": "#3b82f6",
+      "bg-purple-500": "#a855f7",
+      "bg-green-500": "#22c55e",
+      "bg-yellow-500": "#eab308",
+      "bg-red-500": "#ef4444",
+      "bg-indigo-500": "#6366f1",
+      "bg-teal-500": "#14b8a6",
+      "bg-pink-500": "#ec4899",
+    };
+    const classColor = pickColor(b.name);
+    const hexColor = colorMap[classColor] || "#6366f1";
+
+    Swal.fire({
+      html: `
+        <div style="font-family: 'Outfit', 'Inter', sans-serif; text-align: center; padding: 10px 5px;">
+          <!-- Header Profile Circle -->
+          <div style="display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; color: white; font-size: 28px; font-weight: 800; border-radius: 50%; margin-bottom: 16px; border: 4px solid #f1f5f9; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); background: ${hexColor};">
+            ${initials}
+          </div>
+          
+          <!-- Name and Role -->
+          <h2 style="font-size: 20px; font-weight: 900; color: #1e293b; margin: 0 0 4px 0; letter-spacing: -0.025em;">
+            ${b.name}
+          </h2>
+          <span style="display: inline-block; font-size: 11px; font-weight: 700; color: #6366f1; background: #e0e7ff; padding: 4px 12px; border-radius: 9999px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em;">
+            ${b.role}
+          </span>
+          
+          <!-- Information Fields -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 16px; text-align: left; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;">
+              <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #f0fdf4; color: #15803d; border-radius: 8px; font-size: 14px;">
+                🎉
+              </div>
+              <div>
+                <span style="display: block; font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
+                  DATE OF BIRTH
+                </span>
+                <span style="font-size: 13px; font-weight: 700; color: #334155;">
+                  ${formattedDob}
+                </span>
+              </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background: #eff6ff; color: #1d4ed8; border-radius: 8px; font-size: 14px;">
+                💼
+              </div>
+              <div>
+                <span style="display: block; font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
+                  DEPARTMENTAL ROLE
+                </span>
+                <span style="font-size: 13px; font-weight: 700; color: #334155;">
+                  ${b.role}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+      showConfirmButton: true,
+      confirmButtonText: 'Dismiss',
+      confirmButtonColor: '#6366f1',
+      customClass: {
+        popup: 'rounded-3xl shadow-2xl border border-slate-100 p-6',
+        confirmButton: 'px-6 py-2.5 rounded-xl font-bold text-sm tracking-wide shadow-lg hover:shadow-xl transition-all'
+      },
+      buttonsStyling: true
+    });
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -1155,11 +1236,13 @@ const AdminDashboard = () => {
                     className="bg-gradient-to-r from-orange-300 to-red-300 rounded-xl p-3 flex items-center justify-between mb-3 shadow-sm"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-full ${pickColor(b.name)} text-white font-bold flex items-center justify-center text-xs shadow-sm`}
+                      <button
+                        onClick={() => showBirthdayProfile(b)}
+                        className={`w-8 h-8 rounded-full ${pickColor(b.name)} text-white font-bold flex items-center justify-center text-xs shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white`}
+                        title="Click to view profile"
                       >
                         {getInitials(b.name)}
-                      </div>
+                      </button>
                       <div className="text-left">
                         <p className="text-xs font-bold text-[#2B3674]">
                           {b.name}{" "}
@@ -1183,13 +1266,14 @@ const AdminDashboard = () => {
               ) : (
                 <div className="flex items-center ml-2">
                   {upcomingBirthdays.map((b, i) => (
-                    <div
+                    <button
                       key={i}
-                      className={`w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold -ml-2 first:ml-0 ${pickColor(b.name)}`}
-                      title={`${b.name} — ${b.role}`}
+                      onClick={() => showBirthdayProfile(b)}
+                      className={`w-10 h-10 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold -ml-2 first:ml-0 ${pickColor(b.name)} focus:outline-none focus:ring-2 focus:ring-indigo-500 hover:scale-105 transition-transform duration-200 shadow-sm cursor-pointer`}
+                      title={`${b.name} — ${b.role} (Click to view profile)`}
                     >
                       {getInitials(b.name)}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

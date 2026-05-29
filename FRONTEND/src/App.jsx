@@ -113,6 +113,7 @@ import HRChecklist from "./pages/HRChecklist";
 import AdminWelcomeKits from "./pages/Adminwelcomekits";
 import WhatsNew from "./pages/versionpage";
 import DomainSettings from "./pages/Domainsettings";
+import EditEmailTemplate from "./pages/EditEmailTemplate";
 
 
 
@@ -317,6 +318,7 @@ function App() {
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
           <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
         <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
+        <Route path="/admin/edit-email-template" element={<EditEmailTemplate />} />
           <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
           <Route path="/admin/resignation" element={<AdminResignation />} />
           <Route path="/admin/hr-checklist" element={<HRChecklist />} />

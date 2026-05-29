@@ -32,7 +32,9 @@ router.get('/rules', async (req, res) => {
         travellingAllowance: 800, otherAllowance: 1000,
         pfCalculationMethod: 'percentage', pfPercentage: 12, employerPfPercentage: 12,
         pfFixedAmountEmployee: 0, pfFixedAmountEmployer: 0,
-        ptSlab1Limit: 15000, ptSlab2Limit: 20000, ptSlab1Amount: 150, ptSlab2Amount: 200
+        ptSlab1Limit: 15000, ptSlab2Limit: 20000, ptSlab1Amount: 150, ptSlab2Amount: 200,
+        customFields: [],
+        customDeductions: []
       });
     }
     res.status(200).json(rules);

@@ -13,7 +13,37 @@ const payrollRuleSchema = new mongoose.Schema(
     medical: { type: Number, required: true, default: 1250 },
     travellingAllowance: { type: Number, required: true, default: 800 },
     otherAllowance: { type: Number, required: true, default: 1000 },
-    
+
+    // --- CUSTOMIZABLE FIELD LABELS ---
+    customLabels: {
+      basicPercentage: { type: String, default: "Basic Salary" },
+      hraPercentage: { type: String, default: "HRA" },
+      conveyance: { type: String, default: "Conveyance" },
+      medical: { type: String, default: "Medical" },
+      travellingAllowance: { type: String, default: "Travelling Allowance" },
+      otherAllowance: { type: String, default: "Other Allowance" },
+    },
+
+    // --- DYNAMIC CUSTOM FIELDS ---
+    customFields: [
+      {
+        name: { type: String, required: true },
+        value: { type: Number, required: true, default: 0 },
+        valueType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
+        percentageOf: { type: String, enum: ['basic', 'total'], default: 'total' }
+      }
+    ],
+
+    // --- DYNAMIC CUSTOM DEDUCTIONS ---
+    customDeductions: [
+      {
+        name: { type: String, required: true },
+        value: { type: Number, required: true, default: 0 },
+        valueType: { type: String, enum: ['percentage', 'fixed'], default: 'fixed' },
+        percentageOf: { type: String, enum: ['basic', 'total'], default: 'total' }
+      }
+    ],
+
     // --- PF SETTINGS ---
     pfCalculationMethod: {
       type: String,
@@ -24,11 +54,11 @@ const payrollRuleSchema = new mongoose.Schema(
     // Percentage Mode
     pfPercentage: { type: Number, default: 12 },
     employerPfPercentage: { type: Number, default: 12 },
-    
+
     // Fixed Amount Mode
     pfFixedAmountEmployee: { type: Number, default: 1800 },
     pfFixedAmountEmployer: { type: Number, default: 1800 },
-    
+
     // --- PT SETTINGS ---
     ptSlab1Limit: { type: Number, default: 15000 },
     ptSlab2Limit: { type: Number, default: 20000 },

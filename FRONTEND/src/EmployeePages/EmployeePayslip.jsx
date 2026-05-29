@@ -179,6 +179,43 @@ const EmployeePayslip = () => {
   const salaryDetails = payslipData?.salaryDetails || {};
   const breakdown = payslipData?.breakdown || {};
 
+  // Build dynamic zipped rows to align standard earnings, custom fields, and deductions side-by-side
+  const earningsList = [
+    { name: 'Basic Salary', val: breakdown.basic },
+    { name: 'HRA', val: breakdown.hra },
+    { name: 'Conveyance', val: breakdown.conveyance },
+    { name: 'Medical', val: breakdown.medical },
+    { name: 'Travelling Allowance', val: breakdown.travellingAllowance },
+    { name: 'Other Allowance', val: breakdown.otherAllowance },
+    ...(breakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value })),
+    { name: 'Special Allowance', val: breakdown.special }
+  ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
+
+  const deductionsList = [
+    { name: 'PF Employee', val: breakdown.pf },
+    { name: 'PF Employer', val: breakdown.employerPf },
+    { name: 'Professional Tax', val: breakdown.pt },
+    { name: `LOP Deduction (${attendanceSummary.lopDays || 0} days)`, val: salaryDetails.lopDeduction },
+    { name: `Late Penalty (${attendanceSummary.lateDaysCount || 0} late)`, val: salaryDetails.lateDeduction },
+    ...(breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
+  ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
+
+  const maxLen = Math.max(earningsList.length, deductionsList.length);
+  const zippedRows = [];
+  for (let i = 0; i < maxLen; i++) {
+    zippedRows.push({
+      earn: earningsList[i] || { name: '', val: null },
+      deduct: deductionsList[i] || { name: '', val: null }
+    });
+  }
+  const minRows = 5;
+  while (zippedRows.length < minRows) {
+    zippedRows.push({
+      earn: { name: '', val: null },
+      deduct: { name: '', val: null }
+    });
+  }
+
   const leavesTaken = (attendanceSummary.totalDaysInMonth || 0) - (attendanceSummary.workedDays || 0);
 
   // Whether we have a letterhead template
@@ -383,24 +420,21 @@ const EmployeePayslip = () => {
                       <div className="w-1/2 py-2 text-right pr-2 font-bold uppercase tracking-wider text-sm">DEDUCTIONS</div>
                     </div>
 
-                    <div className="flex">
-                      {/* EARNINGS */}
-                      <div className="w-1/2 border-r border-black">
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Basic Salary</span><span>{formatCurrency(breakdown.basic)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">House Rent Allow</span><span>{formatCurrency(breakdown.hra)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Travelling Allowance</span><span>{formatCurrency(breakdown.conveyance)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Medical Allowances</span><span>{formatCurrency(breakdown.medical)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Special Allowances</span><span>{formatCurrency(breakdown.special)}</span></div>
-                        <div className="h-16"></div>
-                      </div>
-
-                      {/* DEDUCTIONS */}
-                      <div className="w-1/2">
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">PF</span><span>{formatCurrency(breakdown.pf)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Professional Tax</span><span>{formatCurrency(breakdown.pt)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">LOP</span><span>{formatCurrency(salaryDetails.lopDeduction)}</span></div>
-                        <div className="flex justify-between px-2 py-1 text-sm"><span className="uppercase">Other Deductions</span><span>{formatCurrency(salaryDetails.lateDeduction)}</span></div>
-                      </div>
+                    <div className="divide-y divide-black">
+                      {zippedRows.map((row, idx) => (
+                        <div key={idx} className="flex">
+                          {/* EARNINGS */}
+                          <div className="w-1/2 border-r border-black flex justify-between px-2 py-1 text-sm">
+                            <span className="uppercase truncate max-w-[200px]">{row.earn.name}</span>
+                            <span>{row.earn.val !== null && row.earn.val !== undefined ? formatCurrency(row.earn.val) : ''}</span>
+                          </div>
+                          {/* DEDUCTIONS */}
+                          <div className="w-1/2 flex justify-between px-2 py-1 text-sm">
+                            <span className="uppercase truncate max-w-[200px]">{row.deduct.name}</span>
+                            <span>{row.deduct.val !== null && row.deduct.val !== undefined ? formatCurrency(row.deduct.val) : ''}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Totals */}

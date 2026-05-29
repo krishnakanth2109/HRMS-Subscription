@@ -25,13 +25,33 @@ const fireDocVerifyMail = ({ to, name, role, department, employmentType, company
       .replace(/\[COMPANY\]/gi, companyName || 'Our Company')
       .replace(/\[FORM_LINK\]/gi, '<a href="' + formLink + '" style="color:#6d28d9;font-weight:bold;">' + formLink + '</a>');
 
-    const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px;margin:auto;">' + parsedMessage.replace(/\n/g, '<br>') + '</div>';
+    const attachments = [];
+    let imageCounter = 0;
+
+    // Robust Regex to match base64 images and extract MIME type and Base64 data content
+    const imgRegex = /src=["']data:(image\/[^;]+);base64,([^"']+)["']/gi;
+    const parsedHtml = parsedMessage.replace(imgRegex, (match, mimeType, base64Data) => {
+      imageCounter++;
+      const cid = `logo_${imageCounter}`;
+      const ext = mimeType.split('/')[1] || 'png';
+      
+      attachments.push({
+        filename: `logo_${imageCounter}.${ext}`,
+        content: Buffer.from(base64Data, 'base64'),
+        cid: cid
+      });
+      
+      return `src="cid:${cid}"`;
+    });
+
+    const htmlBody = '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;max-width:600px;margin:auto;">' + parsedHtml.replace(/\n/g, '<br>') + '</div>';
 
     const mailOptions = {
       from: `"${companyName} HR" <${process.env.SMTP_USER}>`,
       to,
       subject: emailSubject || 'Document Verification Required',
       html: htmlBody,
+      attachments: attachments.length > 0 ? attachments : undefined
     };
 
     // Fire-and-forget — same pattern as offerLetterRoutes.js — DO NOT AWAIT

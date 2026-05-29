@@ -65,7 +65,7 @@ const AttendanceComparisonModal = ({ isOpen, onClose, selectedStats, employeeIma
                   <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex-shrink-0">
                     {employeeImages[emp.employeeId] ? (<img src={employeeImages[emp.employeeId]} className="w-full h-full object-cover" alt="" />) : (<div className="w-full h-full flex items-center justify-center font-bold text-2xl text-gray-400">{emp.employeeName.charAt(0)}</div>)}
                   </div>
-                  <div><h4 className="font-bold text-lg text-gray-800 leading-tight">{emp.employeeName}</h4><p className="text-sm font-mono text-gray-500 mt-0.5">{emp.employeeId}</p></div>
+                  <div><h4 className="font-bold text-lg text-gray-800 leading-tight">{emp.employeeName}</h4><p className="text-sm font-mono text-gray-500 mt-0.5">{emp.supportAdminId || emp.employeeId}</p></div>
                 </div>
                 <div className="p-5 space-y-4">
                   <div className="grid grid-cols-2 gap-3">
@@ -335,7 +335,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
             </div>
             <div className="min-w-0">
               <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">{employeeData.name}</h3>
-              <p className="text-gray-500 font-medium text-[10px] sm:text-sm flex items-center gap-2 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>{employeeData.employeeId}</p>
+              <p className="text-gray-500 font-medium text-[10px] sm:text-sm flex items-center gap-2 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>{employeeData.supportAdminId || employeeData.employeeId}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
@@ -530,6 +530,13 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
 const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, allEmployees, loading, onPunchOut, date }) => {
   if (!isOpen) return null;
   const employeeInfoMap = useMemo(() => { const map = {}; allEmployees.forEach(emp => { map[emp.employeeId] = { name: emp.name, role: getCurrentRole(emp) }; }); return map; }, [allEmployees]);
+  const empIdDisplayMap = useMemo(() => {
+    const map = {};
+    allEmployees.forEach(emp => {
+      map[emp.employeeId] = emp.supportAdminId || emp.employeeId;
+    });
+    return map;
+  }, [allEmployees]);
   const isLoginRequired = title === "Login Required";
   const isOnBreakModal = title === "On Break";
   const isWorkingModal = title === "Currently Working";
@@ -580,7 +587,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
                               </div>
                               <div className="min-w-0">
                                 <p className="font-bold text-gray-800 text-xs sm:text-sm truncate">{emp.name || emp.employeeName || employeeInfo.name}</p>
-                                <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{emp.employeeId}</p>
+                                <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{empIdDisplayMap[emp.employeeId] || emp.employeeId}</p>
                                 <p className="text-[10px] text-blue-600 font-medium md:hidden truncate">{employeeInfo.role}</p>
                               </div>
                             </div>
@@ -628,7 +635,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
                           </div>
                           <div>
                             <p className="font-bold text-gray-800 text-sm">{emp.name || emp.employeeName || employeeInfo.name}</p>
-                            <p className="text-[10px] text-gray-500 font-mono">{emp.employeeId}</p>
+                            <p className="text-[10px] text-gray-500 font-mono">{empIdDisplayMap[emp.employeeId] || emp.employeeId}</p>
                           </div>
                         </div>
                         <div className="text-right">
@@ -982,6 +989,7 @@ const SupportAdminAttendance = () => {
   };
 
   const empNameMap = useMemo(() => { return allEmployees.reduce((acc, emp) => { acc[emp.employeeId] = emp.name; return acc; }, {}); }, [allEmployees]);
+  const empIdDisplayMap = useMemo(() => { return allEmployees.reduce((acc, emp) => { acc[emp.employeeId] = emp.supportAdminId || emp.employeeId; return acc; }, {}); }, [allEmployees]);
 
   const processedDailyData = useMemo(() => {
     return rawDailyData.map(item => {
@@ -1024,7 +1032,7 @@ const SupportAdminAttendance = () => {
 
     return currentSummaryEmployees.map(emp => {
       const shift = shiftsMap[emp.employeeId]; const weeklyOffs = shift?.weeklyOffDays || [0]; const adminFullDayHours = shift?.fullDayHours || 9;
-      let stats = { employeeId: emp.employeeId, employeeName: emp.name, assignedHours: adminFullDayHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, approvedOT: approvedOTCounts[emp.employeeId] || 0 };
+      let stats = { employeeId: emp.employeeId, supportAdminId: emp.supportAdminId, employeeName: emp.name, assignedHours: adminFullDayHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, approvedOT: approvedOTCounts[emp.employeeId] || 0 };
       const start = new Date(summaryStartDate); const end = new Date(summaryEndDate);
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0]; const key = `${emp.employeeId}_${dateStr}`; const record = attendanceMap.get(key); const holidayObj = isHoliday(dateStr, holidays); const isWeeklyOff = weeklyOffs.includes(d.getDay());
@@ -1051,7 +1059,7 @@ const SupportAdminAttendance = () => {
       }));
       exportToExcel(mapped, `Daily_Log_${startDate}_to_${endDate}`, [
         { label: "Support Admin Name", value: item => item.employeeName },
-        { label: "Support Admin ID", value: item => item.employeeId },
+        { label: "Support Admin ID", value: item => empIdDisplayMap[item.employeeId] || item.employeeId },
         { label: "Date", value: item => formatDateDMY(item.date) },
         { label: "Punch In", value: item => item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" },
         { label: "Punch Out", value: item => item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--" },
@@ -1076,7 +1084,7 @@ const SupportAdminAttendance = () => {
       }, {});
       const fullSummary = activeEmps.map(emp => {
         const shift = shiftsMap[emp.employeeId]; const weeklyOffs = shift?.weeklyOffDays || [0]; const adminFullDayHours = shift?.fullDayHours || 9;
-        let stats = { employeeId: emp.employeeId, employeeName: emp.name, assignedHours: adminFullDayHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, approvedOT: approvedOTCounts[emp.employeeId] || 0 };
+        let stats = { employeeId: emp.employeeId, supportAdminId: emp.supportAdminId, employeeName: emp.name, assignedHours: adminFullDayHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, approvedOT: approvedOTCounts[emp.employeeId] || 0 };
         const start = new Date(summaryStartDate); const end = new Date(summaryEndDate);
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toISOString().split('T')[0]; const key = `${emp.employeeId}_${dateStr}`; const record = attendanceMap.get(key); const holidayObj = isHoliday(dateStr, holidays); const isWeeklyOff = weeklyOffs.includes(d.getDay());
@@ -1089,7 +1097,7 @@ const SupportAdminAttendance = () => {
         return stats;
       });
       exportToExcel(fullSummary, `Attendance_Summary_${summaryStartDate}_to_${summaryEndDate}`, [
-        { label: "Support Admin ID", value: item => item.employeeId },
+        { label: "Support Admin ID", value: item => item.supportAdminId || item.employeeId },
         { label: "Support Admin Name", value: item => item.employeeName },
         { label: "Assigned Work Hours", value: item => formatDecimalHours(item.assignedHours) },
         { label: "Present Days", value: item => item.presentDays },
@@ -1115,7 +1123,8 @@ const SupportAdminAttendance = () => {
   const handleViewDetails = async (employeeId, employeeName) => {
     try {
       const { data } = await api.post(`/api/attendance/admin/date-range-for-employees`, { start: summaryStartDate, end: summaryEndDate, employeeIds: [employeeId] });
-      setSelectedEmployee({ name: employeeName, records: data, employeeId, startDate: summaryStartDate, endDate: summaryEndDate });
+      const emp = allEmployees.find(e => e.employeeId === employeeId);
+      setSelectedEmployee({ name: employeeName, records: data, employeeId, supportAdminId: emp?.supportAdminId, startDate: summaryStartDate, endDate: summaryEndDate });
       setIsModalOpen(true);
     } catch (e) { }
   };
@@ -1237,7 +1246,7 @@ const SupportAdminAttendance = () => {
                             <div className="min-w-0">
                               <div className="font-bold text-gray-800 text-xs sm:text-sm truncate">{item.supportAdminName}</div>
                               <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-gray-500 font-mono text-[10px]">{item.employeeId}</span>
+                                <span className="text-gray-500 font-mono text-[10px]">{empIdDisplayMap[item.employeeId] || item.employeeId}</span>
                               </div>
                               <div className="text-[10px] text-gray-400 md:hidden mt-1">{formatDateDMY(item.date)}</div>
                             </div>
@@ -1350,7 +1359,7 @@ const SupportAdminAttendance = () => {
                         </div>
                         <div className="min-w-0">
                           <div className="font-bold text-gray-800 text-sm truncate">{item.supportAdminName}</div>
-                          <div className="text-[10px] text-gray-500 font-mono truncate">{item.employeeId}</div>
+                          <div className="text-[10px] text-gray-500 font-mono truncate">{empIdDisplayMap[item.employeeId] || item.employeeId}</div>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1.5">
@@ -1481,7 +1490,7 @@ const SupportAdminAttendance = () => {
                             </div>
                             <div className="min-w-0">
                               <div className="font-bold text-gray-800 text-xs sm:text-sm truncate">{emp.employeeName}</div>
-                              <div className="text-gray-500 font-mono text-[10px] mt-0.5 truncate">{emp.employeeId}</div>
+                              <div className="text-gray-500 font-mono text-[10px] mt-0.5 truncate">{emp.supportAdminId || emp.employeeId}</div>
                             </div>
                           </div>
                         </td>
@@ -1521,7 +1530,7 @@ const SupportAdminAttendance = () => {
                         </div>
                         <div className="min-w-0">
                           <div className="font-bold text-gray-800 text-sm truncate">{emp.employeeName}</div>
-                          <div className="text-[10px] text-gray-500 font-mono truncate">{emp.employeeId}</div>
+                          <div className="text-[10px] text-gray-500 font-mono truncate">{emp.supportAdminId || emp.employeeId}</div>
                         </div>
                       </div>
                       <button onClick={() => handleViewDetails(emp.employeeId, emp.employeeName)} className="p-2 rounded-lg bg-blue-50 text-blue-600 border border-blue-100 shadow-sm"><FaEye size={14} /></button>

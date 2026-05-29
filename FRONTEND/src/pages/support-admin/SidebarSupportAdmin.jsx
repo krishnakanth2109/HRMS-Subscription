@@ -42,7 +42,7 @@ const SOCKET_URL =
 
 const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -303,7 +303,13 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => { if (isMobile) setMobileOpen(false); }, [location.pathname, isMobile]);
+  useEffect(() => {
+    if (isMobile) {
+      setMobileOpen(false);
+    } else {
+      setCollapsed(true);
+    }
+  }, [location.pathname, isMobile, setMobileOpen]);
 
   useEffect(() => {
     const fetchPlanFeatures = async () => {
@@ -589,7 +595,24 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setMobileOpen(false)} />
       )}
 
-      <aside className={sidebarClasses}>
+      <aside 
+        className={sidebarClasses}
+        onClick={() => {
+          if (collapsed && !isMobile) {
+            setCollapsed(false);
+          }
+        }}
+        onMouseEnter={() => {
+          if (!isMobile) {
+            setCollapsed(false);
+          }
+        }}
+        onMouseLeave={() => {
+          if (!isMobile) {
+            setCollapsed(true);
+          }
+        }}
+      >
         <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "flex-col justify-center gap-1 py-2" : "justify-between"}`}>
           {!collapsed || isMobile ? (
             <>
@@ -602,7 +625,10 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
               </div>
               {!isMobile && (
                 <button
-                  onClick={() => setCollapsed(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCollapsed(true);
+                  }}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
                   title="Collapse Sidebar"
                 >
@@ -616,7 +642,10 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                 V
               </div>
               <button
-                onClick={() => setCollapsed(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCollapsed(false);
+                }}
                 className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
                 title="Expand Sidebar"
               >

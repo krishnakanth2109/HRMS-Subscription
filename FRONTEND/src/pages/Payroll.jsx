@@ -39,6 +39,7 @@ const DEFAULT_RULES = {
   latePenaltyThreshold: 3,         // number of late logins before penalty kicks in
   latePenaltyType: 'halfDay',      // 'halfDay' | 'fullDay' | 'manual'
   latePenaltyManualAmount: 0,      // fixed ₹ amount per penalty unit (used when type='manual')
+  customFields: []
 };
 
 // --- HELPER FUNCTIONS ---
@@ -194,13 +195,161 @@ const getDateRangeFromMonth = (yearMonth) => {
 
 // --- CONFIGURATION MODAL ---
 const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
-  const [rules, setRules] = useState(currentRules);
+  const [rules, setRules] = useState(() => ({
+    ...currentRules,
+    customFields: currentRules?.customFields || [],
+    customDeductions: currentRules?.customDeductions || []
+  }));
 
   useEffect(() => {
-    if (currentRules) setRules(currentRules);
+    if (currentRules) {
+      setRules({
+        ...currentRules,
+        customFields: currentRules.customFields || [],
+        customDeductions: currentRules.customDeductions || []
+      });
+    }
   }, [currentRules]);
 
   if (!isOpen) return null;
+
+  const handleAddCustomField = () => {
+    setRules(prev => ({
+      ...prev,
+      customFields: [
+        ...(prev.customFields || []),
+        { name: '', value: 0, valueType: 'fixed', percentageOf: 'total', isEditing: true }
+      ]
+    }));
+  };
+
+  const handleDoneCustomField = (index) => {
+    setRules(prev => {
+      const updated = [...(prev.customFields || [])];
+      let name = updated[index].name.trim();
+      if (!name) {
+        name = `Custom Field ${index + 1}`;
+      }
+      updated[index] = { ...updated[index], name, isEditing: false };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleEditCustomField = (index) => {
+    setRules(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], isEditing: true };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleUpdateCustomFieldName = (index, value) => {
+    setRules(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], name: value };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleUpdateCustomFieldValue = (index, value) => {
+    setRules(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], value: parseFloat(value) || 0 };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleUpdateCustomFieldValueType = (index, type) => {
+    setRules(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], valueType: type };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleUpdateCustomFieldPercentageOf = (index, percentageOf) => {
+    setRules(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], percentageOf };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleDeleteCustomField = (index) => {
+    setRules(prev => {
+      const updated = (prev.customFields || []).filter((_, i) => i !== index);
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleAddCustomDeduction = () => {
+    setRules(prev => ({
+      ...prev,
+      customDeductions: [
+        ...(prev.customDeductions || []),
+        { name: '', value: 0, valueType: 'fixed', percentageOf: 'total', isEditing: true }
+      ]
+    }));
+  };
+
+  const handleDoneCustomDeduction = (index) => {
+    setRules(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      let name = updated[index].name.trim();
+      if (!name) {
+        name = `Custom Deduction ${index + 1}`;
+      }
+      updated[index] = { ...updated[index], name, isEditing: false };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleEditCustomDeduction = (index) => {
+    setRules(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], isEditing: true };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleUpdateCustomDeductionName = (index, value) => {
+    setRules(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], name: value };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleUpdateCustomDeductionValue = (index, value) => {
+    setRules(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], value: parseFloat(value) || 0 };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleUpdateCustomDeductionValueType = (index, type) => {
+    setRules(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], valueType: type };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleUpdateCustomDeductionPercentageOf = (index, percentageOf) => {
+    setRules(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], percentageOf };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleDeleteCustomDeduction = (index) => {
+    setRules(prev => {
+      const updated = (prev.customDeductions || []).filter((_, i) => i !== index);
+      return { ...prev, customDeductions: updated };
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -228,37 +377,167 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
 
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
           <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-            <h4 className="font-bold text-blue-800 text-sm mb-2 uppercase">Earnings Structure</h4>
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-bold text-blue-800 text-sm uppercase">Earnings Structure</h4>
+              <button
+                type="button"
+                onClick={handleAddCustomField}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
+              >
+                ➕ Add Field
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
+              {/* Standard Fields */}
               <div>
                 <label className="text-xs font-semibold text-gray-600">Basic Salary (% of Total)</label>
-                <input type="number" name="basicPercentage" value={rules.basicPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="basicPercentage" value={rules.basicPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">HRA (% of Basic)</label>
-                <input type="number" name="hraPercentage" value={rules.hraPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="hraPercentage" value={rules.hraPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">Conveyance (Fixed ₹)</label>
-                <input type="number" name="conveyance" value={rules.conveyance} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="conveyance" value={rules.conveyance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">Medical (Fixed ₹)</label>
-                <input type="number" name="medical" value={rules.medical} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="medical" value={rules.medical} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">Travelling Allowance (Fixed ₹)</label>
-                <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">Other Allowance (Fixed ₹)</label>
-                <input type="number" name="otherAllowance" value={rules.otherAllowance} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="otherAllowance" value={rules.otherAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
+
+              {/* Dynamic Custom Fields */}
+              {rules.customFields && rules.customFields.map((cf, idx) => {
+                if (cf.isEditing) {
+                  return (
+                    <div key={idx} className="border border-blue-200 p-3 rounded-lg bg-blue-50/50 relative group col-span-2 shadow-sm">
+                      <div className="mb-2">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Field Name</label>
+                        <input
+                          type="text"
+                          value={cf.name}
+                          onChange={(e) => handleUpdateCustomFieldName(idx, e.target.value)}
+                          className="w-full border-b border-gray-300 focus:border-blue-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
+                          placeholder="e.g. Food Coupons"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1">
+                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">
+                            {cf.valueType === 'percentage' ? 'Value (%)' : 'Amount (₹)'}
+                          </label>
+                          <input
+                            type="number"
+                            value={cf.value}
+                            onChange={(e) => handleUpdateCustomFieldValue(idx, e.target.value)}
+                            onWheel={(e) => e.target.blur()}
+                            className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+
+                        <div className="w-20">
+                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Type</label>
+                          <select
+                            value={cf.valueType}
+                            onChange={(e) => handleUpdateCustomFieldValueType(idx, e.target.value)}
+                            className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
+                          >
+                            <option value="fixed">Fixed</option>
+                            <option value="percentage">Percent</option>
+                          </select>
+                        </div>
+
+                        {cf.valueType === 'percentage' && (
+                          <div className="w-20">
+                            <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Of</label>
+                            <select
+                              value={cf.percentageOf}
+                              onChange={(e) => handleUpdateCustomFieldPercentageOf(idx, e.target.value)}
+                              className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
+                            >
+                              <option value="total">Gross</option>
+                              <option value="basic">Basic</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCustomField(idx)}
+                          className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
+                        >
+                          ✕ Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDoneCustomField(idx)}
+                          className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
+                        >
+                          ✓ Done
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const labelText = cf.name + (cf.valueType === 'percentage' ? ` (% of ${cf.percentageOf === 'basic' ? 'Basic' : 'Total'})` : ' (Fixed ₹)');
+                return (
+                  <div key={idx} className="relative group">
+                    <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button
+                        type="button"
+                        onClick={() => handleEditCustomField(idx)}
+                        className="text-blue-500 hover:text-blue-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                        title="Edit Configuration"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomField(idx)}
+                        className="text-red-500 hover:text-red-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                        title="Delete Field"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+
+                    <label className="text-xs font-semibold text-gray-600 block">{labelText}</label>
+                    <input
+                      type="number"
+                      value={cf.value}
+                      onChange={(e) => handleUpdateCustomFieldValue(idx, e.target.value)}
+                      onWheel={(e) => e.target.blur()}
+                      className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-            <h4 className="font-bold text-red-800 text-sm mb-2 uppercase">Deductions (PF & PT)</h4>
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="font-bold text-red-800 text-sm uppercase">Deductions (PF & PT)</h4>
+              <button
+                type="button"
+                onClick={handleAddCustomDeduction}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
+              >
+                ➕ Add Field
+              </button>
+            </div>
 
             {/* PF METHOD SELECTION */}
             <div className="mb-4">
@@ -294,22 +573,22 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
               <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
                 <div>
                   <label className="text-xs font-semibold text-gray-600">PF Employee (% of Basic)</label>
-                  <input type="number" name="pfPercentage" value={rules.pfPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                  <input type="number" name="pfPercentage" value={rules.pfPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600">PF Employer (% of Basic)</label>
-                  <input type="number" name="employerPfPercentage" value={rules.employerPfPercentage} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                  <input type="number" name="employerPfPercentage" value={rules.employerPfPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
                 <div>
                   <label className="text-xs font-semibold text-gray-600">PF Fixed Employee (₹)</label>
-                  <input type="number" name="pfFixedAmountEmployee" value={rules.pfFixedAmountEmployee} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                  <input type="number" name="pfFixedAmountEmployee" value={rules.pfFixedAmountEmployee} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600">PF Fixed Employer (₹)</label>
-                  <input type="number" name="pfFixedAmountEmployer" value={rules.pfFixedAmountEmployer} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                  <input type="number" name="pfFixedAmountEmployer" value={rules.pfFixedAmountEmployer} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                 </div>
               </div>
             )}
@@ -317,12 +596,122 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
             <div className="grid grid-cols-2 gap-4 pt-2 border-t">
               <div>
                 <label className="text-xs font-semibold text-gray-600">PT Slab 1 (&gt;15k) Amount (₹)</label>
-                <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
-                <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} className="w-full border rounded p-2 mt-1" />
+                <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
+
+              {/* Dynamic Custom Deductions */}
+              {rules.customDeductions && rules.customDeductions.map((cf, idx) => {
+                if (cf.isEditing) {
+                  return (
+                    <div key={idx} className="border border-red-200 p-3 rounded-lg bg-red-50/50 relative group col-span-2 shadow-sm">
+                      <div className="mb-2">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Deduction Name</label>
+                        <input
+                          type="text"
+                          value={cf.name}
+                          onChange={(e) => handleUpdateCustomDeductionName(idx, e.target.value)}
+                          className="w-full border-b border-gray-300 focus:border-red-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 items-center">
+                        <div className="flex-1">
+                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">
+                            {cf.valueType === 'percentage' ? 'Value (%)' : 'Amount (₹)'}
+                          </label>
+                          <input
+                            type="number"
+                            value={cf.value}
+                            onChange={(e) => handleUpdateCustomDeductionValue(idx, e.target.value)}
+                            onWheel={(e) => e.target.blur()}
+                            className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+
+                        <div className="w-20">
+                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Type</label>
+                          <select
+                            value={cf.valueType}
+                            onChange={(e) => handleUpdateCustomDeductionValueType(idx, e.target.value)}
+                            className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
+                          >
+                            <option value="fixed">Fixed</option>
+                            <option value="percentage">Percent</option>
+                          </select>
+                        </div>
+
+                        {cf.valueType === 'percentage' && (
+                          <div className="w-20">
+                            <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Of</label>
+                            <select
+                              value={cf.percentageOf}
+                              onChange={(e) => handleUpdateCustomDeductionPercentageOf(idx, e.target.value)}
+                              className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
+                            >
+                              <option value="total">Gross</option>
+                              <option value="basic">Basic</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-3 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCustomDeduction(idx)}
+                          className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
+                        >
+                          ✕ Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDoneCustomDeduction(idx)}
+                          className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
+                        >
+                          ✓ Done
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const labelText = cf.name + (cf.valueType === 'percentage' ? ` (% of ${cf.percentageOf === 'basic' ? 'Basic' : 'Total'})` : ' (Fixed ₹)');
+                return (
+                  <div key={idx} className="relative group">
+                    <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <button
+                        type="button"
+                        onClick={() => handleEditCustomDeduction(idx)}
+                        className="text-blue-500 hover:text-blue-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                        title="Edit Configuration"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomDeduction(idx)}
+                        className="text-red-500 hover:text-red-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                        title="Delete Field"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+
+                    <label className="text-xs font-semibold text-gray-600 block">{labelText}</label>
+                    <input
+                      type="number"
+                      value={cf.value}
+                      onChange={(e) => handleUpdateCustomDeductionValue(idx, e.target.value)}
+                      onWheel={(e) => e.target.blur()}
+                      className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             {/* LATE PENALTY SECTION */}
@@ -356,7 +745,8 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
                       min="1"
                       value={rules.latePenaltyThreshold ?? 3}
                       onChange={handleChange}
-                      className="w-full border rounded p-2 mt-1 text-sm"
+                      onWheel={(e) => e.target.blur()}
+                      className="w-full border rounded p-2 mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="e.g. 3"
                     />
                     <p className="text-[10px] text-gray-400 mt-0.5">
@@ -412,7 +802,8 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
                           min="0"
                           value={rules.latePenaltyManualAmount ?? 0}
                           onChange={handleChange}
-                          className="w-full border rounded p-2 mt-1 text-sm"
+                          onWheel={(e) => e.target.blur()}
+                          className="w-full border rounded p-2 mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           placeholder="e.g. 500"
                         />
                       </div>
@@ -891,6 +1282,50 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
 
   // Builds the raw payslip HTML (used both for print and PDF)
   const buildPayslipHTML = useCallback((pfLabel, employerPfLabel) => {
+    const earningsList = [
+      { name: 'Basic Salary', val: employee.monthlyBreakdown.basic },
+      { name: 'HRA', val: employee.monthlyBreakdown.hra },
+      { name: 'Conveyance', val: employee.monthlyBreakdown.conveyance },
+      { name: 'Medical', val: employee.monthlyBreakdown.medical },
+      { name: 'Travelling Allowance', val: employee.monthlyBreakdown.travellingAllowance },
+      { name: 'Other Allowance', val: employee.monthlyBreakdown.otherAllowance },
+      ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value })),
+      { name: 'Special', val: employee.monthlyBreakdown.special }
+    ];
+
+    const deductionsList = [
+      { name: pfLabel, val: employee.breakdown.pf },
+      { name: employerPfLabel, val: employee.breakdown.employerPf },
+      { name: 'Professional Tax', val: employee.breakdown.pt },
+      { name: `LOP Deduction (${employee.lopDays} days)`, val: employee.lopDeduction },
+      { name: (() => {
+          const r = employee.appliedRules;
+          if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
+          const type = r?.latePenaltyType || 'halfDay';
+          const late = employee.lateDaysCount;
+          if (type === 'halfDay') return `Late Penalty (${late} late × 0.5 day each)`;
+          if (type === 'fullDay') return `Late Penalty (${late} late × 1 day each)`;
+          return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
+        })(), val: employee.lateDeduction },
+      ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
+    ];
+
+    const maxLen = Math.max(earningsList.length, deductionsList.length);
+    let rowsHtml = '';
+    for (let i = 0; i < maxLen; i++) {
+      const earn = earningsList[i] || { name: '', val: null };
+      const deduct = deductionsList[i] || { name: '', val: null };
+      
+      rowsHtml += `
+        <tr>
+          <td style="padding:5px 7px;border:1px solid #ddd;">${earn.name}</td>
+          <td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${earn.val !== null ? formatCurrency(earn.val) : ''}</td>
+          <td style="padding:5px 7px;border:1px solid #ddd;">${deduct.name}</td>
+          <td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${deduct.val !== null ? formatCurrency(deduct.val) : ''}</td>
+        </tr>
+      `;
+    }
+
     return `
       <div style="font-family:'Arial',sans-serif;color:#000;font-size:13px;line-height:1.5;">
         <div style="display:flex;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:16px;">
@@ -911,28 +1346,12 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
         </table>
         <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
           <tr style="background:#f1f5f9;font-weight:bold;"><th style="padding:6px 7px;border:1px solid #ddd;text-align:left;width:38%;">EARNINGS</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:right;width:12%;">AMOUNT</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:left;width:38%;">DEDUCTIONS</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:right;width:12%;">AMOUNT</th></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Basic Salary</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.basic)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${pfLabel}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.pf)}</td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">HRA</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.hra)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${employerPfLabel}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.employerPf)}</td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Conveyance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.conveyance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">Professional Tax</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.pt)}</td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Medical</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.medical)}</td><td style="padding:5px 7px;border:1px solid #ddd;">LOP Deduction (${employee.lopDays} days)</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lopDeduction)}</td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Travelling Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.travellingAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;">${(() => {
-        const r = employee.appliedRules;
-        if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
-        const type = r?.latePenaltyType || 'halfDay';
-        const occ = employee.latePenaltyOccurrences || 0;
-        const late = employee.lateDaysCount;
-        if (type === 'halfDay') return `Late Penalty (${late} late × 0.5 day each)`;
-        if (type === 'fullDay') return `Late Penalty (${late} late × 1 day each)`;
-        return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
-      })()}</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.lateDeduction)}</td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Other Allowance</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.otherAllowance)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
-          <tr><td style="padding:5px 7px;border:1px solid #ddd;">Special</td><td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.monthlyBreakdown.special)}</td><td style="padding:5px 7px;border:1px solid #ddd;"></td><td style="padding:5px 7px;border:1px solid #ddd;"></td></tr>
+          ${rowsHtml}
           <tr style="background:#eff6ff;font-weight:bold;"><td style="padding:6px 7px;border:1px solid #ddd;">GROSS EARNINGS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.gross)}</td><td style="padding:6px 7px;border:1px solid #ddd;">TOTAL DEDUCTIONS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.totalDeductions)}</td></tr>
         </table>
-    <div style="padding:10px 14px;text-align:center;font-weight:bold;font-size:15px;border-radius:4px;color:#000;">NET SALARY PAYABLE: ${formatCurrency(employee.netPayableSalary)}
-</div>
+        <div style="padding:10px 14px;text-align:center;font-weight:bold;font-size:15px;border-radius:4px;color:#000;">NET SALARY PAYABLE: ${formatCurrency(employee.netPayableSalary)}</div>
 
-<div style="margin-top:36px;text-align:right;padding-right:20px;">
+        <div style="margin-top:36px;text-align:right;padding-right:20px;">
           <img src="${SIGNATURE_URL}" height="45" style="display:block;margin-left:auto;margin-bottom:4px;" />
           <span style="font-size:12px;color:#333;">Authorized Signatory</span>
         </div>
@@ -1062,8 +1481,9 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                   { label: "HRA", val: employee.monthlyBreakdown.hra },
                   { label: "Conveyance", val: employee.monthlyBreakdown.conveyance },
                   { label: "Medical", val: employee.monthlyBreakdown.medical },
-                  { label: "Travelling", val: employee.monthlyBreakdown.travellingAllowance },
-                  { label: "Other", val: employee.monthlyBreakdown.otherAllowance },
+                  { label: "Travelling Allowance", val: employee.monthlyBreakdown.travellingAllowance },
+                  { label: "Other Allowance", val: employee.monthlyBreakdown.otherAllowance },
+                  ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ label: cf.name, val: cf.value })),
                   { label: "Special", val: employee.monthlyBreakdown.special },
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-xs sm:text-sm py-1 border-b border-gray-50 last:border-0">
@@ -1091,6 +1511,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                   { label: "Professional Tax", val: employee.breakdown.pt },
                   { label: `LOP (${employee.lopDays} days)`, val: employee.lopDeduction },
                   { label: "Late Penalty", val: employee.lateDeduction },
+                  ...(employee.breakdown.customDeductions || []).map(cf => ({ label: cf.name, val: cf.value }))
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-xs sm:text-sm py-1 border-b border-gray-50 last:border-0">
                     <span className="text-gray-600 font-medium">{item.label}</span>
@@ -1377,7 +1798,25 @@ const PayrollManagement = () => {
       const monthlyMed = ruleMed;
       const monthlyTravelling = ruleTravelling;
       const monthlyOther = ruleOther;
-      const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + monthlyOther));
+
+      // --- DYNAMIC CUSTOM FIELDS CALCULATION ---
+      let customEarningsTotal = 0;
+      const computedCustomFields = (payrollRules.customFields || []).map(cf => {
+        let val = 0;
+        if (cf.valueType === 'percentage') {
+          if (cf.percentageOf === 'basic') {
+            val = monthlyBasic * ((Number(cf.value) || 0) / 100);
+          } else {
+            val = monthlyTotal * ((Number(cf.value) || 0) / 100);
+          }
+        } else {
+          val = Number(cf.value) || 0;
+        }
+        customEarningsTotal += val;
+        return { name: cf.name, value: val, valueType: cf.valueType, percentageOf: cf.percentageOf, rate: cf.value };
+      });
+
+      const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + monthlyOther + customEarningsTotal));
 
       const perDaySalary = monthlyTotal / totalDaysInMonth;
       const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
@@ -1429,7 +1868,24 @@ const PayrollManagement = () => {
         ptDeduction = rulePtSlab1Amount;
       }
 
-      const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction;
+      // --- DYNAMIC CUSTOM DEDUCTIONS CALCULATION ---
+      let customDeductionsTotal = 0;
+      const computedCustomDeductions = (payrollRules.customDeductions || []).map(cf => {
+        let val = 0;
+        if (cf.valueType === 'percentage') {
+          if (cf.percentageOf === 'basic') {
+            val = monthlyBasic * ((Number(cf.value) || 0) / 100);
+          } else {
+            val = monthlyTotal * ((Number(cf.value) || 0) / 100);
+          }
+        } else {
+          val = Number(cf.value) || 0;
+        }
+        customDeductionsTotal += val;
+        return { name: cf.name, value: val, valueType: cf.valueType, percentageOf: cf.percentageOf, rate: cf.value };
+      });
+
+      const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction + customDeductionsTotal;
       const netPayableSalary = Math.max(0, calculatedSalary - totalDeductions);
 
       return {
@@ -1461,7 +1917,9 @@ const PayrollManagement = () => {
           travellingAllowance: monthlyTravelling,
           otherAllowance: monthlyOther,
           special: monthlySpecial,
-          total: monthlyTotal
+          total: monthlyTotal,
+          customFields: computedCustomFields,
+          customDeductions: computedCustomDeductions
         },
         breakdown: {
           basic: monthlyBasic,
@@ -1474,7 +1932,9 @@ const PayrollManagement = () => {
           gross: monthlyTotal,
           pf: pfDeduction,
           employerPf: employerPfAmount,
-          pt: ptDeduction
+          pt: ptDeduction,
+          customFields: computedCustomFields,
+          customDeductions: computedCustomDeductions
         },
         lopDeduction,
         lateDeduction,

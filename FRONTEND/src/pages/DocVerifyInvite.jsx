@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Send, Plus, X, RefreshCw, Mail, Building2, UserPlus, History,
   CheckCircle, Clock, ShieldCheck, Trash2, FileCheck, Download, Upload,
-  User, Briefcase, ChevronDown
+  User, Briefcase, ChevronDown, Edit, Grid, List
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getAllCompanies } from '../api';
@@ -32,14 +33,50 @@ HR Team
 [COMPANY]`;
 
 const DocVerifyInvite = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('bulk');
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [sending, setSending] = useState(false);
 
-  const [emailSubject, setEmailSubject] = useState(DEFAULT_SUBJECT);
-  const [emailMessage, setEmailMessage] = useState(DEFAULT_MESSAGE);
+  const [templates, setTemplates] = useState(() => {
+    const list = localStorage.getItem('doc_verify_templates_list');
+    if (list) {
+      try {
+        return JSON.parse(list);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [
+      { id: 'default', name: 'Default Template', subject: DEFAULT_SUBJECT, message: DEFAULT_MESSAGE }
+    ];
+  });
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState(() => {
+    return localStorage.getItem('doc_verify_selected_template_id') || 'default';
+  });
+
+  const [emailSubject, setEmailSubject] = useState(() => {
+    return localStorage.getItem('doc_verify_email_subject') || DEFAULT_SUBJECT;
+  });
+  const [emailMessage, setEmailMessage] = useState(() => {
+    return localStorage.getItem('doc_verify_email_message') || DEFAULT_MESSAGE;
+  });
+
+  const handleSelectTemplate = (id) => {
+    const tpl = templates.find(t => t.id === id);
+    if (tpl) {
+      setSelectedTemplateId(tpl.id);
+      localStorage.setItem('doc_verify_selected_template_id', tpl.id);
+      setEmailSubject(tpl.subject);
+      setEmailMessage(tpl.message);
+      localStorage.setItem('doc_verify_email_subject', tpl.subject);
+      localStorage.setItem('doc_verify_email_message', tpl.message);
+    }
+  };
 
   const [singleData, setSingleData] = useState({
     email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: ''
@@ -55,10 +92,46 @@ const DocVerifyInvite = () => {
 
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  const handleOpenHistory = () => {
+    if (!selectedCompany) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Select Company',
+        text: 'Please select a company first to view history logs.',
+        confirmButtonColor: '#7c3aed'
+      });
+      return;
+    }
+    fetchHistory(selectedCompany);
+    setShowHistoryModal(true);
+  };
 
   useEffect(() => {
     fetchCompanies();
     fetchExistingEmployees();
+    
+    // Load custom templates list
+    const list = localStorage.getItem('doc_verify_templates_list');
+    let loadedTemplates = [
+      { id: 'default', name: 'Default Template', subject: DEFAULT_SUBJECT, message: DEFAULT_MESSAGE }
+    ];
+    if (list) {
+      try {
+        loadedTemplates = JSON.parse(list);
+        setTemplates(loadedTemplates);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    const activeId = localStorage.getItem('doc_verify_selected_template_id') || 'default';
+    setSelectedTemplateId(activeId);
+
+    const activeTpl = loadedTemplates.find(t => t.id === activeId) || loadedTemplates[0];
+    setEmailSubject(activeTpl.subject);
+    setEmailMessage(activeTpl.message);
   }, []);
 
   useEffect(() => {
@@ -347,7 +420,7 @@ const DocVerifyInvite = () => {
     }
   };
 
-  const addBulkRow = () => setBulkRows([...bulkRows, { email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' }]);
+  const addBulkRow = () => setBulkRows([{ email: '', name: '', fullName: '', role: '', department: 'IT', employmentType: '' }, ...bulkRows]);
   const updateBulkRow = (idx, field, value) => {
     const updated = [...bulkRows];
     updated[idx][field] = value;
@@ -413,7 +486,7 @@ const DocVerifyInvite = () => {
           const role = getVal(['role', 'designation', 'job title', 'position']);
           const department = normalizeDepartment(getVal(['department', 'dept']));
           const employmentType = normalizeEmploymentType(getVal(['employmenttype', 'employment type', 'type']));
-          
+
           return { email, name, fullName, role, department, employmentType };
         });
 
@@ -457,396 +530,443 @@ const DocVerifyInvite = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-800">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto space-y-8">
 
-        {/* ── LEFT COLUMN ── */}
-        <div className="lg:col-span-8 space-y-6">
-
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-violet-600 text-white rounded-2xl shadow-lg">
-              <ShieldCheck size={28} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">Document Verification</h1>
-              <p className="text-sm text-slate-500 font-medium">Invite candidates to upload their documents securely</p>
-            </div>
+        {/* ── HEADER ── */}
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-violet-600 text-white rounded-2xl shadow-lg">
+            <ShieldCheck size={28} />
           </div>
+          <div>
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">Document Verification</h1>
+            <p className="text-sm text-slate-500 font-medium">Invite candidates to upload their documents securely</p>
+          </div>
+        </div>
 
-          {/* EMAIL TEMPLATE */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex items-center gap-2 mb-4 text-violet-600 font-bold uppercase text-xs tracking-widest">
+        {/* ── EMAIL TEMPLATE ── */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2 text-violet-600 font-bold uppercase text-xs tracking-widest">
               <Mail size={16} /> Email Template
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Subject Line</label>
-                <input
-                  value={emailSubject}
-                  onChange={e => setEmailSubject(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
-                />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <select
+                value={selectedTemplateId}
+                onChange={e => handleSelectTemplate(e.target.value)}
+                className="px-3.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none font-bold text-slate-700 text-xs cursor-pointer shadow-sm min-w-[200px]"
+              >
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => navigate('/admin/edit-email-template')}
+                type="button"
+                className="px-3 py-1.5 border border-slate-200 hover:border-violet-300 text-slate-650 hover:bg-violet-50 hover:text-violet-600 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Edit size={12} /> Edit Rich Template
+              </button>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Subject Line</label>
+              <input
+                value={emailSubject}
+                onChange={e => setEmailSubject(e.target.value)}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Message Template Preview</label>
+              <div 
+                dangerouslySetInnerHTML={{ __html: emailMessage }}
+                className="w-full min-h-[180px] max-h-[300px] overflow-y-auto p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm leading-relaxed font-medium font-sans prose prose-slate max-w-none"
+              />
+              <p className="text-[10px] text-slate-400 mt-2">
+                💡 Placeholders: [NAME], [ROLE], [DEPT], [EMPLOYMENT_TYPE], [COMPANY], [FORM_LINK]
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── COMPANY SELECT ── */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+          <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
+            <Building2 size={14} className="text-violet-500" /> Select Company
+          </label>
+          {loadingCompanies ? (
+            <div className="flex items-center gap-2 text-slate-500 text-sm">
+              <RefreshCw className="animate-spin" size={16} /> Loading companies...
+            </div>
+          ) : (
+            <select
+              value={selectedCompany}
+              onChange={e => setSelectedCompany(e.target.value)}
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none font-bold text-slate-700"
+            >
+              <option value="">-- Select Company --</option>
+              {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+            </select>
+          )}
+        </div>
+
+        {/* ── BULK INVITE FORM ── */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div className="flex flex-wrap items-center justify-between mb-6 border-b border-slate-200 gap-4">
+            <button
+              className="px-6 py-3 font-bold text-sm capitalize transition-all text-violet-600 border-b-2 border-violet-600"
+            >
+              Bulk Invite
+            </button>
+            <div className="flex items-center gap-2 mb-2">
+              {/* View Selector Button Group */}
+              <div className="flex items-center bg-slate-100 border border-slate-200 p-0.5 rounded-xl mr-1.5">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  type="button"
+                  className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer ${viewMode === 'grid' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  title="Grid View"
+                >
+                  <Grid size={13} />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  type="button"
+                  className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer ${viewMode === 'list' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  title="List View"
+                >
+                  <List size={13} />
+                  <span className="hidden sm:inline">List</span>
+                </button>
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Message Template</label>
-                <textarea
-                  rows={10}
-                  value={emailMessage}
-                  onChange={e => setEmailMessage(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none font-mono text-xs leading-relaxed"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  💡 Placeholders: [NAME], [ROLE], [DEPT], [EMPLOYMENT_TYPE], [COMPANY], [FORM_LINK]
-                </p>
-              </div>
+
+              <button
+                onClick={handleOpenHistory}
+                type="button"
+                className="px-4 py-2 border border-slate-200 hover:border-violet-300 text-slate-600 hover:bg-violet-50 hover:text-violet-600 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <History size={14} /> Verification Logs
+              </button>
             </div>
           </div>
 
-          {/* COMPANY SELECT */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-              <Building2 size={14} className="text-violet-500" /> Select Company
-            </label>
-            {loadingCompanies ? (
-              <div className="flex items-center gap-2 text-slate-500 text-sm">
-                <RefreshCw className="animate-spin" size={16} /> Loading companies...
+          <div className="space-y-4">
+            {/* Excel Import Toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                <UserPlus size={16} className="text-violet-600" />
+                <span>BULK INVITE TOOLKIT</span>
               </div>
-            ) : (
-              <select
-                value={selectedCompany}
-                onChange={e => setSelectedCompany(e.target.value)}
-                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none font-bold text-slate-700"
-              >
-                <option value="">-- Select Company --</option>
-                {companies.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
-            )}
-
-            {/* {selectedCompany && (
-              <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-3">
-                  <UserPlus size={14} className="text-violet-500" /> Select Existing Employee
-                </label>
-                {loadingEmployees ? (
-                  <div className="flex items-center gap-2 text-slate-500 text-sm">
-                    <RefreshCw className="animate-spin" size={16} /> Loading employees...
-                  </div>
-                ) : (
-                  <select
-                    value={selectedEmployeeId}
-                    onChange={e => handleExistingEmployeeChange(e.target.value)}
-                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none font-medium text-slate-700"
-                  >
-                    <option value="">-- Select Existing Employee --</option>
-                    {existingEmployees
-                      .filter(emp => String(emp.company) === String(selectedCompany))
-                      .map(emp => (
-                        <option key={emp.employeeId} value={emp.employeeId}>
-                          {emp.name} • {emp.employeeId} • {emp.email}
-                        </option>
-                      ))}
-                  </select>
-                )}
-              </div>
-            )} */}
-          </div>
-
-          {/* INVITE FORMS */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <div className="flex gap-2 mb-6 border-b border-slate-200">
-              {/* {['single', 'bulk'].map(tab => (
+              <div className="flex items-center gap-2">
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-6 py-3 font-bold text-sm capitalize transition-all ${activeTab === tab ? 'text-violet-600 border-b-2 border-violet-600' : 'text-slate-400 hover:text-slate-600'}`}
+                  onClick={downloadTemplate}
+                  type="button"
+                  className="px-4 py-2 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
                 >
-                  {tab === 'bulk' ? 'Bulk Invite' : 'Single Invite'}
+                  <Download size={14} /> Download Template
                 </button>
-              ))} */}
-              <button
-                className="px-6 py-3 font-bold text-sm capitalize transition-all text-violet-600 border-b-2 border-violet-600"
-              >
-                Bulk Invite
+                <button
+                  onClick={() => document.getElementById('excelBulkImport').click()}
+                  type="button"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                >
+                  <Upload size={14} /> Import Excel
+                </button>
+                <input
+                  id="excelBulkImport"
+                  type="file"
+                  accept=".xlsx, .xls"
+                  style={{ display: 'none' }}
+                  onChange={handleExcelImport}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 pb-4 border-b border-slate-100">
+              <button onClick={addBulkRow} className="flex-1 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 hover:border-violet-300 hover:text-violet-600 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <Plus size={18} /> Add Invite
+              </button>
+              <button onClick={handleSendBulk} disabled={sending || !selectedCompany} className="flex-[2] py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-xl disabled:bg-slate-300 flex items-center justify-center gap-2 cursor-pointer">
+                {sending ? <RefreshCw className="animate-spin" size={16} /> : <Send size={16} />}
+                {sending ? 'Sending...' : `Send ${bulkRows.length} Invitation(s)`}
               </button>
             </div>
 
-            {/* SINGLE INVITE */}
-            {/* {activeTab === 'single' && (
-              <form onSubmit={handleSendSingle} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Email Address *</label>
-                    <input required type="email" placeholder="candidate@email.com"
-                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
-                      value={singleData.email}
-                      onChange={e => setSingleData({ ...singleData, email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">First Name *</label>
-                    <input required placeholder="John"
-                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
-                      value={singleData.name}
-                      onChange={e => setSingleData({ ...singleData, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Full Name *</label>
-                    <input required placeholder="John Michael Doe"
-                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
-                      value={singleData.fullName}
-                      onChange={e => setSingleData({ ...singleData, fullName: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Role *</label>
-                    <input required placeholder="Software Engineer"
-                      className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"
-                      value={singleData.role}
-                      onChange={e => setSingleData({ ...singleData, role: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Department *</label>
-                    <select required className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-violet-500 outline-none"
-                      value={singleData.department}
-                      onChange={e => setSingleData({ ...singleData, department: e.target.value })}
-                    >
-                      <option value="IT">IT</option>
-                      <option value="NON-IT">NON-IT</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1">Employment Type *</label>
-                    <select required className="w-full p-3 border border-slate-200 rounded-xl bg-white focus:ring-2 focus:ring-violet-500 outline-none"
-                      value={singleData.employmentType}
-                      onChange={e => setSingleData({ ...singleData, employmentType: e.target.value })}
-                    >
-                      <option value="">Select Type</option>
-                      <option value="Full-Time">Full-Time</option>
-                      <option value="Intern">Intern</option>
-                      <option value="Contract">Contract</option>
-                    </select>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={sending || !selectedCompany}
-                  className="w-full py-4 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-bold hover:from-violet-700 hover:to-purple-700 transition-all shadow-xl disabled:from-slate-300 disabled:to-slate-300 flex items-center justify-center gap-2"
-                >
-                  {sending ? <RefreshCw className="animate-spin" size={18} /> : <Send size={18} />}
-                  {sending ? 'Sending...' : 'Send Document Verification Invitation'}
-                </button>
-              </form>
-            )} */}
-
-            {/* BULK INVITE */}
-            {activeTab === 'bulk' && (
-              <div className="space-y-4">
-                {/* Excel Import Toolbar */}
-                <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 border border-slate-200 rounded-2xl mb-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                    <UserPlus size={16} className="text-violet-600" />
-                    <span>BULK INVITE TOOLKIT</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={downloadTemplate}
-                      type="button"
-                      className="px-4 py-2 border border-emerald-500 text-emerald-600 hover:bg-emerald-50 rounded-xl font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
-                    >
-                      <Download size={14} /> Download Template
-                    </button>
-                    <button
-                      onClick={() => document.getElementById('excelBulkImport').click()}
-                      type="button"
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
-                    >
-                      <Upload size={14} /> Import Excel
-                    </button>
-                    <input
-                      id="excelBulkImport"
-                      type="file"
-                      accept=".xlsx, .xls"
-                      style={{ display: 'none' }}
-                      onChange={handleExcelImport}
-                    />
-                  </div>
-                </div>
-
+            {viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {bulkRows.map((row, idx) => (
-                  <div key={idx} className="p-6 bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 relative group space-y-4">
-                    
-                    {/* Header of the Row Card */}
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-lg">
-                          Candidate #{idx + 1}
-                        </span>
+                  <div key={idx} className="p-4 bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 relative group flex flex-col justify-between space-y-3">
+
+                    <div>
+                      {/* Header of the Row Card */}
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-lg">
+                            Candidate #{bulkRows.length - idx}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                          title="Remove candidate"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Remove candidate"
-                      >
-                        <X size={16} />
-                      </button>
+
+                      {/* Fields stacked in one column */}
+                      <div className="space-y-2.5">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 ml-0.5">Email Address</label>
+                          <div className="relative flex items-center">
+                            <Mail className="absolute left-3 text-slate-400" size={16} />
+                            <input
+                              type="email"
+                              placeholder="candidate@email.com"
+                              className="w-full pl-10 pr-4 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                              value={row.email}
+                              onChange={e => updateBulkRow(idx, 'email', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 ml-0.5">Full Name</label>
+                          <div className="relative flex items-center">
+                            <User className="absolute left-3 text-slate-400" size={16} />
+                            <input
+                              type="text"
+                              placeholder="John Doe"
+                              className="w-full pl-10 pr-4 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                              value={row.fullName}
+                              onChange={e => updateBulkRow(idx, 'fullName', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 ml-0.5">Role / Designation</label>
+                          <div className="relative flex items-center">
+                            <Briefcase className="absolute left-3 text-slate-400" size={16} />
+                            <input
+                              type="text"
+                              placeholder="Software Engineer"
+                              className="w-full pl-10 pr-4 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
+                              value={row.role}
+                              onChange={e => updateBulkRow(idx, 'role', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 ml-0.5">Department</label>
+                          <div className="relative flex items-center">
+                            <select
+                              className="w-full pl-4 pr-10 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
+                              value={row.department}
+                              onChange={e => updateBulkRow(idx, 'department', e.target.value)}
+                            >
+                              <option value="IT">IT</option>
+                              <option value="NON-IT">NON-IT</option>
+                            </select>
+                            <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5 ml-0.5">Employment Type</label>
+                          <div className="relative flex items-center">
+                            <select
+                              className="w-full pl-4 pr-10 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
+                              value={row.employmentType}
+                              onChange={e => updateBulkRow(idx, 'employmentType', e.target.value)}
+                            >
+                              <option value="">Select Type</option>
+                              <option value="Full-Time">Full-Time</option>
+                              <option value="Intern">Intern</option>
+                              <option value="Contract">Contract</option>
+                            </select>
+                            <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Row 1: Email & Full Name */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Email Address</label>
-                        <div className="relative flex items-center">
-                          <Mail className="absolute left-3 text-slate-400" size={16} />
-                          <input
-                            type="email"
-                            placeholder="candidate@email.com"
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
-                            value={row.email}
-                            onChange={e => updateBulkRow(idx, 'email', e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Full Name</label>
-                        <div className="relative flex items-center">
-                          <User className="absolute left-3 text-slate-400" size={16} />
-                          <input
-                            type="text"
-                            placeholder="John Doe"
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
-                            value={row.fullName}
-                            onChange={e => updateBulkRow(idx, 'fullName', e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Row 2: Role, Dept & Type */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Role / Designation</label>
-                        <div className="relative flex items-center">
-                          <Briefcase className="absolute left-3 text-slate-400" size={16} />
-                          <input
-                            type="text"
-                            placeholder="Software Engineer"
-                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium"
-                            value={row.role}
-                            onChange={e => updateBulkRow(idx, 'role', e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Department</label>
-                        <div className="relative flex items-center">
-                          <select
-                            className="w-full pl-4 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
-                            value={row.department}
-                            onChange={e => updateBulkRow(idx, 'department', e.target.value)}
-                          >
-                            <option value="IT">IT</option>
-                            <option value="NON-IT">NON-IT</option>
-                          </select>
-                          <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">Employment Type</label>
-                        <div className="relative flex items-center">
-                          <select
-                            className="w-full pl-4 pr-10 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10 transition-all duration-200 outline-none text-sm font-medium appearance-none cursor-pointer"
-                            value={row.employmentType}
-                            onChange={e => updateBulkRow(idx, 'employmentType', e.target.value)}
-                          >
-                            <option value="">Select Type</option>
-                            <option value="Full-Time">Full-Time</option>
-                            <option value="Intern">Intern</option>
-                            <option value="Contract">Contract</option>
-                          </select>
-                          <ChevronDown className="absolute right-3 text-slate-400 pointer-events-none" size={16} />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 ))}
-                <div className="flex gap-3">
-                  <button onClick={addBulkRow} className="flex-1 py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 font-bold hover:bg-slate-50 hover:border-violet-300 hover:text-violet-600 transition-all flex items-center justify-center gap-2">
-                    <Plus size={18} /> Add Row
-                  </button>
-                  <button onClick={handleSendBulk} disabled={sending || !selectedCompany} className="flex-[2] py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-xl disabled:bg-slate-300 flex items-center justify-center gap-2">
-                    {sending ? <RefreshCw className="animate-spin" size={16} /> : <Send size={16} />}
-                    {sending ? 'Sending...' : `Send ${bulkRows.length} Invitation(s)`}
-                  </button>
-                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
+                <table className="w-full text-left border-collapse min-w-[900px]">
+                  <thead>
+                    <tr className="bg-slate-50/75 border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                      <th className="py-3 px-4 font-black">Candidate</th>
+                      <th className="py-3 px-4 font-black">Full Name</th>
+                      <th className="py-3 px-4 font-black">Email Address</th>
+                      <th className="py-3 px-4 font-black">Role / Designation</th>
+                      <th className="py-3 px-4 font-black">Department</th>
+                      <th className="py-3 px-4 font-black">Employment Type</th>
+                      <th className="py-3 px-4 text-center font-black w-16">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {bulkRows.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/20 transition-colors">
+                        <td className="py-2.5 px-4">
+                          <span className="text-xs font-bold text-violet-600 bg-violet-50 px-2.5 py-1 rounded-lg">
+                            #{bulkRows.length - idx}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="relative flex items-center min-w-[150px]">
+                            <User className="absolute left-3 text-slate-400" size={14} />
+                            <input
+                              type="text"
+                              placeholder="John Doe"
+                              className="w-full pl-9 pr-3 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 outline-none text-xs font-semibold"
+                              value={row.fullName}
+                              onChange={e => updateBulkRow(idx, 'fullName', e.target.value)}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="relative flex items-center min-w-[200px]">
+                            <Mail className="absolute left-3 text-slate-400" size={14} />
+                            <input
+                              type="email"
+                              placeholder="candidate@email.com"
+                              className="w-full pl-9 pr-3 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 outline-none text-xs font-semibold"
+                              value={row.email}
+                              onChange={e => updateBulkRow(idx, 'email', e.target.value)}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="relative flex items-center min-w-[160px]">
+                            <Briefcase className="absolute left-3 text-slate-400" size={14} />
+                            <input
+                              type="text"
+                              placeholder="Software Engineer"
+                              className="w-full pl-9 pr-3 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-violet-500 outline-none text-xs font-semibold"
+                              value={row.role}
+                              onChange={e => updateBulkRow(idx, 'role', e.target.value)}
+                            />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="relative flex items-center min-w-[100px]">
+                            <select
+                              className="w-full pl-3 pr-8 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 outline-none text-xs font-semibold appearance-none cursor-pointer"
+                              value={row.department}
+                              onChange={e => updateBulkRow(idx, 'department', e.target.value)}
+                            >
+                              <option value="IT">IT</option>
+                              <option value="NON-IT">NON-IT</option>
+                            </select>
+                            <ChevronDown className="absolute right-2 text-slate-400 pointer-events-none" size={14} />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <div className="relative flex items-center min-w-[125px]">
+                            <select
+                              className="w-full pl-3 pr-8 py-1.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-700 focus:bg-white focus:border-violet-500 outline-none text-xs font-semibold appearance-none cursor-pointer"
+                              value={row.employmentType}
+                              onChange={e => updateBulkRow(idx, 'employmentType', e.target.value)}
+                            >
+                              <option value="">Select Type</option>
+                              <option value="Full-Time">Full-Time</option>
+                              <option value="Intern">Intern</option>
+                              <option value="Contract">Contract</option>
+                            </select>
+                            <ChevronDown className="absolute right-2 text-slate-400 pointer-events-none" size={14} />
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <button
+                            onClick={() => setBulkRows(bulkRows.filter((_, i) => i !== idx))}
+                            type="button"
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 cursor-pointer"
+                            title="Remove candidate"
+                          >
+                            <X size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
         </div>
 
-        {/* ── RIGHT COLUMN: HISTORY ── */}
-        <div className="lg:col-span-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden flex flex-col h-[calc(100vh-100px)] sticky top-8">
-            <div className="p-6 bg-violet-900 text-white flex items-center justify-between">
-              <div>
-                <h2 className="font-black text-xl flex items-center gap-2"><History size={20} /> Verification Logs</h2>
-                <p className="text-[10px] text-violet-300 uppercase tracking-widest font-bold mt-1">Document Submission Status</p>
+        {/* ── HISTORY LOGS MODAL OVERLAY ── */}
+        {showHistoryModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowHistoryModal(false)}>
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col w-full max-w-5xl max-h-[85vh] animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+              <div className="p-6 bg-violet-900 text-white flex items-center justify-between">
+                <div>
+                  <h2 className="font-black text-xl flex items-center gap-2"><History size={20} /> Verification Logs</h2>
+                  <p className="text-[10px] text-violet-300 uppercase tracking-widest font-bold mt-1">Document Submission Status</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => selectedCompany && fetchHistory(selectedCompany)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all cursor-pointer" title="Refresh logs">
+                    <RefreshCw size={16} className={loadingHistory ? "animate-spin" : ""} />
+                  </button>
+                  <button onClick={() => setShowHistoryModal(false)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all cursor-pointer" title="Close">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => selectedCompany && fetchHistory(selectedCompany)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all">
-                <RefreshCw size={18} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-              {!selectedCompany && (
-                <div className="text-center py-20 text-slate-400">
-                  <Building2 className="mx-auto mb-3" size={40} />
-                  <p className="font-medium text-sm">Select a company to view logs</p>
-                </div>
-              )}
-              {selectedCompany && loadingHistory && (
-                <div className="text-center py-10">
-                  <RefreshCw className="animate-spin mx-auto text-violet-400" size={24} />
-                </div>
-              )}
-              {selectedCompany && !loadingHistory && history.length === 0 && (
-                <div className="text-center py-20 text-slate-400">
-                  <FileCheck className="mx-auto mb-3" size={40} />
-                  <p className="font-medium text-sm">No invitations sent yet</p>
-                </div>
-              )}
-              {history.map(item => (
-                <div key={item._id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm">{item.name || item.email}</p>
-                      <p className="text-xs text-slate-500">{item.email}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${statusColor(item.status)}`}>
-                      {item.status}
-                    </span>
+              <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 custom-scrollbar">
+                {loadingHistory ? (
+                  <div className="text-center py-10">
+                    <RefreshCw className="animate-spin mx-auto text-violet-400" size={24} />
                   </div>
-                  <div className="text-xs text-slate-500 space-y-1">
-                    {item.role && <p>🧑‍💼 {item.role} • {item.department}</p>}
-                    {item.employmentType && <p>📋 {item.employmentType}</p>}
-                    <p>📅 Invited: {new Date(item.invitedAt).toLocaleDateString('en-IN')}</p>
-                    {item.submittedAt && <p>✅ Submitted: {new Date(item.submittedAt).toLocaleDateString('en-IN')}</p>}
+                ) : history.length === 0 ? (
+                  <div className="text-center py-20 text-slate-400">
+                    <FileCheck className="mx-auto mb-3" size={40} />
+                    <p className="font-medium text-sm">No invitations sent yet</p>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <span className="text-[10px] text-slate-400">
-                      {item.documents?.filter(d => d.fileUrl).length || 0}/{item.documents?.length || 0} docs uploaded
-                    </span>
-                    <button onClick={() => handleDeleteRecord(item._id)} className="ml-auto p-1 text-red-400 hover:text-red-600 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {history.map(item => (
+                      <div key={item._id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="min-w-0 pr-2">
+                              <p className="font-bold text-slate-800 text-sm truncate">{item.name || item.email}</p>
+                              <p className="text-xs text-slate-500 truncate">{item.email}</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 ${statusColor(item.status)}`}>
+                              {item.status}
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500 space-y-1 mt-3">
+                            {item.role && <p>🧑‍💼 {item.role} • {item.department}</p>}
+                            {item.employmentType && <p>📋 {item.employmentType}</p>}
+                            <p>📅 Invited: {new Date(item.invitedAt).toLocaleDateString('en-IN')}</p>
+                            {item.submittedAt && <p>✅ Submitted: {new Date(item.submittedAt).toLocaleDateString('en-IN')}</p>}
+                          </div>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            📂 {item.documents?.filter(d => d.fileUrl).length || 0}/{item.documents?.length || 0} docs uploaded
+                          </span>
+                          <button onClick={() => handleDeleteRecord(item._id)} className="p-1.5 text-red-400 hover:text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer" title="Delete record">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>

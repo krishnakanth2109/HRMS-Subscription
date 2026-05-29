@@ -45,11 +45,31 @@ const payrollRecordSchema = new mongoose.Schema(
       hra: Number,
       conveyance: Number,
       medical: Number,
+      travellingAllowance: Number,
+      otherAllowance: Number,
       special: Number,
       gross: Number,
       pf: Number,
       employerPf: Number,
-      pt: Number
+      pt: Number,
+      customFields: [
+        {
+          name: String,
+          value: Number,
+          valueType: String,
+          percentageOf: String,
+          rate: Number
+        }
+      ],
+      customDeductions: [
+        {
+          name: String,
+          value: Number,
+          valueType: String,
+          percentageOf: String,
+          rate: Number
+        }
+      ]
     },
     
     monthlyBreakdown: {
@@ -57,8 +77,28 @@ const payrollRecordSchema = new mongoose.Schema(
       hra: Number,
       conveyance: Number,
       medical: Number,
+      travellingAllowance: Number,
+      otherAllowance: Number,
       special: Number,
-      total: Number
+      total: Number,
+      customFields: [
+        {
+          name: String,
+          value: Number,
+          valueType: String,
+          percentageOf: String,
+          rate: Number
+        }
+      ],
+      customDeductions: [
+        {
+          name: String,
+          value: Number,
+          valueType: String,
+          percentageOf: String,
+          rate: Number
+        }
+      ]
     },
 
     // Letterhead / Background template chosen by admin at release time

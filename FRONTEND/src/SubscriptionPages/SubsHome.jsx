@@ -784,11 +784,10 @@ const DynamicHRMSLandingPage = () => {
                             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                         </div>
                     ) : (
-                        <div className={`grid gap-5 max-w-6xl mx-auto ${
-                            filteredPlans.length === 1 ? 'grid-cols-1 max-w-sm' :
-                            filteredPlans.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl' :
-                            'grid-cols-1 md:grid-cols-3'
-                        }`}>
+                        <div className={`grid gap-5 max-w-6xl mx-auto ${filteredPlans.length === 1 ? 'grid-cols-1 max-w-sm' :
+                                filteredPlans.length === 2 ? 'grid-cols-1 md:grid-cols-2 max-w-3xl' :
+                                    'grid-cols-1 md:grid-cols-3'
+                            }`}>
                             {filteredPlans.map((plan, index) => {
                                 const isPopular = index === mostPopularIdx;
                                 const isFree = Number(plan.price) === 0;
@@ -797,13 +796,12 @@ const DynamicHRMSLandingPage = () => {
                                 return (
                                     <div
                                         key={plan._id || index}
-                                        className={`relative rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${
-                                            isPopular
+                                        className={`relative rounded-2xl overflow-hidden flex flex-col transition-all duration-300 ${isPopular
                                                 ? 'plan-popular text-white shadow-2xl shadow-blue-500/30 scale-105'
                                                 : isHovered
                                                     ? (isFree ? 'plan-active-free text-white shadow-xl shadow-blue-400/25' : 'plan-active-premium text-white shadow-xl shadow-blue-400/25')
                                                     : `${isDarkMode ? 'bg-white/5 border border-white/10' : 'bg-white border border-gray-200'}`
-                                        }`}
+                                            }`}
                                         onMouseEnter={() => setHoveredPlan(index)}
                                         onMouseLeave={() => setHoveredPlan(null)}
                                         style={{ cursor: 'default' }}
@@ -830,7 +828,7 @@ const DynamicHRMSLandingPage = () => {
                                                     <>
                                                         <span className={`text-sm font-bold ${isPopular || isHovered ? 'text-blue-200' : textMuted}`}>₹</span>
                                                         <span className={`text-4xl font-black ${isPopular || isHovered ? 'text-white' : text}`}>{plan.price}</span>
-                                                        <span className={`text-sm ${isPopular || isHovered ? 'text-blue-200' : textMuted}`}>/period</span>
+                                                        <span className={`text-sm ${isPopular || isHovered ? 'text-blue-200' : textMuted}`}>/person</span>
                                                     </>
                                                 )}
                                             </div>
@@ -871,11 +869,10 @@ const DynamicHRMSLandingPage = () => {
                                             </ul>
                                             <button
                                                 onClick={() => handlePlanClick(plan)}
-                                                className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                                                    isPopular || isHovered
+                                                className={`w-full py-3.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${isPopular || isHovered
                                                         ? 'bg-white text-blue-600 hover:bg-blue-50 shadow-md'
                                                         : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white'
-                                                }`}
+                                                    }`}
                                             >
                                                 {isFree ? "GET STARTED FREE" : "SUBSCRIBE NOW →"}
                                             </button>
@@ -1187,7 +1184,7 @@ const DynamicHRMSLandingPage = () => {
                                                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selectedPlan?._id === plan._id
                                                             ? 'border-blue-500 bg-blue-50'
                                                             : `${isDarkMode ? 'border-white/10 bg-white/5 hover:border-blue-400' : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'}`
-                                                        }`}
+                                                            }`}
                                                     >
                                                         <div className="flex items-center justify-between">
                                                             <div>
@@ -1249,9 +1246,9 @@ const DynamicHRMSLandingPage = () => {
                                                     />
                                                     <button type="button" onClick={() => setShowPassword(!showPassword)} className={`absolute right-3 top-1/2 -translate-y-1/2 ${textMuted}`}>
                                                         {showPassword ? (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.94 10.94 0 0112 19C7 19 2.73 16.11 1 12a11.05 11.05 0 012.29-3.57"/><path d="M9.9 4.24A10.94 10.94 0 0112 5c5 0 9.27 2.89 11 7a11.05 11.05 0 01-4.23 5.07"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.94 10.94 0 0112 19C7 19 2.73 16.11 1 12a11.05 11.05 0 012.29-3.57" /><path d="M9.9 4.24A10.94 10.94 0 0112 5c5 0 9.27 2.89 11 7a11.05 11.05 0 01-4.23 5.07" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                                                         ) : (
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>
                                                         )}
                                                     </button>
                                                 </div>

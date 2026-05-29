@@ -1,11 +1,11 @@
 // pages/AdminNotifications.jsx
-import { useContext, useEffect, useState, useCallback } from "react";
+import { useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { NotificationContext } from "../context/NotificationContext";
 import { 
   FaBell, FaCheckCircle, FaTrash, FaUndo, 
   FaExclamationCircle, FaClock, FaMapMarkerAlt, FaSignOutAlt, FaUserClock,
-  FaArrowLeft, FaStarHalfAlt, FaUserMinus
+  FaArrowLeft, FaStarHalfAlt, FaUserMinus, FaInbox, FaCheck, FaFilter
 } from "react-icons/fa";
 import api, { getAllOvertimeRequests } from "../api"; 
 
@@ -32,6 +32,59 @@ const AdminNotifications = () => {
   const [workModeData, setWorkModeData] = useState([]);
   const [fullDayData, setFullDayData] = useState([]);
   const [resignationData, setResignationData] = useState([]);
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return "N/A";
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return "Just now";
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch {
+      return "N/A";
+    }
+  };
+
+  const getNotificationStyles = (n) => {
+    const isUnread = !n.isRead;
+    let borderAccent = isUnread ? "border-l-4 border-indigo-500" : "border-l-4 border-slate-200";
+    let iconBg = isUnread ? "bg-indigo-50 text-indigo-600 shadow-sm" : "bg-slate-100 text-slate-500";
+    let cardBg = isUnread ? "bg-indigo-50/10" : "bg-white opacity-85";
+    
+    if (n.type === "system") {
+      if (n._id.includes("sys-ot-")) {
+        borderAccent = isUnread ? "border-l-4 border-amber-500" : "border-l-4 border-slate-200";
+        iconBg = isUnread ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-500";
+      } else if (n._id.includes("sys-po-")) {
+        borderAccent = isUnread ? "border-l-4 border-rose-500" : "border-l-4 border-slate-200";
+        iconBg = isUnread ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500";
+      } else if (n._id.includes("sys-late-")) {
+        borderAccent = isUnread ? "border-l-4 border-purple-500" : "border-l-4 border-slate-200";
+        iconBg = isUnread ? "bg-purple-50 text-purple-600" : "bg-slate-100 text-slate-500";
+      } else if (n._id.includes("sys-wm-")) {
+        borderAccent = isUnread ? "border-l-4 border-blue-500" : "border-l-4 border-slate-200";
+        iconBg = isUnread ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-500";
+      } else if (n._id.includes("sys-fd-")) {
+        borderAccent = isUnread ? "border-l-4 border-teal-500" : "border-l-4 border-slate-200";
+        iconBg = isUnread ? "bg-teal-50 text-teal-600" : "bg-slate-100 text-slate-500";
+      } else if (n._id.includes("sys-res-")) {
+        borderAccent = isUnread ? "border-l-4 border-red-600" : "border-l-4 border-slate-200";
+        iconBg = isUnread ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500";
+      }
+    }
+    
+    return { borderAccent, iconBg, cardBg };
+  };
+
+
 
   // --- HELPERS FOR SYSTEM READ STATUS ---
   const getReadSystemIds = () => {
@@ -350,120 +403,152 @@ const AdminNotifications = () => {
 
 
   return (
-    <div className="min-h-screen bg-gray-100 p-2 md:p-4">
-      <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-3 md:gap-6 h-screen overflow-hidden">
+    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-800">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* ----------------- SIDE PANEL ----------------- */}
-        <div className="lg:w-60 w-full bg-white shadow-md rounded-xl p-5 border">
-          <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <FaBell className="text-blue-600" />
-            Actions
-          </h3>
+        {/* ----------------- SIDE ACTION & FILTER PANEL ----------------- */}
+        <div className="lg:col-span-3 space-y-6 lg:sticky lg:top-8">
+          
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-6">
+            <div>
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                <FaBell className="text-indigo-600 animate-pulse" size={16} /> Action Panel
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Manage and resolve your administration alerts</p>
+            </div>
 
-          <div className="flex  lg:flex-col  gap-3">
-            <button
-              className="flex items-center text-sm md:text-[16px] gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white  hover:bg-blue-700 transition"
-              onClick={handleMarkAllAsReadWrapper}
-            >
-              <FaCheckCircle /> Mark All Read
-            </button>
+            {/* Quick Actions */}
+            <div className="space-y-3 pt-2">
+              <button
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-bold text-xs shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-violet-700 transition-all active:scale-98 cursor-pointer"
+                onClick={handleMarkAllAsReadWrapper}
+              >
+                <FaCheckCircle size={14} /> Mark All Read
+              </button>
 
-            <button
-              className="flex items-center gap-2 px-3 py-2 text-sm md:text-[16px] rounded-lg bg-red-500 text-white hover:bg-red-600 transition"
-              onClick={clearAllLocal}
-            >
-              <FaTrash /> Clear All
-            </button>
-
-   
+              <button
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-rose-50 hover:bg-rose-100/70 border border-rose-200 text-rose-600 font-bold text-xs transition-all active:scale-98 cursor-pointer"
+                onClick={clearAllLocal}
+              >
+                <FaTrash size={14} /> Clear All
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* ----------------- MAIN CONTENT ----------------- */}
-        <div className="flex-1 bg-white rounded-xl shadow-md md:p-6 p-3 border overflow-y-auto">
-          <div className="flex justify-between items-center mb-5">
-            <div className="flex items-center gap-3">
+        {/* ----------------- MAIN NOTIFICATIONS PANEL ----------------- */}
+        <div className="lg:col-span-9 bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
+          
+          <div className="flex items-center justify-between border-b border-slate-100 pb-5">
+            <div className="flex items-center gap-4">
               {/* ← Back button */}
               <button
                 onClick={() => navigate(-1)}
                 title="Go back"
-                className="flex items-center justify-center md:w-9 md:h-9 h-6 w-7 rounded-full bg-gray-100 hover:bg-blue-100 hover:text-blue-600 text-gray-500 transition-all shadow-sm"
+                className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 text-slate-500 transition-all border border-slate-200/50 cursor-pointer"
               >
-                <FaArrowLeft className="text-sm" />
+                <FaArrowLeft size={14} />
               </button>
               <div>
-                <h2 className="md:text-2xl text-lg font-semibold text-gray-700">
-                  Notifications
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">
+                  System Notifications
                 </h2>
-                <p className="text-gray-500 text-sm">
-                  Manage all your system alerts here
+                <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                  Review shift changes, leave applications, work modes, and resignations
                 </p>
               </div>
             </div>
 
             {localNotifications.filter((n) => !n.isRead).length > 0 && (
-              <span className="bg-red-500 text-white md:px-3 md:py-1 px-1  rounded-full md:text-sm text-[12px] font-semibold">
-                {localNotifications.filter((n) => !n.isRead).length} New
+              <span className="bg-rose-500 text-white px-3 py-1 rounded-full text-xs font-black tracking-wide shadow-md shadow-rose-200 animate-pulse">
+                {localNotifications.filter((n) => !n.isRead).length} Unread
               </span>
             )}
           </div>
 
           {/* ------------ NO NOTIFICATION STATE ------------ */}
           {localNotifications.length === 0 ? (
-            <div className="text-center py-20 text-gray-500">
-              <FaBell className="text-5xl mx-auto mb-4 text-gray-300" />
-              <p className="text-lg">You're all caught up!</p>
+            <div className="text-center py-20 text-slate-400">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                <FaInbox className="text-2xl text-slate-350" />
+              </div>
+              <p className="text-sm font-bold text-slate-500">Inbox Completely Clean</p>
+              <p className="text-xs text-slate-400 mt-1">You do not have any alerts matching this filter</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {localNotifications.map((n) => (
-                <div
-                  key={n._id}
-                  className={`flex items-start gap-2 md:gap-4 md:p-4 p-2 rounded-xl border shadow-sm transition cursor-pointer ${
-                    !n.isRead
-                      ? "bg-blue-50 border-blue-300" // Highlighted Style (New)
-                      : "bg-white border-gray-200 opacity-75" // Read Style
-                  }`}
-                  onClick={() => handleMarkAsReadWrapper(n)}
-                >
+            <div className="space-y-3.5">
+              {localNotifications.map((n) => {
+                const styles = getNotificationStyles(n);
+                const isUnread = !n.isRead;
+                
+                return (
                   <div
-                    className={`md:p-3 p-1 rounded-full text-lg ${
-                       n.type === "system" 
-                       ? "bg-orange-100" 
-                       : !n.isRead ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-600"
-                    }`}
+                    key={n._id}
+                    onClick={() => handleMarkAsReadWrapper(n)}
+                    className={`group relative flex items-start gap-4 p-4 rounded-2xl border transition-all duration-300 ${styles.borderAccent} ${styles.cardBg} hover:shadow-md hover:border-slate-300 cursor-pointer`}
                   >
-                    {/* Icon Logic */}
-                    {n.icon ? n.icon : (n.type === "system" ? <FaExclamationCircle className="text-orange-600"/> : <FaBell />)}
+                    {/* Glowing Left Indicator */}
+                    {isUnread && (
+                      <div className="absolute top-1/2 -translate-y-1/2 left-0.5 w-1.5 h-10 rounded-r-full bg-indigo-500" />
+                    )}
+
+                    {/* Circular Glowing Icon */}
+                    <div className={`p-3 rounded-xl text-md shrink-0 transition-transform group-hover:scale-105 duration-200 ${styles.iconBg}`}>
+                      {n.icon ? n.icon : (n.type === "system" ? <FaExclamationCircle /> : <FaBell />)}
+                    </div>
+
+                    {/* Content Section */}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <p className={`text-sm font-semibold leading-relaxed ${isUnread ? "text-slate-800" : "text-slate-600 font-medium"}`}>
+                        {n.message}
+                      </p>
+                      
+                      <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <span className="flex items-center gap-1">
+                          <FaClock size={10} className="text-slate-400" /> {formatTime(n.date || n.timestamp)}
+                        </span>
+                        
+                        {n.type === 'system' ? (
+                          <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                            System Action Required
+                          </span>
+                        ) : (
+                          <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                            Database Msg
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Panel Inside Card */}
+                    <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      {isUnread && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAsReadWrapper(n);
+                          }}
+                          className="p-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 border border-slate-150 hover:border-emerald-200 rounded-lg transition-all"
+                          title="Mark as Read"
+                        >
+                          <FaCheck size={12} />
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeNotification(n._id);
+                        }}
+                        className="p-1.5 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-150 hover:border-rose-200 rounded-lg transition-all"
+                        title="Delete Alert"
+                      >
+                        <FaTrash size={12} />
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="flex-1">
-                    <p className={`font-medium md:text-[16px] text-[14px] ${n.type === "system" ? "text-gray-800" : "text-gray-800"}`}>
-                      {n.message}
-                    </p>
-                    <p className="text-xs mt-1 text-gray-500">
-                      {new Date(n.date || n.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-
-                  <button
-                    className="text-red-500 hover:text-red-700 p-2"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeNotification(n._id);
-                    }}
-                    title="Remove notification"
-                  >
-                    <FaTrash />
-                  </button>
-
-                  {!n.isRead && (
-                    <span className="ml-1 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                      New
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
