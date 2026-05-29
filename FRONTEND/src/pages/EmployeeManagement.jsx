@@ -1,6 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from "react";
 import { io } from "socket.io-client";
+import ModalWrapper from "../components/ModalWrapper";
+import Pagination from "../components/Pagination";
+
 
 import {
   FaUser,
@@ -459,12 +462,6 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
 
   useEffect(() => { if (open) { setEndDate(""); setReason(""); setError(""); } }, [open]);
 
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
-    if (open) window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [open, onClose]);
-
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -475,47 +472,45 @@ function DeactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-xl font-bold mb-2">Deactivate Employee</h3>
-        <p className="mb-4 text-gray-600">Deactivating <b>{employee.name}</b>.</p>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Effective Date</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none" required />
+    <ModalWrapper isOpen={open} onClose={onClose} containerClass="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default">
+      <h3 className="text-xl font-bold mb-2">Deactivate Employee</h3>
+      <p className="mb-4 text-gray-600">Deactivating <b>{employee.name}</b>.</p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Effective Date</label>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
+            Reason for Deactivation
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+            className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none"
+            placeholder="Please provide a reason..."
+            rows={3}
+            maxLength={1000}
+            required
+          />
+          <div className="flex justify-start mt-2">
+            <button
+              type="button"
+              onClick={handleOptimize}
+              disabled={isOptimizing || !reason.trim()}
+              className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
+            >
+              {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
-              Reason for Deactivation
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-              className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-red-500 outline-none"
-              placeholder="Please provide a reason..."
-              rows={3}
-              maxLength={1000}
-              required
-            />
-            <div className="flex justify-start mt-2">
-              <button
-                type="button"
-                onClick={handleOptimize}
-                disabled={isOptimizing || !reason.trim()}
-                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
-              >
-                {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
-              </button>
-            </div>
-          </div>
-          {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
-          <div className="flex gap-3 justify-end mt-4">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
-            <button type="submit" className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-md transition-colors">Deactivate</button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+        {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
+        <div className="flex gap-3 justify-end mt-4">
+          <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+          <button type="submit" className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-md transition-colors">Deactivate</button>
+        </div>
+      </form>
+    </ModalWrapper>
   );
 }
 
@@ -549,12 +544,6 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
     }
   }, [open]);
 
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
-    if (open) window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [open, onClose]);
-
   if (!open || !employee) return null;
 
   const handleSubmit = (e) => {
@@ -564,97 +553,87 @@ function ReactivateModal({ open, employee, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-xl font-bold mb-2">Reactivate Employee</h3>
-        <p className="mb-4 text-gray-600">Reactivating <b>{employee.name}</b>.</p>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Reactivation Date</label>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none" required />
+    <ModalWrapper isOpen={open} onClose={onClose} containerClass="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all scale-100 cursor-default">
+      <h3 className="text-xl font-bold mb-2">Reactivate Employee</h3>
+      <p className="mb-4 text-gray-600">Reactivating <b>{employee.name}</b>.</p>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 font-bold mb-1">Reactivation Date</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
+            Reason for Reactivation
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+            className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none"
+            placeholder="Reason for reactivation..."
+            rows={3}
+            maxLength={1000}
+            required
+          />
+          <div className="flex justify-start mt-2">
+            <button
+              type="button"
+              onClick={handleOptimize}
+              disabled={isOptimizing || !reason.trim()}
+              className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
+            >
+              {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 font-bold mb-1">
-              Reason for Reactivation
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value.slice(0, 1000))}
-              className="border border-gray-300 px-4 py-2.5 rounded-xl w-full mt-1 focus:ring-2 focus:ring-green-500 outline-none"
-              placeholder="Reason for reactivation..."
-              rows={3}
-              maxLength={1000}
-              required
-            />
-            <div className="flex justify-start mt-2">
-              <button
-                type="button"
-                onClick={handleOptimize}
-                disabled={isOptimizing || !reason.trim()}
-                className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors shadow-sm font-bold"
-              >
-                {isOptimizing ? "Optimizing..." : "✨ AI Optimize Reason"}
-              </button>
-            </div>
-          </div>
-          {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
-          <div className="flex gap-3 justify-end mt-4">
-            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
-            <button type="submit" className="px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 shadow-md transition-colors">Reactivate</button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+        {error && <div className="text-red-600 text-sm font-bold">{error}</div>}
+        <div className="flex gap-3 justify-end mt-4">
+          <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-bold hover:bg-gray-200 transition-colors">Cancel</button>
+          <button type="submit" className="px-5 py-2.5 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 shadow-md transition-colors">Reactivate</button>
+        </div>
+      </form>
+    </ModalWrapper>
   );
 }
 
 function DeactivationDetailsModal({ open, employee, onClose }) {
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
-    if (open) window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [open, onClose]);
-
   if (!open || !employee) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fadeIn cursor-pointer" onClick={onClose}>
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 cursor-default" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 bg-gradient-to-r from-red-600 to-red-500 text-white flex justify-between items-center">
-          <div>
-            <h3 className="text-xl font-semibold tracking-wide">Deactivation Details</h3>
-            <p className="text-sm text-red-100">Employee Status Information</p>
-          </div>
-          <span className="px-3 py-1 text-xs rounded-full bg-white/20 backdrop-blur-sm">
-            {employee?.deactivationDate ? "Deactivated" : "Inactive"}
-          </span>
+    <ModalWrapper isOpen={open} onClose={onClose} containerClass="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100 cursor-default">
+      <div className="px-6 py-4 bg-gradient-to-r from-red-600 to-red-500 text-white flex justify-between items-center">
+        <div>
+          <h3 className="text-xl font-semibold tracking-wide">Deactivation Details</h3>
+          <p className="text-sm text-red-100">Employee Status Information</p>
         </div>
-        <div className="p-6 space-y-5">
-          <div className="flex justify-between items-center border-b pb-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Employee Name</label>
-              <p className="text-lg font-semibold text-gray-800">{employee?.name || "N/A"}</p>
-            </div>
-          </div>
-          <div className="flex justify-between items-center border-b pb-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Deactivation Date</label>
-              <p className="text-md font-medium text-gray-700">{employee?.deactivationDate || "Not Recorded"}</p>
-            </div>
-          </div>
+        <span className="px-3 py-1 text-xs rounded-full bg-white/20 backdrop-blur-sm">
+          {employee?.deactivationDate ? "Deactivated" : "Inactive"}
+        </span>
+      </div>
+      <div className="p-6 space-y-5">
+        <div className="flex justify-between items-center border-b pb-3">
           <div>
-            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Deactivation Reason</label>
-            <div className="mt-2 bg-gray-50 border rounded-xl p-4 text-sm text-gray-700 leading-relaxed">
-              {employee?.deactivationReason || "No reason provided."}
-            </div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Employee Name</label>
+            <p className="text-lg font-semibold text-gray-800">{employee?.name || "N/A"}</p>
           </div>
         </div>
-        <div className="flex justify-end px-6 py-4 bg-gray-50 border-t">
-          <button onClick={onClose} className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium transition duration-200 shadow-md">
-            Close
-          </button>
+        <div className="flex justify-between items-center border-b pb-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Deactivation Date</label>
+            <p className="text-md font-medium text-gray-700">{employee?.deactivationDate || "Not Recorded"}</p>
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Deactivation Reason</label>
+          <div className="mt-2 bg-gray-50 border rounded-xl p-4 text-sm text-gray-700 leading-relaxed">
+            {employee?.deactivationReason || "No reason provided."}
+          </div>
         </div>
       </div>
-    </div>
+      <div className="flex justify-end px-6 py-4 bg-gray-50 border-t">
+        <button onClick={onClose} className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium transition duration-200 shadow-md">
+          Close
+        </button>
+      </div>
+    </ModalWrapper>
   );
 }
 
@@ -1096,15 +1075,12 @@ const EmployeeManagement = () => {
     };
   }, [employees, searchQuery, selectedDept, selectedRole, selectedEmploymentType, selectedCompany]);
 
-  const { paginatedEmployees, totalPages } = useMemo(() => {
-    const combined = [...activeEmployees, ...inactiveEmployees];
-    const pages = Math.ceil(combined.length / itemsPerPage);
+  const combined = useMemo(() => [...activeEmployees, ...inactiveEmployees], [activeEmployees, inactiveEmployees]);
+
+  const paginatedEmployees = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return {
-      paginatedEmployees: combined.slice(start, start + itemsPerPage),
-      totalPages: pages
-    };
-  }, [activeEmployees, inactiveEmployees, currentPage]);
+    return combined.slice(start, start + itemsPerPage);
+  }, [combined, currentPage]);
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center py-6 md:py-12">
@@ -1383,38 +1359,13 @@ const EmployeeManagement = () => {
         </div>
 
         {/* Pagination UI */}
-        {totalPages > 1 && (
-          <div className="flex justify-center items-center mt-8 gap-2">
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
-            >
-              Previous
-            </button>
-            <div className="flex gap-1 overflow-x-auto max-w-[200px] sm:max-w-none no-scrollbar">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-10 h-10 shrink-0 rounded-lg border font-medium transition-all ${currentPage === i + 1
-                      ? "bg-blue-600 border-blue-600 text-white shadow-md scale-105"
-                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                    }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 hover:bg-gray-50 transition-colors shadow-sm font-medium"
-            >
-              Next
-            </button>
-          </div>
-        )}
+        <Pagination
+          totalItems={combined.length}
+          itemsPerPage={itemsPerPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          containerClass="flex items-center justify-center mt-8 gap-4"
+        />
 
         {/* MODALS */}
         <DeactivateModal open={deactivateModalOpen} employee={selectedEmployee} onClose={() => setDeactivateModalOpen(false)} onSubmit={handleDeactivateSubmit} />

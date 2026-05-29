@@ -35,6 +35,32 @@
   background: #cbd5e1;
 }
 
+.support-admin-form-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #a855f7 #f3e8ff;
+  scrollbar-gutter: stable;
+}
+
+.support-admin-form-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.support-admin-form-scrollbar::-webkit-scrollbar-track {
+  background: #f3e8ff;
+  border-radius: 999px;
+  margin: 10px 0;
+}
+
+.support-admin-form-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #c084fc 0%, #7c3aed 100%);
+  border: 2px solid #f3e8ff;
+  border-radius: 999px;
+}
+
+.support-admin-form-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #a855f7 0%, #6d28d9 100%);
+}
+
 /* No scrollbar utility */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

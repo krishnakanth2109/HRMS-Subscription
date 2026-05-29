@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useContext } from "re
 import { NotificationContext } from "../context/NotificationContext";
 import api from "../api";
 import Swal from "sweetalert2";
+import ModalWrapper from "../components/ModalWrapper";
 import {
   FaCheck,
   FaTimes,
@@ -1241,158 +1242,165 @@ const AdminLateRequests = () => {
       )}
 
       {/* --- NEW: Individual Limit Modal --- */}
-      {showLimitModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <FaEdit className="text-purple-600" />
-                Edit Request Limit
-              </h3>
-              <button
-                onClick={() => setShowLimitModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              >
-                &times;
-              </button>
-            </div>
+      <ModalWrapper
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        backdropClass="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        containerClass="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all animate-scaleIn"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <FaEdit className="text-purple-600" />
+            Edit Request Limit
+          </h3>
+          <button
+            onClick={() => setShowLimitModal(false)}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
 
-            <div className="mb-6">
-              <p className="text-sm text-gray-600 mb-1">Employee</p>
-              <p className="font-bold text-gray-800">{limitSettings.employeeName}</p>
-              <p className="text-xs text-gray-500 font-mono">{limitSettings.employeeId}</p>
-            </div>
+        <div className="mb-6">
+          <p className="text-sm text-gray-600 mb-1">Employee</p>
+          <p className="font-bold text-gray-800">{limitSettings.employeeName}</p>
+          <p className="text-xs text-gray-500 font-mono">{limitSettings.employeeId}</p>
+        </div>
 
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <FaExclamationTriangle className="text-purple-600" />
-                <p className="text-sm font-bold text-purple-900">Current Month Status</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-purple-600 mb-1 font-medium">Current Limit</p>
-                  <p className="text-2xl font-bold text-purple-900">{limitSettings.currentLimit}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-purple-600 mb-1 font-medium">Requests Used</p>
-                  <p className="text-2xl font-bold text-purple-900">{limitSettings.currentUsed}</p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="w-full bg-purple-200 rounded-full h-2">
-                  <div
-                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min((limitSettings.currentUsed / limitSettings.currentLimit) * 100, 100)}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-purple-700 mt-2 text-center font-medium">
-                  {limitSettings.currentLimit - limitSettings.currentUsed} requests remaining
-                </p>
-              </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FaExclamationTriangle className="text-purple-600" />
+            <p className="text-sm font-bold text-purple-900">Current Month Status</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-purple-600 mb-1 font-medium">Current Limit</p>
+              <p className="text-2xl font-bold text-purple-900">{limitSettings.currentLimit}</p>
             </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                Set New Monthly Limit
-              </label>
-              <input
-                type="number"
-                min={limitSettings.currentUsed}
-                max="100"
-                value={limitSettings.newLimit}
-                onChange={(e) => setLimitSettings({ ...limitSettings, newLimit: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-purple-500 outline-none text-lg font-bold text-center transition"
-              />
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Minimum: {limitSettings.currentUsed} (already used this month)
-              </p>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLimitModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-bold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={updateRequestLimit}
-                className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold transition shadow-lg shadow-purple-200"
-              >
-                Update Limit
-              </button>
+            <div>
+              <p className="text-xs text-purple-600 mb-1 font-medium">Requests Used</p>
+              <p className="text-2xl font-bold text-purple-900">{limitSettings.currentUsed}</p>
             </div>
           </div>
+          <div className="mt-4">
+            <div className="w-full bg-purple-200 rounded-full h-2">
+              <div
+                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min((limitSettings.currentUsed / limitSettings.currentLimit) * 100, 100)}%` }}
+              ></div>
+            </div>
+            <p className="text-xs text-purple-700 mt-2 text-center font-medium">
+              {limitSettings.currentLimit - limitSettings.currentUsed} requests remaining
+            </p>
+          </div>
         </div>
-      )}
+
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-gray-700 mb-2">
+            Set New Monthly Limit
+          </label>
+          <input
+            type="number"
+            min={limitSettings.currentUsed}
+            max="100"
+            value={limitSettings.newLimit}
+            onChange={(e) => setLimitSettings({ ...limitSettings, newLimit: parseInt(e.target.value) || 0 })}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-purple-500 outline-none text-lg font-bold text-center transition"
+          />
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Minimum: {limitSettings.currentUsed} (already used this month)
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowLimitModal(false)}
+            className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-bold transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={updateRequestLimit}
+            className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold transition shadow-lg shadow-purple-200"
+          >
+            Update Limit
+          </button>
+        </div>
+      </ModalWrapper>
 
       {/* --- NEW: Bulk Limit Modal --- */}
-      {showBulkLimitModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <FaUsers className="text-purple-600" />
-                Bulk Update Limits
-              </h3>
-              <button
-                onClick={() => setShowBulkLimitModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-              >
-                &times;
-              </button>
-            </div>
+      <ModalWrapper
+        isOpen={showBulkLimitModal}
+        onClose={() => setShowBulkLimitModal(false)}
+        backdropClass="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        containerClass="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all animate-scaleIn"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+            <FaUsers className="text-purple-600" />
+            Bulk Update Limits
+          </h3>
+          <button
+            onClick={() => setShowBulkLimitModal(false)}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
 
-            <div className="mb-6">
-              <p className="text-sm text-gray-600 mb-3">
-                Updating limits for <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">{selectedEmployees.length}</span> selected employee(s).
-              </p>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                <p className="text-sm font-bold text-yellow-800 mb-1 flex items-center gap-1">
-                  <FaExclamationTriangle /> Important
-                </p>
-                <p className="text-xs text-yellow-700 leading-relaxed">
-                  This sets the identical limit for all selections. It will fail for any employee whose currently used requests exceed the new limit you type below.
-                </p>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                New Monthly Limit (For All Selected)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={bulkLimitValue}
-                onChange={(e) => setBulkLimitValue(parseInt(e.target.value) || 0)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-purple-500 outline-none text-lg font-bold text-center transition"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowBulkLimitModal(false)}
-                className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-bold transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={bulkUpdateRequestLimits}
-                className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold transition shadow-lg shadow-purple-200"
-              >
-                Update All
-              </button>
-            </div>
+        <div className="mb-6">
+          <p className="text-sm text-gray-600 mb-3">
+            Updating limits for <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded">{selectedEmployees.length}</span> selected employee(s).
+          </p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <p className="text-sm font-bold text-yellow-800 mb-1 flex items-center gap-1">
+              <FaExclamationTriangle /> Important
+            </p>
+            <p className="text-xs text-yellow-700 leading-relaxed">
+              This sets the identical limit for all selections. It will fail for any employee whose currently used requests exceed the new limit you type below.
+            </p>
           </div>
         </div>
-      )}
+
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-gray-700 mb-2">
+            New Monthly Limit (For All Selected)
+          </label>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={bulkLimitValue}
+            onChange={(e) => setBulkLimitValue(parseInt(e.target.value) || 0)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-200 focus:border-purple-500 outline-none text-lg font-bold text-center transition"
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowBulkLimitModal(false)}
+            className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-bold transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={bulkUpdateRequestLimits}
+            className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold transition shadow-lg shadow-purple-200"
+          >
+            Update All
+          </button>
+        </div>
+      </ModalWrapper>
 
       {/* --- ATTENDANCE CORRECTION REVIEW MODAL --- */}
-      {showReviewModal && selectedCorrection && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-0 animate-fade-in-up overflow-hidden">
+      <ModalWrapper
+        isOpen={showReviewModal && !!selectedCorrection}
+        onClose={() => setShowReviewModal(false)}
+        backdropClass="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto"
+        containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-0 animate-scaleIn overflow-hidden"
+      >
+        {selectedCorrection && (
+          <>
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-700 to-indigo-800 p-6 flex justify-between items-center text-white">
               <div>
@@ -1520,9 +1528,9 @@ const AdminLateRequests = () => {
                 {isProcessing ? "Processing..." : "Approve & Update Attendance"} <FaCheck />
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </ModalWrapper>
     </div>
   );
 };

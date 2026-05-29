@@ -43,6 +43,8 @@ const SOCKET_URL =
 const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
+  const sidebarRef = useRef(null);
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -249,14 +251,14 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           icon: Settings,
           alwaysAllowed: true,
         },
-        {
-          to: "/admin/payrollcandidates",
-          route: "/admin/payrollcandidates",
-          label: "Payroll Candidates",
-          icon: ReceiptText,
-          isPayrollCandidates: true,
-          ownerOnly: true,
-        },
+        // {
+        //   to: "/admin/payrollcandidates",
+        //   route: "/admin/payrollcandidates",
+        //   label: "Payroll Candidates",
+        //   icon: ReceiptText,
+        //   isPayrollCandidates: true,
+        //   ownerOnly: true,
+        // },
       ],
     },
   ];
@@ -308,8 +310,21 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       setMobileOpen(false);
     } else {
       setCollapsed(true);
+      setIsPinned(false);
     }
   }, [location.pathname, isMobile, setMobileOpen]);
+
+  useEffect(() => {
+    if (isMobile) return;
+    const handleClickOutside = (event) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+        setIsPinned(false);
+        setCollapsed(true);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isMobile]);
 
   useEffect(() => {
     const fetchPlanFeatures = async () => {
@@ -596,10 +611,12 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       )}
 
       <aside 
+        ref={sidebarRef}
         className={sidebarClasses}
         onClick={() => {
-          if (collapsed && !isMobile) {
+          if (!isMobile) {
             setCollapsed(false);
+            setIsPinned(true);
           }
         }}
         onMouseEnter={() => {
@@ -608,7 +625,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           }
         }}
         onMouseLeave={() => {
-          if (!isMobile) {
+          if (!isMobile && !isPinned) {
             setCollapsed(true);
           }
         }}
@@ -628,6 +645,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                   onClick={(e) => {
                     e.stopPropagation();
                     setCollapsed(true);
+                    setIsPinned(false);
                   }}
                   className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
                   title="Collapse Sidebar"
@@ -645,6 +663,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   setCollapsed(false);
+                  setIsPinned(true);
                 }}
                 className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
                 title="Expand Sidebar"
@@ -766,7 +785,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
              {(!collapsed || isMobile) ? (
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-semibold text-slate-300 truncate">Support Admin Panel</span>
-                  <span className="text-[10px] text-indigo-400 hover:underline">v5.1.1</span>
+                  <span className="text-[10px] text-indigo-400 hover:underline">v5.2.0</span>
                 </div>
              ) : (
                <span className="text-[10px] text-indigo-400 font-bold hover:underline">V5</span>

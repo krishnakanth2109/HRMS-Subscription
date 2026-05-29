@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModalWrapper from "../components/ModalWrapper";
 // Import the functions we added to your api.js
 import {
     getPayrollCandidates,
@@ -393,9 +394,11 @@ const PayrollPage = () => {
             </div>
 
             {/* MODAL: ADD/EDIT FORM */}
-            {isFormOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
-                    <div className="bg-white rounded-2xl w-full max-w-6xl p-8 overflow-y-auto max-h-[90vh] shadow-2xl animate-slideUp">
+            <ModalWrapper
+                isOpen={isFormOpen}
+                onClose={() => setIsFormOpen(false)}
+                containerClass="bg-white rounded-2xl w-full max-w-6xl p-8 overflow-y-auto max-h-[90vh] shadow-2xl"
+            >
                         <div className="flex justify-between items-center mb-6 border-b pb-4">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-800">{editId ? 'Edit Candidate' : 'Add New Candidate'}</h2>
@@ -714,9 +717,7 @@ const PayrollPage = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </ModalWrapper>
 
             {/* PROFILE PICTURE VIEW MODAL */}
             {isProfilePicOpen && selectedUser && (

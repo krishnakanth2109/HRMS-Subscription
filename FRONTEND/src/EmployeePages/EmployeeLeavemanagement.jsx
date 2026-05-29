@@ -1,9 +1,11 @@
-// --- START OF FILE EmployeeLeavemanagement.jsx ---
+  // --- START OF FILE EmployeeLeavemanagement.jsx ---
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { FaCalendarAlt } from "react-icons/fa";
+import { FaCalendarAlt, FaChevronDown, FaFilter, FaListUl, FaSyncAlt, FaThLarge } from "react-icons/fa";
 import Swal from "sweetalert2"; // ✅ ADDED: SweetAlert import
+import ModalWrapper from "../components/ModalWrapper";
+
 import api, {
   getLeaveRequestsForEmployee,
   applyForLeave,
@@ -15,7 +17,7 @@ import api, {
   getShiftByEmployeeId // ✅ ADDED: To get week off days
 } from "../api";
 
-const REASON_LIMIT = 50; // Max characters for reason input
+const REASON_LIMIT = 100; // Max characters for reason input
 
 // --- LEAVE YEAR CONFIGURATION ---
 const LEAVE_YEAR_START_MONTH = 1; // Jan
@@ -189,6 +191,7 @@ const EmployeeLeavemanagement = () => {
   // All Employees Approved Leaves (For View & Overlap Check)
   const [allApprovedLeaves, setAllApprovedLeaves] = useState([]);
   const [upcomingModalOpen, setUpcomingModalOpen] = useState(false);
+  const [unplannedAbsenceView, setUnplannedAbsenceView] = useState("grid");
   
   // Overlap States
   const [overlappingColleagues, setOverlappingColleagues] = useState([]);
@@ -1456,44 +1459,63 @@ const EmployeeLeavemanagement = () => {
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl shadow-lg p-6 mb-8"
         >
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Month</label>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full lg:w-64 border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
-              >
-                {monthOptions.map((m) => (
-                  <option key={m} value={m}>
-                    {formatMonth(m)}
-                  </option>
-                ))}
-              </select>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+            <div className="w-full lg:w-72">
+              <label className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <FaCalendarAlt size={12} />
+                </span>
+                Filter by Month
+              </label>
+              <div className="relative w-full">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="h-12 w-full appearance-none rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-white px-4 pl-11 pr-11 text-sm font-black text-slate-800 shadow-sm outline-none transition duration-200 hover:border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                >
+                  {monthOptions.map((m) => (
+                    <option key={m} value={m}>
+                      {formatMonth(m)}
+                    </option>
+                  ))}
+                </select>
+                <FaCalendarAlt className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" size={14} />
+                <FaChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+              </div>
             </div>
 
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Filter by Status</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full lg:w-64 border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
-              >
-                {statusOptions.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+            <div className="w-full lg:w-72">
+              <label className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-slate-500">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <FaFilter size={12} />
+                </span>
+                Filter by Status
+              </label>
+              <div className="relative w-full">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="h-12 w-full appearance-none rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-white px-4 pl-11 pr-11 text-sm font-black text-slate-800 shadow-sm outline-none transition duration-200 hover:border-indigo-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                >
+                  {statusOptions.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+                <FaFilter className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={14} />
+                <FaChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+              </div>
             </div>
 
-            <div className="flex-1 text-right">
+            <div className="flex w-full justify-start lg:ml-auto lg:w-auto">
               <button
                 onClick={handleRefresh}
                 disabled={loadingAttendance || loadingShift}
-                className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-xl transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-900 px-5 text-sm font-black text-white shadow-lg shadow-slate-200 transition duration-200 hover:-translate-y-0.5 hover:bg-slate-800 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {(loadingAttendance || loadingShift) ? "🔄 Loading..." : "🔄 Refresh"}
+                <FaSyncAlt className={(loadingAttendance || loadingShift) ? "animate-spin" : ""} size={14} />
+                {(loadingAttendance || loadingShift) ? "Refreshing..." : "Refresh Data"}
               </button>
             </div>
           </div>
@@ -1671,7 +1693,8 @@ const EmployeeLeavemanagement = () => {
             className="bg-white rounded-2xl shadow-lg border border-red-200 mb-8 overflow-hidden"
           >
             <div className="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-4">
-              <div className="flex items-center">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center">
                 <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
                   <span className="text-xl text-white">⚠️</span>
                 </div>
@@ -1680,6 +1703,31 @@ const EmployeeLeavemanagement = () => {
                   <p className="text-red-100 text-sm">
                     Days marked as absent without leave application for {formatMonth(selectedMonth)} • {unplannedAbsences.length} day{unplannedAbsences.length !== 1 ? 's' : ''}
                   </p>
+                </div>
+                </div>
+                <div className="flex rounded-2xl bg-white/15 p-1 ring-1 ring-white/20 backdrop-blur-sm">
+                  <button
+                    type="button"
+                    onClick={() => setUnplannedAbsenceView("list")}
+                    className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
+                      unplannedAbsenceView === "list"
+                        ? "bg-white text-red-600 shadow-sm"
+                        : "text-white hover:bg-white/10"
+                    }`}
+                  >
+                    <FaListUl size={12} /> List View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUnplannedAbsenceView("grid")}
+                    className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
+                      unplannedAbsenceView === "grid"
+                        ? "bg-white text-red-600 shadow-sm"
+                        : "text-white hover:bg-white/10"
+                    }`}
+                  >
+                    <FaThLarge size={12} /> Grid View
+                  </button>
                 </div>
               </div>
             </div>
@@ -1703,26 +1751,49 @@ const EmployeeLeavemanagement = () => {
                 )}
               </div>
               
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                {unplannedAbsences.map((absence, index) => (
-                  <div key={index} className="bg-red-50 border border-red-200 rounded-xl p-4 hover:shadow-md transition duration-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {formatDisplayDate(absence.date)}
-                        </p>
-                        <p className="text-gray-600 text-xs mt-1">
-                          {absence.dateObj.toLocaleDateString('en-US', { weekday: 'long' })}
-                        </p>
+              {unplannedAbsenceView === "grid" ? (
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {unplannedAbsences.map((absence, index) => (
+                    <div key={index} className="bg-red-50 border border-red-200 rounded-xl p-4 hover:shadow-md transition duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-900 text-sm">
+                            {formatDisplayDate(absence.date)}
+                          </p>
+                          <p className="text-gray-600 text-xs mt-1">
+                            {absence.dateObj.toLocaleDateString('en-US', { weekday: 'long' })}
+                          </p>
+                        </div>
+                        <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                          <span className="text-red-600 text-xs font-bold">ABS</span>
+                        </div>
                       </div>
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                        <span className="text-red-600 text-xs font-bold">ABS</span>
-                      </div>
+                      <p className="text-gray-700 text-xs mt-2">{absence.reason}</p>
                     </div>
-                    <p className="text-gray-700 text-xs mt-2">{absence.reason}</p>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="divide-y divide-red-100 overflow-hidden rounded-2xl border border-red-100 bg-white">
+                  {unplannedAbsences.map((absence, index) => (
+                    <div key={index} className="flex flex-col gap-3 bg-red-50/50 p-4 transition hover:bg-red-50 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-100 text-[10px] font-black uppercase tracking-widest text-red-600">
+                          ABS
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-900">{formatDisplayDate(absence.date)}</p>
+                          <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                            {absence.dateObj.toLocaleDateString('en-US', { weekday: 'long' })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold leading-relaxed text-slate-600 sm:max-w-xl sm:text-right">
+                        {absence.reason}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
               
               <div className="mt-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                 <p className="text-yellow-800 text-sm flex items-center">
@@ -1791,7 +1862,7 @@ const EmployeeLeavemanagement = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center p-4 z-50"
             onClick={() => setUpcomingModalOpen(false)}
           >
              <motion.div
@@ -1849,394 +1920,331 @@ const EmployeeLeavemanagement = () => {
       </AnimatePresence>
 
       {/* Leave Application Modal */}
-      <AnimatePresence>
-        {modalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
-                e.currentTarget.dataset.clickedOnBackdrop = "true";
-              } else {
-                delete e.currentTarget.dataset.clickedOnBackdrop;
-              }
-            }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget && e.currentTarget.dataset.clickedOnBackdrop === "true") {
-                setModalOpen(false);
-              }
-            }}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
+      <ModalWrapper isOpen={modalOpen} onClose={() => setModalOpen(false)} containerClass="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-bold text-gray-900">Apply for Leave</h3>
+            <button
+              onClick={() => setModalOpen(false)}
+              className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
             >
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-bold text-gray-900">Apply for Leave</h3>
-                  <button
-                    onClick={() => setModalOpen(false)}
-                    className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                  >
-                    ×
-                  </button>
+              ×
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">From Date</label>
+              <input 
+                type="date" 
+                name="from" 
+                value={form.from} 
+                onChange={handleChange}
+                min={minSelectionDate}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">To Date</label>
+              <input 
+                type="date" 
+                name="to" 
+                value={form.to} 
+                onChange={handleChange}
+                min={form.from || minSelectionDate}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+              />
+            </div>
+          </div>
+
+          {/* Overlap Notice */}
+          {overlappingColleagues.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs font-bold text-blue-700 uppercase mb-2">
+                📅 Heads up! Others on leave:
+              </p>
+              <ul className="text-xs text-blue-800 space-y-2">
+                {(expandOverlaps ? overlappingColleagues : overlappingColleagues.slice(0, 3)).map((col, idx) => (
+                  <li key={idx} className="flex justify-between items-start border-b border-blue-100 pb-1 last:border-0 last:pb-0">
+                    <div>
+                      <span className="font-bold">{col.employeeName}</span>
+                      <span className="text-[10px] text-blue-600 ml-1">({col.employeeId})</span>
+                    </div>
+                    <span className="opacity-70 text-[10px] whitespace-nowrap">
+                      {formatDisplayDate(col.from)} - {formatDisplayDate(col.to)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {overlappingColleagues.length > 3 && (
+                 <div className="mt-2 text-right">
+                   {!expandOverlaps ? (
+                     <button 
+                        type="button" 
+                        onClick={() => setExpandOverlaps(true)}
+                        className="text-xs text-blue-600 font-bold hover:text-blue-800 hover:underline"
+                     >
+                       and {overlappingColleagues.length - 3} others...
+                     </button>
+                   ) : (
+                      <button 
+                        type="button" 
+                        onClick={() => setExpandOverlaps(false)}
+                        className="text-xs text-blue-600 font-bold hover:text-blue-800 hover:underline"
+                      >
+                        Show less
+                      </button>
+                   )}
+                 </div>
+              )}
+            </div>
+          )}
+
+          {form.from && form.to && form.from === form.to && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Half Day Session</label>
+              <select 
+                name="halfDaySession" 
+                value={form.halfDaySession} 
+                onChange={handleChange}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+              >
+                <option value="">Full Day</option>
+                <option value="Morning Half">Morning Half</option>
+                <option value="Afternoon Half">Afternoon Half</option>
+              </select>
+            </div>
+          )}
+
+          {/* Sandwich Warning */}
+          {sandwichWarning && sandwichWarning.length > 0 && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+              <div className="flex items-start">
+                <span className="text-yellow-600 text-xl mr-2">⚠️</span>
+                <div>
+                  <p className="font-semibold text-yellow-800 mb-2">Sandwich Leave Warning</p>
+                  {sandwichWarning.map((warning, index) => (
+                    <p key={index} className="text-sm text-yellow-700 mb-1">{warning.message}</p>
+                  ))}
                 </div>
               </div>
+            </div>
+          )}
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">From Date</label>
-                    <input 
-                      type="date" 
-                      name="from" 
-                      value={form.from} 
-                      onChange={handleChange}
-                      min={minSelectionDate}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">To Date</label>
-                    <input 
-                      type="date" 
-                      name="to" 
-                      value={form.to} 
-                      onChange={handleChange}
-                      min={form.from || minSelectionDate}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
-                    />
-                  </div>
-                </div>
+          {/* ✅ UPDATED: Dynamic Leave Types with carry-forward info */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Leave Type</label>
+            <select 
+              name="leaveType" 
+              value={form.leaveType} 
+              onChange={handleChange}
+              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+            >
+              <option value="">Select Leave Type</option>
+              {leavePolicies.length > 0 ? (
+                leavePolicies.map((policy, idx) => {
+                  const cf = carryForwardEnabled && policy.carriedForwardDays > 0
+                    ? ` +${policy.carriedForwardDays} carried`
+                    : "";
+                  return (
+                    <option key={idx} value={policy.leaveType}>
+                      {policy.leaveType} (Paid remaining: {policy.remainingPaidDays}{cf})
+                    </option>
+                  );
+                })
+              ) : (
+                <>
+                  <option value="Casual Leave">Casual Leave</option>
+                  <option value="Sick Leave">Sick Leave</option>
+                  <option value="Emergency Leave">Emergency Leave</option>
+                </>
+              )}
+              <option value="Loss of Pay">Loss of Pay (LOP)</option>
+            </select>
+          </div>
 
-                {/* Overlap Notice */}
-                {overlappingColleagues.length > 0 && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-xs font-bold text-blue-700 uppercase mb-2">
-                      📅 Heads up! Others on leave:
-                    </p>
-                    <ul className="text-xs text-blue-800 space-y-2">
-                      {(expandOverlaps ? overlappingColleagues : overlappingColleagues.slice(0, 3)).map((col, idx) => (
-                        <li key={idx} className="flex justify-between items-start border-b border-blue-100 pb-1 last:border-0 last:pb-0">
-                          <div>
-                            <span className="font-bold">{col.employeeName}</span>
-                            <span className="text-[10px] text-blue-600 ml-1">({col.employeeId})</span>
-                          </div>
-                          <span className="opacity-70 text-[10px] whitespace-nowrap">
-                            {formatDisplayDate(col.from)} - {formatDisplayDate(col.to)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {overlappingColleagues.length > 3 && (
-                       <div className="mt-2 text-right">
-                         {!expandOverlaps ? (
-                           <button 
-                              type="button" 
-                              onClick={() => setExpandOverlaps(true)}
-                              className="text-xs text-blue-600 font-bold hover:text-blue-800 hover:underline"
-                           >
-                             and {overlappingColleagues.length - 3} others...
-                           </button>
-                         ) : (
-                            <button 
-                              type="button" 
-                              onClick={() => setExpandOverlaps(false)}
-                              className="text-xs text-blue-600 font-bold hover:text-blue-800 hover:underline"
-                            >
-                              Show less
-                            </button>
-                         )}
-                       </div>
-                    )}
-                  </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Reason <span className="text-gray-400 text-xs">({form.reason.length}/{REASON_LIMIT})</span>
+            </label>
+            <textarea
+              name="reason"
+              value={form.reason}
+              onChange={handleChange}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                }
+              }}
+              maxLength={REASON_LIMIT}
+              rows={3}
+              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200 resize-none"
+              placeholder="Brief reason for your leave"
+            />
+            {form.reason && (
+              <button
+                type="button"
+                onClick={handleOptimizeReason}
+                disabled={isOptimizing}
+                className="mt-2 text-sm flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors disabled:opacity-50"
+              >
+                {isOptimizing ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-purple-700 border-t-transparent rounded-full animate-spin"></div>
+                    Optimizing...
+                  </>
+                ) : (
+                  <>✨ AI Generate</>
                 )}
+              </button>
+            )}
+          </div>
 
-                {form.from && form.to && form.from === form.to && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Half Day Session</label>
-                    <select 
-                      name="halfDaySession" 
-                      value={form.halfDaySession} 
-                      onChange={handleChange}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
-                    >
-                      <option value="">Full Day</option>
-                      <option value="Morning Half">Morning Half</option>
-                      <option value="Afternoon Half">Afternoon Half</option>
-                    </select>
-                  </div>
-                )}
+          {submitError && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+              <p className="text-red-700 font-semibold">{submitError}</p>
+            </div>
+          )}
 
-                {/* Sandwich Warning */}
-                {sandwichWarning && sandwichWarning.length > 0 && (
-                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
-                    <div className="flex items-start">
-                      <span className="text-yellow-600 text-xl mr-2">⚠️</span>
-                      <div>
-                        <p className="font-semibold text-yellow-800 mb-2">Sandwich Leave Warning</p>
-                        {sandwichWarning.map((warning, index) => (
-                          <p key={index} className="text-sm text-yellow-700 mb-1">{warning.message}</p>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
+          {submitSuccess && (
+            <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+              <p className="text-green-700 font-semibold">{submitSuccess}</p>
+            </div>
+          )}
 
-                {/* ✅ UPDATED: Dynamic Leave Types with carry-forward info */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Leave Type</label>
-                  <select 
-                    name="leaveType" 
-                    value={form.leaveType} 
-                    onChange={handleChange}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
-                  >
-                    <option value="">Select Leave Type</option>
-                    {leavePolicies.length > 0 ? (
-                      leavePolicies.map((policy, idx) => {
-                        // ✅ NEW: Show carry-forward info in dropdown when enabled
-                        const cf = carryForwardEnabled && policy.carriedForwardDays > 0
-                          ? ` +${policy.carriedForwardDays} carried`
-                          : "";
-                        return (
-                          <option key={idx} value={policy.leaveType}>
-                            {policy.leaveType} (Paid remaining: {policy.remainingPaidDays}{cf})
-                          </option>
-                        );
-                      })
-                    ) : (
-                      <>
-                        <option value="Casual Leave">Casual Leave</option>
-                        <option value="Sick Leave">Sick Leave</option>
-                        <option value="Emergency Leave">Emergency Leave</option>
-                      </>
-                    )}
-                    <option value="Loss of Pay">Loss of Pay (LOP)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Reason <span className="text-gray-400 text-xs">({form.reason.length}/{REASON_LIMIT})</span>
-                  </label>
-                  <textarea
-                    name="reason"
-                    value={form.reason}
-                    onChange={handleChange}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                      }
-                    }}
-                    maxLength={REASON_LIMIT}
-                    rows={3}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200 resize-none"
-                    placeholder="Brief reason for your leave"
-                  />
-                  {form.reason && (
-                    <button
-                      type="button"
-                      onClick={handleOptimizeReason}
-                      disabled={isOptimizing}
-                      className="mt-2 text-sm flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors disabled:opacity-50"
-                    >
-                      {isOptimizing ? (
-                        <>
-                          <div className="w-3 h-3 border-2 border-purple-700 border-t-transparent rounded-full animate-spin"></div>
-                          Optimizing...
-                        </>
-                      ) : (
-                        <>✨ AI Generate</>
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                {submitError && (
-                  <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
-                    <p className="text-red-700 font-semibold">{submitError}</p>
-                  </div>
-                )}
-
-                {submitSuccess && (
-                  <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
-                    <p className="text-green-700 font-semibold">{submitSuccess}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
-                  >
-                    Submit Leave Request
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setModalOpen(false)}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
+            >
+              Submit Leave Request
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold px-6 py-3 rounded-xl transition duration-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </ModalWrapper>
 
       {/* Sandwich Alert Modal */}
-      <AnimatePresence>
-        {showSandwichAlert && sandwichWarning && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      <ModalWrapper isOpen={showSandwichAlert && !!sandwichWarning} onClose={() => setShowSandwichAlert(false)} containerClass="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div className="flex items-center mb-4">
+          <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">Sandwich Leave Detected</h3>
+        </div>
+        
+        <div className="mb-6 space-y-3">
+          {sandwichWarning?.map((warning, index) => (
+            <div key={index} className="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+              <p className="text-sm text-gray-700">{warning.message}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-gray-600 mb-6">
+          Do you want to proceed with this leave request?
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowSandwichAlert(false);
+              const hasLOPWarning = checkLOPWarning(form.from, form.to);
+              if (hasLOPWarning) {
+                setShowLOPWarning(true);
+              } else {
+                submitLeaveRequest();
+              }
+            }}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3 rounded-xl transition duration-200"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            >
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-3">
-                  <span className="text-2xl">⚠️</span>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">Sandwich Leave Detected</h3>
-              </div>
-              
-              <div className="mb-6 space-y-3">
-                {sandwichWarning.map((warning, index) => (
-                  <div key={index} className="p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-                    <p className="text-sm text-gray-700">{warning.message}</p>
-                  </div>
-                ))}
-              </div>
-
-              <p className="text-gray-600 mb-6">
-                Do you want to proceed with this leave request?
-              </p>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowSandwichAlert(false);
-                    // Check for LOP warning before submitting
-                    const hasLOPWarning = checkLOPWarning(form.from, form.to);
-                    if (hasLOPWarning) {
-                      setShowLOPWarning(true);
-                    } else {
-                      submitLeaveRequest();
-                    }
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3 rounded-xl transition duration-200"
-                >
-                  Yes, Proceed
-                </button>
-                <button
-                  onClick={() => {
-                    setShowSandwichAlert(false);
-                  }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-3 rounded-xl transition duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Yes, Proceed
+          </button>
+          <button
+            onClick={() => {
+              setShowSandwichAlert(false);
+            }}
+            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-3 rounded-xl transition duration-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </ModalWrapper>
 
       {/* ✅ NEW: LOP Warning Modal */}
-      <AnimatePresence>
-        {showLOPWarning && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      <ModalWrapper isOpen={showLOPWarning} onClose={() => setShowLOPWarning(false)} containerClass="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div className="flex items-center mb-4">
+          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-3">
+            <span className="text-2xl text-red-600">💰</span>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900">Loss of Pay (LOP) Warning</h3>
+        </div>
+        
+        <div className="mb-6 space-y-3">
+          <div className="p-3 bg-red-50 border-l-4 border-red-400 rounded">
+            <p className="text-sm text-red-700">
+              <strong>Warning:</strong> You have exceeded your available paid leave balance!
+              The extra day(s) will be marked as <strong>Loss of Pay (LOP)</strong>.
+            </p>
+          </div>
+          
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-700">Remaining Paid Leave Balance:</span>
+                <span className="text-sm font-semibold">{LOPWarningDetails.pendingLeaves} day(s)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-700">Requested Leave Days:</span>
+                <span className="text-sm font-semibold">{LOPWarningDetails.requestedDays} day(s)</span>
+              </div>
+              <div className="flex justify-between border-t border-yellow-200 pt-2">
+                <span className="text-sm font-semibold text-red-600">Will be marked as LOP:</span>
+                <span className="text-sm font-bold text-red-600">{LOPWarningDetails.willBeLOP} day(s)</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+            <p className="text-sm text-blue-700">
+              <strong>Note:</strong> LOP (Loss of Pay) leaves will result in salary deduction. Are you sure you want to proceed?
+            </p>
+          </div>
+        </div>
+
+        <p className="text-gray-600 mb-6">
+          Do you want to continue with this leave request as LOP?
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setShowLOPWarning(false);
+              submitLeaveRequest();
+            }}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-3 rounded-xl transition duration-200"
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-            >
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-3">
-                  <span className="text-2xl text-red-600">💰</span>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">Loss of Pay (LOP) Warning</h3>
-              </div>
-              
-              <div className="mb-6 space-y-3">
-                <div className="p-3 bg-red-50 border-l-4 border-red-400 rounded">
-                  <p className="text-sm text-red-700">
-                    <strong>Warning:</strong> You have exceeded your available paid leave balance!
-                    The extra day(s) will be marked as <strong>Loss of Pay (LOP)</strong>.
-                  </p>
-                </div>
-                
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-700">Remaining Paid Leave Balance:</span>
-                      <span className="text-sm font-semibold">{LOPWarningDetails.pendingLeaves} day(s)</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-700">Requested Leave Days:</span>
-                      <span className="text-sm font-semibold">{LOPWarningDetails.requestedDays} day(s)</span>
-                    </div>
-                    <div className="flex justify-between border-t border-yellow-200 pt-2">
-                      <span className="text-sm font-semibold text-red-600">Will be marked as LOP:</span>
-                      <span className="text-sm font-bold text-red-600">{LOPWarningDetails.willBeLOP} day(s)</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-sm text-blue-700">
-                    <strong>Note:</strong> LOP (Loss of Pay) leaves will result in salary deduction. Are you sure you want to proceed?
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-gray-600 mb-6">
-                Do you want to continue with this leave request as LOP?
-              </p>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowLOPWarning(false);
-                    submitLeaveRequest();
-                  }}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-3 rounded-xl transition duration-200"
-                >
-                  Yes, Proceed as LOP
-                </button>
-                <button
-                  onClick={() => {
-                    setShowLOPWarning(false);
-                  }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-3 rounded-xl transition duration-200"
-                >
-                  Cancel Request
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Yes, Proceed as LOP
+          </button>
+          <button
+            onClick={() => {
+              setShowLOPWarning(false);
+            }}
+            className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-4 py-3 rounded-xl transition duration-200"
+          >
+            Cancel Request
+          </button>
+        </div>
+      </ModalWrapper>
     </div>
   );
 };

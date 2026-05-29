@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
+import ModalWrapper from "./ModalWrapper";
 import { sendMessage, getGroupMessages } from "../api";
 import { AuthContext } from "../context/AuthContext";
 import { FaPaperPlane, FaTimes } from "react-icons/fa";
@@ -104,8 +105,12 @@ const GroupMessaging = ({ group, isOpen, onClose }) => {
   const members = getGroupMembers();
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      containerClass="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col"
+    >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between rounded-t-lg">
           <div>
@@ -222,8 +227,7 @@ const GroupMessaging = ({ group, isOpen, onClose }) => {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

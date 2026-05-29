@@ -26,7 +26,7 @@ const transporter = nodemailer.createTransport({
 function listDates(fromStr, toStr) {
   const out = [];
   const from = new Date(fromStr);
-  const to   = new Date(toStr);
+  const to = new Date(toStr);
   for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
     out.push(d.toISOString().slice(0, 10));
   }
@@ -47,7 +47,7 @@ function getCycleStartDateStr(resetMonthStr) {
   const now = new Date();
   let currentYear = now.getFullYear();
   const rMonth = parseInt(resetMonthStr || "1", 10);
-  
+
   // If the current month is BEFORE the reset month, we are in the previous year's cycle
   if (now.getMonth() + 1 < rMonth) {
     currentYear--;
@@ -120,16 +120,16 @@ async function getCarriedForwardDays(adminId, employeeId, leaveType, policyDoc, 
   if (now.getMonth() + 1 < rMonth) currentCycleYear--;
 
   const prevCycleStart = `${currentCycleYear - 1}-${String(rMonth).padStart(2, "0")}-01`;
-  const prevCycleEnd   = `${currentCycleYear}-${String(rMonth).padStart(2, "0")}-01`;
+  const prevCycleEnd = `${currentCycleYear}-${String(rMonth).padStart(2, "0")}-01`;
 
   const approvedQuery =
     requesterType === "support-admin"
       ? { employeeId: String(employeeId), status: "Approved", requesterType: "support-admin" }
       : {
-          employeeId: String(employeeId),
-          status: "Approved",
-          $or: [{ requesterType: "employee" }, { requesterType: { $exists: false } }],
-        };
+        employeeId: String(employeeId),
+        status: "Approved",
+        $or: [{ requesterType: "employee" }, { requesterType: { $exists: false } }],
+      };
 
   const leaves = await LeaveRequest.find(approvedQuery).lean();
 
@@ -182,9 +182,9 @@ async function resolveLeaveCategoryForRequest(adminId, employeeId, leaveType, le
   }
 
   const remaining = Math.max(0, effectiveLimit - personalUsedPaidDays);
-  if (remaining >= totalDays)  return { leavecategory: "Paid",   paidDays: totalDays,  unpaidDays: 0 };
-  if (remaining > 0)           return { leavecategory: "Paid",   paidDays: remaining,  unpaidDays: totalDays - remaining };
-  return                              { leavecategory: "UnPaid", paidDays: 0,           unpaidDays: totalDays };
+  if (remaining >= totalDays) return { leavecategory: "Paid", paidDays: totalDays, unpaidDays: 0 };
+  if (remaining > 0) return { leavecategory: "Paid", paidDays: remaining, unpaidDays: totalDays - remaining };
+  return { leavecategory: "UnPaid", paidDays: 0, unpaidDays: totalDays };
 }
 
 /* ===============================================================
@@ -194,7 +194,7 @@ function buildDetailsWithCategory(dates, leaveType, leaveDayType, paidDaysAllowe
   let paidUsed = 0;
   return dates.map((date) => {
     const dayValue = leaveDayType === "Half Day" ? 0.5 : 1;
-    const cat      = paidUsed < paidDaysAllowed ? "Paid" : "UnPaid";
+    const cat = paidUsed < paidDaysAllowed ? "Paid" : "UnPaid";
     if (cat === "Paid") paidUsed += dayValue;
     return { date, leavecategory: cat, leaveType, leaveDayType };
   });
@@ -241,7 +241,7 @@ const adminLeaveNotificationEmail = ({ name, employeeId, email, leaveType, from,
 </body></html>`;
 
 const employeeLeaveStatusEmail = ({ employeeName, status, from, to, leaveType, reason, approvedBy }) => {
-  const statusColor    = status === "Approved" ? "#10b981" : "#ef4444";
+  const statusColor = status === "Approved" ? "#10b981" : "#ef4444";
   const headerGradient = status === "Approved" ? "linear-gradient(135deg,#059669,#10b981)" : "linear-gradient(135deg,#b91c1c,#ef4444)";
   return `
 <!DOCTYPE html><html>
@@ -317,7 +317,7 @@ export const createLeave = async (req, res) => {
     const requesterName = loggedUser.name || loggedUser.email || "User";
 
     const monthKey = from.slice(0, 7);
-    const dates    = listDates(from, to);
+    const dates = listDates(from, to);
 
     // ✅ Check past days vs attendance (same rules; support admin uses attendance employeeId = actualId)
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
@@ -353,9 +353,9 @@ export const createLeave = async (req, res) => {
     const details = buildDetailsWithCategory(dates, leaveType, leaveDayType, paidDays);
 
     const doc = await LeaveRequest.create({
-      adminId:        adminIdForLeave,
-      companyId:      companyIdForLeave,
-      employeeId:     requesterKey,
+      adminId: adminIdForLeave,
+      companyId: companyIdForLeave,
+      employeeId: requesterKey,
       requesterType,
       requesterName,
       from, to, reason,
@@ -374,10 +374,10 @@ export const createLeave = async (req, res) => {
         try {
           const whoLabel = isSupportAdmin ? "Support Admin" : "Employee";
           await transporter.sendMail({
-            from:    `"HRMS Leave Notification" <${process.env.SMTP_USER}>`,
-            to:      admin.email,
+            from: `"HRMS Leave Notification" <${process.env.SMTP_USER}>`,
+            to: admin.email,
             subject: `New Leave Request (${whoLabel}) from ${requesterName}`,
-            html:    adminLeaveNotificationEmail({
+            html: adminLeaveNotificationEmail({
               name: requesterName, employeeId: requesterKey,
               email: loggedUser.email, leaveType, from, to, reason,
             }),
@@ -506,10 +506,10 @@ export const updateLeaveStatus = async (req, res) => {
       if (sa?.email) {
         try {
           await transporter.sendMail({
-            from:    `"Leave Management" <${process.env.SMTP_USER}>`,
-            to:      sa.email,
+            from: `"Leave Management" <${process.env.SMTP_USER}>`,
+            to: sa.email,
             subject: `Leave Request ${status}: ${doc.from} – ${doc.to}`,
-            html:    employeeLeaveStatusEmail({
+            html: employeeLeaveStatusEmail({
               employeeName: sa.name || doc.requesterName || "Support Admin", status,
               from: doc.from, to: doc.to,
               leaveType: doc.leaveType, reason: doc.reason, approvedBy,
@@ -533,10 +533,10 @@ export const updateLeaveStatus = async (req, res) => {
         if (employee.email) {
           try {
             await transporter.sendMail({
-              from:    `"Leave Management" <${process.env.SMTP_USER}>`,
-              to:      employee.email,
+              from: `"Leave Management" <${process.env.SMTP_USER}>`,
+              to: employee.email,
               subject: `Leave Request ${status}: ${doc.from} – ${doc.to}`,
-              html:    employeeLeaveStatusEmail({
+              html: employeeLeaveStatusEmail({
                 employeeName: employee.name, status,
                 from: doc.from, to: doc.to,
                 leaveType: doc.leaveType, reason: doc.reason, approvedBy,
@@ -570,7 +570,7 @@ export const cancelLeave = async (req, res) => {
     const owns = isSupportAdmin
       ? leave.requesterType === "support-admin" && String(leave.employeeId) === supportAdminKey
       : leave.employeeId === req.user.employeeId &&
-        (!leave.requesterType || leave.requesterType === "employee");
+      (!leave.requesterType || leave.requesterType === "employee");
 
     if (!owns) return res.status(403).json({ message: "Unauthorized" });
     if (leave.status !== "Pending") return res.status(400).json({ message: "Cannot cancel this leave" });
@@ -607,9 +607,9 @@ export const getLeavePolicyForAdmin = async (req, res) => {
       policyDoc || {
         policies: [],
         resetMonth: "01",
-        sandwichLeaveEnabled:  false,
+        sandwichLeaveEnabled: false,
         unplannedAbsenceToLOP: false,
-        carryForwardEnabled:   false, // ✅ NEW
+        carryForwardEnabled: false, // ✅ NEW
       }
     );
   } catch (err) {
@@ -659,25 +659,25 @@ export const upsertLeavePolicy = async (req, res) => {
 
     if (!existing) {
       existing = await LeavePolicy.create({
-        adminId:               req.user._id,
-        companyId:             req.user.companyId || req.user.company || req.user._id,
-        resetMonth:            resetMonth || "01",
-        sandwichLeaveEnabled:  typeof sandwichLeaveEnabled  === "boolean" ? sandwichLeaveEnabled  : false,
+        adminId: req.user._id,
+        companyId: req.user.companyId || req.user.company || req.user._id,
+        resetMonth: resetMonth || "01",
+        sandwichLeaveEnabled: typeof sandwichLeaveEnabled === "boolean" ? sandwichLeaveEnabled : false,
         unplannedAbsenceToLOP: typeof unplannedAbsenceToLOP === "boolean" ? unplannedAbsenceToLOP : false,
-        carryForwardEnabled:   typeof carryForwardEnabled   === "boolean" ? carryForwardEnabled   : false, // ✅ NEW
+        carryForwardEnabled: typeof carryForwardEnabled === "boolean" ? carryForwardEnabled : false, // ✅ NEW
         policies: deduped.map((p) => ({ leaveType: p.leaveType.trim(), paidDaysLimit: p.paidDaysLimit })),
       });
     } else {
       existing.policies = deduped.map((p) => ({
-        leaveType:     p.leaveType.trim(),
+        leaveType: p.leaveType.trim(),
         paidDaysLimit: p.paidDaysLimit,
       }));
       existing.resetMonth = resetMonth || existing.resetMonth;
 
       // Only update flags if they are explicitly provided in the request body
-      if (typeof sandwichLeaveEnabled  === "boolean") existing.sandwichLeaveEnabled  = sandwichLeaveEnabled;
+      if (typeof sandwichLeaveEnabled === "boolean") existing.sandwichLeaveEnabled = sandwichLeaveEnabled;
       if (typeof unplannedAbsenceToLOP === "boolean") existing.unplannedAbsenceToLOP = unplannedAbsenceToLOP;
-      if (typeof carryForwardEnabled   === "boolean") existing.carryForwardEnabled   = carryForwardEnabled; // ✅ NEW
+      if (typeof carryForwardEnabled === "boolean") existing.carryForwardEnabled = carryForwardEnabled; // ✅ NEW
 
       await existing.save();
     }
@@ -708,9 +708,9 @@ export const getLeavePolicyBalanceForEmployee = async (req, res) => {
     if (!policyDoc || !policyDoc.policies.length) {
       return res.json({
         balance: [],
-        sandwichLeaveEnabled:  false,
+        sandwichLeaveEnabled: false,
         unplannedAbsenceToLOP: false,
-        carryForwardEnabled:   false, // ✅ NEW
+        carryForwardEnabled: false, // ✅ NEW
       });
     }
 
@@ -750,12 +750,12 @@ export const getLeavePolicyBalanceForEmployee = async (req, res) => {
       const effectiveLimit = p.paidDaysLimit + carriedForwardDays;
 
       return {
-        leaveType:          p.leaveType,
-        paidDaysLimit:      p.paidDaysLimit,
+        leaveType: p.leaveType,
+        paidDaysLimit: p.paidDaysLimit,
         carriedForwardDays, // ✅ NEW — shown in employee balance UI
         effectiveLimit,     // ✅ NEW — paidDaysLimit + carriedForwardDays
-        usedPaidDays:       personalUsedPaidDays,
-        remainingPaidDays:  Math.max(0, effectiveLimit - personalUsedPaidDays),
+        usedPaidDays: personalUsedPaidDays,
+        remainingPaidDays: Math.max(0, effectiveLimit - personalUsedPaidDays),
       };
     });
 
@@ -764,9 +764,9 @@ export const getLeavePolicyBalanceForEmployee = async (req, res) => {
     // ✅ Return balance AND all admin feature flags
     res.json({
       balance,
-      sandwichLeaveEnabled:  policyDoc.sandwichLeaveEnabled  ?? false,
+      sandwichLeaveEnabled: policyDoc.sandwichLeaveEnabled ?? false,
       unplannedAbsenceToLOP: policyDoc.unplannedAbsenceToLOP ?? false,
-      carryForwardEnabled:   policyDoc.carryForwardEnabled   ?? false, // ✅ NEW
+      carryForwardEnabled: policyDoc.carryForwardEnabled ?? false, // ✅ NEW
     });
   } catch (err) {
     console.error("getLeavePolicyBalanceForEmployee error:", err);

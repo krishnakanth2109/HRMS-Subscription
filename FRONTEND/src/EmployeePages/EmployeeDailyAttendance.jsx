@@ -18,6 +18,7 @@ import {
   getPendingCorrections,
   getMyCorrections
 } from "../api";
+import Pagination from "../components/Pagination";
 
 // --- Import Chart.js and React wrapper ---
 import { Bar, Doughnut } from 'react-chartjs-2';
@@ -444,8 +445,6 @@ const EmployeeDailyAttendance = () => {
     const start = (currentPage - 1) * ATTENDANCE_PAGE_SIZE;
     return filteredData.slice(start, start + ATTENDANCE_PAGE_SIZE);
   }, [filteredData, currentPage]);
-  const paginationStart = filteredData.length === 0 ? 0 : (currentPage - 1) * ATTENDANCE_PAGE_SIZE + 1;
-  const paginationEnd = Math.min(currentPage * ATTENDANCE_PAGE_SIZE, filteredData.length);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1335,32 +1334,13 @@ const EmployeeDailyAttendance = () => {
           </div>
 
           {!loading && filteredData.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-4 border-t border-gray-100 bg-white">
-              <p className="text-xs font-bold text-gray-500 text-center sm:text-left">
-                Showing {paginationStart}-{paginationEnd} of {filteredData.length} records
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  disabled={currentPage === 1}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-black text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Prev
-                </button>
-                <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-600 text-xs font-black border border-blue-100">
-                  Page {currentPage} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                  disabled={currentPage === totalPages}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-black text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            <Pagination
+              totalItems={filteredData.length}
+              itemsPerPage={ATTENDANCE_PAGE_SIZE}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              containerClass="flex flex-col gap-3 border-t border-gray-100 bg-white px-4 py-4 select-none sm:flex-row sm:items-center sm:justify-between"
+            />
           )}
         </div>
 

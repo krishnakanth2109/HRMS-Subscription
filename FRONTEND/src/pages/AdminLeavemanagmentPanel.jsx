@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import ModalWrapper from "../components/ModalWrapper";
 import api, {
   getLeaveRequests,
   getEmployees,
@@ -194,12 +195,11 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    <ModalWrapper
+      isOpen={true}
+      onClose={onClose}
+      containerClass="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]"
     >
-      <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
-
         {/* Header */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/60 shrink-0">
           <div>
@@ -467,8 +467,7 @@ const LeavePolicyModal = ({ onClose, onSaved }) => {
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </ModalWrapper>
   );
 };
 
@@ -795,11 +794,11 @@ const AdminLeavePanel = () => {
           <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tight">Pending Requests</h3>
           <span className="bg-amber-100 text-amber-700 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-widest">{pendingRequests.length} Pending</span>
         </div>
-        <div className="flex flex-col">
+        <div className={pendingRequests.length === 0 ? "flex flex-col" : "grid grid-cols-1 md:grid-cols-2 gap-6 p-4 sm:p-6 bg-slate-50/20"}>
           {pendingRequests.length === 0 ? (
             <div className="p-10 text-center text-slate-500 font-medium italic bg-slate-50/20">No pending leave requests found.</div>
           ) : pendingRequests.map((lv) => (
-            <div key={lv._id} className="p-4 sm:p-6 border-b border-slate-100 last:border-0 flex flex-col xl:flex-row justify-between xl:items-center gap-6 hover:bg-slate-50/80 transition duration-150">
+            <div key={lv._id} className="p-5 sm:p-6 bg-white border border-slate-200 rounded-2xl hover:shadow-md transition duration-150 flex flex-col justify-between">
               <div className="flex flex-col sm:flex-row gap-4 items-start w-full">
                 <div className="w-12 h-12 rounded-full shrink-0 border-2 border-white shadow-md overflow-hidden bg-white flex items-center justify-center font-black text-slate-700">
                   {employeeImages[lv.employeeId] ? <img src={employeeImages[lv.employeeId]} alt="" className="w-full h-full object-cover" /> : getInitials(lv.employeeName)}
@@ -815,31 +814,40 @@ const AdminLeavePanel = () => {
                       </span>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-8 mb-4 max-w-lg">
-                    <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Start Date</span><span className="text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">{formatDateShort(lv.from)}</span></div>
-                    <div><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">End Date</span><span className="text-xs sm:text-sm font-bold text-slate-700 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">{formatDateShort(lv.to)}</span></div>
-                    <div className="col-span-2 sm:col-span-1"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Duration</span><span className="text-xs sm:text-sm font-bold text-slate-700 bg-indigo-50 text-indigo-700 px-2 py-1 rounded-lg border border-indigo-100">{getDayCount(lv.from, lv.to)} Day{getDayCount(lv.from, lv.to) > 1 ? "s" : ""}</span></div>
+                  <div className="flex flex-wrap items-end gap-3 sm:gap-4 mb-4">
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Start</span>
+                      <span className="text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100 block">{formatDateShort(lv.from)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">End</span>
+                      <span className="text-xs font-bold text-slate-700 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100 block">{formatDateShort(lv.to)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Days</span>
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1.5 rounded-xl border border-indigo-100 block">{getDayCount(lv.from, lv.to)} d</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 self-end mb-[2px]">
+                      {canApproveRejectLeave(lv) ? (
+                        <>
+                          <button onClick={() => handleAction(lv._id, "approve")} className="flex items-center justify-center gap-1 px-4 py-2 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl font-black text-[10px] sm:text-xs shadow-lg shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest"><FaCheck size={10} /> Approve</button>
+                          <button onClick={() => handleAction(lv._id, "reject")}  className="flex items-center justify-center gap-1 px-4 py-2 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-xl font-black text-[10px] sm:text-xs shadow-lg shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest"><FaTimes size={10} /> Reject</button>
+                        </>
+                      ) : (
+                        <div className="text-[10px] font-bold text-slate-500 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 text-center max-w-[200px]">
+                          Admin only.
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-2 w-full xl:max-w-md shadow-inner">
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 mb-2 w-full shadow-inner">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Reason for Leave</span>
-                    <span className="text-xs sm:text-sm text-slate-700 font-bold italic line-clamp-2">"{lv.reason}"</span>
+                    <span className="text-xs sm:text-sm text-slate-700 font-bold italic whitespace-pre-wrap">"{lv.reason}"</span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter flex items-center gap-1 mt-1">
                     <FaClock size={10} /> Applied on {formatDateTime(lv.createdAt || lv.appliedDate)}
                   </span>
                 </div>
-              </div>
-              <div className="flex flex-row xl:flex-col gap-3 shrink-0">
-                {canApproveRejectLeave(lv) ? (
-                  <>
-                    <button onClick={() => handleAction(lv._id, "approve")} className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#10B981] hover:bg-[#059669] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-emerald-100 transition-all active:scale-95 uppercase tracking-widest"><FaCheck /> Approve</button>
-                    <button onClick={() => handleAction(lv._id, "reject")}  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#EF4444] hover:bg-[#DC2626] text-white rounded-xl font-black text-xs sm:text-sm shadow-lg shadow-rose-100 transition-all active:scale-95 uppercase tracking-widest"><FaTimes /> Reject</button>
-                  </>
-                ) : (
-                  <div className="text-[11px] font-bold text-slate-500 bg-slate-100 px-4 py-3 rounded-xl border border-slate-200 text-center max-w-[220px] self-center">
-                    Only the main admin can approve support admin leave requests.
-                  </div>
-                )}
               </div>
             </div>
           ))}

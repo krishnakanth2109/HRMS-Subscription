@@ -13,10 +13,10 @@ const getDayCount = (from, to) =>
   !from || !to ? 0 : Math.ceil(Math.abs(new Date(to) - new Date(from)) / 86400000) + 1;
 
 const STATUS_STYLE = {
-  Approved:  { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-  Rejected:  { bg: "bg-red-50",     text: "text-red-600",     dot: "bg-red-500"     },
-  Pending:   { bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-400"   },
-  Cancelled: { bg: "bg-slate-100",  text: "text-slate-500",   dot: "bg-slate-400"   },
+  Approved: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  Rejected: { bg: "bg-red-50", text: "text-red-600", dot: "bg-red-500" },
+  Pending: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-400" },
+  Cancelled: { bg: "bg-slate-100", text: "text-slate-500", dot: "bg-slate-400" },
 };
 
 // Deterministic color palette — same logic as admin panel so colours match
@@ -49,8 +49,8 @@ const LeaveBalanceCards = ({ balance }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
       {balance.map((b) => {
-        const c    = colorFor(b.leaveType);
-        const pct  = b.paidDaysLimit > 0 ? Math.min(100, Math.round((b.usedPaidDays / b.paidDaysLimit) * 100)) : 0;
+        const c = colorFor(b.leaveType);
+        const pct = b.paidDaysLimit > 0 ? Math.min(100, Math.round((b.usedPaidDays / b.paidDaysLimit) * 100)) : 0;
         const isExhausted = b.paidDaysLimit > 0 && b.remainingPaidDays === 0;
 
         return (
@@ -104,13 +104,13 @@ const LeaveWithModal = () => {
     from: "", to: "", leaveType: "", leaveDayType: "Full Day", halfDaySession: "", reason: "",
   });
 
-  const [leaveList, setLeaveList]   = useState([]);
-  const [balance, setBalance]       = useState([]);   // ← comes from admin's policy
-  const [modalOpen, setModalOpen]   = useState(false);
-  const [loading, setLoading]       = useState(true);
+  const [leaveList, setLeaveList] = useState([]);
+  const [balance, setBalance] = useState([]);   // ← comes from admin's policy
+  const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState("");
-  const [success, setSuccess]       = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // ── Fetch my leave list ───────────────────────────────────────────────────
   const fetchMyLeaves = useCallback(async () => {
@@ -170,12 +170,12 @@ const LeaveWithModal = () => {
     setError("");
     try {
       await applyForLeave({
-        from:           form.from,
-        to:             form.to,
-        leaveType:      form.leaveType,
-        leaveDayType:   form.leaveDayType,
+        from: form.from,
+        to: form.to,
+        leaveType: form.leaveType,
+        leaveDayType: form.leaveDayType,
         halfDaySession: form.halfDaySession || "",
-        reason:         form.reason,
+        reason: form.reason,
       });
       setSuccess("Leave applied successfully!");
       setForm((prev) => ({ from: "", to: "", leaveType: balance[0]?.leaveType || "", leaveDayType: "Full Day", halfDaySession: "", reason: "" }));
@@ -265,7 +265,7 @@ const LeaveWithModal = () => {
                         </span>
                       ) : "—"}
                     </td>
-                    <td className="px-6 py-4 text-slate-500 max-w-[160px] truncate font-medium" title={lv.reason}>{lv.reason}</td>
+                    <td className="px-6 py-4 text-slate-500 max-w-[320px] whitespace-pre-wrap font-medium" title={lv.reason}>{lv.reason}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${s.bg} ${s.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
@@ -459,17 +459,17 @@ const LeaveWithModal = () => {
                 {/* Reason */}
                 <div>
                   <label className="text-xs font-bold text-slate-600 mb-1 block">
-                    Reason <span className="text-slate-400 font-normal">(max 50 chars)</span>
+                    Reason <span className="text-slate-400 font-normal">(max 100 chars)</span>
                   </label>
                   <textarea
                     name="reason" value={form.reason} onChange={handleChange}
-                    maxLength={50} rows={2} placeholder="Brief reason for leave..."
+                    maxLength={100} rows={2} placeholder="Brief reason for leave..."
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400 bg-slate-50 resize-none"
                   />
-                  <p className="text-[11px] text-slate-400 text-right mt-0.5">{form.reason.length}/50</p>
+                  <p className="text-[11px] text-slate-400 text-right mt-0.5">{form.reason.length}/100</p>
                 </div>
 
-                {error   && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+                {error && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
                 {success && <p className="text-emerald-600 text-xs font-semibold bg-emerald-50 px-3 py-2 rounded-lg">{success}</p>}
 
                 <button

@@ -12,6 +12,7 @@ import {
   getAttendanceByDateRange,
   getAllShifts
 } from "../api";
+import Pagination from "../components/Pagination";
 
 // --- HELPER FUNCTIONS ---
 
@@ -82,6 +83,8 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December" },
 ];
 
+const LEAVE_SUMMARY_ITEMS_PER_PAGE = 10;
+
 const AdminLeaveSummary = () => {
   const [allRequests, setAllRequests] = useState([]);
   const [employeesMap, setEmployeesMap] = useState(new Map());
@@ -94,6 +97,7 @@ const AdminLeaveSummary = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -413,6 +417,22 @@ const AdminLeaveSummary = () => {
     return filtered;
   }, [employeeStats, searchQuery, sortConfig]);
 
+  const paginatedEmployeeStats = useMemo(() => {
+    const startIndex = (currentPage - 1) * LEAVE_SUMMARY_ITEMS_PER_PAGE;
+    return filteredEmployeeStats.slice(startIndex, startIndex + LEAVE_SUMMARY_ITEMS_PER_PAGE);
+  }, [filteredEmployeeStats, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedYear, selectedMonth, sortConfig]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredEmployeeStats.length / LEAVE_SUMMARY_ITEMS_PER_PAGE));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, filteredEmployeeStats.length]);
+
   const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
@@ -617,7 +637,7 @@ const AdminLeaveSummary = () => {
               <tbody className="divide-y divide-gray-100 bg-white">
                 <AnimatePresence>
                   {filteredEmployeeStats.length > 0 ? (
-                    filteredEmployeeStats.map((emp, index) => (
+                    paginatedEmployeeStats.map((emp, index) => (
                       <motion.tr
                         key={emp.employeeId}
                         initial={{ opacity: 0, y: 10 }}
@@ -688,7 +708,7 @@ const AdminLeaveSummary = () => {
           {/* MOBILE LIST VIEW */}
           <div className="block md:hidden divide-y divide-gray-100">
             {filteredEmployeeStats.length > 0 ? (
-              filteredEmployeeStats.map((emp) => (
+              paginatedEmployeeStats.map((emp) => (
                 <div key={emp.employeeId} className="p-4 bg-white flex flex-col gap-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -739,6 +759,14 @@ const AdminLeaveSummary = () => {
               </div>
             )}
           </div>
+
+          <Pagination
+            totalItems={filteredEmployeeStats.length}
+            itemsPerPage={LEAVE_SUMMARY_ITEMS_PER_PAGE}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            containerClass="flex flex-col gap-3 border-t border-gray-200 bg-gray-50 px-4 py-4 select-none sm:flex-row sm:items-center sm:justify-between sm:px-6"
+          />
 
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider">

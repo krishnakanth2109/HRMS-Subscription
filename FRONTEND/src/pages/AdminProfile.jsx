@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ModalWrapper from "../components/ModalWrapper";
 import { useLocation } from "react-router-dom";
 import api, { getAllCompanies } from "../api";
 import {
@@ -665,165 +666,156 @@ const AdminProfile = () => {
 
       </div>
 
-      {/* CREATE SUPPORT ADMIN MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-[0.5rem] w-full max-w-md p-8 shadow-2xl relative">
-            <button
-              onClick={() => setIsCreateModalOpen(false)}
-              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <FaTimes size={20} />
-            </button>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <FaUser className="text-purple-600" /> Create New Support Admin
-            </h2>
-            <form onSubmit={handleCreateSupportAdmin} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminForm.name}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
-                  placeholder="John Doe"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Username (Email)</label>
-                <input
-                  type="email"
-                  required
-                  value={newAdminForm.email}
-                  onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
-                  placeholder="john@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    minLength={8}
-                    value={newAdminForm.password}
-                    onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
-                    placeholder="Min. 8 characters"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirm Password</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    required
-                    minLength={8}
-                    value={newAdminForm.confirmPassword}
-                    onChange={(e) => setNewAdminForm({ ...newAdminForm, confirmPassword: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
-                    placeholder="Confirm Password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={createAdminLoading}
-                  className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-70 flex justify-center"
-                >
-                  {createAdminLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : "Create Support Admin"}
-                </button>
-              </div>
-            </form>
+      <ModalWrapper isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} containerClass="bg-white rounded-[0.5rem] w-full max-w-md p-8 shadow-2xl relative flex flex-col">
+        <button
+          onClick={() => setIsCreateModalOpen(false)}
+          className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <FaTimes size={20} />
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <FaUser className="text-purple-600" /> Create New Support Admin
+        </h2>
+        <form onSubmit={handleCreateSupportAdmin} className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Full Name</label>
+            <input
+              type="text"
+              required
+              value={newAdminForm.name}
+              onChange={(e) => setNewAdminForm({ ...newAdminForm, name: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+              placeholder="John Doe"
+            />
           </div>
-        </div>
-      )}
-      {/* Support Admins Modal */}
-      {isSupportAdminsModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-[0.5rem] shadow-2xl p-8 relative flex flex-col max-h-[90vh]">
-            <button
-              onClick={() => setIsSupportAdminsModalOpen(false)}
-              className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
-            >
-              <FaTimes size={16} />
-            </button>
-            <div className="mb-8 flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-black text-gray-900">Manage Support Admins</h3>
-                <p className="text-gray-500 font-medium text-sm mt-1">View and manage support admins created under your account.</p>
-              </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Username (Email)</label>
+            <input
+              type="email"
+              required
+              value={newAdminForm.email}
+              onChange={(e) => setNewAdminForm({ ...newAdminForm, email: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+              placeholder="john@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={newAdminForm.password}
+                onChange={(e) => setNewAdminForm({ ...newAdminForm, password: e.target.value })}
+                className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+                placeholder="Min. 8 characters"
+              />
               <button
-                onClick={() => {
-                  setIsSupportAdminsModalOpen(false);
-                  setIsCreateModalOpen(true);
-                }}
-                className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <FaUser size={14} /> Create Support Admin
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto pr-2">
-              {loadingSupportAdmins ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                </div>
-              ) : supportAdmins.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
-                  <FaUsers size={48} className="mx-auto text-gray-300 mb-4" />
-                  <p className="text-gray-500 font-semibold">No support admins found</p>
-                  <p className="text-sm text-gray-400 mt-1">You haven't created any support admins yet.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {supportAdmins.map((supportAdmin) => (
-                    <div key={supportAdmin._id} className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md shrink-0">
-                          {supportAdmin.name?.charAt(0)}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-900">{supportAdmin.name}</h4>
-                          <p className="text-sm font-medium text-gray-500 flex items-center gap-2">
-                            <FaEnvelope className="text-gray-400" size={10} /> {supportAdmin.email}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteSupportAdmin(supportAdmin._id)}
-                        className="p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
-                        title="Delete Support Admin"
-                      >
-                        <FaTrash size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+          </div>
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Confirm Password</label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={newAdminForm.confirmPassword}
+                onChange={(e) => setNewAdminForm({ ...newAdminForm, confirmPassword: e.target.value })}
+                className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm font-bold rounded-xl px-4 py-3 focus:outline-none focus:border-purple-600 transition-colors"
+                placeholder="Confirm Password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
             </div>
           </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={createAdminLoading}
+              className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 disabled:opacity-70 flex justify-center"
+            >
+              {createAdminLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : "Create Support Admin"}
+            </button>
+          </div>
+        </form>
+      </ModalWrapper>
+
+      <ModalWrapper isOpen={isSupportAdminsModalOpen} onClose={() => setIsSupportAdminsModalOpen(false)} containerClass="bg-white w-full max-w-xl rounded-[0.5rem] shadow-2xl p-8 relative flex flex-col max-h-[90vh]">
+        <button
+          onClick={() => setIsSupportAdminsModalOpen(false)}
+          className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
+        >
+          <FaTimes size={16} />
+        </button>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h3 className="text-2xl font-black text-gray-900">Manage Support Admins</h3>
+            <p className="text-gray-500 font-medium text-sm mt-1">View and manage support admins created under your account.</p>
+          </div>
+          <button
+            onClick={() => {
+              setIsSupportAdminsModalOpen(false);
+              setIsCreateModalOpen(true);
+            }}
+            className="flex items-center gap-2 bg-purple-600 text-white px-5 py-2.5 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200"
+          >
+            <FaUser size={14} /> Create Support Admin
+          </button>
         </div>
-      )}
+
+        <div className="flex-1 overflow-y-auto pr-2">
+          {loadingSupportAdmins ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            </div>
+          ) : supportAdmins.length === 0 ? (
+            <div className="text-center py-12 bg-gray-50 rounded-2xl border border-gray-100">
+              <FaUsers size={48} className="mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500 font-semibold">No support admins found</p>
+              <p className="text-sm text-gray-400 mt-1">You haven't created any support admins yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {supportAdmins.map((supportAdmin) => (
+                <div key={supportAdmin._id} className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-lg font-bold shadow-md shrink-0">
+                      {supportAdmin.name?.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900">{supportAdmin.name}</h4>
+                      <p className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                        <FaEnvelope className="text-gray-400" size={10} /> {supportAdmin.email}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteSupportAdmin(supportAdmin._id)}
+                    className="p-3 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-colors"
+                    title="Delete Support Admin"
+                  >
+                    <FaTrash size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </ModalWrapper>
     </div>
   );
 };

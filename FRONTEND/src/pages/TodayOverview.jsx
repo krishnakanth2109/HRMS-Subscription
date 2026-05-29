@@ -7,6 +7,7 @@ import api, {
   getEmployees,
   getAllShifts
 } from "../api";
+import ModalWrapper from "../components/ModalWrapper";
 import {
   FaClock,
   FaCheckCircle,
@@ -288,8 +289,6 @@ const StatCard = ({ icon, title, value, color, onClick, category, isActive }) =>
 };
 
 const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
-  if (!isOpen) return null;
-
   const isDisabled = !phoneNumber;
 
   const handleNormalCall = () => {
@@ -313,94 +312,78 @@ const CallModal = ({ isOpen, onClose, employee, phoneNumber }) => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      containerClass="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200"
     >
-      <motion.div
-        initial={{ scale: 0.95, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 20 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Contact Employee</h3>
-              <p className="text-sm text-slate-600 mt-0.5">{employee?.employeeName}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
-            >
-              <FaTimes className="text-base" />
-            </button>
+      <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Contact Employee</h3>
+            <p className="text-sm text-slate-600 mt-0.5">{employee?.employeeName}</p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+          >
+            <FaTimes className="text-base" />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-5">
+        <div className="text-center mb-5">
+          <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center mx-auto mb-3">
+            <FaPhoneAlt className="text-white text-xl" />
+          </div>
+          <h4 className="text-base font-semibold text-slate-900">{employee?.employeeName}</h4>
+          <p className="text-sm text-slate-500 mt-0.5">ID: {employee?.employeeId}</p>
+          <p className={`text-lg font-semibold mt-2 ${!phoneNumber ? 'text-red-500' : 'text-slate-900'}`}>
+            {phoneNumber || 'No phone number linked'}
+          </p>
         </div>
 
-        <div className="p-5">
-          <div className="text-center mb-5">
-            <div className="w-14 h-14 bg-gradient-to-br from-slate-700 to-slate-900 rounded-full flex items-center justify-center mx-auto mb-3">
-              <FaPhoneAlt className="text-white text-xl" />
-            </div>
-            <h4 className="text-base font-semibold text-slate-900">{employee?.employeeName}</h4>
-            <p className="text-sm text-slate-500 mt-0.5">ID: {employee?.employeeId}</p>
-            <p className={`text-lg font-semibold mt-2 ${!phoneNumber ? 'text-red-500' : 'text-slate-900'}`}>
-              {phoneNumber || 'No phone number linked'}
-            </p>
-          </div>
+        <div className="space-y-2.5">
+          <button
+            onClick={handleNormalCall}
+            disabled={isDisabled}
+            className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              ${isDisabled ? 'bg-slate-300 border-slate-300 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 border-slate-900'}`}
+          >
+            <FaPhoneAlt className="text-base" />
+            Make Phone Call
+          </button>
 
-          <div className="space-y-2.5">
-            <motion.button
-              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
-              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
-              onClick={handleNormalCall}
-              disabled={isDisabled}
-              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
-                ${isDisabled ? 'bg-slate-300 border-slate-300 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800 border-slate-900'}`}
-            >
-              <FaPhoneAlt className="text-base" />
-              Make Phone Call
-            </motion.button>
+          <button
+            onClick={handleWhatsAppCall}
+            disabled={isDisabled}
+            className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
+          >
+            <FaWhatsapp className="text-base" />
+            WhatsApp Call
+          </button>
 
-            <motion.button
-              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
-              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
-              onClick={handleWhatsAppCall}
-              disabled={isDisabled}
-              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
-                ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
-            >
-              <FaWhatsapp className="text-base" />
-              WhatsApp Call
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
-              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
-              onClick={handleWhatsAppMessage}
-              disabled={isDisabled}
-              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
-                ${isDisabled ? 'bg-blue-300 border-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 border-blue-600'}`}
-            >
-              <FaComment className="text-base" />
-              WhatsApp Message
-            </motion.button>
-          </div>
+          <button
+            onClick={handleWhatsAppMessage}
+            disabled={isDisabled}
+            className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              ${isDisabled ? 'bg-blue-300 border-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 border-blue-600'}`}
+          >
+            <FaComment className="text-base" />
+            WhatsApp Message
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </ModalWrapper>
   );
 };
 
 const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
   const [message, setMessage] = useState(`Hi ${employee?.employeeName || 'there'}, How are you?`);
 
-  if (!isOpen) return null;
   const isDisabled = !phoneNumber;
 
   const handleSendMessage = (platform) => {
@@ -420,85 +403,72 @@ const MessageModal = ({ isOpen, onClose, employee, phoneNumber }) => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      containerClass="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200"
     >
-      <motion.div
-        initial={{ scale: 0.95, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 20 }}
-        className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="p-5 border-b border-slate-100 bg-slate-50/50">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">Send Message</h3>
-              <p className="text-sm text-slate-600 mt-0.5">To: {employee?.employeeName}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
-            >
-              <FaTimes className="text-base" />
-            </button>
+      <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Send Message</h3>
+            <p className="text-sm text-slate-600 mt-0.5">To: {employee?.employeeName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400 hover:text-slate-600"
+          >
+            <FaTimes className="text-base" />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-5">
+        {!phoneNumber && (
+          <div className="mb-4 bg-red-50 text-red-600 px-3 py-2 rounded text-sm text-center font-medium">
+            ⚠️ This employee has no phone number linked.
+          </div>
+        )}
+
+        <div className="mb-5">
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            Message
+          </label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none h-28 text-sm"
+            placeholder="Type your message here..."
+          />
+          <div className="text-xs text-slate-500 mt-1.5">
+            {message.length} characters
           </div>
         </div>
 
-        <div className="p-5">
-          {!phoneNumber && (
-            <div className="mb-4 bg-red-50 text-red-600 px-3 py-2 rounded text-sm text-center font-medium">
-              ⚠️ This employee has no phone number linked.
-            </div>
-          )}
+        <div className="space-y-2.5">
+          <button
+            onClick={() => handleSendMessage('whatsapp')}
+            disabled={isDisabled}
+            className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
+          >
+            <FaWhatsapp className="text-base" />
+            Send via WhatsApp
+          </button>
 
-          <div className="mb-5">
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Message
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none h-28 text-sm"
-              placeholder="Type your message here..."
-            />
-            <div className="text-xs text-slate-500 mt-1.5">
-              {message.length} characters
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <motion.button
-              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
-              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
-              onClick={() => handleSendMessage('whatsapp')}
-              disabled={isDisabled}
-              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
-                ${isDisabled ? 'bg-emerald-300 border-emerald-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 border-emerald-600'}`}
-            >
-              <FaWhatsapp className="text-base" />
-              Send via WhatsApp
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: isDisabled ? 1 : 1.01 }}
-              whileTap={{ scale: isDisabled ? 1 : 0.99 }}
-              onClick={() => handleSendMessage('sms')}
-              disabled={isDisabled}
-              className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
-                ${isDisabled ? 'bg-blue-300 border-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 border-blue-600'}`}
-            >
-              <FaComment className="text-base" />
-              Send as SMS
-            </motion.button>
-          </div>
+          <button
+            onClick={() => handleSendMessage('sms')}
+            disabled={isDisabled}
+            className={`w-full py-3 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2.5 border 
+              ${isDisabled ? 'bg-blue-300 border-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 border-blue-600'}`}
+          >
+            <FaComment className="text-base" />
+            Send as SMS
+          </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </ModalWrapper>
   );
 };
 

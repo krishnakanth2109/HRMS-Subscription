@@ -1,4 +1,5 @@
 import { useState, useContext, useEffect, useMemo } from "react";
+import ModalWrapper from "../components/ModalWrapper";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
@@ -584,112 +585,113 @@ const Login = () => {
       </div>
 
       {/* ==================== SIGNUP MODAL (DYNAMIC PLANS) ==================== */}
-      {showSignup && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-3 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl sm:rounded-3xl lg:rounded-[2rem] p-5 sm:p-6 lg:p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto shadow-2xl animate-scaleIn">
-            <button 
-              onClick={() => setShowSignup(false)} 
-              className="absolute top-4 sm:top-6 right-4 sm:right-6 text-gray-400 hover:text-black transition-colors"
-            >
-              <FaTimes size={18} sm:size={20} />
-            </button>
+      <ModalWrapper
+        isOpen={showSignup}
+        onClose={() => setShowSignup(false)}
+        backdropClass="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-3 sm:p-4 animate-fadeIn"
+        containerClass="bg-white rounded-2xl sm:rounded-3xl lg:rounded-[2rem] p-5 sm:p-6 lg:p-8 w-full max-w-md relative max-h-[90vh] overflow-y-auto shadow-2xl animate-scaleIn"
+      >
+        <button 
+          onClick={() => setShowSignup(false)} 
+          className="absolute top-4 sm:top-6 right-4 sm:right-6 text-gray-400 hover:text-black transition-colors"
+        >
+          <FaTimes size={18} sm:size={20} />
+        </button>
 
-            <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900 tracking-tight">Register Admin</h3>
+        <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-gray-900 tracking-tight">Register Admin</h3>
 
-            {signupError && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-xs font-medium border border-red-100">
-                {signupError}
-              </div>
-            )}
-
-            <h4 className="font-bold mb-2 sm:mb-3 text-[9px] sm:text-[10px] uppercase tracking-widest text-gray-400 ml-1">
-              Choose Subscription
-            </h4>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
-              {fetchedPlans.length > 0 ? (
-    fetchedPlans
-  .filter((plan) => plan.planName.toLowerCase() !== "owner")
-  .map((plan) => (
-                  <button
-                    key={plan._id}
-                    type="button"
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`border-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all text-left transform hover:scale-[1.02] ${
-                      selectedPlan?._id === plan._id
-                        ? "border-purple-600 bg-purple-50 ring-2 ring-purple-100"
-                        : "border-gray-100 hover:border-purple-200"
-                    }`}
-                  >
-                    <div className="font-bold text-gray-900 capitalize text-sm sm:text-base">{plan.planName}</div>
-                    <div className="text-[9px] sm:text-[10px] font-black text-purple-600 mt-1 uppercase">
-                      {Number(plan.price) === 0 ? "Free Access" : `₹${plan.price}`}
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="col-span-2 text-center text-xs text-gray-400 py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto mb-2"></div>
-                  Loading plans...
-                </div>
-              )}
-            </div>
-
-            <form onSubmit={handleAdminRegister} className="space-y-3 sm:space-y-4">
-              <input
-                placeholder="Full Name"
-                pattern="^[A-Za-z\s]+$"
-                title="Only alphabets allowed"
-                className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
-                onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
-                required
-              />
-              <input
-                type="email"
-                placeholder="Email Address"
-                pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
-                title="Enter valid Gmail address"
-                className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
-                onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
-                required
-              />
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create Password"
-                  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
-                  title="Minimum 8 characters with uppercase, lowercase, number and symbol"
-                  className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 pr-10 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
-                  onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-purple-600"
-                >
-                  {showPassword ? <FaEyeSlash size={16} sm:size={18} /> : <FaEye size={16} sm:size={18} />}
-                </button>
-              </div>
-              
-              <input
-                placeholder="Phone"
-                pattern="[0-9]{10}"
-                title="Enter 10 digit phone number"
-                className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
-                onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
-              />
-
-              <button
-                type="submit"
-                disabled={signupLoading}
-                className="w-full bg-purple-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold mt-4 sm:mt-6 hover:bg-purple-700 shadow-lg transition-all disabled:opacity-50 transform hover:scale-[1.02] text-sm"
-              >
-                {signupLoading ? "Processing..." : Number(selectedPlan?.price) === 0 ? "Create Free Account" : "Proceed to Payment"}
-              </button>
-            </form>
+        {signupError && (
+          <div className="bg-red-50 text-red-600 p-3 rounded-xl mb-4 text-xs font-medium border border-red-100">
+            {signupError}
           </div>
+        )}
+
+        <h4 className="font-bold mb-2 sm:mb-3 text-[9px] sm:text-[10px] uppercase tracking-widest text-gray-400 ml-1">
+          Choose Subscription
+        </h4>
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-6">
+          {fetchedPlans.length > 0 ? (
+            fetchedPlans
+              .filter((plan) => plan.planName.toLowerCase() !== "owner")
+              .map((plan) => (
+                <button
+                  key={plan._id}
+                  type="button"
+                  onClick={() => setSelectedPlan(plan)}
+                  className={`border-2 p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all text-left transform hover:scale-[1.02] ${
+                    selectedPlan?._id === plan._id
+                      ? "border-purple-600 bg-purple-50 ring-2 ring-purple-100"
+                      : "border-gray-100 hover:border-purple-200"
+                  }`}
+                >
+                  <div className="font-bold text-gray-900 capitalize text-sm sm:text-base">{plan.planName}</div>
+                  <div className="text-[9px] sm:text-[10px] font-black text-purple-600 mt-1 uppercase">
+                    {Number(plan.price) === 0 ? "Free Access" : `₹${plan.price}`}
+                  </div>
+                </button>
+              ))
+          ) : (
+            <div className="col-span-2 text-center text-xs text-gray-400 py-4">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500 mx-auto mb-2"></div>
+              Loading plans...
+            </div>
+          )}
         </div>
-      )}
+
+        <form onSubmit={handleAdminRegister} className="space-y-3 sm:space-y-4">
+          <input
+            placeholder="Full Name"
+            pattern="^[A-Za-z\s]+$"
+            title="Only alphabets allowed"
+            className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
+            onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email Address"
+            pattern="^[a-zA-Z0-9._%+-]+@gmail\.com$"
+            title="Enter valid Gmail address"
+            className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
+            onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
+            required
+          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Create Password"
+              pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$"
+              title="Minimum 8 characters with uppercase, lowercase, number and symbol"
+              className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 pr-10 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
+              onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-purple-600"
+            >
+              {showPassword ? <FaEyeSlash size={16} sm:size={18} /> : <FaEye size={16} sm:size={18} />}
+            </button>
+          </div>
+          
+          <input
+            placeholder="Phone"
+            pattern="[0-9]{10}"
+            title="Enter 10 digit phone number"
+            className="w-full bg-gray-50 border border-gray-200 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl outline-none transition-all focus:border-purple-400 text-sm"
+            onChange={(e) => setSignupForm({ ...signupForm, phone: e.target.value })}
+          />
+
+          <button
+            type="submit"
+            disabled={signupLoading}
+            className="w-full bg-purple-600 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold mt-4 sm:mt-6 hover:bg-purple-700 shadow-lg transition-all disabled:opacity-50 transform hover:scale-[1.02] text-sm"
+          >
+            {signupLoading ? "Processing..." : Number(selectedPlan?.price) === 0 ? "Create Free Account" : "Proceed to Payment"}
+          </button>
+        </form>
+      </ModalWrapper>
 
       {/* ==================== SUBSCRIPTION EXPIRED FULL-PAGE MODAL ==================== */}
       {showExpiredModal && expiredAdminDetails && (

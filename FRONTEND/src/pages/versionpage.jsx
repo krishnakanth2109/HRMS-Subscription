@@ -33,17 +33,17 @@ const updates = [
       }
     ]
   },
-  {
-    date: "April 24, 2026",
-    version: "v5.1.0",
-    items: [
-      {
-        type: "fixed",
-        title: "Onboarding Form Bug",
-        desc: "Fixed onboarding Form submission. i.e. If come back from after submitted form then it will not show the form again and directly show the next step."
-      }
-    ]
-  },
+  // {
+  //   date: "April 24, 2026",
+  //   version: "v5.1.0",
+  //   items: [
+  //     {
+  //       type: "fixed",
+  //       title: "Onboarding Form Bug",
+  //       desc: "Fixed onboarding Form submission. i.e. If come back from after submitted form then it will not show the form again and directly show the next step."
+  //     }
+  //   ]
+  // },
 
 ];
 

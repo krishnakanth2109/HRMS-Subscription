@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  IndianRupee,
   X
 } from "lucide-react";
 
@@ -44,7 +45,7 @@ const NAV_SECTIONS = [
   {
     title: "Resources",
     links: [
-      { to: "/employee/payslip", label: "Pay-Slip", icon: Receipt },
+      { to: "/employee/payslip", label: "Pay-Slip", icon: IndianRupee },
       { to: "/employee/chatting", label: "Connect", icon: Users },
       { to: "/employee/daily-work-tracker", label: "Work Tracker", icon: ClipboardList },
     ]
@@ -62,6 +63,8 @@ const NAV_SECTIONS = [
 const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
+  const sidebarRef = useRef(null);
   const { user } = useContext(AuthContext);
   const [unreadCount, setUnreadCount] = useState(0);
   const lastCountRef = useRef(0);
@@ -127,8 +130,21 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
       setMobileOpen(false);
     } else {
       setCollapsed(true);
+      setIsPinned(false);
     }
   }, [location.pathname, isMobile, setMobileOpen]);
+
+  useEffect(() => {
+    if (isMobile) return;
+    const handleClickOutside = (event) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+        setIsPinned(false);
+        setCollapsed(true);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [isMobile]);
 
   const sidebarClasses = `
     h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50
@@ -144,10 +160,12 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
       )}
 
       <aside 
+        ref={sidebarRef}
         className={sidebarClasses}
         onClick={() => {
-          if (collapsed && !isMobile) {
+          if (!isMobile) {
             setCollapsed(false);
+            setIsPinned(true);
           }
         }}
         onMouseEnter={() => {
@@ -156,7 +174,7 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
           }
         }}
         onMouseLeave={() => {
-          if (!isMobile) {
+          if (!isMobile && !isPinned) {
             setCollapsed(true);
           }
         }}
@@ -239,7 +257,9 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setCollapsed(!collapsed);
+                const nextCollapsed = !collapsed;
+                setCollapsed(nextCollapsed);
+                setIsPinned(!nextCollapsed);
               }}
               className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all mb-2"
             >

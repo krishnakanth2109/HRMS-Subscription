@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ModalWrapper from "../components/ModalWrapper";
 import Swal from "sweetalert2";
 import {
   Plus, Bug, Loader2, X, Upload, Trash2,
@@ -154,8 +155,12 @@ function ReportModal({ onClose, onSuccess, adminInfo }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 transition-all">
-      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <ModalWrapper
+      isOpen={true}
+      onClose={onClose}
+      backdropClass="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 transition-all"
+      containerClass="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+    >
         <div className="flex items-center justify-between px-8 py-6 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-orange-100 rounded-2xl text-orange-500"><Bug size={24} /></div>
@@ -201,8 +206,7 @@ function ReportModal({ onClose, onSuccess, adminInfo }) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 }
 

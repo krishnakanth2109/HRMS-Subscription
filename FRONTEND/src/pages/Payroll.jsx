@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Swal from 'sweetalert2';
-// ✅ FIX: Imported your custom 'api' instance instead of raw axios
+import ModalWrapper from '../components/ModalWrapper';
 import api from '../api';
 import {
   getLeaveRequests,
@@ -368,21 +368,20 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 animate-fadeIn">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">⚙️ Payroll Rules</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
+    <ModalWrapper isOpen={isOpen} onClose={onClose}>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><span>⚙️</span> Payroll Rules</h2>
+        <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition flex items-center justify-center font-bold text-sm">✕</button>
+      </div>
 
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+      <div className="space-y-4 overflow-y-auto pr-2 flex-1">
+          <div className="bg-green-50 p-3 rounded-lg border border-green-100">
             <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-blue-800 text-sm uppercase">Earnings Structure</h4>
+              <h4 className="font-bold text-green-800 text-sm uppercase">Earnings Structure</h4>
               <button
                 type="button"
                 onClick={handleAddCustomField}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
               >
                 ➕ Add Field
               </button>
@@ -418,14 +417,14 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
               {rules.customFields && rules.customFields.map((cf, idx) => {
                 if (cf.isEditing) {
                   return (
-                    <div key={idx} className="border border-blue-200 p-3 rounded-lg bg-blue-50/50 relative group col-span-2 shadow-sm">
+                    <div key={idx} className="border border-green-200 p-3 rounded-lg bg-green-50/50 relative group col-span-2 shadow-sm">
                       <div className="mb-2">
                         <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Field Name</label>
                         <input
                           type="text"
                           value={cf.name}
                           onChange={(e) => handleUpdateCustomFieldName(idx, e.target.value)}
-                          className="w-full border-b border-gray-300 focus:border-blue-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
+                          className="w-full border-b border-gray-300 focus:border-green-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
                           placeholder="e.g. Food Coupons"
                         />
                       </div>
@@ -498,7 +497,7 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
                       <button
                         type="button"
                         onClick={() => handleEditCustomField(idx)}
-                        className="text-blue-500 hover:text-blue-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                        className="text-green-600 hover:text-green-800 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
                         title="Edit Configuration"
                       >
                         ✏️
@@ -819,8 +818,7 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
             <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold">Cancel</button>
           </div>
         </div>
-      </div>
-    </div>
+      </ModalWrapper>
   );
 };
 

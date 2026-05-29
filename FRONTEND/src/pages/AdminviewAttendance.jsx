@@ -6,6 +6,7 @@ import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } 
 import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaExchangeAlt, FaCheck, FaHome, FaList, FaLayerGroup, FaChevronDown, FaChevronUp, FaInfoCircle, FaCoffee, FaSpinner } from "react-icons/fa";
 import { toBlob } from 'html-to-image';
 import { io } from "socket.io-client";
+import ModalWrapper from "../components/ModalWrapper";
 
 const SOCKET_URL =
   import.meta.env.MODE === "production"
@@ -55,46 +56,48 @@ const LiveTimer = ({ startTime }) => {
 // MODALS & COMPONENTS
 // ==========================================
 const AttendanceComparisonModal = ({ isOpen, onClose, selectedStats, employeeImages, startDate, endDate }) => {
-  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
-          <div><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3"><FaExchangeAlt className="text-blue-600" /> Attendance Comparison</h2><p className="text-gray-500 font-medium text-sm mt-1">{formatDateDMY(startDate)} to {formatDateDMY(endDate)}</p></div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={20} /></button>
-        </div>
-        <div className="flex-1 overflow-auto p-6 bg-gray-50/50">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {selectedStats.map(emp => (
-              <div key={emp.employeeId} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                <div className="p-5 border-b border-gray-100 bg-white flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex-shrink-0">
-                    {employeeImages[emp.employeeId] ? (<img src={employeeImages[emp.employeeId]} className="w-full h-full object-cover" alt="" />) : (<div className="w-full h-full flex items-center justify-center font-bold text-2xl text-gray-400">{emp.employeeName.charAt(0)}</div>)}
-                  </div>
-                  <div><h4 className="font-bold text-lg text-gray-800 leading-tight">{emp.employeeName}</h4><p className="text-sm font-mono text-gray-500 mt-0.5">{emp.employeeId}</p></div>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/60 z-[100] flex justify-center items-center p-4 backdrop-blur-sm animate-in fade-in duration-300"
+      containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleIn"
+    >
+      <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+        <div><h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3"><FaExchangeAlt className="text-blue-600" /> Attendance Comparison</h2><p className="text-gray-500 font-medium text-sm mt-1">{formatDateDMY(startDate)} to {formatDateDMY(endDate)}</p></div>
+        <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={20} /></button>
+      </div>
+      <div className="flex-1 overflow-auto p-6 bg-gray-50/50">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {selectedStats.map(emp => (
+            <div key={emp.employeeId} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div className="p-5 border-b border-gray-100 bg-white flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex-shrink-0">
+                  {employeeImages[emp.employeeId] ? (<img src={employeeImages[emp.employeeId]} className="w-full h-full object-cover" alt="" />) : (<div className="w-full h-full flex items-center justify-center font-bold text-2xl text-gray-400">{emp.employeeName.charAt(0)}</div>)}
                 </div>
-                <div className="p-5 space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-xl text-center"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Present Days</p><p className="text-2xl font-black text-blue-700 mt-1">{emp.presentDays}</p></div>
-                    <div className="bg-red-50/50 border border-red-100 p-3 rounded-xl text-center"><p className="text-[10px] font-bold text-red-600 uppercase tracking-wider">Absent Days</p><p className="text-2xl font-black text-red-700 mt-1">{emp.absentDays}</p></div>
-                  </div>
-                  <div className="space-y-1 mt-4">
-                    <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">On Time</span><span className="font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">{emp.onTimeDays}</span></div>
-                    <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">Late Arrivals</span><span className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">{emp.lateDays}</span></div>
-                    <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">Full Days</span><span className="font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md">{emp.fullDays}</span></div>
-                    <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">Half Days</span><span className="font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md">{emp.halfDays}</span></div>
-                    <div className="flex justify-between items-center py-2.5"><span className="text-sm font-medium text-gray-500">Approved OT</span><span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{emp.approvedOT}</span></div>
-                  </div>
+                <div><h4 className="font-bold text-lg text-gray-800 leading-tight">{emp.employeeName}</h4><p className="text-sm font-mono text-gray-500 mt-0.5">{emp.employeeId}</p></div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-xl text-center"><p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Present Days</p><p className="text-2xl font-black text-blue-700 mt-1">{emp.presentDays}</p></div>
+                  <div className="bg-red-50/50 border border-red-100 p-3 rounded-xl text-center"><p className="text-[10px] font-bold text-red-600 uppercase tracking-wider">Absent Days</p><p className="text-2xl font-black text-red-700 mt-1">{emp.absentDays}</p></div>
+                </div>
+                <div className="space-y-1 mt-4">
+                  <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">On Time</span><span className="font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md">{emp.onTimeDays}</span></div>
+                  <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">Late Arrivals</span><span className="font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">{emp.lateDays}</span></div>
+                  <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">Full Days</span><span className="font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md">{emp.fullDays}</span></div>
+                  <div className="flex justify-between items-center py-2.5 border-b border-gray-50"><span className="text-sm font-medium text-gray-500">Half Days</span><span className="font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md">{emp.halfDays}</span></div>
+                  <div className="flex justify-between items-center py-2.5"><span className="text-sm font-medium text-gray-500">Approved OT</span><span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{emp.approvedOT}</span></div>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-          <button onClick={onClose} className="px-6 py-2.5 bg-gray-800 text-white font-semibold text-sm rounded-xl hover:bg-gray-900 transition-colors shadow-sm">Close Comparison</button>
+            </div>
+          ))}
         </div>
       </div>
-    </div>
+      <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+        <button onClick={onClose} className="px-6 py-2.5 bg-gray-800 text-white font-semibold text-sm rounded-xl hover:bg-gray-900 transition-colors shadow-sm">Close Comparison</button>
+      </div>
+    </ModalWrapper>
   );
 };
 
@@ -136,94 +139,99 @@ const AdminPunchOutModal = ({ isOpen, onClose, employee, onPunchOut }) => {
     finally { setLoading(false); }
   };
 
-  if (!isOpen || !employee) return null;
+  if (!employee) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
-          <div><h3 className="text-xl font-bold text-gray-800">Admin Punch Out</h3><p className="text-sm text-gray-500 font-medium mt-0.5">{employee.employeeName}</p></div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={18} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl space-y-3">
-            <div className="flex justify-between items-center text-sm"><span className="text-blue-800 font-medium">Record Date:</span><span className="text-blue-900 font-bold bg-blue-100/50 px-2 py-1 rounded-md">{formatDateDMY(employee.date)}</span></div>
-            <div className="flex justify-between items-center text-sm"><span className="text-blue-800 font-medium">Punch In Time:</span><span className="text-green-700 font-bold bg-green-50 px-2 py-1 rounded-md">{new Date(employee.punchIn).toLocaleString()}</span></div>
-          </div>
-          <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl">
-            <div className="flex items-center gap-2 mb-2"><FaMapMarkerAlt className="text-blue-600" /><span className="text-sm font-bold text-gray-700">Location Status</span></div>
-            {locationLoading ? <p className="text-sm font-medium text-gray-500 animate-pulse">Getting location...</p> : locationError ? <p className="text-sm font-medium text-red-600">{locationError}</p> : <p className="text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-lg inline-block">✓ Location acquired</p>}
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-bold text-gray-700">Select Punch Out Time <span className="text-red-500">*</span></label>
-            <input type="datetime-local" value={punchOutDateTime} onChange={(e) => setPunchOutDateTime(e.target.value)} max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium text-gray-700" />
-          </div>
-          <div className="flex gap-3 pt-4">
-            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors" disabled={loading}>Cancel</button>
-            <button type="submit" disabled={loading || locationLoading || !!locationError} className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-blue-300 transition-colors shadow-sm">{loading ? 'Processing...' : 'Confirm Punch Out'}</button>
-          </div>
-        </form>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200"
+      containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-scaleIn"
+    >
+      <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-white">
+        <div><h3 className="text-xl font-bold text-gray-800">Admin Punch Out</h3><p className="text-sm text-gray-500 font-medium mt-0.5">{employee.employeeName}</p></div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={18} /></button>
       </div>
-    </div>
+      <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <div className="bg-blue-50/50 border border-blue-100 p-4 rounded-xl space-y-3">
+          <div className="flex justify-between items-center text-sm"><span className="text-blue-800 font-medium">Record Date:</span><span className="text-blue-900 font-bold bg-blue-100/50 px-2 py-1 rounded-md">{formatDateDMY(employee.date)}</span></div>
+          <div className="flex justify-between items-center text-sm"><span className="text-blue-800 font-medium">Punch In Time:</span><span className="text-green-700 font-bold bg-green-50 px-2 py-1 rounded-md">{new Date(employee.punchIn).toLocaleString()}</span></div>
+        </div>
+        <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl">
+          <div className="flex items-center gap-2 mb-2"><FaMapMarkerAlt className="text-blue-600" /><span className="text-sm font-bold text-gray-700">Location Status</span></div>
+          {locationLoading ? <p className="text-sm font-medium text-gray-500 animate-pulse">Getting location...</p> : locationError ? <p className="text-sm font-medium text-red-600">{locationError}</p> : <p className="text-sm font-medium text-green-600 bg-green-50 px-3 py-1.5 rounded-lg inline-block">✓ Location acquired</p>}
+        </div>
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-gray-700">Select Punch Out Time <span className="text-red-500">*</span></label>
+          <input type="datetime-local" value={punchOutDateTime} onChange={(e) => setPunchOutDateTime(e.target.value)} max={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)} required className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-medium text-gray-700" />
+        </div>
+        <div className="flex gap-3 pt-4">
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors" disabled={loading}>Cancel</button>
+          <button type="submit" disabled={loading || locationLoading || !!locationError} className="flex-1 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:bg-blue-300 transition-colors shadow-sm">{loading ? 'Processing...' : 'Confirm Punch Out'}</button>
+        </div>
+      </form>
+    </ModalWrapper>
   );
 };
 
 const PunchOutRequestsModal = ({ isOpen, onClose, requests, loading, onAction, onDelete, actionLoading }) => {
-  if (!isOpen) return null;
   const pending = (requests || []).filter(req => req.status === 'Pending');
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-[90] flex justify-center items-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-800">Punch Out Requests</h3>
-            <p className="text-sm text-gray-500 mt-1">Review pending punch out requests and approve, reject, or delete them.</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={20} /></button>
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] flex justify-center items-center p-4 animate-in fade-in duration-200"
+      containerClass="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden animate-scaleIn"
+    >
+      <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-800">Punch Out Requests</h3>
+          <p className="text-sm text-gray-500 mt-1">Review pending punch out requests and approve, reject, or delete them.</p>
         </div>
-        <div className="p-5 overflow-y-auto max-h-[65vh] bg-gray-50">
-          {loading ? (
-            <div className="text-center py-20 text-gray-500 font-medium">Loading requests...</div>
-          ) : pending.length === 0 ? (
-            <div className="text-center py-20 text-gray-500 font-medium">No pending punch out requests.</div>
-          ) : (
-            <div className="space-y-4">
-              {pending.map((req) => (
-                <div key={req._id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                      <div className="text-sm text-gray-500">Employee</div>
-                      <div className="font-semibold text-gray-900">{req.employeeName || req.employeeId}</div>
-                    </div>
-                    <div className="text-sm text-gray-500">Requested Date</div>
-                    <div className="font-semibold text-gray-900">{formatDateDMY(req.originalDate)}</div>
-                    <div className="text-sm text-gray-500">Requested Punch Out</div>
-                    <div className="font-semibold text-gray-900">{req.requestedPunchOut ? new Date(req.requestedPunchOut).toLocaleString() : 'N/A'}</div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={20} /></button>
+      </div>
+      <div className="p-5 overflow-y-auto max-h-[65vh] bg-gray-50">
+        {loading ? (
+          <div className="text-center py-20 text-gray-500 font-medium">Loading requests...</div>
+        ) : pending.length === 0 ? (
+          <div className="text-center py-20 text-gray-500 font-medium">No pending punch out requests.</div>
+        ) : (
+          <div className="space-y-4">
+            {pending.map((req) => (
+              <div key={req._id} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-gray-500">Employee</div>
+                    <div className="font-semibold text-gray-900">{req.employeeName || req.employeeId}</div>
                   </div>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <div className="text-xs uppercase tracking-wider text-gray-400">Reason</div>
-                      <div className="mt-2 text-sm text-gray-700">{req.reason || 'No reason provided.'}</div>
-                    </div>
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <div className="text-xs uppercase tracking-wider text-gray-400">Requested On</div>
-                      <div className="mt-2 text-sm text-gray-700">{req.requestDate ? new Date(req.requestDate).toLocaleString() : 'N/A'}</div>
-                    </div>
+                  <div className="text-sm text-gray-500">Requested Date</div>
+                  <div className="font-semibold text-gray-900">{formatDateDMY(req.originalDate)}</div>
+                  <div className="text-sm text-gray-500">Requested Punch Out</div>
+                  <div className="font-semibold text-gray-900">{req.requestedPunchOut ? new Date(req.requestedPunchOut).toLocaleString() : 'N/A'}</div>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <div className="text-xs uppercase tracking-wider text-gray-400">Reason</div>
+                    <div className="mt-2 text-sm text-gray-700">{req.reason || 'No reason provided.'}</div>
                   </div>
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <button type="button" onClick={() => onAction(req._id, 'Approved')} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition-colors disabled:opacity-50">Approve</button>
-                    <button type="button" onClick={() => onAction(req._id, 'Rejected')} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition-colors disabled:opacity-50">Reject</button>
-                    <button type="button" onClick={() => onDelete(req._id)} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50">Delete</button>
+                  <div className="rounded-2xl bg-gray-50 p-4">
+                    <div className="text-xs uppercase tracking-wider text-gray-400">Requested On</div>
+                    <div className="mt-2 text-sm text-gray-700">{req.requestDate ? new Date(req.requestDate).toLocaleString() : 'N/A'}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
-          <button onClick={onClose} className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-semibold hover:bg-gray-900 transition-colors">Close</button>
-        </div>
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <button type="button" onClick={() => onAction(req._id, 'Approved')} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition-colors disabled:opacity-50">Approve</button>
+                  <button type="button" onClick={() => onAction(req._id, 'Rejected')} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-orange-500 text-white text-sm font-bold hover:bg-orange-600 transition-colors disabled:opacity-50">Reject</button>
+                  <button type="button" onClick={() => onDelete(req._id)} disabled={actionLoading} className="px-4 py-2 rounded-2xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50">Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
+      <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+        <button onClick={onClose} className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-semibold hover:bg-gray-900 transition-colors">Close</button>
+      </div>
+    </ModalWrapper>
   );
 };
 
@@ -332,9 +340,13 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
   const profilePic = employeeImages ? employeeImages[employeeData.employeeId] : null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white shrink-0 z-20">
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200"
+      containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden animate-scaleIn"
+    >
+      <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white shrink-0 z-20">
           <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold sm:text-xl overflow-hidden bg-gray-50 shrink-0">
               {profilePic ? <img src={profilePic} alt={employeeData.name} className="w-full h-full object-cover" /> : (employeeData.name || "U").charAt(0)}
@@ -528,8 +540,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 };
 
@@ -544,9 +555,13 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
   const getBreakStartTime = (emp) => { if (!emp.breakSessions || emp.breakSessions.length === 0) return null; const openBreak = [...emp.breakSessions].reverse().find(b => !b.to); return openBreak ? openBreak.from : emp.breakSessions[emp.breakSessions.length - 1]?.from; };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200"
+      containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden animate-scaleIn"
+    >
+      <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
           <div>
             <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">{isOnBreakModal && <FaCoffee className="text-amber-500" />}{title}</h3>
             {!loading && <p className="text-sm text-gray-500 font-medium mt-0.5">{employees.length} Employees</p>}
@@ -672,8 +687,7 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
             </div>
           ) : <p className="text-center text-slate-500 py-8">No employees in this category.</p>}
         </div>
-      </div>
-    </div>
+    </ModalWrapper>
   );
 };
 

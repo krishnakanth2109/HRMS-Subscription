@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ModalWrapper from "../components/ModalWrapper";
 import Swal from "sweetalert2";
+
 import {
   FaEdit,
   FaEnvelope,
@@ -562,87 +564,248 @@ const SupportAdminManagement = () => {
         </div>
       </div>
 
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setIsCreateModalOpen(false)}
-              className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
-            >
-              <FaTimes size={20} />
-            </button>
-            <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
-              <FaUser className="text-purple-600" /> Create New {ADMINISTRATION_USER_LABEL}
-            </h2>
+      <ModalWrapper isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} containerClass="relative max-h-[90vh] w-full max-w-md overflow-hidden rounded-[2rem] bg-white p-8 shadow-2xl flex flex-col">
+        <button
+          type="button"
+          onClick={() => setIsCreateModalOpen(false)}
+          className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
+        >
+          <FaTimes size={20} />
+        </button>
+        <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <FaUser className="text-purple-600" /> Create New {ADMINISTRATION_USER_LABEL}
+        </h2>
 
-            <form onSubmit={handleCreateSupportAdmin} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{ADMINISTRATION_LABEL} ID</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminForm.supportAdminId}
-                  onChange={(event) => setNewAdminForm({ ...newAdminForm, supportAdminId: event.target.value })}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                  placeholder="SA-001"
-                />
-              </div>
+        <form onSubmit={handleCreateSupportAdmin} className="support-admin-form-scrollbar max-h-[calc(90vh-9rem)] space-y-4 overflow-y-auto rounded-2xl bg-purple-50/30 p-4 pr-3">
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{ADMINISTRATION_LABEL} ID</label>
+            <input
+              type="text"
+              required
+              value={newAdminForm.supportAdminId}
+              onChange={(event) => setNewAdminForm({ ...newAdminForm, supportAdminId: event.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+              placeholder="SA-001"
+            />
+          </div>
 
-              <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Position</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminForm.positionName}
-                  onChange={(event) => setNewAdminForm({ ...newAdminForm, positionName: event.target.value })}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                  placeholder="Admin, Manager"
-                />
-              </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Position</label>
+            <input
+              type="text"
+              required
+              value={newAdminForm.positionName}
+              onChange={(event) => setNewAdminForm({ ...newAdminForm, positionName: event.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+              placeholder="Admin, Manager"
+            />
+          </div>
 
-              <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newAdminForm.name}
-                  onChange={(event) => setNewAdminForm({ ...newAdminForm, name: event.target.value })}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                  placeholder="John Doe"
-                />
-              </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
+            <input
+              type="text"
+              required
+              value={newAdminForm.name}
+              onChange={(event) => setNewAdminForm({ ...newAdminForm, name: event.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+              placeholder="John Doe"
+            />
+          </div>
 
-              <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Username (Email)</label>
-                <input
-                  type="email"
-                  required
-                  value={newAdminForm.email}
-                  onChange={(event) => setNewAdminForm({ ...newAdminForm, email: event.target.value })}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                  placeholder="john@example.com"
-                />
-              </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Username (Email)</label>
+            <input
+              type="email"
+              required
+              value={newAdminForm.email}
+              onChange={(event) => setNewAdminForm({ ...newAdminForm, email: event.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+              placeholder="john@example.com"
+            />
+          </div>
 
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={newAdminForm.password}
+                onChange={(event) => setNewAdminForm({ ...newAdminForm, password: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+                placeholder="Min. 8 characters"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Confirm Password</label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={newAdminForm.confirmPassword}
+                onChange={(event) => setNewAdminForm({ ...newAdminForm, confirmPassword: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+                placeholder="Confirm Password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFeatureModalMode("create");
+              setIsFeatureModalOpen(true);
+            }}
+            className="flex w-full justify-center items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-3 font-bold text-purple-700 transition hover:bg-purple-100"
+          >
+            <FaShieldAlt size={14} /> Plan Features
+          </button>
+
+          <button
+            type="submit"
+            disabled={createAdminLoading}
+            className="flex w-full justify-center rounded-xl bg-purple-600 py-3 font-bold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700 disabled:opacity-70"
+          >
+            {createAdminLoading ? <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" /> : `Create ${ADMINISTRATION_LABEL}`}
+          </button>
+        </form>
+      </ModalWrapper>
+
+      <ModalWrapper isOpen={!!editingAdmin} onClose={closeEditModal} containerClass="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl flex flex-col">
+        <button
+          type="button"
+          onClick={closeEditModal}
+          className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
+        >
+          <FaTimes size={20} />
+        </button>
+        <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <FaEdit className="text-blue-600" /> Edit {ADMINISTRATION_USER_LABEL}
+        </h2>
+
+        <form onSubmit={handleUpdateSupportAdmin} className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{ADMINISTRATION_LABEL} ID</label>
+              <input
+                type="text"
+                required
+                value={editAdminForm.supportAdminId}
+                onChange={(event) => setEditAdminForm({ ...editAdminForm, supportAdminId: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                placeholder="SA-001"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Position</label>
+              <input
+                type="text"
+                required
+                value={editAdminForm.positionName}
+                onChange={(event) => setEditAdminForm({ ...editAdminForm, positionName: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                placeholder="Admin, Manager"
+              />
+            </div>
+          </div>
+
+          <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
+              <input
+                type="text"
+                required
+                value={editAdminForm.name}
+                onChange={(event) => setEditAdminForm({ ...editAdminForm, name: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+              />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Username (Email)</label>
+            <input
+              type="email"
+              required
+              value={editAdminForm.email}
+              onChange={(event) => setEditAdminForm({ ...editAdminForm, email: event.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Phone</label>
+              <input
+                type="text"
+                value={editAdminForm.phone}
+                onChange={(event) => setEditAdminForm({ ...editAdminForm, phone: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                placeholder="Phone number"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Department</label>
+              <input
+                type="text"
+                value={editAdminForm.department}
+                onChange={(event) => setEditAdminForm({ ...editAdminForm, department: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                placeholder={ADMINISTRATION_LABEL}
+              />
+            </div>
+          </div>
+
+          <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+            <span className="text-sm font-black text-gray-700">Login Enabled</span>
+            <input
+              type="checkbox"
+              checked={editAdminForm.loginEnabled}
+              onChange={(event) => setEditAdminForm({ ...editAdminForm, loginEnabled: event.target.checked })}
+              className="h-5 w-5 accent-blue-600"
+            />
+          </label>
+
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-blue-600">Change Password</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">Leave password fields empty to keep the current password.</p>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Password</label>
+                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">New Password</label>
                 <div className="relative">
                   <input
-                    type={showPassword ? "text" : "password"}
-                    required
+                    type={showEditPassword ? "text" : "password"}
                     minLength={8}
-                    value={newAdminForm.password}
-                    onChange={(event) => setNewAdminForm({ ...newAdminForm, password: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                    placeholder="Min. 8 characters"
+                    value={editAdminForm.password}
+                    onChange={(event) => setEditAdminForm({ ...editAdminForm, password: event.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                    placeholder="Optional"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((current) => !current)}
+                    onClick={() => setShowEditPassword((current) => !current)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                    {showEditPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
               </div>
@@ -651,311 +814,138 @@ const SupportAdminManagement = () => {
                 <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Confirm Password</label>
                 <div className="relative">
                   <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    required
+                    type={showEditConfirmPassword ? "text" : "password"}
                     minLength={8}
-                    value={newAdminForm.confirmPassword}
-                    onChange={(event) => setNewAdminForm({ ...newAdminForm, confirmPassword: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                    placeholder="Confirm Password"
+                    value={editAdminForm.confirmPassword}
+                    onChange={(event) => setEditAdminForm({ ...editAdminForm, confirmPassword: event.target.value })}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+                    placeholder="Optional"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword((current) => !current)}
+                    onClick={() => setShowEditConfirmPassword((current) => !current)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                    {showEditConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setFeatureModalMode("create");
-                  setIsFeatureModalOpen(true);
-                }}
-                className="flex w-full justify-center items-center gap-2 rounded-xl border border-purple-200 bg-purple-50 py-3 font-bold text-purple-700 transition hover:bg-purple-100"
-              >
-                <FaShieldAlt size={14} /> Plan Features
-              </button>
-
-              <button
-                type="submit"
-                disabled={createAdminLoading}
-                className="flex w-full justify-center rounded-xl bg-purple-600 py-3 font-bold text-white shadow-lg shadow-purple-200 transition-all hover:bg-purple-700 disabled:opacity-70"
-              >
-                {createAdminLoading ? <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" /> : `Create ${ADMINISTRATION_LABEL}`}
-              </button>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
 
-      {editingAdmin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              setFeatureModalMode("edit");
+              setIsFeatureModalOpen(true);
+            }}
+            className="flex w-full justify-center items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-3 font-bold text-blue-700 transition hover:bg-blue-100 mb-4"
+          >
+            <FaShieldAlt size={14} /> Plan Features
+          </button>
+
+          <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={closeEditModal}
-              className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
+              className="flex-1 rounded-xl border border-gray-200 bg-white py-3 font-bold text-gray-600 transition hover:bg-gray-50"
             >
-              <FaTimes size={20} />
+              Cancel
             </button>
-            <h2 className="mb-6 flex items-center gap-2 text-2xl font-bold text-gray-900">
-              <FaEdit className="text-blue-600" /> Edit {ADMINISTRATION_USER_LABEL}
-            </h2>
-
-            <form onSubmit={handleUpdateSupportAdmin} className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">{ADMINISTRATION_LABEL} ID</label>
-                  <input
-                    type="text"
-                    required
-                    value={editAdminForm.supportAdminId}
-                    onChange={(event) => setEditAdminForm({ ...editAdminForm, supportAdminId: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                    placeholder="SA-001"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Position</label>
-                  <input
-                    type="text"
-                    required
-                    value={editAdminForm.positionName}
-                    onChange={(event) => setEditAdminForm({ ...editAdminForm, positionName: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                    placeholder="Admin, Manager"
-                  />
-                </div>
-              </div>
-
-              <div>
-                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={editAdminForm.name}
-                    onChange={(event) => setEditAdminForm({ ...editAdminForm, name: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                  />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Username (Email)</label>
-                <input
-                  type="email"
-                  required
-                  value={editAdminForm.email}
-                  onChange={(event) => setEditAdminForm({ ...editAdminForm, email: event.target.value })}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Phone</label>
-                  <input
-                    type="text"
-                    value={editAdminForm.phone}
-                    onChange={(event) => setEditAdminForm({ ...editAdminForm, phone: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                    placeholder="Phone number"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Department</label>
-                  <input
-                    type="text"
-                    value={editAdminForm.department}
-                    onChange={(event) => setEditAdminForm({ ...editAdminForm, department: event.target.value })}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                    placeholder={ADMINISTRATION_LABEL}
-                  />
-                </div>
-              </div>
-
-              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <span className="text-sm font-black text-gray-700">Login Enabled</span>
-                <input
-                  type="checkbox"
-                  checked={editAdminForm.loginEnabled}
-                  onChange={(event) => setEditAdminForm({ ...editAdminForm, loginEnabled: event.target.checked })}
-                  className="h-5 w-5 accent-blue-600"
-                />
-              </label>
-
-              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-                <p className="text-xs font-black uppercase tracking-widest text-blue-600">Change Password</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">Leave password fields empty to keep the current password.</p>
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">New Password</label>
-                    <div className="relative">
-                      <input
-                        type={showEditPassword ? "text" : "password"}
-                        minLength={8}
-                        value={editAdminForm.password}
-                        onChange={(event) => setEditAdminForm({ ...editAdminForm, password: event.target.value })}
-                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                        placeholder="Optional"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowEditPassword((current) => !current)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showEditPassword ? <FaEyeSlash /> : <FaEye />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Confirm Password</label>
-                    <div className="relative">
-                      <input
-                        type={showEditConfirmPassword ? "text" : "password"}
-                        minLength={8}
-                        value={editAdminForm.confirmPassword}
-                        onChange={(event) => setEditAdminForm({ ...editAdminForm, confirmPassword: event.target.value })}
-                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                        placeholder="Optional"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowEditConfirmPassword((current) => !current)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showEditConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setFeatureModalMode("edit");
-                  setIsFeatureModalOpen(true);
-                }}
-                className="flex w-full justify-center items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-3 font-bold text-blue-700 transition hover:bg-blue-100 mb-4"
-              >
-                <FaShieldAlt size={14} /> Plan Features
-              </button>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="flex-1 rounded-xl border border-gray-200 bg-white py-3 font-bold text-gray-600 transition hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={editAdminLoading}
-                  className="flex flex-1 justify-center rounded-xl bg-blue-600 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 disabled:opacity-70"
-                >
-                  {editAdminLoading ? <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" /> : "Save Changes"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {isFeatureModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl">
             <button
-              type="button"
-              onClick={() => setIsFeatureModalOpen(false)}
-              className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
+              type="submit"
+              disabled={editAdminLoading}
+              className="flex flex-1 justify-center rounded-xl bg-blue-600 py-3 font-bold text-white shadow-lg shadow-blue-100 transition-all hover:bg-blue-700 disabled:opacity-70"
             >
-              <FaTimes size={20} />
+              {editAdminLoading ? <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-white" /> : "Save Changes"}
             </button>
-            <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-gray-900">
-              <FaShieldAlt className={featureModalMode === "create" ? "text-purple-600" : "text-blue-600"} /> Plan Features
-            </h2>
-            <p className="mb-6 text-xs font-semibold text-slate-500">
-              Configure which sidebar pages this administration user can access.
-            </p>
-
-            <div className="mb-6 flex gap-3">
-              <button
-                type="button"
-                onClick={handleSelectAllFeatures}
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
-              >
-                Select All
-              </button>
-              <button
-                type="button"
-                onClick={handleClearAllFeatures}
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
-              >
-                Clear All
-              </button>
-            </div>
-
-            <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
-              {Object.entries(
-                ALL_SIDEBAR_FEATURES.reduce((acc, feature) => {
-                  if (!acc[feature.category]) acc[feature.category] = [];
-                  acc[feature.category].push(feature);
-                  return acc;
-                }, {})
-              ).map(([category, features]) => (
-                <div key={category} className="space-y-2">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1">
-                    {category}
-                  </h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    {features.map((feature) => {
-                      const isChecked = featureModalMode === "create"
-                        ? (newAdminForm.assignedFeatures || []).includes(feature.id)
-                        : (editAdminForm.assignedFeatures || []).includes(feature.id);
-                      return (
-                        <label
-                          key={feature.id}
-                          className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 transition hover:bg-slate-50"
-                        >
-                          <span className="text-sm font-bold text-slate-700">{feature.label}</span>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleToggleFeature(feature.id)}
-                            className={`h-5 w-5 rounded-lg ${featureModalMode === "create" ? "accent-purple-600" : "accent-blue-600"}`}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8">
-              <button
-                type="button"
-                onClick={() => setIsFeatureModalOpen(false)}
-                className={`w-full rounded-xl py-3 font-bold text-white shadow-lg transition-all ${
-                  featureModalMode === "create"
-                    ? "bg-purple-600 shadow-purple-200 hover:bg-purple-700"
-                    : "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
-                }`}
-              >
-                Done
-              </button>
-            </div>
           </div>
+        </form>
+      </ModalWrapper>
+
+      <ModalWrapper isOpen={isFeatureModalOpen} onClose={() => setIsFeatureModalOpen(false)} containerClass="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-8 shadow-2xl flex flex-col">
+        <button
+          type="button"
+          onClick={() => setIsFeatureModalOpen(false)}
+          className="absolute right-6 top-6 text-gray-400 transition-colors hover:text-gray-600"
+        >
+          <FaTimes size={20} />
+        </button>
+        <h2 className="mb-2 flex items-center gap-2 text-2xl font-bold text-gray-900">
+          <FaShieldAlt className={featureModalMode === "create" ? "text-purple-600" : "text-blue-600"} /> Plan Features
+        </h2>
+        <p className="mb-6 text-xs font-semibold text-slate-500">
+          Configure which sidebar pages this administration user can access.
+        </p>
+
+        <div className="mb-6 flex gap-3">
+          <button
+            type="button"
+            onClick={handleSelectAllFeatures}
+            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+          >
+            Select All
+          </button>
+          <button
+            type="button"
+            onClick={handleClearAllFeatures}
+            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100"
+          >
+            Clear All
+          </button>
         </div>
-      )}
+
+        <div className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
+          {Object.entries(
+            ALL_SIDEBAR_FEATURES.reduce((acc, feature) => {
+              if (!acc[feature.category]) acc[feature.category] = [];
+              acc[feature.category].push(feature);
+              return acc;
+            }, {})
+          ).map(([category, features]) => (
+            <div key={category} className="space-y-2">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b pb-1">
+                {category}
+              </h3>
+              <div className="grid grid-cols-1 gap-2">
+                {features.map((feature) => {
+                  const isChecked = featureModalMode === "create"
+                    ? (newAdminForm.assignedFeatures || []).includes(feature.id)
+                    : (editAdminForm.assignedFeatures || []).includes(feature.id);
+                  return (
+                    <label
+                      key={feature.id}
+                      className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3 transition hover:bg-slate-50"
+                    >
+                      <span className="text-sm font-bold text-slate-700">{feature.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleFeature(feature.id)}
+                        className={`h-5 w-5 rounded-lg ${featureModalMode === "create" ? "accent-purple-600" : "accent-blue-600"}`}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8">
+          <button
+            type="button"
+            onClick={() => setIsFeatureModalOpen(false)}
+            className={`w-full rounded-xl py-3 font-bold text-white shadow-lg transition-all ${
+              featureModalMode === "create"
+                ? "bg-purple-600 shadow-purple-200 hover:bg-purple-700"
+                : "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
+            }`}
+          >
+            Done
+          </button>
+        </div>
+      </ModalWrapper>
     </div>
   );
 };
