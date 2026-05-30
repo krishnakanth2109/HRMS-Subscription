@@ -1,8 +1,8 @@
-import express from "express";
-import { createCheckoutSession } from "../controllers/stripeController.js";
+// import express from "express";
+// import { createCheckoutSession } from "../controllers/stripeController.js";
 
-const router = express.Router();
+// const router = express.Router();
 
-router.post("/create-checkout-session", createCheckoutSession);
+// router.post("/create-checkout-session", createCheckoutSession);
 
-export default router;
+// export default router;

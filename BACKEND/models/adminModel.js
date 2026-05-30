@@ -44,6 +44,9 @@ const adminSchema = new mongoose.Schema(
     isPaid: { type: Boolean, default: false },
     planActivatedAt: { type: Date, default: null },
     planExpiresAt: { type: Date, default: null },
+    razorpayOrderId: { type: String, default: null },
+    razorpayPaymentId: { type: String, default: null },
+    lastPaymentAmount: { type: Number, default: 0 },
 
     /* ==================== STRIPE SUBSCRIPTION ==================== */
     stripeCustomerId: { type: String, default: null },

@@ -8,6 +8,11 @@ const planSettingSchema = new mongoose.Schema({
   },
   durationDays: { type: Number, default: 30 },
   price: { type: Number, default: 0 },
+  billingCycle: {
+    type: String,
+    enum: ["monthly", "quarterly", "halfYearly", "yearly"],
+    default: "monthly",
+  },
   maxUsers: { type: Number, default: null }, // Null means unlimited
   features: [{ type: String }],
 

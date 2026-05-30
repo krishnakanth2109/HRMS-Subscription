@@ -25,9 +25,23 @@ const getExpiryDate = async (planName) => {
     return farFuture;
   }
 
-  const days = setting ? setting.durationDays : 30;
   const expiryDate = new Date();
-  expiryDate.setDate(expiryDate.getDate() + days);
+  if (setting && setting.billingCycle) {
+    if (setting.billingCycle === "monthly") {
+      expiryDate.setMonth(expiryDate.getMonth() + 1);
+    } else if (setting.billingCycle === "quarterly") {
+      expiryDate.setMonth(expiryDate.getMonth() + 3);
+    } else if (setting.billingCycle === "halfYearly") {
+      expiryDate.setMonth(expiryDate.getMonth() + 6);
+    } else if (setting.billingCycle === "yearly") {
+      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+    } else {
+      expiryDate.setDate(expiryDate.getDate() + (setting.durationDays || 30));
+    }
+  } else {
+    const days = setting ? setting.durationDays : 30;
+    expiryDate.setDate(expiryDate.getDate() + days);
+  }
   return expiryDate;
 };
 
@@ -124,15 +138,17 @@ export const loginAdmin = async (req, res) => {
     const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
 
     if (!isUnlimitedPlan) {
-      /* === PLAN EXPIRY BLOCKER (only for non-owner plans) === */
+      /* === PLAN EXPIRY BLOCKER (with 7-day grace period) === */
       const now = new Date();
       const expiryDate = new Date(rootAdmin.planExpiresAt);
+      const gracePeriodEndDate = new Date(expiryDate);
+      gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 7);
 
-      if (rootAdmin.planExpiresAt && now > expiryDate) {
+      if (rootAdmin.planExpiresAt && now > gracePeriodEndDate) {
         const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
 
         return res.status(403).json({
-          message: "Your plan is expired. Please contact support team",
+          message: "Your plan has expired and the 7-day grace period has ended. Please pay your bill to restore access.",
           expired: true,
           adminDetails: {
             name: rootAdmin.name,
@@ -168,7 +184,7 @@ export const loginAdmin = async (req, res) => {
 /* ==================== UPDATE DYNAMIC PLAN DAYS & PRICE ==================== */
 export const updatePlanSettings = async (req, res) => {
   try {
-    const { planName, durationDays, price, maxUsers, features } = req.body;
+    const { planName, durationDays, price, billingCycle = "monthly", maxUsers, features } = req.body;
 
     // ✅ Protect owner plan from being modified via API
     const existing = await PlanSetting.findOne({ planName });
@@ -181,6 +197,7 @@ export const updatePlanSettings = async (req, res) => {
       {
         durationDays: Number(durationDays),
         price: Number(price),
+        billingCycle,
         maxUsers: maxUsers !== undefined ? Number(maxUsers) : null,
         features: features,
       },
@@ -304,7 +321,7 @@ export const getLoginAccessStatus = async (req, res) => {
     plans.forEach(p => planMap[p.planName] = p);
 
     const admins = await Admin.find({})
-      .select("name email plan loginEnabled planExpiresAt createdAt")
+      .select("name email plan loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount createdAt")
       .sort({ createdAt: -1 });
 
     const adminData = await Promise.all(
@@ -315,8 +332,10 @@ export const getLoginAccessStatus = async (req, res) => {
         const staffNames = employees.map(e => e.name);
 
         let userLimit = null;
-        if (planMap[admin.plan] && planMap[admin.plan].maxUsers) {
-          userLimit = planMap[admin.plan].maxUsers;
+        const planInfo = planMap[admin.plan];
+
+        if (planInfo && planInfo.maxUsers) {
+          userLimit = planInfo.maxUsers;
         } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase().includes('free')) {
           // If no specific setting found for Free plan, default to 30 or whatever was intended as fallback
           userLimit = planMap['Free']?.maxUsers || 30;
@@ -328,6 +347,13 @@ export const getLoginAccessStatus = async (req, res) => {
           email: admin.email,
           plan: admin.plan,
           userLimit,
+          isPaid: admin.isPaid,
+          billPaid: admin.lastPaymentAmount || (planInfo?.price ? planInfo.price * Math.max(totalEmployees, 1) : 0),
+          planPrice: planInfo?.price || 0,
+          billingCycle: planInfo?.billingCycle || null,
+          billingDurationDays: planInfo?.durationDays || null,
+          planActivatedAt: admin.planActivatedAt,
+          lastPaymentAt: admin.lastPaymentAt,
           loginEnabled: admin.loginEnabled !== false,
           planExpiresAt: admin.planExpiresAt,
           createdAt: admin.createdAt,

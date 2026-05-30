@@ -31,9 +31,15 @@ const FALLBACK_FEATURES = [
   { label: "Platform Analytics", route: "/master/analytics", description: "Owner-only: Usage analytics across all tenants" },
 ];
 
-const DEFAULT_PER_PERSON_PRICE = 50;
 const DEFAULT_DURATION_DAYS = 30;
 const OWNER_PLAN_NAME = "owner";
+const DEFAULT_PER_PERSON_PRICE = 49;
+const BILLING_CYCLES = [
+  { value: "monthly", label: "Monthly Plan", eyebrow: "Billed monthly", durationDays: 30 },
+  { value: "quarterly", label: "Quarterly Plan", eyebrow: "Billed every 3 months", durationDays: 90 },
+  { value: "halfYearly", label: "Half-Yearly Plan", eyebrow: "Billed every 6 months", durationDays: 180 },
+  { value: "yearly", label: "Annual Plan", eyebrow: "Billed annually", durationDays: 365 },
+];
 const OWNER_FEATURE_ROUTES = new Set([
   "/master/dashboard",
   "/master/admins",
@@ -51,9 +57,15 @@ const getAdminFeatures = (features) =>
 const isOwnerPlan = (plan) =>
   plan?.isOwnerPlan || plan?.planName?.trim().toLowerCase() === OWNER_PLAN_NAME;
 
+const getBillingCycle = (plan = {}) =>
+  BILLING_CYCLES.find((cycle) => cycle.value === plan.billingCycle) ||
+  BILLING_CYCLES.find((cycle) => cycle.durationDays === Number(plan.durationDays)) ||
+  BILLING_CYCLES[0];
+
 const PlanSettings = () => {
-  const [planName, setPlanName] = useState("");
+  const [planName, setPlanName] = useState(BILLING_CYCLES[0].label);
   const [price, setPrice] = useState(DEFAULT_PER_PERSON_PRICE);
+  const [billingCycle, setBillingCycle] = useState("monthly");
   const [durationDays, setDurationDays] = useState(DEFAULT_DURATION_DAYS);
   const [maxUsers, setMaxUsers] = useState(30);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
@@ -116,6 +128,13 @@ const PlanSettings = () => {
     );
   };
 
+  const handleBillingCycleChange = (value) => {
+    const cycle = BILLING_CYCLES.find((item) => item.value === value) || BILLING_CYCLES[0];
+    setBillingCycle(cycle.value);
+    setDurationDays(cycle.durationDays);
+    setPlanName(cycle.label);
+  };
+
   const handleUpdate = async (e) => {
     e.preventDefault();
 
@@ -140,7 +159,8 @@ const PlanSettings = () => {
       await api.patch("/api/admin/plan-settings", {
         planName,
         price: Number(price),
-        durationDays: DEFAULT_DURATION_DAYS,
+        billingCycle,
+        durationDays,
         maxUsers: maxUsers === "" ? null : Number(maxUsers),
         features: includedFeatures,
       });
@@ -153,8 +173,9 @@ const PlanSettings = () => {
         showConfirmButton: false,
       });
 
-      setPlanName("");
+      setPlanName(BILLING_CYCLES[0].label);
       setPrice(DEFAULT_PER_PERSON_PRICE);
+      setBillingCycle("monthly");
       setDurationDays(DEFAULT_DURATION_DAYS);
       setMaxUsers(30);
       setSelectedFeatures([]);
@@ -181,8 +202,10 @@ const PlanSettings = () => {
       });
     }
     setPlanName(plan.planName);
+    const cycle = getBillingCycle(plan);
     setPrice(plan.price ?? DEFAULT_PER_PERSON_PRICE);
-    setDurationDays(plan.durationDays || DEFAULT_DURATION_DAYS);
+    setBillingCycle(cycle.value);
+    setDurationDays(plan.durationDays || cycle.durationDays);
     setMaxUsers(plan.maxUsers === null ? "" : plan.maxUsers);
     setSelectedFeatures([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -240,7 +263,7 @@ const PlanSettings = () => {
           <h2 className="text-2xl font-black text-gray-800 uppercase mb-6">Manage Plans</h2>
 
           <form onSubmit={handleUpdate} className="space-y-5 relative">
-            <div>
+            {/* <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Plan Name</label>
               <input
                 type="text"
@@ -249,27 +272,40 @@ const PlanSettings = () => {
                 placeholder="e.g. Premium"
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
               />
+            </div> */}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Billing Cycle</label>
+                <select
+                  value={billingCycle}
+                  onChange={(e) => handleBillingCycleChange(e.target.value)}
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
+                >
+                  {BILLING_CYCLES.map((cycle) => (
+                    <option key={cycle.value} value={cycle.value}>
+                      {cycle.label} - {cycle.eyebrow}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Per Employee Price (INR)</label>
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 focus-within:ring-2 focus-within:ring-purple-500">
+                  <span className="text-xl font-black text-slate-800">₹</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="min-w-0 flex-1 bg-transparent py-3 font-semibold outline-none"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Per Person Price (INR)</label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
-                />
-              </div>
-              {/* <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Days</label>
-                <input
-                  type="number"
-                  value={durationDays}
-                  onChange={(e) => setDurationDays(e.target.value)}
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
-                />
-              </div> */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">User Limit</label>
                 <input
@@ -388,9 +424,17 @@ const PlanSettings = () => {
             <h4 className="text-3xl font-bold mb-1">{planName || "New Plan"}</h4>
             <p className="text-slate-400 text-sm mb-6 font-medium tracking-tight">All admin features included</p>
 
-            <div className="flex items-baseline gap-1 mb-8">
-              <span className="text-5xl font-black">₹{price}</span>
-              <span className="text-slate-400 text-sm font-bold uppercase">/ Person</span>
+            <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
+              <p className="text-sm font-black text-white">
+                {BILLING_CYCLES.find((cycle) => cycle.value === billingCycle)?.label || "Monthly Plan"}
+              </p>
+              <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-300">
+                {BILLING_CYCLES.find((cycle) => cycle.value === billingCycle)?.eyebrow || "Billed monthly"}
+              </p>
+              <div className="mt-4 flex items-end gap-1">
+                <span className="text-5xl font-black">₹{price || 0}</span>
+                <span className="pb-2 text-xs font-bold text-slate-400">/employee/month</span>
+              </div>
             </div>
 
             <div className="mb-8">
@@ -429,6 +473,7 @@ const PlanSettings = () => {
               const displayedFeatures = isExpanded ? featureRoutes : featureRoutes.slice(0, 3);
               const extraCount = featureRoutes.length - 3;
               const isOwner = isOwnerPlan(plan);
+              const planBillingCycle = getBillingCycle(plan);
 
               return (
                 <div
@@ -481,6 +526,11 @@ const PlanSettings = () => {
 
                   <div className="text-3xl font-black text-gray-800 mb-4">
                     ₹{plan.price}<span className="text-sm font-bold text-gray-400 uppercase"> / Person</span>
+                  </div>
+
+                  <div className="mb-4 rounded-xl border border-white bg-white/70 p-3 shadow-sm">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-600">{planBillingCycle.eyebrow}</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{planBillingCycle.label}</p>
                   </div>
 
                   <ul className="text-sm text-gray-600 space-y-2 mb-2 transition-all">

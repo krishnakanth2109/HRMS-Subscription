@@ -59,10 +59,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const [workModeRequestsCount, setWorkModeRequestsCount] = useState(0);
   const [attendanceRequestsCount, setAttendanceRequestsCount] = useState(0);
   const [fullDayRequestsCount, setFullDayRequestsCount] = useState(0);
-
   const [allowedRoutes, setAllowedRoutes] = useState(null);
   const [isOwnerPlan, setIsOwnerPlan] = useState(false);
-
   const [socket, setSocket] = useState(null);
   const [unreadNoticeCount, setUnreadNoticeCount] = useState(0);
   const [serverReadState, setServerReadState] = useState({});
@@ -265,6 +263,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   };
 
   const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
+  const countPending = (items = []) =>
+    items.reduce((count, item) => count + (isPending(item?.status) ? 1 : 0), 0);
 
   const handleDisabledClick = (featureLabel) => {
     Swal.fire({
@@ -353,34 +353,43 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     try {
       const response = await api.get("/api/attendance/all");
       const employees = response?.data?.data || [];
-      let count = 0;
-      for (let i = 0; i < employees.length; i++) {
-        const emp = employees[i];
-        const attendance = emp.attendance || [];
-        for (let j = 0; j < attendance.length; j++) {
-          const day = attendance[j];
-          if (day.lateCorrectionRequest && day.lateCorrectionRequest.hasRequest === true && day.lateCorrectionRequest.status === "PENDING") {
-            count++;
-          }
-        }
-      }
+      const count = employees.reduce(
+        (total, employee) =>
+          total +
+          (employee.attendance || []).filter(
+            ({ lateCorrectionRequest }) =>
+              lateCorrectionRequest?.hasRequest === true &&
+              lateCorrectionRequest?.status === "PENDING"
+          ).length,
+        0
+      );
       setLateRequestsCount(count);
     } catch (error) {
       console.error("Error fetching late requests:", error);
     }
   }, []);
 
+  const fetchStatusCorrectionRequestCount = useCallback(async () => {
+    const { data } = await api.get("/api/attendance/admin/status-correction-requests");
+    return countPending(data?.data);
+  }, []);
+
+  const fetchPendingCorrectionCount = useCallback(async () => {
+    const { data } = await api.get("/api/attendance/admin/pending-corrections");
+    return (data?.data || []).length;
+  }, []);
+
   const fetchAttendanceRequests = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/attendance/admin/status-correction-requests");
-      const count1 = (data?.data || []).filter((r) => isPending(r.status)).length;
-      const res2 = await api.get("/api/attendance/admin/pending-corrections");
-      const count2 = (res2?.data?.data || []).length;
-      setAttendanceRequestsCount(count1 + count2);
+      const [statusCorrectionCount, pendingCorrectionCount] = await Promise.all([
+        fetchStatusCorrectionRequestCount(),
+        fetchPendingCorrectionCount(),
+      ]);
+      setAttendanceRequestsCount(statusCorrectionCount + pendingCorrectionCount);
     } catch (error) {
       console.error("Error fetching attendance requests:", error);
     }
-  }, []);
+  }, [fetchStatusCorrectionRequestCount, fetchPendingCorrectionCount]);
 
   const fetchFullDayRequests = useCallback(async () => {
     try {
@@ -404,45 +413,57 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const fetchOvertimeRequests = useCallback(async () => {
     try {
       const data = await getAllOvertimeRequests();
-      setPendingOvertime(data.filter((o) => isPending(o.status)).length);
+      setPendingOvertime(countPending(data));
     } catch { }
   }, []);
 
   const fetchLeaveRequests = useCallback(async () => {
     try {
       const data = await getLeaveRequests();
-      setPendingLeaves(data.filter((l) => isPending(l.status)).length);
+      setPendingLeaves(countPending(data));
     } catch { }
   }, []);
 
   const fetchPunchOutRequests = useCallback(async () => {
     try {
       const { data } = await api.get("/api/punchoutreq/all");
-      const pendingCount = (data || []).filter(r => r.status === "Pending").length;
-      setPunchOutRequestsCount(pendingCount);
+      setPunchOutRequestsCount(countPending(data));
     } catch (error) {
       console.error("Error fetching punch out requests:", error);
     }
   }, []);
 
+  const notificationTrackers = useMemo(() => [
+    { count: pendingLeaves, ref: prevPendingLeaves, sound: "leave" },
+    { count: pendingOvertime, ref: prevPendingOvertime, sound: "overtime" },
+    {
+      count: punchOutRequestsCount,
+      ref: prevPunchOutRequests,
+      sound: "generic",
+      message: "Punch-out request received",
+    },
+    { count: lateRequestsCount, ref: prevLateRequests, sound: "generic" },
+    { count: workModeRequestsCount, ref: prevWorkModeRequests, sound: "generic" },
+    { count: attendanceRequestsCount, ref: prevAttendanceRequestsCount, sound: "generic" },
+    { count: fullDayRequestsCount, ref: prevFullDayRequestsCount, sound: "generic" },
+  ], [
+    pendingLeaves,
+    pendingOvertime,
+    punchOutRequestsCount,
+    lateRequestsCount,
+    workModeRequestsCount,
+    attendanceRequestsCount,
+    fullDayRequestsCount,
+  ]);
+
   useEffect(() => {
-    if (pendingLeaves > prevPendingLeaves.current) playNotificationSound("leave");
-    prevPendingLeaves.current = pendingLeaves;
-    if (pendingOvertime > prevPendingOvertime.current) playNotificationSound("overtime");
-    prevPendingOvertime.current = pendingOvertime;
-    if (punchOutRequestsCount > prevPunchOutRequests.current) {
-      playNotificationSound("generic");
-      console.log("🔔 Punch-out request received");
-    }
-    prevPunchOutRequests.current = punchOutRequestsCount;
-    if (lateRequestsCount > prevLateRequests.current) playNotificationSound("generic");
-    prevLateRequests.current = lateRequestsCount;
-    if (workModeRequestsCount > prevWorkModeRequests.current) playNotificationSound("generic");
-    prevWorkModeRequests.current = workModeRequestsCount;
-    if (attendanceRequestsCount > prevAttendanceRequestsCount.current) playNotificationSound("generic");
-    prevAttendanceRequestsCount.current = attendanceRequestsCount;
-    if (fullDayRequestsCount > prevFullDayRequestsCount.current) playNotificationSound("generic");
-    prevFullDayRequestsCount.current = fullDayRequestsCount;
+    notificationTrackers.forEach(({ count, ref, sound, message }) => {
+      if (count > ref.current) {
+        playNotificationSound(sound);
+        if (message) console.log(message);
+      }
+      ref.current = count;
+    });
 
     if (unreadNoticeCount > prevUnreadNoticeCount.current && unreadNoticeCount > hasPlayedSoundForCurrentCount.current) {
       playNotificationSound("notice");
@@ -451,7 +472,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
       hasPlayedSoundForCurrentCount.current = unreadNoticeCount;
     }
     prevUnreadNoticeCount.current = unreadNoticeCount;
-  }, [pendingLeaves, pendingOvertime, punchOutRequestsCount, lateRequestsCount, workModeRequestsCount, attendanceRequestsCount, unreadNoticeCount, playNotificationSound, fullDayRequestsCount]);
+  }, [notificationTrackers, unreadNoticeCount, playNotificationSound]);
 
   useEffect(() => {
     const was = isOnNoticesPage.current;

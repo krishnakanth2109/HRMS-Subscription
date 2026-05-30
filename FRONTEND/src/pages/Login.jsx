@@ -25,6 +25,16 @@ import {
   verifyWebAuthnLogin,
 } from "../api";
 
+const loadRazorpayScript = () =>
+  new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
 const Login = () => {
   const { user, login, logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -299,23 +309,79 @@ const Login = () => {
     if (!selectedUpgradePlan) return;
     setUpgradeLoading(true);
     try {
-      // ✅ Set flag BEFORE redirecting to Stripe.
-      // If they cancel or go back, this flag tells the page to clear the session on next load.
-      sessionStorage.setItem("hrms_payment_pending", "true");
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady) {
+        alert("Failed to load payment gateway. Please check your connection.");
+        setUpgradeLoading(false);
+        return;
+      }
 
-      const res = await API.post("/api/stripe/create-checkout-session", {
+      // 1. Create Razorpay order on backend for renewal
+      const res = await API.post("/api/razorpay/create-order", {
         plan: selectedUpgradePlan,
         signupForm: {
-          email: expiredAdminDetails?.email,
           name: expiredAdminDetails?.name,
+          email: expiredAdminDetails?.email,
+          role: "admin",
         },
-        isRenewal: true,
+        isUpgrade: true
       });
-      window.location.href = res.data.url;
+
+      const orderData = res.data;
+
+      // 2. Open Razorpay checkout popup
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount, // in paise
+        currency: orderData.currency,
+        name: "HRMS vwsync",
+        description: `Renewal / Upgrade to ${selectedUpgradePlan.planName}`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: expiredAdminDetails?.name,
+          email: expiredAdminDetails?.email,
+        },
+        theme: { color: "#9333ea" }, // purple theme
+
+        handler: async (paymentResponse) => {
+          try {
+            await API.post("/api/razorpay/verify-payment", {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature,
+              plan: selectedUpgradePlan,
+              isUpgrade: true
+            });
+
+            alert("Renewal payment successful! Please log in to your account.");
+            setShowExpiredModal(false);
+            setExpiredAdminDetails(null);
+          } catch (verifyErr) {
+            alert(
+              verifyErr.response?.data?.message ||
+              "Payment received but verification failed. Please contact support."
+            );
+          } finally {
+            setUpgradeLoading(false);
+          }
+        },
+
+        modal: {
+          ondismiss: () => {
+            setUpgradeLoading(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        alert(response.error?.description || "Payment failed. Please try again.");
+        setUpgradeLoading(false);
+      });
+      rzp.open();
+
     } catch (err) {
-      // If the API call itself fails, remove the flag so they aren't stuck
-      sessionStorage.removeItem("hrms_payment_pending");
-      console.error("Upgrade failed:", err);
+      alert(err.response?.data?.message || "Payment initiation failed. Please try again.");
       setUpgradeLoading(false);
     }
   };
@@ -339,16 +405,74 @@ const Login = () => {
         return;
       }
 
-      // --- If Price > 0, Redirect to Payment (Stripe/Razorpay) ---
-      const res = await API.post("/api/stripe/create-checkout-session", { 
-        plan: selectedPlan, 
-        signupForm 
+      // --- If Price > 0, Initiate Razorpay Payment ---
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady) {
+        setSignupError("Failed to load payment gateway. Please check your connection.");
+        setSignupLoading(false);
+        return;
+      }
+
+      // 1. Create Razorpay order on backend
+      const res = await API.post("/api/razorpay/create-order", {
+        plan: selectedPlan,
+        signupForm
       });
-      window.location.href = res.data.url;
+
+      const orderData = res.data;
+
+      // 2. Open Razorpay checkout popup
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount, // in paise
+        currency: orderData.currency,
+        name: "HRMS vwsync",
+        description: `Registration Payment for ${selectedPlan.planName}`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: signupForm.name,
+          email: signupForm.email,
+          contact: signupForm.phone,
+        },
+        theme: { color: "#4f46e5" }, // indigo theme
+
+        handler: async (paymentResponse) => {
+          try {
+            await API.post("/api/razorpay/verify-payment", {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature,
+              plan: selectedPlan,
+            });
+
+            alert(`Success! Account created and activated. Please login.`);
+            setShowSignup(false);
+          } catch (verifyErr) {
+            setSignupError(
+              verifyErr.response?.data?.message ||
+              "Payment verification failed. Please contact support."
+            );
+          } finally {
+            setSignupLoading(false);
+          }
+        },
+
+        modal: {
+          ondismiss: () => {
+            setSignupLoading(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        setSignupError(response.error?.description || "Payment failed. Please try again.");
+        setSignupLoading(false);
+      });
+      rzp.open();
 
     } catch (err) {
-      setSignupError(err.response?.data?.message || "Registration failed");
-    } finally {
+      setSignupError(err.response?.data?.message || "Registration payment failed");
       setSignupLoading(false);
     }
   };

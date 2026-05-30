@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import api from "../../api"; // your configured axios instance
 import Swal from "sweetalert2";
-import { FaChevronDown, FaChevronUp, FaKey, FaEllipsisV } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp, FaKey, FaEllipsisV, FaReceipt } from "react-icons/fa";
 
 /* ──────────────────────────────────────────────
    TINY HELPERS
@@ -17,6 +17,28 @@ const getDaysAgo = (date) => {
   const diffTime = Math.abs(new Date() - new Date(date));
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return `(${diffDays} days ago)`;
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(amount) || 0);
+
+const billingCycleLabel = {
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  halfYearly: "Half-Yearly",
+  yearly: "Annual",
 };
 
 /* ──────────────────────────────────────────────
@@ -158,6 +180,44 @@ export default function ManageLogins() {
     } catch (err) {
       toast(err.response?.data?.message || "Failed to update password", "error");
     }
+  };
+
+  const handleViewBills = (admin) => {
+    setOpenActionMenu(null);
+
+    const billRows = [
+      ["Admin", admin.name || "N/A"],
+      ["Plan", admin.plan || "N/A"],
+      ["Billing Cycle", billingCycleLabel[admin.billingCycle] || "N/A"],
+      ["Per Employee Price", formatCurrency(admin.planPrice)],
+      ["Bill Paid", formatCurrency(admin.billPaid)],
+      ["Paid On", formatDate(admin.lastPaymentAt || admin.planActivatedAt || admin.createdAt)],
+      ["Plan Starts", formatDate(admin.planActivatedAt || admin.createdAt)],
+      ["Plan Expires", formatDate(admin.planExpiresAt)],
+      ["Payment Status", admin.isPaid ? "Paid" : "Not Paid"],
+    ];
+
+    Swal.fire({
+      title: "Bills",
+      html: `
+        <div style="text-align:left;margin-top:10px">
+          <p style="margin:0 0 14px;color:#64748b;font-size:13px">
+            Bill details for <strong style="color:#0f172a">${escapeHtml(admin.name || "Admin")}</strong>
+          </p>
+          <div style="display:grid;gap:10px">
+            ${billRows.map(([label, value]) => `
+              <label style="display:grid;gap:6px">
+                <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b">${escapeHtml(label)}</span>
+                <input readonly value="${escapeHtml(value)}" style="width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:12px;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;background:#f8fafc;outline:none" />
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `,
+      confirmButtonText: "Close",
+      confirmButtonColor: "#2563eb",
+      width: 520,
+    });
   };
 
   /* ── SWEET ALERT HELPERS ── */
@@ -443,6 +503,13 @@ export default function ManageLogins() {
                             >
                               <FaKey size={11} />
                               Change Password
+                            </button>
+                            <button
+                              onClick={() => handleViewBills(admin)}
+                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-gray-100"
+                            >
+                              <FaReceipt size={11} />
+                              Bills
                             </button>
                           </div>
                         )}

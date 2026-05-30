@@ -122,6 +122,7 @@ const AdminDashboard = () => {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [allEmployees, setAllEmployees] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [todayAttendance, setTodayAttendance] = useState([]);
   const [allLeaves, setAllLeaves] = useState([]);
   const [allResignations, setAllResignations] = useState([]);
@@ -186,17 +187,21 @@ const AdminDashboard = () => {
     try {
       const today = new Date().toISOString().split("T")[0];
 
-      const [todayAtt, leavesData, empData, resignationData] = await Promise.all([
+      const [todayAtt, leavesData, empData, resignationData, profileRes] = await Promise.all([
         getAttendanceByDateRange(today, today).catch(() => []),
         getLeaveRequests().catch(() => []),
         getEmployees().catch(() => []),
-        api.get("/api/resignations/admin/all").catch(() => ({ data: [] }))
+        api.get("/api/resignations/admin/all").catch(() => ({ data: [] })),
+        api.get("/api/admin/profile").catch(() => null)
       ]);
 
       setTodayAttendance(Array.isArray(todayAtt) ? todayAtt : []);
       setAllLeaves(Array.isArray(leavesData) ? leavesData : []);
       setAllEmployees(Array.isArray(empData) ? empData : []);
       setAllResignations(Array.isArray(resignationData.data) ? resignationData.data : []);
+      if (profileRes && profileRes.data) {
+        setProfile(profileRes.data);
+      }
 
       // Fetch work modes for remote detection
       try {
@@ -646,6 +651,35 @@ const AdminDashboard = () => {
 
       {/* ================= MAIN CONTENT (Internally Scrollable Area) ================= */}
       <div className="relative z-10 w-full h-full overflow-y-auto p-6 pb-20 internal-scroll">
+
+        {(() => {
+          const planExpiry = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
+          const isFreePlan = profile?.plan ? profile.plan.toLowerCase().includes("free") : true;
+          const isGracePeriod = !isFreePlan && planExpiry && new Date() > planExpiry && new Date() <= new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000);
+          const daysLeftInGrace = planExpiry ? Math.ceil((new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+
+          if (!isGracePeriod) return null;
+
+          return (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm flex items-center justify-between gap-4 animate-pulse mb-6">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <p className="text-amber-800 text-sm font-black uppercase tracking-wider">Subscription Payment Overdue</p>
+                  <p className="text-amber-700 text-xs font-semibold mt-0.5">
+                    Your billing date was <strong>{planExpiry ? planExpiry.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }) : "N/A"}</strong>. Please pay your bill within <strong>{daysLeftInGrace} days</strong> to prevent account suspension.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/admin/profile")}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs uppercase px-4 py-2 rounded-xl tracking-wider transition-all shadow-md shrink-0 animate-bounce"
+              >
+                Pay Bill Now
+              </button>
+            </div>
+          );
+        })()}
 
         {/* 1. TOP STATS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

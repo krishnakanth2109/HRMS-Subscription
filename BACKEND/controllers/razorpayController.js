@@ -2,6 +2,7 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import PlanSetting from "../models/planSettingModel.js";
 import Admin from "../models/adminModel.js";
+import { getBillableEmployeesCount } from "../utils/billingHelper.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -12,14 +13,14 @@ const razorpay = new Razorpay({
    1.  CREATE ORDER
    POST /api/razorpay/create-order
    Called before the Razorpay popup opens
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 export const createOrder = async (req, res) => {
   try {
     const { plan, signupForm } = req.body;
 
     if (!plan || !signupForm) {
       return res.status(400).json({ message: "Invalid request" });
-    } ``
+    }
 
     // Fetch plan from DB (accept both planName and name from frontend)
     const planInfo = await PlanSetting.findOne({
@@ -36,8 +37,21 @@ export const createOrder = async (req, res) => {
         .json({ message: "Free plan does not require payment" });
     }
 
+    // Calculate dynamic employee/person count for billing
+    let employeeCount = 1;
+    if (signupForm.email) {
+      const existingAdmin = await Admin.findOne({ email: signupForm.email.toLowerCase().trim() });
+      if (existingAdmin) {
+        const billableCount = await getBillableEmployeesCount(
+          existingAdmin._id,
+          existingAdmin.planActivatedAt || new Date()
+        );
+        employeeCount = Math.max(1, billableCount);
+      }
+    }
+
     // Razorpay expects amount in paise (1 INR = 100 paise)
-    const amountInPaise = Math.round(planInfo.price * 100);
+    const amountInPaise = Math.round(planInfo.price * employeeCount * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
@@ -51,6 +65,9 @@ export const createOrder = async (req, res) => {
         department: signupForm.department || "",
         plan: planInfo.planName,
         durationDays: planInfo.durationDays.toString(),
+        billingCycle: planInfo.billingCycle || "monthly",
+        employeeCount: employeeCount.toString(),
+        amount: (amountInPaise / 100).toString(),
         isUpgrade: req.body.isUpgrade ? "true" : "false",
         // NOTE: Never store raw password in notes for real prod.
         // We send it here only because webhook needs it to create the admin.
@@ -76,7 +93,7 @@ export const createOrder = async (req, res) => {
    POST /api/razorpay/verify-payment
    Called by frontend after the popup succeeds.
    This is the primary provisioning path.
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 export const verifyPayment = async (req, res) => {
   try {
     const {
@@ -111,6 +128,7 @@ export const verifyPayment = async (req, res) => {
       role,
       plan: planName,
       durationDays,
+      billingCycle,
     } = notes;
 
     if (!name || !email || !password || !planName) {
@@ -120,15 +138,31 @@ export const verifyPayment = async (req, res) => {
         .json({ message: "Order metadata incomplete. Contact support." });
     }
 
-    // ── Calculate subscription window ───────────────────────────────────────
-    const activatedAt = new Date();
-    const expiresAt = new Date();
-    if (durationDays) {
-      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
-    }
-
     // ── Upsert admin ────────────────────────────────────────────────────────
     const existing = await Admin.findOne({ email });
+
+    // ── Calculate subscription window using precise calendar cycles ───────────
+    let activatedAt = new Date();
+    let expiresAt = new Date();
+    if (existing && existing.plan === planName && existing.planExpiresAt && new Date(existing.planExpiresAt) > new Date()) {
+      // Extend early renewal from existing expiration date ONLY if the plan is the same
+      activatedAt = new Date(existing.planExpiresAt);
+      expiresAt = new Date(existing.planExpiresAt);
+    }
+
+    if (billingCycle === "monthly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+    } else if (billingCycle === "quarterly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 3);
+    } else if (billingCycle === "halfYearly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 6);
+    } else if (billingCycle === "yearly") {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    } else if (durationDays) {
+      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+    } else {
+      expiresAt.setDate(expiresAt.getDate() + 30);
+    }
 
     if (existing) {
       existing.plan = planName;
@@ -137,6 +171,8 @@ export const verifyPayment = async (req, res) => {
       existing.razorpayPaymentId = razorpay_payment_id;
       existing.planActivatedAt = activatedAt;
       existing.planExpiresAt = expiresAt;
+      existing.lastPaymentAt = new Date();
+      existing.lastPaymentAmount = Number(notes.amount) || 0;
       await existing.save();
       console.log("✅ Admin plan upgraded:", email);
     } else {
@@ -153,6 +189,8 @@ export const verifyPayment = async (req, res) => {
         razorpayPaymentId: razorpay_payment_id,
         planActivatedAt: activatedAt,
         planExpiresAt: expiresAt,
+        lastPaymentAt: new Date(),
+        lastPaymentAmount: Number(notes.amount) || 0,
       });
       console.log("✅ Paid admin created:", email);
     }
@@ -174,7 +212,7 @@ export const verifyPayment = async (req, res) => {
    Fallback / async confirmation from Razorpay.
    Handles cases where the browser closed before
    verifyPayment was called.
-───────────────────────────────────────────── */
+ ───────────────────────────────────────────── */
 export const razorpayWebhookHandler = async (req, res) => {
   console.log("🚀 RAZORPAY WEBHOOK HIT");
 
@@ -220,6 +258,7 @@ export const razorpayWebhookHandler = async (req, res) => {
       role,
       plan: planName,
       durationDays,
+      billingCycle,
     } = notes;
 
     if (!name || !email || !password || !planName) {
@@ -236,9 +275,23 @@ export const razorpayWebhookHandler = async (req, res) => {
     }
 
     const activatedAt = new Date();
-    const expiresAt = new Date();
-    if (durationDays) {
+    let expiresAt = new Date();
+    if (existing && existing.plan === planName && existing.planExpiresAt && new Date(existing.planExpiresAt) > new Date()) {
+      expiresAt = new Date(existing.planExpiresAt);
+    }
+
+    if (billingCycle === "monthly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+    } else if (billingCycle === "quarterly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 3);
+    } else if (billingCycle === "halfYearly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 6);
+    } else if (billingCycle === "yearly") {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    } else if (durationDays) {
       expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+    } else {
+      expiresAt.setDate(expiresAt.getDate() + 30);
     }
 
     if (existing) {
@@ -248,6 +301,8 @@ export const razorpayWebhookHandler = async (req, res) => {
       existing.razorpayPaymentId = paymentId;
       existing.planActivatedAt = activatedAt;
       existing.planExpiresAt = expiresAt;
+      existing.lastPaymentAt = payment.created_at ? new Date(payment.created_at * 1000) : new Date();
+      existing.lastPaymentAmount = payment.amount ? payment.amount / 100 : 0;
       await existing.save();
       console.log("✅ Webhook: admin plan upgraded:", email);
     } else {
@@ -264,6 +319,8 @@ export const razorpayWebhookHandler = async (req, res) => {
         razorpayPaymentId: paymentId,
         planActivatedAt: activatedAt,
         planExpiresAt: expiresAt,
+        lastPaymentAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
+        lastPaymentAmount: payment.amount ? payment.amount / 100 : 0,
       });
       console.log("✅ Webhook: paid admin created:", email);
     }
@@ -272,4 +329,77 @@ export const razorpayWebhookHandler = async (req, res) => {
   }
 
   res.json({ received: true });
+};
+
+/* ─────────────────────────────────────────────
+   4.  GET BILLING HISTORY
+   GET /api/razorpay/billing-history
+   Fetches paid bills/invoices directly from Razorpay
+ ───────────────────────────────────────────── */
+export const getBillingHistory = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase().trim();
+
+    // Fetch last 100 payments from Razorpay
+    const paymentsResponse = await razorpay.payments.all({ count: 100 });
+    const payments = paymentsResponse.items || [];
+
+    // Filter payments for this admin email and only return captured/successful payments
+    const history = payments
+      .filter((p) => p.status === "captured" && p.notes && p.notes.email && p.notes.email.toLowerCase().trim() === adminEmail)
+      .map((p) => ({
+        paymentId: p.id,
+        orderId: p.order_id,
+        amount: p.amount / 100, // convert paise to INR
+        plan: p.notes.plan || "N/A",
+        billingCycle: p.notes.billingCycle || "N/A",
+        employeeCount: p.notes.employeeCount ? parseInt(p.notes.employeeCount) : 1,
+        method: p.method,
+        status: p.status,
+        date: new Date(p.created_at * 1000).toISOString(),
+      }));
+
+    return res.status(200).json(history);
+  } catch (err) {
+    console.error("GET BILLING HISTORY ERROR:", err.message);
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   5.  GET NEXT BILL INFO
+   GET /api/razorpay/next-bill
+   Calculates next billing date and total renewal price based on billable seats
+ ───────────────────────────────────────────── */
+export const getNextBillInfo = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin profile not found" });
+    }
+
+    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
+    if (!planInfo) {
+      return res.status(404).json({ message: "Plan settings not found" });
+    }
+
+    const billableCount = await getBillableEmployeesCount(
+      admin._id,
+      admin.planActivatedAt || new Date()
+    );
+    const employeeCount = Math.max(1, billableCount);
+    const amount = planInfo.price * employeeCount;
+
+    return res.status(200).json({
+      planName: admin.plan,
+      pricePerPerson: planInfo.price,
+      employeeCount,
+      amount,
+      nextBillingDate: admin.planExpiresAt,
+      planInfo,
+    });
+  } catch (err) {
+    console.error("GET NEXT BILL INFO ERROR:", err.message);
+    return res.status(500).json({ message: err.message });
+  }
 };
