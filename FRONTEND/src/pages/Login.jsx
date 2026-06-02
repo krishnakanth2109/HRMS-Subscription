@@ -76,6 +76,7 @@ const Login = () => {
   /* ==================== EXPIRED PLAN STATE ==================== */
   const [showExpiredModal, setShowExpiredModal] = useState(false);
   const [expiredAdminDetails, setExpiredAdminDetails] = useState(null);
+  const [expiredUserRole, setExpiredUserRole] = useState(null);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState(null);
   const [upgradeLoading, setUpgradeLoading] = useState(false);
 
@@ -181,6 +182,7 @@ const Login = () => {
         sessionStorage.removeItem("token");
         logout();
         setExpiredAdminDetails(err.response.data.adminDetails);
+        setExpiredUserRole(err.response.data.role || "admin");
         setShowExpiredModal(true);
         setLoading(false);
         return;
@@ -324,6 +326,7 @@ const Login = () => {
           email: expiredAdminDetails?.email,
           role: "admin",
         },
+        userLimit: expiredAdminDetails?.userLimit || expiredAdminDetails?.employeeCount || 30,
         isUpgrade: true
       });
 
@@ -824,7 +827,7 @@ const Login = () => {
           <div className="absolute top-0 left-0 w-[400px] sm:w-[600px] h-[400px] sm:h-[600px] bg-red-900/10 rounded-full blur-[100px] sm:blur-[150px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 w-[300px] sm:w-[500px] h-[300px] sm:h-[500px] bg-purple-900/10 rounded-full blur-[100px] sm:blur-[150px] pointer-events-none"></div>
 
-          <div className="relative w-full max-w-3xl animate-slideUp">
+          <div className={`relative w-full ${expiredUserRole === "admin" ? "max-w-3xl" : "max-w-xl"} animate-slideUp`}>
 
             {/* TOP ALERT BANNER */}
             <div className="bg-gradient-to-r from-red-600/90 to-rose-700/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 mb-3 sm:mb-4 border border-red-500/30 shadow-2xl shadow-red-900/30">
@@ -835,7 +838,7 @@ const Login = () => {
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1">
                     <span className="bg-white/20 text-white text-[8px] sm:text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 sm:py-1 rounded-full">
-                      Subscription Expired
+                      {expiredUserRole === "admin" ? "Subscription Expired" : "Access Suspended"}
                     </span>
                     {expiredAdminDetails.expiredDaysAgo > 0 && (
                       <span className="bg-red-900/50 text-red-200 text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] px-2 py-0.5 sm:py-1 rounded-full border border-red-500/40">
@@ -845,117 +848,181 @@ const Login = () => {
                   </div>
                   <h2 className="text-xl sm:text-2xl font-extrabold text-white">Access Suspended</h2>
                   <p className="text-red-200 text-xs sm:text-sm mt-0.5">
-                    Your <span className="font-black">{expiredAdminDetails.plan}</span> subscription has ended.
+                    {expiredUserRole === "admin" ? (
+                      <>Your <span className="font-black">{expiredAdminDetails.plan}</span> subscription has ended.</>
+                    ) : (
+                      <>Your company's <span className="font-black">{expiredAdminDetails.plan}</span> subscription has ended.</>
+                    )}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* MAIN GRID: Details + Plans */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
+            {expiredUserRole === "admin" ? (
+              /* MAIN GRID: Details + Plans */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
 
-              {/* LEFT: Subscription Details from DB */}
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-3 sm:space-y-4">
-                <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                  <FaExclamationTriangle className="text-amber-400 text-xs sm:text-sm" />
-                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Account Details</span>
-                </div>
-
-                <div className="bg-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10">
-                  <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">Account</p>
-                  <p className="text-white font-bold text-base sm:text-lg leading-tight">{expiredAdminDetails.name}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{expiredAdminDetails.email}</p>
-                </div>
-
-                <div className="bg-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10">
-                  <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-2">Previous Plan</p>
-                  <span className="inline-block bg-amber-500/20 text-amber-300 text-[10px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-1 rounded-full border border-amber-500/30">
-                    {expiredAdminDetails.plan}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  <div className="bg-emerald-900/20 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-emerald-500/20">
-                    <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-emerald-400 font-bold mb-1">Activated</p>
-                    <p className="text-white font-bold text-xs sm:text-sm">
-                      {new Date(expiredAdminDetails.planActivatedAt).toLocaleDateString("en-IN", {
-                        day: "2-digit", month: "short", year: "numeric",
-                      })}
-                    </p>
+                {/* LEFT: Subscription Details from DB */}
+                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 space-y-3 sm:space-y-4">
+                  <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                    <FaExclamationTriangle className="text-amber-400 text-xs sm:text-sm" />
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Account Details</span>
                   </div>
-                  <div className="bg-red-900/20 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-red-500/20">
-                    <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-red-400 font-bold mb-1">Expired On</p>
-                    <p className="text-white font-bold text-xs sm:text-sm">
-                      {new Date(expiredAdminDetails.planExpiresAt).toLocaleDateString("en-IN", {
-                        day: "2-digit", month: "short", year: "numeric",
-                      })}
-                    </p>
+
+                  <div className="bg-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10">
+                    <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-1">Account</p>
+                    <p className="text-white font-bold text-base sm:text-lg leading-tight">{expiredAdminDetails.name}</p>
+                    <p className="text-gray-400 text-xs mt-0.5">{expiredAdminDetails.email}</p>
+                  </div>
+
+                  <div className="bg-white/5 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/10">
+                    <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-gray-500 font-bold mb-2">Previous Plan</p>
+                    <span className="inline-block bg-amber-500/20 text-amber-300 text-[10px] sm:text-xs font-black uppercase tracking-widest px-2 sm:px-3 py-1 rounded-full border border-amber-500/30">
+                      {expiredAdminDetails.plan}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    <div className="bg-emerald-900/20 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-emerald-500/20">
+                      <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-emerald-400 font-bold mb-1">Activated</p>
+                      <p className="text-white font-bold text-xs sm:text-sm">
+                        {new Date(expiredAdminDetails.planActivatedAt).toLocaleDateString("en-IN", {
+                          day: "2-digit", month: "short", year: "numeric",
+                        })}
+                      </p>
+                    </div>
+                    <div className="bg-red-900/20 rounded-xl sm:rounded-2xl p-2 sm:p-3 border border-red-500/20">
+                      <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-red-400 font-bold mb-1">Expired On</p>
+                      <p className="text-white font-bold text-xs sm:text-sm">
+                        {new Date(expiredAdminDetails.planExpiresAt).toLocaleDateString("en-IN", {
+                          day: "2-digit", month: "short", year: "numeric",
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* RIGHT: Upgrade Plans — Paid only, no free */}
-              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <FaCrown className="text-amber-400 text-xs sm:text-sm" />
-                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Renew Subscription</span>
-                </div>
+                {/* RIGHT: Upgrade Plans — Paid only, no free */}
+                <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col">
+                  <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                    <FaCrown className="text-amber-400 text-xs sm:text-sm" />
+                    <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Renew Subscription</span>
+                  </div>
 
-                <div className="flex-1 space-y-2 sm:space-y-3 max-h-[300px] overflow-y-auto">
-                  {paidPlans.length > 0 ? (
-                    paidPlans.map((plan) => (
-                      <button
-                        key={plan._id}
-                        type="button"
-                        onClick={() => setSelectedUpgradePlan(plan)}
-                        className={`w-full text-left p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
-                          selectedUpgradePlan?._id === plan._id
-                            ? "border-purple-500 bg-purple-900/30 ring-1 ring-purple-500/40"
-                            : "border-white/10 bg-white/5 hover:border-purple-500/40 hover:bg-purple-900/10"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-white font-bold capitalize text-sm sm:text-base">{plan.planName}</span>
-                              {selectedUpgradePlan?._id === plan._id && (
-                                <FaCheckCircle className="text-purple-400 text-xs flex-shrink-0" />
-                              )}
+                  <div className="flex-1 space-y-2 sm:space-y-3 max-h-[300px] overflow-y-auto">
+                    {paidPlans.length > 0 ? (
+                      paidPlans.map((plan) => (
+                        <button
+                          key={plan._id}
+                          type="button"
+                          onClick={() => setSelectedUpgradePlan(plan)}
+                          className={`w-full text-left p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all transform hover:scale-[1.02] ${
+                            selectedUpgradePlan?._id === plan._id
+                              ? "border-purple-500 bg-purple-900/30 ring-1 ring-purple-500/40"
+                              : "border-white/10 bg-white/5 hover:border-purple-500/40 hover:bg-purple-900/10"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-bold capitalize text-sm sm:text-base">{plan.planName}</span>
+                                {selectedUpgradePlan?._id === plan._id && (
+                                  <FaCheckCircle className="text-purple-400 text-xs flex-shrink-0" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <div className="text-purple-300 font-black text-base sm:text-xl">₹{plan.price}</div>
                             </div>
                           </div>
-                          <div className="text-right flex-shrink-0 ml-2">
-                            <div className="text-purple-300 font-black text-base sm:text-xl">₹{plan.price}</div>
-                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="flex items-center justify-center h-32">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-purple-500 mx-auto mb-2 sm:mb-3"></div>
+                          <p className="text-gray-500 text-xs">Loading plans...</p>
                         </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-purple-500 mx-auto mb-2 sm:mb-3"></div>
-                        <p className="text-gray-500 text-xs">Loading plans...</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedUpgradePlan && (
+                    <div className="mt-4 p-3.5 bg-purple-950/40 border border-purple-500/20 rounded-xl space-y-2 animate-fadeIn text-left">
+                      <p className="text-[9px] uppercase tracking-[0.15em] text-purple-400 font-black border-b border-purple-500/10 pb-1.5 flex items-center justify-between">
+                        <span>Billing Summary</span>
+                        <span className="text-[8px] bg-purple-500/20 px-2 py-0.5 rounded-full border border-purple-500/30 text-purple-300">Live Invoice</span>
+                      </p>
+                      <div className="flex justify-between text-xs text-gray-300">
+                        <span className="font-medium">Base Plan ({selectedUpgradePlan.planName})</span>
+                        <span className="font-bold">₹{selectedUpgradePlan.price} / user</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-300">
+                        <span className="font-medium">User Limit</span>
+                        <span className="font-bold">{expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30} Users</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold text-white pt-2 border-t border-purple-500/15">
+                        <span className="uppercase tracking-wider text-[10px] text-gray-400">Total Amount Due</span>
+                        <span className="text-purple-300 text-sm font-black">₹{selectedUpgradePlan.price * (expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30)}</span>
                       </div>
                     </div>
                   )}
+
+                  <button
+                    onClick={handleUpgradePlan}
+                    disabled={!selectedUpgradePlan || upgradeLoading}
+                    className={`w-full mt-4 sm:mt-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl ${
+                      selectedUpgradePlan && !upgradeLoading
+                        ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-purple-900/40 transform hover:scale-[1.02]"
+                        : "bg-white/10 text-gray-500 cursor-not-allowed"
+                    }`}
+                  >
+                    {upgradeLoading
+                      ? "Redirecting..."
+                      : selectedUpgradePlan
+                      ? `Pay ₹${selectedUpgradePlan.price * (expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30)} — Renew`
+                      : "Select a Plan"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* CARD VIEW FOR EMPLOYEE: Warning + Contact Admin details, NO upgrade plans / no payment */
+              <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl sm:rounded-3xl p-5 sm:p-8 space-y-5 sm:space-y-6 mb-3 sm:mb-4">
+                <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-red-900/30 border border-red-500/30 flex items-center justify-center animate-pulse">
+                    <FaExclamationTriangle className="text-red-400 text-2xl sm:text-3xl" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white leading-tight">Access Suspended</h3>
+                    <p className="text-gray-400 text-xs sm:text-sm mt-1 leading-relaxed">
+                      Please contact your system administrator to pay the bill to restore access.
+                    </p>
+                  </div>
                 </div>
 
-                <button
-                  onClick={handleUpgradePlan}
-                  disabled={!selectedUpgradePlan || upgradeLoading}
-                  className={`w-full mt-4 sm:mt-5 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest transition-all shadow-xl ${
-                    selectedUpgradePlan && !upgradeLoading
-                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 shadow-purple-900/40 transform hover:scale-[1.02]"
-                      : "bg-white/10 text-gray-500 cursor-not-allowed"
-                  }`}
-                >
-                  {upgradeLoading
-                    ? "Redirecting..."
-                    : selectedUpgradePlan
-                    ? `Pay ₹${selectedUpgradePlan.price} — Renew`
-                    : "Select a Plan"}
-                </button>
+                <div className="bg-white/5 rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-white/10 space-y-3">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-widest text-purple-400 font-bold border-b border-white/10 pb-1.5">
+                    Company Administrator Info
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-0.5">
+                    <div>
+                      <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-gray-500 font-bold">Admin Name</p>
+                      <p className="text-white font-bold text-sm leading-tight mt-0.5">{expiredAdminDetails.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] sm:text-[9px] uppercase tracking-widest text-gray-500 font-bold">Admin Email</p>
+                      <p className="text-white font-bold text-sm leading-tight mt-0.5 break-all">{expiredAdminDetails.email}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-red-950/30 border border-red-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 text-center">
+                  <span className="text-[9px] sm:text-[10px] text-red-300 font-semibold tracking-wide block">
+                    ⚠ Employee accounts are not authorized to process subscription payments.
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* BACK TO LOGIN */}
             <button
@@ -963,6 +1030,7 @@ const Login = () => {
                 setShowExpiredModal(false);
                 setExpiredAdminDetails(null);
                 setSelectedUpgradePlan(null);
+                setExpiredUserRole(null);
               }}
               className="w-full text-center text-gray-600 hover:text-gray-400 text-xs font-bold uppercase tracking-widest transition-colors py-2 sm:py-3"
             >

@@ -608,8 +608,8 @@ adminWorkRoutes.get("/work-records", async (req, res) => {
 
     const filteredEntries = searchValue
       ? entries.filter((entry) =>
-        entry.employeeId?.name?.toLowerCase().includes(searchValue) ||
-        entry.employeeId?.employeeId?.toLowerCase().includes(searchValue)
+        entry.employeeId?.name?.toLowerCase()?.includes(searchValue) ||
+        entry.employeeId?.employeeId?.toLowerCase()?.includes(searchValue)
       )
       : entries;
 

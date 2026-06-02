@@ -67,12 +67,14 @@ const DynamicHRMSLandingPage = () => {
     });
     const [activeFaq, setActiveFaq] = useState(null);
     const [hoveredPlan, setHoveredPlan] = useState(null);
+    const [expandedPlans, setExpandedPlans] = useState({});
 
     const [plans, setPlans] = useState([]);
     const [plansLoading, setPlansLoading] = useState(true);
 
     const [showRegisterModal, setShowRegisterModal] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState(null);
+    const [userLimit, setUserLimit] = useState(30);
     const [signupLoading, setSignupLoading] = useState(false);
     const [signupError, setSignupError] = useState("");
     const [signupSuccess, setSignupSuccess] = useState("");
@@ -111,6 +113,7 @@ const DynamicHRMSLandingPage = () => {
 
     const handlePlanClick = (plan) => {
         setSelectedPlan(plan);
+        setUserLimit(30);
         setSignupError("");
         setSignupSuccess("");
         setSignupForm({ name: "", email: "", password: "", phone: "", role: "admin", department: "" });
@@ -120,6 +123,7 @@ const DynamicHRMSLandingPage = () => {
     const handleCloseModal = () => {
         setShowRegisterModal(false);
         setSelectedPlan(null);
+        setUserLimit(30);
         setSignupError("");
         setSignupSuccess("");
     };
@@ -152,7 +156,7 @@ const DynamicHRMSLandingPage = () => {
 
         let orderData;
         try {
-            const res = await API.post("/api/razorpay/create-order", { plan: selectedPlan, signupForm });
+            const res = await API.post("/api/razorpay/create-order", { plan: selectedPlan, signupForm, userLimit });
             orderData = res.data;
         } catch (err) {
             setSignupError(err.response?.data?.message || "Could not create payment order.");
@@ -211,11 +215,14 @@ const DynamicHRMSLandingPage = () => {
         setSignupError("");
         setSignupSuccess("");
         if (!selectedPlan) return setSignupError("Please select a plan");
+        if (!userLimit || Number(userLimit) < 30) {
+            return setSignupError("User Limit is a required field and must be at least 30");
+        }
         setSignupLoading(true);
 
         try {
             if (Number(selectedPlan.price) === 0) {
-                await API.post("/api/admin/register", { ...signupForm, plan: selectedPlan.planName });
+                await API.post("/api/admin/register", { ...signupForm, plan: selectedPlan.planName, userLimit });
                 setSignupSuccess(`🎉 ${selectedPlan.planName} account created! Please login.`);
                 setSignupForm({ name: "", email: "", password: "", phone: "", role: "admin", department: "" });
                 setSignupLoading(false);
@@ -258,6 +265,9 @@ const DynamicHRMSLandingPage = () => {
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
                 html { scroll-behavior: smooth; }
+                .no-spin::-webkit-outer-spin-button,
+                .no-spin::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+                .no-spin { -moz-appearance: textfield; }
                 @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
                 .fade-up { animation: fadeUp 0.7s ease-out forwards; }
                 @keyframes modalIn { from { opacity: 0; transform: scale(0.96) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
@@ -828,7 +838,7 @@ const DynamicHRMSLandingPage = () => {
                                                     <>
                                                         <span className={`text-sm font-bold ${isPopular || isHovered ? 'text-blue-200' : textMuted}`}>₹</span>
                                                         <span className={`text-4xl font-black ${isPopular || isHovered ? 'text-white' : text}`}>{plan.price}</span>
-                                                        <span className={`text-sm ${isPopular || isHovered ? 'text-blue-200' : textMuted}`}>/person</span>
+                                                        <span className={`text-sm ${isPopular || isHovered ? 'text-blue-200' : textMuted}`}>/User</span>
                                                     </>
                                                 )}
                                             </div>
@@ -842,18 +852,39 @@ const DynamicHRMSLandingPage = () => {
                                                     </span>
                                                 </li>
                                                 {plan.features && plan.features.length > 0 ? (
-                                                    plan.features
-                                                        .filter(f => f !== "/admin/users-limit")
-                                                        .map((feature, fIdx) => (
-                                                            <li key={fIdx} className="flex items-center gap-2.5">
-                                                                <div className={`check-circle flex-shrink-0 ${isPopular || isHovered ? 'bg-white/20' : 'bg-blue-100'}`}>
-                                                                    <FaCheckCircle className={`text-xs ${isPopular || isHovered ? 'text-white' : 'text-blue-600'}`} />
-                                                                </div>
-                                                                <span className={`text-sm ${isPopular || isHovered ? 'text-blue-100' : textSec}`}>
-                                                                    {featureLabels[feature] || feature}
-                                                                </span>
-                                                            </li>
-                                                        ))
+                                                    (() => {
+                                                        const filtered = plan.features.filter(f => f !== "/admin/users-limit");
+                                                        const isExpanded = expandedPlans[plan._id];
+                                                        const displayed = isExpanded ? filtered : filtered.slice(0, 5);
+
+                                                        return (
+                                                            <>
+                                                                {displayed.map((feature, fIdx) => (
+                                                                    <li key={fIdx} className="flex items-center gap-2.5">
+                                                                        <div className={`check-circle flex-shrink-0 ${isPopular || isHovered ? 'bg-white/20' : 'bg-blue-100'}`}>
+                                                                            <FaCheckCircle className={`text-xs ${isPopular || isHovered ? 'text-white' : 'text-blue-600'}`} />
+                                                                        </div>
+                                                                        <span className={`text-sm ${isPopular || isHovered ? 'text-blue-100' : textSec}`}>
+                                                                            {featureLabels[feature] || feature}
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                                
+                                                                {filtered.length > 5 && (
+                                                                    <li className="pt-2">
+                                                                        <button
+                                                                            onClick={() => setExpandedPlans(prev => ({ ...prev, [plan._id]: !prev[plan._id] }))}
+                                                                            className={`text-xs font-black flex items-center gap-1 hover:underline cursor-pointer ${
+                                                                                isPopular || isHovered ? 'text-white' : 'text-blue-600'
+                                                                            }`}
+                                                                        >
+                                                                            {isExpanded ? '− Show Less' : `+ ${filtered.length - 5} More Features`}
+                                                                        </button>
+                                                                    </li>
+                                                                )}
+                                                            </>
+                                                        );
+                                                    })()
                                                 ) : (
                                                     <>
                                                         <li className="flex items-center gap-2.5">
@@ -1054,19 +1085,52 @@ const DynamicHRMSLandingPage = () => {
                         <p className={`text-center text-sm ${textSec} mb-8`}>Find quick answers to common support queries.</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {[
-                                { icon: '🔑', q: 'How do I reset my organizational password?' },
-                                { icon: '🔗', q: 'Integrating VW Sync with Microsoft Teams' },
-                                { icon: '💰', q: 'Payroll automation compliance in EU' },
-                                { icon: '👥', q: 'Adding new employees to the dashboard' },
-                            ].map((item, i) => (
-                                <div key={i} className={`rounded-2xl p-5 border flex items-center justify-between card-hover cursor-pointer ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`feature-icon-wrap ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-50'}`}>
-                                            <span>{item.icon}</span>
+                                { 
+                                    icon: '🔑', 
+                                    q: 'How do I reset my organizational password?',
+                                    a: "To reset your organizational password, click the 'Forgot Password' link on the login screen. Enter your registered work email address, and our secure system will immediately send you a password reset link. Alternatively, your system administrator can reset your credentials directly from the Manage Logins panel in the master settings."
+                                },
+                                { 
+                                    icon: '🔗', 
+                                    q: 'Integrating VW Sync with Microsoft Teams',
+                                    a: "Integrating VW Sync with Microsoft Teams is a seamless, one-click process. Navigate to the Integrations section within your Admin Settings, click 'Connect to Microsoft Teams', and log in with your Microsoft 365 enterprise account. Once connected, your team will receive real-time automated notifications for shifts, leaves, announcements, and payroll status updates directly inside your preferred Teams channels."
+                                },
+                                { 
+                                    icon: '💰', 
+                                    q: 'Payroll automation compliance in EU',
+                                    a: "VW Sync is fully compliant with EU payroll regulations, GDPR guidelines, and statutory labor laws. Our platform automatically calculates regional tax structures, pension contributions, social security payments, and holiday allowances according to localized mandates. We also support compliant electronic payslip delivery, SEPA bank transfers, and automated reporting formats for local EU tax authorities."
+                                },
+                                { 
+                                    icon: '👥', 
+                                    q: 'Adding new employees to the dashboard',
+                                    a: "Admins can add employees in two easy ways: 1. Manually add individual employees by navigating to the Employee Management tab and clicking the 'Add Employee' button to fill in their role, shift, and department details. 2. Invite employees to complete their own profiles by clicking 'Send Onboarding Email', letting them securely upload credentials and setup authentication before joining."
+                                },
+                             ].map((item, i) => (
+                                <div 
+                                    key={i} 
+                                    onClick={() => setActiveFaq(activeFaq === i ? null : i)}
+                                    className={`rounded-2xl p-5 border flex flex-col gap-3 transition-all duration-300 card-hover cursor-pointer ${
+                                        activeFaq === i 
+                                            ? (isDarkMode ? 'bg-blue-500/10 border-blue-500/30' : 'bg-blue-50/50 border-blue-200 shadow-sm')
+                                            : (isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200')
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`feature-icon-wrap ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-50'}`}>
+                                                <span>{item.icon}</span>
+                                            </div>
+                                            <span className={`text-sm font-bold ${text}`}>{item.q}</span>
                                         </div>
-                                        <span className={`text-sm font-semibold ${text}`}>{item.q}</span>
+                                        <span className={`text-blue-600 text-lg font-black transition-transform duration-300 flex-shrink-0 ml-4 ${activeFaq === i ? 'rotate-90' : ''}`}>
+                                            ›
+                                        </span>
                                     </div>
-                                    <span className="text-blue-600 text-lg flex-shrink-0 ml-4">›</span>
+                                    {activeFaq === i && (
+                                        <div className={`pl-12 text-xs font-semibold leading-relaxed border-t pt-3 mt-1 transition-all ${isDarkMode ? 'text-gray-300 border-white/5' : 'text-gray-600 border-gray-100'}`}>
+                                            {item.a}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -1201,12 +1265,43 @@ const DynamicHRMSLandingPage = () => {
                                                     </button>
                                                 ))}
                                         </div>
+
+                                        <div className="mt-5">
+                                            <label className={`text-xs font-bold uppercase tracking-wider ${textMuted} mb-1 block`}>
+                                                User Limit <span className="text-red-500">*</span>
+                                            </label>
+                                            <div className={`flex items-center gap-2 rounded-xl border p-2.5 ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-200'}`}>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    form="signup-form"
+                                                    value={userLimit}
+                                                    onChange={e => {
+                                                        const val = e.target.value.replace(/[^0-9]/g, "");
+                                                        if (val.length <= 3) {
+                                                            setUserLimit(val === "" ? "" : Number(val));
+                                                        }
+                                                    }}
+                                                    className={`w-full bg-transparent font-bold outline-none text-sm no-spin ${text}`}
+                                                    placeholder="Enter limit (minimum 30)"
+                                                />
+                                            </div>
+                                            {userLimit !== "" && Number(userLimit) < 30 ? (
+                                                <p className="text-red-500 text-[10px] mt-1 font-bold animate-pulse">
+                                                    ⚠ Limit should be at least 30 to proceed.
+                                                </p>
+                                            ) : (
+                                                <p className={`text-[10px] ${textMuted} mt-1 font-semibold`}>
+                                                    * Minimum 30 users required. Bill is calculated dynamically.
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Registration Form */}
                                     <div>
                                         <p className={`text-xs font-black uppercase tracking-widest ${textMuted} mb-4`}>Your Details</p>
-                                        <form onSubmit={handleAdminRegister} className="space-y-3">
+                                        <form id="signup-form" onSubmit={handleAdminRegister} className="space-y-3">
                                             <div>
                                                 <label className={`text-xs font-bold uppercase tracking-wider ${textMuted} mb-1 block`}>Full Name</label>
                                                 <input
@@ -1273,7 +1368,7 @@ const DynamicHRMSLandingPage = () => {
                                                         <p className={`font-bold text-sm capitalize ${text}`}>{selectedPlan.planName}</p>
                                                     </div>
                                                     <div className="text-blue-600 font-black text-xl">
-                                                        {Number(selectedPlan.price) === 0 ? "Free" : `₹${selectedPlan.price}`}
+                                                        {Number(selectedPlan.price) === 0 ? "Free" : `₹${selectedPlan.price * userLimit}`}
                                                     </div>
                                                 </div>
                                             )}
@@ -1283,7 +1378,7 @@ const DynamicHRMSLandingPage = () => {
                                                 disabled={signupLoading || !selectedPlan || !!signupSuccess}
                                                 className="w-full mt-1 btn-primary text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
-                                                {signupLoading ? "Processing..." : !selectedPlan ? "← Select a Plan" : Number(selectedPlan.price) === 0 ? "Create Free Account" : `Pay ₹${selectedPlan.price} & Activate`}
+                                                {signupLoading ? "Processing..." : !selectedPlan ? "← Select a Plan" : Number(selectedPlan.price) === 0 ? "Create Free Account" : `Pay ₹${selectedPlan.price * userLimit} & Activate`}
                                             </button>
 
                                             <p className={`text-center text-xs ${textMuted} uppercase tracking-wider pt-1`}>

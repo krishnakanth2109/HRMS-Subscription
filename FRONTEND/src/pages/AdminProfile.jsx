@@ -466,6 +466,7 @@ const AdminProfile = () => {
           department: profile.department,
           role: profile.role
         },
+        userLimit: profile.userLimit || nextBillInfo.employeeCount || 30,
         isUpgrade: false
       });
 
@@ -567,6 +568,7 @@ const AdminProfile = () => {
           department: profile.department,
           role: profile.role
         },
+        userLimit: profile.userLimit || 30,
         isUpgrade: true
       });
 
@@ -847,7 +849,7 @@ const AdminProfile = () => {
                 <FaCreditCard className="text-purple-500 text-sm" /> Subscription Overview
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                 <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Current Plan</p>
                   <h4 className="text-2xl font-black text-purple-600 capitalize">{profile?.plan}</h4>
@@ -858,7 +860,6 @@ const AdminProfile = () => {
                       <><FaTimesCircle className="text-amber-500" /> <span className="text-amber-600 uppercase">Trial / Unpaid</span></>
                     )}
                   </div>
-
                 </div>
 
                 <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
@@ -866,6 +867,25 @@ const AdminProfile = () => {
                   <h4 className={`text-2xl font-black ${profile?.loginEnabled ? "text-emerald-600" : "text-red-600"}`}>
                     {profile?.loginEnabled ? "Fully Accessible" : "Access Blocked"}
                   </h4>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">User Limit</p>
+                    <h4 className="text-2xl font-black text-indigo-600 capitalize">
+                      {profile?.userLimit || 30} Users
+                    </h4>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-gray-200/60 flex items-center justify-between text-xs font-bold text-slate-600">
+                    <span>Remaining Limit:</span>
+                    <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${
+                      (profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
+                        ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
+                        : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                    }`}>
+                      {Math.max(0, (profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
+                    </span>
+                  </div>
                 </div>
               </div>
 

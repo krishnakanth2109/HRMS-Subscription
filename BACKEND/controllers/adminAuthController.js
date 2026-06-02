@@ -4,6 +4,7 @@ import PlanSetting from "../models/planSettingModel.js";
 import Employee from "../models/employeeModel.js";
 import Feature from "../models/featureModel.js";
 import jwt from "jsonwebtoken";
+import { getBillableEmployeesCount } from "../utils/billingHelper.js";
 
 /* ==================== JWT SIGN ==================== */
 const signToken = (id, role) => {
@@ -48,7 +49,7 @@ const getExpiryDate = async (planName) => {
 /* ==================== REGISTER ADMIN ==================== */
 export const registerAdmin = async (req, res) => {
   try {
-    const { name, email, password, phone, role, department, plan, adminId } = req.body;
+    const { name, email, password, phone, role, department, plan, adminId, userLimit } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Name, email, and password are required" });
@@ -76,6 +77,7 @@ export const registerAdmin = async (req, res) => {
       role: role || "admin",
       department: department || "Administration",
       plan: plan || "Free",
+      userLimit: Number(userLimit) || 30,
       isPaid: isPaid,
       planActivatedAt: new Date(),
       planExpiresAt: planExpiresAt,
@@ -146,10 +148,13 @@ export const loginAdmin = async (req, res) => {
 
       if (rootAdmin.planExpiresAt && now > gracePeriodEndDate) {
         const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
+        const billableCount = await getBillableEmployeesCount(rootAdmin._id, rootAdmin.planActivatedAt);
+        const employeeCount = Math.max(1, billableCount);
 
         return res.status(403).json({
           message: "Your plan has expired and the 7-day grace period has ended. Please pay your bill to restore access.",
           expired: true,
+          role: "admin",
           adminDetails: {
             name: rootAdmin.name,
             email: rootAdmin.email,
@@ -157,6 +162,8 @@ export const loginAdmin = async (req, res) => {
             planActivatedAt: rootAdmin.planActivatedAt,
             planExpiresAt: rootAdmin.planExpiresAt,
             expiredDaysAgo: expiredDaysAgo,
+            employeeCount: employeeCount,
+            userLimit: rootAdmin.userLimit || 30,
           },
         });
       }
@@ -321,7 +328,7 @@ export const getLoginAccessStatus = async (req, res) => {
     plans.forEach(p => planMap[p.planName] = p);
 
     const admins = await Admin.find({})
-      .select("name email plan loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount createdAt")
+      .select("name email plan userLimit loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount createdAt")
       .sort({ createdAt: -1 });
 
     const adminData = await Promise.all(
@@ -331,14 +338,17 @@ export const getLoginAccessStatus = async (req, res) => {
         const disabledEmployees = employees.filter(e => e.loginEnabled === false).length;
         const staffNames = employees.map(e => e.name);
 
-        let userLimit = null;
-        const planInfo = planMap[admin.plan];
+        const supportAdminCount = await SupportAdmin.countDocuments({ adminId: admin._id });
 
-        if (planInfo && planInfo.maxUsers) {
-          userLimit = planInfo.maxUsers;
-        } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase().includes('free')) {
-          // If no specific setting found for Free plan, default to 30 or whatever was intended as fallback
-          userLimit = planMap['Free']?.maxUsers || 30;
+        const planInfo = planMap[admin.plan];
+        let userLimit = admin.userLimit || null;
+        if (userLimit === null) {
+          if (planInfo && planInfo.maxUsers) {
+            userLimit = planInfo.maxUsers;
+          } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
+            // If no specific setting found for Free plan, default to 30 or whatever was intended as fallback
+            userLimit = planMap['Free']?.maxUsers || 30;
+          }
         }
 
         return {
@@ -360,6 +370,7 @@ export const getLoginAccessStatus = async (req, res) => {
           totalEmployees,
           disabledEmployees,
           staffNames,
+          supportAdminCount,
         };
       })
     );
@@ -389,7 +400,12 @@ export const getAdminProfile = async (req, res) => {
       return res.status(404).json({ message: "Admin/SupportAdmin not found" });
     }
 
-    res.status(200).json(admin);
+    const adminObj = admin.toObject();
+    const rootAdminId = req.user.role === "support-admin" ? admin.adminId : admin._id;
+    const supportAdminCount = await SupportAdmin.countDocuments({ adminId: rootAdminId });
+    adminObj.supportAdminCount = supportAdminCount;
+
+    res.status(200).json(adminObj);
   } catch (error) {
     console.error("Profile Fetch Error:", error);
     res.status(500).json({ message: "Server error fetching profile" });
@@ -524,6 +540,32 @@ export const changeAdminPassword = async (req, res) => {
   }
 };
 
+/* ==================== DELETE ADMIN (Master Only) ==================== */
+export const deleteAdmin = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Delete the admin
+    await Admin.findByIdAndDelete(adminId);
+
+    // Delete all employees under this admin
+    await Employee.deleteMany({ adminId });
+
+    // Delete all support admins under this admin
+    await SupportAdmin.deleteMany({ adminId });
+
+    res.status(200).json({ message: `Admin account for ${admin.name} and all associated logins have been permanently deleted` });
+  } catch (error) {
+    console.error("❌ DELETE ADMIN ERROR:", error);
+    res.status(500).json({ message: "Failed to delete admin account" });
+  }
+};
+
 /* ==================== REGISTER SUPPORT ADMIN ==================== */
 export const registerSupportAdmin = async (req, res) => {
   try {
@@ -537,6 +579,34 @@ export const registerSupportAdmin = async (req, res) => {
     const existingAdmin = await Admin.findOne({ email });
     if (existingSupportAdmin || existingAdmin) {
       return res.status(400).json({ message: "User with this email already exists" });
+    }
+
+    // ✅ User Limit Check for Support Admins
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Root Admin not found" });
+    }
+
+    let maxUsers = admin.userLimit || null;
+    if (maxUsers === null) {
+      const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+      if (planSetting && planSetting.maxUsers) {
+        maxUsers = planSetting.maxUsers;
+      } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
+        const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
+        maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+      }
+    }
+
+    if (maxUsers !== null) {
+      const currentEmployeeCount = await Employee.countDocuments({ adminId });
+      const currentSupportAdminCount = await SupportAdmin.countDocuments({ adminId });
+      const totalCount = currentEmployeeCount + currentSupportAdminCount; // Admin is account owner and does not count toward user limit
+      if (totalCount >= maxUsers) {
+        return res.status(400).json({
+          message: `User limit reached (${maxUsers} users). You cannot add more administration users. Please upgrade your plan or increase your user limit.`
+        });
+      }
     }
 
     const existingSupportAdminId = await SupportAdmin.findOne({ supportAdminId, adminId });

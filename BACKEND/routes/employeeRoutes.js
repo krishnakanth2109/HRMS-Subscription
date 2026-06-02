@@ -12,6 +12,7 @@ import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import Admin from "../models/adminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
 
 const router = express.Router();
 
@@ -19,20 +20,24 @@ const checkUserLimit = async (adminId) => {
   const admin = await Admin.findById(adminId);
   if (!admin) return { allowed: true };
 
-  let maxUsers = null;
-  const planSetting = await PlanSetting.findOne({ planName: admin.plan });
-  
-  if (planSetting && planSetting.maxUsers) {
-      maxUsers = planSetting.maxUsers;
-  } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase().includes('free')) {
-      // Fallback for free plans if no setting exists
-      const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
-      maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+  let maxUsers = admin.userLimit || null;
+  if (maxUsers === null) {
+    const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+    
+    if (planSetting && planSetting.maxUsers) {
+        maxUsers = planSetting.maxUsers;
+    } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
+        // Fallback for free plans if no setting exists
+        const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
+        maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+    }
   }
 
   if (maxUsers !== null) {
     const currentEmployeeCount = await Employee.countDocuments({ adminId });
-    if (currentEmployeeCount >= maxUsers) {
+    const currentSupportAdminCount = await SupportAdmin.countDocuments({ adminId });
+    const totalCount = currentEmployeeCount + currentSupportAdminCount; // Admin is account owner and does not count toward user limit
+    if (totalCount >= maxUsers) {
       return {
         allowed: false,
         limit: maxUsers,

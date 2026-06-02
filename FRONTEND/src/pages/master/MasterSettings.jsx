@@ -161,7 +161,7 @@ const PlanSettings = () => {
         price: Number(price),
         billingCycle,
         durationDays,
-        maxUsers: maxUsers === "" ? null : Number(maxUsers),
+        maxUsers: null,
         features: includedFeatures,
       });
 
@@ -305,18 +305,8 @@ const PlanSettings = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">User Limit</label>
-                <input
-                  type="number"
-                  value={maxUsers}
-                  onChange={(e) => setMaxUsers(e.target.value)}
-                  placeholder="Unlimited"
-                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
-                />
-              </div>
-            </div>
+
+
 
             {/* Plan features dropdown is commented out because every admin feature is included automatically. */}
             {false && (
@@ -437,11 +427,8 @@ const PlanSettings = () => {
               </div>
             </div>
 
-            <div className="mb-8">
-              <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-3 py-1.5 rounded-full border border-indigo-500/20">
-                Limit: {maxUsers === "" ? "Unlimited" : `${maxUsers} Users`}
-              </span>
-            </div>
+
+
 
             <div className="space-y-4">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Included Features</p>
@@ -496,9 +483,6 @@ const PlanSettings = () => {
                       <div className="flex gap-2 mt-1">
                         <p className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md inline-block bg-purple-100 text-purple-600">
                           Per Person Billing
-                        </p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md inline-block bg-indigo-100 text-indigo-600">
-                          {plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}
                         </p>
                       </div>
                     </div>

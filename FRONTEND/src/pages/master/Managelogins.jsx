@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import api from "../../api"; // your configured axios instance
 import Swal from "sweetalert2";
-import { FaChevronDown, FaChevronUp, FaKey, FaEllipsisV, FaReceipt } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp, FaKey, FaEllipsisV, FaReceipt, FaTrash } from "react-icons/fa";
 
 /* ──────────────────────────────────────────────
    TINY HELPERS
@@ -62,9 +62,11 @@ function Toggle({ checked, onChange, disabled }) {
   );
 }
 
+
+
 function Badge({ active, label, variant = "status" }) {
-  const styles = variant === "danger" 
-    ? "bg-rose-100 text-rose-700" 
+  const styles = variant === "danger"
+    ? "bg-rose-100 text-rose-700"
     : (active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600");
 
   const dot = variant === "danger" ? "bg-rose-500" : (active ? "bg-emerald-500" : "bg-red-500");
@@ -85,7 +87,7 @@ export default function ManageLogins() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all"); 
+  const [activeFilter, setActiveFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("All Plans");
   const [pendingChanges, setPendingChanges] = useState({});
   const [expandedStaff, setExpandedStaff] = useState({});
@@ -182,6 +184,50 @@ export default function ManageLogins() {
     }
   };
 
+  const handleDeleteAdmin = async (admin) => {
+    setOpenActionMenu(null);
+
+    const { isConfirmed } = await Swal.fire({
+      title: "Delete Admin Account?",
+      html: `
+        <p style="color:#ef4444;font-size:14px;font-weight:700;margin-bottom:10px">⚠️ WARNING: THIS IS PERMANENT</p>
+        <p style="color:#4b5563;font-size:13px;line-height:1.5">
+          Deleting the admin account for <strong>${escapeHtml(admin.name)}</strong> (${escapeHtml(admin.email)}) will permanently erase:
+        </p>
+        <ul style="text-align:left;color:#4b5563;font-size:12px;margin:10px auto;width:80%;line-height:1.6">
+          <li>• The Admin credentials and profile</li>
+          <li>• All ${admin.totalEmployees} employee/staff logins & profiles</li>
+          <li>• All associated attendance and shift data</li>
+        </ul>
+        <p style="color:#6b7280;font-size:12px">Type <strong>DELETE</strong> below to confirm deletion:</p>
+        <input id="swal-delete-confirm" type="text" class="swal2-input" placeholder="DELETE" style="width:60%;margin-top:10px;text-align:center;font-weight:bold" />
+      `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#dc2626",
+      confirmButtonText: "Permanently Delete",
+      cancelButtonText: "Cancel",
+      preConfirm: () => {
+        const text = document.getElementById("swal-delete-confirm").value;
+        if (text !== "DELETE") {
+          Swal.showValidationMessage("Please type DELETE to confirm");
+          return false;
+        }
+        return true;
+      }
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      const res = await api.delete(`/api/admin/delete-admin/${admin.id}`);
+      toast(res.data.message || "Admin account deleted successfully", "success");
+      setAdmins(prev => prev.filter(a => a.id !== admin.id));
+    } catch (err) {
+      toast(err.response?.data?.message || "Failed to delete admin account", "error");
+    }
+  };
+
   const handleViewBills = (admin) => {
     setOpenActionMenu(null);
 
@@ -264,7 +310,7 @@ export default function ManageLogins() {
   const getAdminLogin = (admin) => pendingChanges[admin.id]?.loginEnabled ?? admin.loginEnabled;
 
   const getEmployeeLogin = (admin, adminOn) => {
-    if (!adminOn) return false; 
+    if (!adminOn) return false;
     if (pendingChanges[admin.id]?.employeesLoginEnabled !== undefined) return pendingChanges[admin.id].employeesLoginEnabled;
     if (admin.totalEmployees === 0) return false;
     return admin.disabledEmployees < admin.totalEmployees;
@@ -339,7 +385,7 @@ export default function ManageLogins() {
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        
+
         {/* ── COUNTS / STATS ── */}
         {!loading && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -380,21 +426,21 @@ export default function ManageLogins() {
             </div>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {violations.map(v => (
-                <div 
-                  key={v.id} 
+                <div
+                  key={v.id}
                   onClick={() => { setSearch(v.email); setActiveFilter("all"); setPlanFilter("All Plans"); }}
                   className="bg-rose-50/30 border border-rose-100 p-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-rose-100/50 transition-colors group"
                 >
-                   <div className="min-w-0">
-                      <p className="text-xs font-bold text-gray-800 truncate group-hover:text-rose-600 transition-colors">{v.name}</p>
-                      <p className="text-[10px] text-rose-500 font-black">
-                        {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-70">{getDaysAgo(v.planExpiresAt)}</span>
-                      </p>
-                   </div>
-                   <div className="text-right shrink-0">
-                      <p className="text-[9px] font-black text-gray-400">STAFF ACTIVE</p>
-                      <p className="text-sm font-black text-rose-600">{v.totalEmployees - v.disabledEmployees}</p>
-                   </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-800 truncate group-hover:text-rose-600 transition-colors">{v.name}</p>
+                    <p className="text-[10px] text-rose-500 font-black">
+                      {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-70">{getDaysAgo(v.planExpiresAt)}</span>
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[9px] font-black text-gray-400">STAFF ACTIVE</p>
+                    <p className="text-sm font-black text-rose-600">{v.totalEmployees - v.disabledEmployees}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -417,8 +463,8 @@ export default function ManageLogins() {
           </div>
           <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-1 shadow-sm">
             <span className="text-[10px] font-black text-gray-400 uppercase ml-2">Select Plan:</span>
-            <select 
-              value={planFilter} 
+            <select
+              value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
               className="text-sm font-bold text-gray-700 outline-none bg-transparent py-2 cursor-pointer min-w-[140px]"
             >
@@ -435,13 +481,13 @@ export default function ManageLogins() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
             <p className="text-gray-400 font-medium">No results found.</p>
-            <button onClick={() => {setSearch(""); setPlanFilter("All Plans"); setActiveFilter("all");}} className="mt-2 text-blue-600 text-sm font-bold uppercase tracking-widest">Reset Filters</button>
+            <button onClick={() => { setSearch(""); setPlanFilter("All Plans"); setActiveFilter("all"); }} className="mt-2 text-blue-600 text-sm font-bold uppercase tracking-widest">Reset Filters</button>
           </div>
         ) : (
           <div className="space-y-4">
             {filtered.map((admin) => {
               const adminOn = getAdminLogin(admin);
-              const empOn = getEmployeeLogin(admin, adminOn); 
+              const empOn = getEmployeeLogin(admin, adminOn);
               const expired = isPlanExpired(admin.planExpiresAt);
               const hasPending = !!pendingChanges[admin.id];
 
@@ -456,16 +502,16 @@ export default function ManageLogins() {
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <h3 className="font-bold text-gray-900 truncate">{admin.name}</h3>
                           <Badge active={adminOn} label={adminOn ? "Admin Active" : "Admin Disabled"} />
-                          {expired && <Badge variant="danger" label={`Plan jExpired`} />}
+                          {expired && <Badge variant="danger" label={`Plan Expired`} />}
                         </div>
                         <p className="text-xs text-gray-500 mb-3 truncate">{admin.email}</p>
                         <div className="flex flex-wrap gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                           <span>Plan: <span className="text-gray-800">{admin.plan || "N/A"}</span></span>
                           <span>Expires: <span className={expired ? "text-rose-500" : "text-gray-800"}>{formatDate(admin.planExpiresAt)}</span></span>
                           <span className="flex items-center gap-1">
-                            Staff Total: <span className="text-gray-800">{admin.totalEmployees} {admin.userLimit ? `/ ${admin.userLimit}` : ''}</span>
+                            Staff Total: <span className="text-gray-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.userLimit ? `/ ${admin.userLimit}` : ''}</span>
                           </span>
-                        </div>   
+                        </div>
                       </div>
                     </div>
 
@@ -503,6 +549,13 @@ export default function ManageLogins() {
                             >
                               <FaKey size={11} />
                               Change Password
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAdmin(admin)}
+                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors border-t border-gray-100"
+                            >
+                              <FaTrash size={11} />
+                              Delete Account
                             </button>
                             <button
                               onClick={() => handleViewBills(admin)}

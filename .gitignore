@@ -39,3 +39,4 @@ pnpm-lock.yaml
 # Seed scripts
 BACKEND/seedAdminAccount.js
 BACKEND/seedMasterAccount.js
+BACKEND/seedDummyLimit.js

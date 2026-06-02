@@ -41,6 +41,7 @@ const adminSchema = new mongoose.Schema(
       type: String,
       default: "Free",
     },
+    userLimit: { type: Number, default: 30 },
     isPaid: { type: Boolean, default: false },
     planActivatedAt: { type: Date, default: null },
     planExpiresAt: { type: Date, default: null },

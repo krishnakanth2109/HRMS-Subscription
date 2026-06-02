@@ -16,6 +16,7 @@ import {
     getAllFeatures,
     getMyPlanFeatures,
     changeAdminPassword,
+    deleteAdmin,
     getSupportAdmins,
     deleteSupportAdmin,
     registerSupportAdmin,
@@ -49,5 +50,6 @@ router.patch("/login-access/employees/:adminId", toggleEmployeeLoginByAdmin);
 router.get("/all-features", protect, getAllFeatures);
 router.get("/my-plan-features", protect, getMyPlanFeatures);
 router.patch("/change-password/:adminId", changeAdminPassword);
+router.delete("/delete-admin/:adminId", deleteAdmin);
 
 export default router;

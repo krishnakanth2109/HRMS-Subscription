@@ -16,7 +16,7 @@ const razorpay = new Razorpay({
  ───────────────────────────────────────────── */
 export const createOrder = async (req, res) => {
   try {
-    const { plan, signupForm } = req.body;
+    const { plan, signupForm, userLimit = 30 } = req.body;
 
     if (!plan || !signupForm) {
       return res.status(400).json({ message: "Invalid request" });
@@ -37,21 +37,10 @@ export const createOrder = async (req, res) => {
         .json({ message: "Free plan does not require payment" });
     }
 
-    // Calculate dynamic employee/person count for billing
-    let employeeCount = 1;
-    if (signupForm.email) {
-      const existingAdmin = await Admin.findOne({ email: signupForm.email.toLowerCase().trim() });
-      if (existingAdmin) {
-        const billableCount = await getBillableEmployeesCount(
-          existingAdmin._id,
-          existingAdmin.planActivatedAt || new Date()
-        );
-        employeeCount = Math.max(1, billableCount);
-      }
-    }
+    const limit = Math.max(30, Number(userLimit) || 30);
 
     // Razorpay expects amount in paise (1 INR = 100 paise)
-    const amountInPaise = Math.round(planInfo.price * employeeCount * 100);
+    const amountInPaise = Math.round(planInfo.price * limit * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
@@ -66,7 +55,8 @@ export const createOrder = async (req, res) => {
         plan: planInfo.planName,
         durationDays: planInfo.durationDays.toString(),
         billingCycle: planInfo.billingCycle || "monthly",
-        employeeCount: employeeCount.toString(),
+        employeeCount: limit.toString(),
+        userLimit: limit.toString(),
         amount: (amountInPaise / 100).toString(),
         isUpgrade: req.body.isUpgrade ? "true" : "false",
         // NOTE: Never store raw password in notes for real prod.
@@ -129,6 +119,7 @@ export const verifyPayment = async (req, res) => {
       plan: planName,
       durationDays,
       billingCycle,
+      userLimit,
     } = notes;
 
     if (!name || !email || !password || !planName) {
@@ -166,6 +157,7 @@ export const verifyPayment = async (req, res) => {
 
     if (existing) {
       existing.plan = planName;
+      existing.userLimit = Number(userLimit) || 30;
       existing.isPaid = true;
       existing.razorpayOrderId = razorpay_order_id;
       existing.razorpayPaymentId = razorpay_payment_id;
@@ -184,6 +176,7 @@ export const verifyPayment = async (req, res) => {
         department: department || "Administration",
         role: role || "admin",
         plan: planName,
+        userLimit: Number(userLimit) || 30,
         isPaid: true,
         razorpayOrderId: razorpay_order_id,
         razorpayPaymentId: razorpay_payment_id,
@@ -259,6 +252,7 @@ export const razorpayWebhookHandler = async (req, res) => {
       plan: planName,
       durationDays,
       billingCycle,
+      userLimit,
     } = notes;
 
     if (!name || !email || !password || !planName) {
@@ -296,6 +290,7 @@ export const razorpayWebhookHandler = async (req, res) => {
 
     if (existing) {
       existing.plan = planName;
+      existing.userLimit = Number(userLimit) || 30;
       existing.isPaid = true;
       existing.razorpayOrderId = orderId;
       existing.razorpayPaymentId = paymentId;
@@ -314,6 +309,7 @@ export const razorpayWebhookHandler = async (req, res) => {
         department: department || "Administration",
         role: role || "admin",
         plan: planName,
+        userLimit: Number(userLimit) || 30,
         isPaid: true,
         razorpayOrderId: orderId,
         razorpayPaymentId: paymentId,

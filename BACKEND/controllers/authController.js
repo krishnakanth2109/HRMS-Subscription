@@ -7,6 +7,7 @@ import Admin from "../models/adminModel.js";
 import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
 import PlanSetting from "../models/planSettingModel.js";
+import { getBillableEmployeesCount } from "../utils/billingHelper.js";
 
 /* ================================================================
  * generateToken
@@ -72,10 +73,10 @@ export const login = async (req, res) => {
     }
 
     if (oldEmailMatch) {
-      return res.status(401).json({ 
-        emailChanged: true, 
+      return res.status(401).json({
+        emailChanged: true,
         newEmail: newEmail,
-        message: `Your login mail is changed. This is your new mail: ${newEmail}` 
+        message: `Your login mail is changed. This is your new mail: ${newEmail}`
       });
     }
 
@@ -134,12 +135,22 @@ export const login = async (req, res) => {
       const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
 
       if (!isUnlimitedPlan) {
-        if (rootAdmin.planExpiresAt && new Date(rootAdmin.planExpiresAt) < new Date()) {
+        /* === PLAN EXPIRY BLOCKER (with 7-day grace period) === */
+        const now = new Date();
+        const expiryDate = new Date(rootAdmin.planExpiresAt);
+        const gracePeriodEndDate = new Date(expiryDate);
+        gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 7);
+
+        if (rootAdmin.planExpiresAt && now > gracePeriodEndDate) {
           const expiredDaysAgo = Math.floor(
-            (new Date() - new Date(rootAdmin.planExpiresAt)) / (1000 * 60 * 60 * 24)
+            (now - expiryDate) / (1000 * 60 * 60 * 24)
           );
+          const billableCount = await getBillableEmployeesCount(rootAdmin._id, rootAdmin.planActivatedAt);
+          const employeeCount = Math.max(1, billableCount);
+
           return res.status(403).json({
             expired: true,
+            role: role,
             adminDetails: {
               name: rootAdmin.name,
               email: rootAdmin.email,
@@ -147,6 +158,7 @@ export const login = async (req, res) => {
               planActivatedAt: rootAdmin.planActivatedAt,
               planExpiresAt: rootAdmin.planExpiresAt,
               expiredDaysAgo,
+              employeeCount: employeeCount,
             },
           });
         }
@@ -178,7 +190,7 @@ export const login = async (req, res) => {
     console.error("❌ Login error:", err);
     return res.status(500).json({ message: "Server error during login." });
   }
-  
+
 };
 
 /* ================================================================
