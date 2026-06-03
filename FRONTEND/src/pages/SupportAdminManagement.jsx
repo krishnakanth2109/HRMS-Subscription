@@ -69,6 +69,8 @@ const SupportAdminManagement = () => {
     positionName: "",
     name: "",
     email: "",
+    phone: "",
+    department: "",
     password: "",
     confirmPassword: "",
     assignedFeatures: ALL_SIDEBAR_FEATURES.map((f) => f.id),
@@ -228,8 +230,8 @@ const SupportAdminManagement = () => {
         name: newAdminForm.name,
         email: newAdminForm.email,
         password: newAdminForm.password,
-        phone: profile?.phone || "",
-        department: profile?.department || ADMINISTRATION_LABEL,
+        phone: newAdminForm.phone || "",
+        department: newAdminForm.department || ADMINISTRATION_LABEL,
         adminId: profile?.adminId || profile?._id,
         assignedFeatures: newAdminForm.assignedFeatures,
       });
@@ -240,6 +242,8 @@ const SupportAdminManagement = () => {
         positionName: "",
         name: "",
         email: "",
+        phone: "",
+        department: "",
         password: "",
         confirmPassword: "",
         assignedFeatures: ALL_SIDEBAR_FEATURES.map((f) => f.id),
@@ -623,6 +627,30 @@ const SupportAdminManagement = () => {
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
               placeholder="john@example.com"
             />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Phone</label>
+              <input
+                type="text"
+                value={newAdminForm.phone}
+                onChange={(event) => setNewAdminForm({ ...newAdminForm, phone: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+                placeholder="Phone number"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Department</label>
+              <input
+                type="text"
+                value={newAdminForm.department}
+                onChange={(event) => setNewAdminForm({ ...newAdminForm, department: event.target.value })}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
+                placeholder={ADMINISTRATION_LABEL}
+              />
+            </div>
           </div>
 
           <div>

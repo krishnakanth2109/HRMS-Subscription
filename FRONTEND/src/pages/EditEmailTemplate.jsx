@@ -80,12 +80,21 @@ const EditEmailTemplate = () => {
   const [editorFont, setEditorFont] = useState('Outfit');
   const [textColor, setTextColor] = useState('#334155');
 
+  const getFormattedMessage = (msg) => {
+    if (!msg) return '';
+    // If the template is plain text (no HTML tags), convert newlines to <br> tags
+    if (!/<\/?[a-z][\s\S]*>/i.test(msg)) {
+      return msg.replace(/\n/g, '<br>');
+    }
+    return msg;
+  };
+
   useEffect(() => {
     // Initialise editor content
     if (editorRef.current) {
       const activeTpl = templates.find(t => t.id === selectedTemplateId) || templates[0];
       setSubject(activeTpl.subject);
-      editorRef.current.innerHTML = activeTpl.message;
+      editorRef.current.innerHTML = getFormattedMessage(activeTpl.message);
     }
   }, [selectedTemplateId]);
 
@@ -96,7 +105,7 @@ const EditEmailTemplate = () => {
       localStorage.setItem('doc_verify_selected_template_id', tpl.id);
       setSubject(tpl.subject);
       if (editorRef.current) {
-        editorRef.current.innerHTML = tpl.message;
+        editorRef.current.innerHTML = getFormattedMessage(tpl.message);
       }
     }
   };

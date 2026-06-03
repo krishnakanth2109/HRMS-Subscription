@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { io } from "socket.io-client";
 import ModalWrapper from "../components/ModalWrapper";
 import Pagination from "../components/Pagination";
@@ -220,9 +221,25 @@ const SmartSubmenu = ({ onClose, onNavigate }) => {
 // SUB-COMPONENTS (ROWS)
 // ==========================================
 
+const ACTION_MENU_WIDTH = 208;
+
+const getActionMenuPosition = (trigger, menuHeight = 188) => {
+  const rect = trigger.getBoundingClientRect();
+  const padding = 12;
+  const left = Math.min(
+    Math.max(rect.right - ACTION_MENU_WIDTH, padding),
+    window.innerWidth - ACTION_MENU_WIDTH - padding,
+  );
+  const hasSpaceBelow = rect.bottom + menuHeight + padding <= window.innerHeight;
+  const top = hasSpaceBelow
+    ? rect.bottom + 8
+    : Math.max(rect.top - menuHeight - 8, padding);
+
+  return { top, left };
+};
+
 const EmployeeRow = ({
   emp,
-  idx,
   navigate,
   onDeactivateClick,
   onOverviewClick,
@@ -237,10 +254,13 @@ const EmployeeRow = ({
   const currentRole = getCurrentRole(emp);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const menuPanelRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      const clickedTrigger = menuRef.current?.contains(event.target);
+      const clickedPanel = menuPanelRef.current?.contains(event.target);
+      if (!clickedTrigger && !clickedPanel) {
         setIsMenuOpen(false);
       }
     };
@@ -308,33 +328,41 @@ const EmployeeRow = ({
         </a>
       </td>
       <td className="p-4 align-middle text-center">
-        <div className="inline-block text-left" ref={menuRef}>
+        <div className="relative inline-flex justify-center text-left" ref={menuRef}>
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm transition-all"
+            onClick={(e) => {
+              setMenuPosition(getActionMenuPosition(e.currentTarget));
+              setIsMenuOpen((open) => !open);
+            }}
+            className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-100"
           >
             Actions
             <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </button>
-          {isMenuOpen && (
-            <div className="fixed right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-20 border ring-1 ring-black ring-opacity-5 overflow-hidden origin-top-right">
+          {isMenuOpen && createPortal(
+            <div
+              ref={menuPanelRef}
+              style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }}
+              className="w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5"
+            >
               <div className="py-1">
-                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-3 transition-colors">
+                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700">
                   <FaUser className="text-blue-500" /> Profile
                 </button>
-                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 hover:text-teal-700 flex items-center gap-3 transition-colors">
+                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-teal-50 hover:text-teal-700">
                   <FaClipboardList className="text-teal-500" /> Overview
                 </button>
-                <button onClick={() => { navigate(`/employees/edit/${emp.employeeId}`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center gap-3 transition-colors">
+                <button onClick={() => { navigate(`/employees/edit/${emp.employeeId}`); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-green-50 hover:text-green-700">
                   <FaEdit className="text-green-500" /> Edit
                 </button>
-                <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-colors">
+                <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-orange-50 hover:text-orange-700">
                   <FaTrash className="text-orange-500" /> Deactivate
                 </button>
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </td>
@@ -357,10 +385,13 @@ const InactiveEmployeeRow = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef(null);
+  const menuPanelRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+      const clickedTrigger = menuRef.current?.contains(event.target);
+      const clickedPanel = menuPanelRef.current?.contains(event.target);
+      if (!clickedTrigger && !clickedPanel) {
         setIsMenuOpen(false);
       }
     };
@@ -408,26 +439,26 @@ const InactiveEmployeeRow = ({
         <div className="relative inline-block text-left" ref={menuRef}>
           <button
             onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setMenuPosition({ top: rect.bottom + window.scrollY, left: rect.right - 180 });
-              setIsMenuOpen(!isMenuOpen);
+              setMenuPosition(getActionMenuPosition(e.currentTarget));
+              setIsMenuOpen((open) => !open);
             }}
-            className="bg-white border border-gray-300 text-gray-600 px-3 py-1.5 rounded hover:bg-gray-50 flex items-center gap-2 font-medium text-xs shadow-sm"
+            className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 shadow-sm transition-all hover:border-green-300 hover:bg-green-50 hover:text-green-700 focus:outline-none focus:ring-2 focus:ring-green-100"
           >
             Actions
             <svg className={`w-3 h-3 transition-transform ${isMenuOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </button>
-          {isMenuOpen && (
-            <div style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }} className="w-48 bg-white rounded-lg shadow-xl border">
+          {isMenuOpen && createPortal(
+            <div ref={menuPanelRef} style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, zIndex: 9999 }} className="w-52 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black/5">
               <div className="py-1">
-                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3"><FaUser /> Profile</button>
-                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-teal-50 flex items-center gap-3"><FaClipboardList /> Overview</button>
-                <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 flex items-center gap-3"><FaEye /> Deactivation Details</button>
-                <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center gap-3"><FaRedo /> Reactivate</button>
+                <button onClick={() => { navigate(`/employee/${emp.employeeId}/profile`); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-blue-50 hover:text-blue-700"><FaUser className="text-blue-500" /> Profile</button>
+                <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-teal-50 hover:text-teal-700"><FaClipboardList className="text-teal-500" /> Overview</button>
+                <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700"><FaEye className="text-indigo-500" /> Deactivation Details</button>
+                <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-green-700 transition-colors hover:bg-green-50"><FaRedo className="text-green-500" /> Reactivate</button>
               </div>
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </td>

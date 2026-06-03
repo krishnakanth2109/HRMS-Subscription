@@ -753,6 +753,36 @@ const AdminAttendance = () => {
   const [punchOutModal, setPunchOutModal] = useState({ isOpen: false, employee: null });
   const [dailySearchTerm, setDailySearchTerm] = useState("");
   const [summarySearchTerm, setSummarySearchTerm] = useState("");
+  const [summarySortConfig, setSummarySortConfig] = useState({ key: 'employeeName', direction: 'asc' });
+
+  const requestSort = (key) => {
+    let direction = 'asc';
+    if (summarySortConfig.key === key && summarySortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSummarySortConfig({ key, direction });
+  };
+
+  const renderSortableHeader = (label, sortKey, extraClasses = "") => {
+    const isSorted = summarySortConfig.key === sortKey;
+    const isAsc = summarySortConfig.direction === 'asc';
+    const isCenter = extraClasses.includes('text-center');
+    
+    return (
+      <th 
+        onClick={() => requestSort(sortKey)} 
+        className={`px-4 sm:px-6 py-4 cursor-pointer hover:bg-gray-100/80 transition-colors select-none group ${extraClasses}`}
+      >
+        <div className={`flex items-center gap-1.5 ${isCenter ? 'justify-center' : 'justify-between md:justify-start'}`}>
+          <span>{label}</span>
+          <span className="flex flex-col -space-y-0.5 text-[8px] text-gray-300 group-hover:text-gray-500 transition-colors shrink-0">
+            <FaChevronUp className={`${isSorted && isAsc ? 'text-blue-600 font-bold' : ''}`} size={6} />
+            <FaChevronDown className={`${isSorted && !isAsc ? 'text-blue-600 font-bold' : ''}`} size={6} />
+          </span>
+        </div>
+      </th>
+    );
+  };
   const [employeeImages, setEmployeeImages] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
   const [employeeWorkModes, setEmployeeWorkModes] = useState({});
@@ -953,16 +983,11 @@ const AdminAttendance = () => {
         (item.employeeId && item.employeeId.toLowerCase().includes(lowerSearch))
       );
     }
-    activeEmployees.sort((a, b) => a.name.localeCompare(b.name));
     return activeEmployees;
   }, [allEmployees, summarySearchTerm]);
 
-  const currentSummaryEmployees = useMemo(() => {
-    return paginatedEmployeesForSummary.slice((summaryCurrentPage - 1) * summaryItemsPerPage, summaryCurrentPage * summaryItemsPerPage);
-  }, [paginatedEmployeesForSummary, summaryCurrentPage, summaryItemsPerPage]);
-
   // Use a stable primitive string dep to prevent infinite loops
-  const currentEmpIdsStr = JSON.stringify(currentSummaryEmployees.map(e => e.employeeId));
+  const currentEmpIdsStr = JSON.stringify(paginatedEmployeesForSummary.map(e => e.employeeId));
 
   useEffect(() => {
     if (employeesLoading) return;
@@ -1052,8 +1077,8 @@ const AdminAttendance = () => {
     }
   };
 
-  const employeeSummaryStats = useMemo(() => {
-    if (!currentSummaryEmployees.length) return [];
+  const allEmployeeSummaryStats = useMemo(() => {
+    if (!paginatedEmployeesForSummary.length) return [];
     const attendanceMap = new Map();
     rawSummaryData.forEach(r => { const key = `${r.employeeId}_${normalizeDateStr(r.date)}`; attendanceMap.set(key, r); });
     const approvedOTCounts = overtimeData.reduce((acc, ot) => {
@@ -1061,7 +1086,7 @@ const AdminAttendance = () => {
       return acc;
     }, {});
 
-    return currentSummaryEmployees.map(emp => {
+    return paginatedEmployeesForSummary.map(emp => {
       const shift = shiftsMap[emp.employeeId]; const weeklyOffs = shift?.weeklyOffDays || [0]; const adminFullDayHours = shift?.fullDayHours || 9;
       let stats = { employeeId: emp.employeeId, employeeName: emp.name, assignedHours: adminFullDayHours, presentDays: 0, onTimeDays: 0, lateDays: 0, fullDays: 0, halfDays: 0, absentDays: 0, approvedOT: approvedOTCounts[emp.employeeId] || 0 };
       const start = new Date(summaryStartDate); const end = new Date(summaryEndDate);
@@ -1075,7 +1100,35 @@ const AdminAttendance = () => {
       }
       return stats;
     });
-  }, [currentSummaryEmployees, rawSummaryData, overtimeData, shiftsMap, holidays, summaryStartDate, summaryEndDate]);
+  }, [paginatedEmployeesForSummary, rawSummaryData, overtimeData, shiftsMap, holidays, summaryStartDate, summaryEndDate]);
+
+  const sortedSummaryStats = useMemo(() => {
+    let sorted = [...allEmployeeSummaryStats];
+    if (summarySortConfig.key) {
+      sorted.sort((a, b) => {
+        let aVal = a[summarySortConfig.key];
+        let bVal = b[summarySortConfig.key];
+        
+        // Handle name comparison (localeCompare)
+        if (summarySortConfig.key === 'employeeName') {
+          return summarySortConfig.direction === 'asc' 
+            ? (aVal || '').localeCompare(bVal || '') 
+            : (bVal || '').localeCompare(aVal || '');
+        }
+
+        // Numbers
+        if (aVal < bVal) return summarySortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return summarySortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sorted;
+  }, [allEmployeeSummaryStats, summarySortConfig]);
+
+  const employeeSummaryStats = useMemo(() => {
+    const startIdx = (summaryCurrentPage - 1) * summaryItemsPerPage;
+    return sortedSummaryStats.slice(startIdx, startIdx + summaryItemsPerPage);
+  }, [sortedSummaryStats, summaryCurrentPage, summaryItemsPerPage]);
 
   // Export: fetches ALL records for date range (backend scoped by adminId)
   const exportDailyLogToExcel = async () => {
@@ -1174,7 +1227,7 @@ const AdminAttendance = () => {
   };
 
   const toggleSelection = (id) => { setSelectedCompareIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]); };
-  const selectedStatsForComparison = useMemo(() => { return employeeSummaryStats.filter(s => selectedCompareIds.includes(s.employeeId)); }, [employeeSummaryStats, selectedCompareIds]);
+  const selectedStatsForComparison = useMemo(() => { return sortedSummaryStats.filter(s => selectedCompareIds.includes(s.employeeId)); }, [sortedSummaryStats, selectedCompareIds]);
   const pendingPunchOutRequests = useMemo(() => punchOutRequests.filter(r => r.status === 'Pending'), [punchOutRequests]);
 
   const StatCard = ({ icon, title, value, colorClass, onClick }) => (
@@ -1491,15 +1544,15 @@ const AdminAttendance = () => {
                 <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20 shadow-sm">
                   <tr>
                     {isCompareMode && <th className="px-4 sm:px-6 py-4 text-center">Sel</th>}
-                    <th className="px-4 sm:px-6 py-4">Employee</th>
-                    <th className="px-6 py-4 text-center hidden lg:table-cell">Assigned</th>
-                    <th className="px-4 sm:px-6 py-4 text-center">Pres</th>
-                    <th className="px-6 py-4 text-center hidden sm:table-cell">On Time</th>
-                    <th className="px-6 py-4 text-center hidden sm:table-cell">Late</th>
-                    <th className="px-6 py-4 text-center hidden md:table-cell">OT</th>
-                    <th className="px-6 py-4 text-center hidden lg:table-cell">Full</th>
-                    <th className="px-6 py-4 text-center hidden lg:table-cell">Half</th>
-                    <th className="px-4 sm:px-6 py-4 text-center">Abs</th>
+                    {renderSortableHeader("Employee", "employeeName")}
+                    {renderSortableHeader("Assigned", "assignedHours", "text-center hidden lg:table-cell")}
+                    {renderSortableHeader("Pres", "presentDays", "text-center")}
+                    {renderSortableHeader("On Time", "onTimeDays", "text-center hidden sm:table-cell")}
+                    {renderSortableHeader("Late", "lateDays", "text-center hidden sm:table-cell")}
+                    {renderSortableHeader("OT", "approvedOT", "text-center hidden md:table-cell")}
+                    {renderSortableHeader("Full", "fullDays", "text-center hidden lg:table-cell")}
+                    {renderSortableHeader("Half", "halfDays", "text-center hidden lg:table-cell")}
+                    {renderSortableHeader("Abs", "absentDays", "text-center")}
                     <th className="px-4 sm:px-6 py-4 text-center">Actions</th>
                   </tr>
                 </thead>

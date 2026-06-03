@@ -119,14 +119,13 @@ const AdminProfile = () => {
     doc.setFillColor(...primaryColor);
     doc.rect(0, 0, 210, 40, "F");
 
+    const activeCompany = companies.find(c => c._id === selectedCompanyId) || companies[0];
+    const companyHeader = activeCompany?.name || "Company";
+
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text("ARAH INFO TECH V-SYNC", 20, 18);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Workforce Management Platform", 20, 24);
+    doc.setFontSize(20);
+    doc.text(companyHeader.toUpperCase(), 20, 22);
 
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
@@ -240,10 +239,13 @@ const AdminProfile = () => {
 
     const primaryColor = [79, 70, 229];
 
+    const activeCompany = companies.find(c => c._id === selectedCompanyId) || companies[0];
+    const companyHeader = activeCompany?.name || "Company";
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(31, 41, 55);
-    doc.text("ARAH INFO TECH V-SYNC — BILLING HISTORY REPORT", 20, 20);
+    doc.text(`${companyHeader.toUpperCase()} — BILLING HISTORY REPORT`, 20, 20);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");

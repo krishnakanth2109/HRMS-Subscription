@@ -1289,7 +1289,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
       { name: 'Other Allowance', val: employee.monthlyBreakdown.otherAllowance },
       ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value })),
       { name: 'Special', val: employee.monthlyBreakdown.special }
-    ];
+    ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
 
     const deductionsList = [
       { name: pfLabel, val: employee.breakdown.pf },
@@ -1306,7 +1306,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
         })(), val: employee.lateDeduction },
       ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
-    ];
+    ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
 
     const maxLen = Math.max(earningsList.length, deductionsList.length);
     let rowsHtml = '';

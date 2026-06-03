@@ -14,28 +14,28 @@ const BASE_URL = import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:5
 const FORM_BASE = window.location.origin;
 
 const DEFAULT_SUBJECT = 'Document Verification Required – [Company Name]';
-const DEFAULT_MESSAGE = `Dear [NAME],
-
-We are pleased to inform you that you have been selected as part of the onboarding process at [COMPANY].
-
-As part of our documentation requirements, we kindly request you to upload your necessary documents using the secure link below.
-
-[FORM_LINK]
-
-Please ensure you upload clear, readable copies of all required documents. 
-
-You have been invited as [ROLE] ([EMPLOYMENT_TYPE]) in the [DEPT] department.
-
-If you face any issues, please reach out to the HR team immediately.
-
-Warm regards,
-HR Team
-[COMPANY]`;
+const DEFAULT_MESSAGE = `<div>Dear [NAME],</div>
+<div><br></div>
+<div>We are pleased to inform you that you have been selected as part of the onboarding process at <strong>[COMPANY]</strong>.</div>
+<div><br></div>
+<div>As part of our documentation requirements, we kindly request you to upload your necessary documents using the secure link below.</div>
+<div><br></div>
+<div><a href="[FORM_LINK]" style="color: #7c3aed; font-weight: bold; text-decoration: underline;">[FORM_LINK]</a></div>
+<div><br></div>
+<div>Please ensure you upload clear, readable copies of all required documents.</div>
+<div><br></div>
+<div>You have been invited as <strong>[ROLE]</strong> (<strong>[EMPLOYMENT_TYPE]</strong>) in the <strong>[DEPT]</strong> department.</div>
+<div><br></div>
+<div>If you face any issues, please reach out to the HR team immediately.</div>
+<div><br></div>
+<div>Warm regards,</div>
+<div><strong>HR Team</strong></div>
+<div><strong>[COMPANY]</strong></div>`;
 
 const DocVerifyInvite = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('bulk');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [viewMode, setViewMode] = useState('list'); // 'grid' or 'list'
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -528,6 +528,15 @@ const DocVerifyInvite = () => {
     return 'bg-amber-100 text-amber-700';
   };
 
+  const getFormattedMessagePreview = (msg) => {
+    if (!msg) return '';
+    // If the template is plain text (no HTML tags), convert newlines to <br> tags
+    if (!/<\/?[a-z][\s\S]*>/i.test(msg)) {
+      return msg.replace(/\n/g, '<br>');
+    }
+    return msg;
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-800">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -580,7 +589,7 @@ const DocVerifyInvite = () => {
             <div>
               <label className="text-xs font-semibold text-slate-500 ml-1 block mb-1">Message Template Preview</label>
               <div 
-                dangerouslySetInnerHTML={{ __html: emailMessage }}
+                dangerouslySetInnerHTML={{ __html: getFormattedMessagePreview(emailMessage) }}
                 className="w-full min-h-[180px] max-h-[300px] overflow-y-auto p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 text-sm leading-relaxed font-medium font-sans prose prose-slate max-w-none"
               />
               <p className="text-[10px] text-slate-400 mt-2">
@@ -623,15 +632,6 @@ const DocVerifyInvite = () => {
               {/* View Selector Button Group */}
               <div className="flex items-center bg-slate-100 border border-slate-200 p-0.5 rounded-xl mr-1.5">
                 <button
-                  onClick={() => setViewMode('grid')}
-                  type="button"
-                  className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer ${viewMode === 'grid' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
-                  title="Grid View"
-                >
-                  <Grid size={13} />
-                  <span className="hidden sm:inline">Grid</span>
-                </button>
-                <button
                   onClick={() => setViewMode('list')}
                   type="button"
                   className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer ${viewMode === 'list' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
@@ -639,6 +639,15 @@ const DocVerifyInvite = () => {
                 >
                   <List size={13} />
                   <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  type="button"
+                  className={`p-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer ${viewMode === 'grid' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                  title="Grid View"
+                >
+                  <Grid size={13} />
+                  <span className="hidden sm:inline">Grid</span>
                 </button>
               </div>
 

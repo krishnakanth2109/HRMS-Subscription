@@ -6,7 +6,7 @@ import {
   Calendar,
   Megaphone,
   Clock,
-  Plane,
+  CalendarClock,
   Laptop,
   Receipt,
   Users,
@@ -38,7 +38,7 @@ const NAV_SECTIONS = [
     title: "Requests",
     links: [
       { to: "/employee/empovertime", label: "Request Overtime", icon: Clock },
-      { to: "/employee/leave-management", label: "Leave Requests", icon: Plane },
+      { to: "/employee/leave-management", label: "Leave Requests", icon: CalendarClock },
       { to: "/employee/reuestworkmode", label: "WorkMode Request", icon: Laptop },
     ]
   },
