@@ -145,6 +145,7 @@ const SupportAdminDashboard = () => {
 
   const targetEmployeeId = user?.employeeId || user?.actualId || user?._id;
   const displayAdministrationId = adminProfile?.supportAdminId || user?.supportAdminId || targetEmployeeId;
+  const displayRoleName = adminProfile?.positionName || user?.positionName || "Support Admin";
   const todayIso = new Date().toISOString().split("T")[0];
 
   const speak = (text) => {
@@ -878,7 +879,7 @@ const SupportAdminDashboard = () => {
                   <b className="text-gray-800">Department:</b> <span>{adminProfile?.department || "Support"}</span>
                 </div>
                 <div className="flex items-center justify-between md:justify-start md:gap-2">
-                  <b className="text-gray-800">Role:</b> <span>Support Admin</span>
+                  <b className="text-gray-800">Role:</b> <span>{displayRoleName}</span>
                 </div>
               </div>
             </div>

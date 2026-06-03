@@ -7,6 +7,32 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
+const getAdminRevenueTotal = (admin) => {
+  const payments = new Map();
+  let totalWithoutPaymentId = 0;
+
+  const addPayment = (paymentId, orderId, amount) => {
+    const paidAmount = Number(amount) || 0;
+    if (paidAmount <= 0) return;
+
+    const key = paymentId || orderId;
+    if (!key) {
+      totalWithoutPaymentId += paidAmount;
+      return;
+    }
+
+    payments.set(key, Math.max(payments.get(key) || 0, paidAmount));
+  };
+
+  addPayment(admin.razorpayPaymentId, admin.razorpayOrderId, admin.lastPaymentAmount);
+
+  (admin.limitAddons || []).forEach((addon) => {
+    addPayment(addon.razorpayPaymentId, addon.razorpayOrderId, addon.pricePaid);
+  });
+
+  return [...payments.values()].reduce((sum, amount) => sum + amount, totalWithoutPaymentId);
+};
+
 // @desc    Auth Master & get token
 // @route   POST /api/master/login
 // @access  Public
@@ -43,15 +69,13 @@ export const getAllAdmins = async (req, res) => {
     const totalAdmins = admins.length;
     const activeSubs = admins.filter(a => a.subscriptionStatus === 'active').length;
     
-    // Calculate estimated revenue (Mock logic based on Plan string)
-    const revenueMap = { 'Free': 0, 'Basic': 29, 'Premium': 99, 'Flex': 199 };
-    const totalRevenue = admins.reduce((acc, curr) => acc + (revenueMap[curr.plan] || 0), 0);
+    const totalRevenueGenerated = admins.reduce((acc, curr) => acc + getAdminRevenueTotal(curr), 0);
 
     res.json({
       stats: {
         totalCompanies: totalAdmins,
         activeSubscriptions: activeSubs,
-        estimatedRevenue: totalRevenue
+        totalRevenueGenerated,
       },
       admins: admins 
     });

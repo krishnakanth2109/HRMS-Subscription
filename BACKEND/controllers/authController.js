@@ -6,8 +6,7 @@ import { promisify } from "util";
 import Admin from "../models/adminModel.js";
 import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
-import PlanSetting from "../models/planSettingModel.js";
-import { getBillableEmployeesCount } from "../utils/billingHelper.js";
+import { getExpiredSubscriptionPayload, resolveRootAdmin } from "../utils/subscriptionAccess.js";
 
 /* ================================================================
  * generateToken
@@ -130,38 +129,9 @@ export const login = async (req, res) => {
     }
 
     if (rootAdmin) {
-      /* === SKIP EXPIRY CHECK FOR OWNER / UNLIMITED PLAN === */
-      const planInfo = await PlanSetting.findOne({ planName: rootAdmin.plan });
-      const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
-
-      if (!isUnlimitedPlan) {
-        /* === PLAN EXPIRY BLOCKER (with 7-day grace period) === */
-        const now = new Date();
-        const expiryDate = new Date(rootAdmin.planExpiresAt);
-        const gracePeriodEndDate = new Date(expiryDate);
-        gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 7);
-
-        if (rootAdmin.planExpiresAt && now > gracePeriodEndDate) {
-          const expiredDaysAgo = Math.floor(
-            (now - expiryDate) / (1000 * 60 * 60 * 24)
-          );
-          const billableCount = await getBillableEmployeesCount(rootAdmin._id, rootAdmin.planActivatedAt);
-          const employeeCount = Math.max(1, billableCount);
-
-          return res.status(403).json({
-            expired: true,
-            role: role,
-            adminDetails: {
-              name: rootAdmin.name,
-              email: rootAdmin.email,
-              plan: rootAdmin.plan,
-              planActivatedAt: rootAdmin.planActivatedAt,
-              planExpiresAt: rootAdmin.planExpiresAt,
-              expiredDaysAgo,
-              employeeCount: employeeCount,
-            },
-          });
-        }
+      const expiredPayload = await getExpiredSubscriptionPayload(rootAdmin, role);
+      if (expiredPayload) {
+        return res.status(expiredPayload.status).json(expiredPayload.body);
       }
     }
 
@@ -248,6 +218,12 @@ export const protect = async (req, res, next) => {
 
     if (!currentUser) {
       return res.status(401).json({ message: "Not authorized, user not found" });
+    }
+
+    const rootAdmin = await resolveRootAdmin(currentUser);
+    const expiredPayload = await getExpiredSubscriptionPayload(rootAdmin, currentUser.role);
+    if (expiredPayload) {
+      return res.status(expiredPayload.status).json(expiredPayload.body);
     }
 
     req.user = currentUser;

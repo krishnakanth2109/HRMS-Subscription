@@ -128,23 +128,10 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
   useEffect(() => {
     if (isMobile) {
       setMobileOpen(false);
-    } else {
-      setCollapsed(true);
-      setIsPinned(false);
     }
   }, [location.pathname, isMobile, setMobileOpen]);
 
-  useEffect(() => {
-    if (isMobile) return;
-    const handleClickOutside = (event) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-        setIsPinned(false);
-        setCollapsed(true);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isMobile]);
+
 
   const sidebarClasses = `
     h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50

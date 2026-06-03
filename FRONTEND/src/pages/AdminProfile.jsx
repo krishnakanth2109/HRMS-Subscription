@@ -288,6 +288,12 @@ const AdminProfile = () => {
   const [loadingBillInfo, setLoadingBillInfo] = useState(false);
   const [isPayingBill, setIsPayingBill] = useState(false);
 
+  // Add Limit Addon State
+  const [isAddonModalOpen, setIsAddonModalOpen] = useState(false);
+  const [addonSeats, setAddonSeats] = useState(10);
+  const [isProcessingAddon, setIsProcessingAddon] = useState(false);
+  const [addonPlanInfo, setAddonPlanInfo] = useState(null);
+
   const fetchNextBillInfo = async () => {
     setLoadingBillInfo(true);
     try {
@@ -440,8 +446,9 @@ const AdminProfile = () => {
     }
   };
 
-  const handlePayBillSubmit = async () => {
-    if (!nextBillInfo || !nextBillInfo.planInfo) {
+  const handlePayBillSubmit = async (targetBill = null) => {
+    const bill = targetBill || nextBillInfo;
+    if (!bill || !bill.planInfo) {
       alert("Billing details not loaded yet.");
       return;
     }
@@ -458,7 +465,7 @@ const AdminProfile = () => {
 
       // 1. Create Razorpay order on backend for renewal
       const res = await api.post("/api/razorpay/create-order", {
-        plan: nextBillInfo.planInfo,
+        plan: bill.planInfo,
         signupForm: {
           name: profile.name,
           email: profile.email,
@@ -466,7 +473,7 @@ const AdminProfile = () => {
           department: profile.department,
           role: profile.role
         },
-        userLimit: profile.userLimit || nextBillInfo.employeeCount || 30,
+        userLimit: bill.employeeCount || 30,
         isUpgrade: false
       });
 
@@ -478,7 +485,7 @@ const AdminProfile = () => {
         amount: orderData.amount, // in paise
         currency: orderData.currency,
         name: "HRMS vwsync",
-        description: `Renewal Payment for ${nextBillInfo.planName}`,
+        description: `Renewal Payment for ${bill.planName || nextBillInfo.planName}`,
         order_id: orderData.orderId,
         prefill: {
           name: profile.name,
@@ -494,7 +501,7 @@ const AdminProfile = () => {
               razorpay_order_id: paymentResponse.razorpay_order_id,
               razorpay_payment_id: paymentResponse.razorpay_payment_id,
               razorpay_signature: paymentResponse.razorpay_signature,
-              plan: nextBillInfo.planInfo,
+              plan: bill.planInfo,
               isUpgrade: false
             });
 
@@ -531,6 +538,83 @@ const AdminProfile = () => {
     } catch (err) {
       alert(err.response?.data?.message || "Payment initiation failed. Please try again.");
       setIsPayingBill(false);
+    }
+  };
+
+  /* ─────────────────────────────────────────────────────────────────
+     ADD USER LIMIT ADDON FLOW
+   ───────────────────────────────────────────────────────────────── */
+  const openAddonModal = async () => {
+    setIsAddonModalOpen(true);
+    try {
+      const res = await api.get("/api/razorpay/next-bill");
+      setAddonPlanInfo(res.data);
+    } catch (err) {
+      console.error("Failed to fetch plan info for addon:", err);
+    }
+  };
+
+  const handleAddonOrder = async (addonId = null) => {
+    setIsProcessingAddon(true);
+    try {
+      const seats = addonId ? null : Math.max(10, Number(addonSeats) || 10);
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady) {
+        alert("Failed to load payment gateway. Please check your connection.");
+        setIsProcessingAddon(false);
+        return;
+      }
+
+      const payload = addonId ? { addonId } : { addonLimit: seats };
+      const res = await api.post("/api/razorpay/create-addon-order", payload);
+      const orderData = res.data;
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "HRMS vwsync",
+        description: addonId
+          ? `Renew Add-on: ${orderData.seats} Extra Seats`
+          : `Add ${orderData.seats} Extra User Seats`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: profile.name,
+          email: profile.email,
+          contact: profile.phone,
+        },
+        theme: { color: "#4f46e5" },
+        handler: async (paymentResponse) => {
+          try {
+            await api.post("/api/razorpay/verify-addon-payment", {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature,
+            });
+            alert(addonId ? "Add-on renewed successfully!" : `${orderData.seats} extra user seats activated! Billing date: ${new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('en-IN')}`);
+            setIsAddonModalOpen(false);
+            setAddonSeats(10);
+            await fetchProfile();
+          } catch (verifyErr) {
+            alert(verifyErr.response?.data?.message || "Payment received but verification failed. Please contact support.");
+          } finally {
+            setIsProcessingAddon(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setIsProcessingAddon(false),
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        alert(response.error?.description || "Payment failed. Please try again.");
+        setIsProcessingAddon(false);
+      });
+      rzp.open();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to initiate payment. Please try again.");
+      setIsProcessingAddon(false);
     }
   };
 
@@ -670,6 +754,17 @@ const AdminProfile = () => {
     return new Date(dateString).toLocaleDateString("en-IN", {
       day: "2-digit", month: "long", year: "numeric",
     });
+  };
+
+  const isSpecificBillPayable = (bill) => {
+    if (!bill || !bill.nextBillingDate) return false;
+    const expiry = new Date(bill.nextBillingDate);
+    if (new Date() >= expiry) return true;
+    if (bill.type === "main") {
+      const graceEnd = new Date(expiry.getTime() + 7 * 24 * 60 * 60 * 1000);
+      if (new Date() > expiry && new Date() <= graceEnd) return true;
+    }
+    return false;
   };
 
   if (loading) {
@@ -869,22 +964,36 @@ const AdminProfile = () => {
                   </h4>
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-6 border border-gray-100 flex flex-col justify-between">
-                  <div>
+                <div className="bg-gray-50 rounded-xl border border-gray-100 flex flex-col justify-between overflow-hidden">
+                  {!isFreePlan && (
+                    <button
+                      onClick={openAddonModal}
+                      className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black px-3 py-2 transition-all uppercase tracking-widest w-full"
+                      title="Purchase additional user seat add-on"
+                    >
+                      <span className="text-sm leading-none">+</span> Add Seats
+                    </button>
+                  )}
+                  <div className="p-6">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">User Limit</p>
                     <h4 className="text-2xl font-black text-indigo-600 capitalize">
-                      {profile?.userLimit || 30} Users
+                      {profile?.effectiveUserLimit || profile?.userLimit || 30} Users
                     </h4>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-gray-200/60 flex items-center justify-between text-xs font-bold text-slate-600">
-                    <span>Remaining Limit:</span>
-                    <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${
-                      (profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
-                        ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
-                        : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                    }`}>
-                      {Math.max(0, (profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
-                    </span>
+                    {(profile?.activeAddonTotal || 0) > 0 && (
+                      <p className="text-[10px] text-indigo-400 font-bold mt-0.5">
+                        Base {profile?.userLimit || 30} + {profile?.activeAddonTotal} Add-on
+                      </p>
+                    )}
+                    <div className="mt-4 pt-3 border-t border-gray-200/60 flex items-center justify-between text-xs font-bold text-slate-600">
+                      <span>Remaining:</span>
+                      <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${
+                        (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
+                          ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
+                          : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                      }`}>
+                        {Math.max(0, (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -905,6 +1014,7 @@ const AdminProfile = () => {
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
@@ -1059,6 +1169,106 @@ const AdminProfile = () => {
         </div>
 
       </div>
+
+      {/* ADD USER LIMIT ADDON MODAL */}
+      <ModalWrapper
+        isOpen={isAddonModalOpen}
+        onClose={() => { setIsAddonModalOpen(false); setAddonSeats(10); }}
+        containerClass="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl relative flex flex-col"
+      >
+        <button
+          onClick={() => { setIsAddonModalOpen(false); setAddonSeats(10); }}
+          className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <FaTimes size={18} />
+        </button>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+            <FaUsers size={18} />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-gray-900">Add User Seats</h2>
+            <p className="text-xs text-gray-400 font-medium">Purchase additional user seats with a separate monthly billing</p>
+          </div>
+        </div>
+
+        {/* Current Plan Summary */}
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-5 space-y-1">
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-500 font-bold uppercase tracking-wider">Current Plan</span>
+            <span className="text-indigo-700 font-black capitalize">{profile?.plan}</span>
+          </div>
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-500 font-bold uppercase tracking-wider">Base User Limit</span>
+            <span className="text-indigo-700 font-black">{profile?.userLimit || 30} Users</span>
+          </div>
+          {(profile?.activeAddonTotal || 0) > 0 && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500 font-bold uppercase tracking-wider">Active Add-ons</span>
+              <span className="text-emerald-600 font-black">+{profile?.activeAddonTotal} Users</span>
+            </div>
+          )}
+          <div className="flex justify-between text-xs pt-2 border-t border-indigo-200/60">
+            <span className="text-gray-500 font-bold uppercase tracking-wider">Price per Seat</span>
+            <span className="text-indigo-700 font-black">
+              {addonPlanInfo ? `₹${addonPlanInfo.pricePerPerson}/user/month` : "Loading..."}
+            </span>
+          </div>
+        </div>
+
+        {/* Addon Seats Input */}
+        <div className="mb-5">
+          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">
+            Additional Seats to Purchase <span className="text-red-400">*</span>
+          </label>
+          <input
+            type="number"
+            min={10}
+            value={addonSeats}
+            onChange={(e) => setAddonSeats(Math.max(10, Number(e.target.value) || 10))}
+            className="w-full bg-gray-50 border-2 border-gray-200 focus:border-indigo-500 text-gray-900 font-black text-xl rounded-xl px-4 py-3 outline-none transition-colors text-center"
+          />
+          <p className="text-[10px] text-gray-400 font-medium mt-1 text-center">Minimum 10 seats per add-on package</p>
+        </div>
+
+        {/* Dynamic Price Calculation */}
+        {addonPlanInfo && (
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 mb-5">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Monthly Add-on Cost</p>
+                <p className="text-white text-2xl font-black">
+                  ₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10)).toLocaleString('en-IN')}
+                </p>
+                <p className="text-indigo-200 text-[10px] font-medium mt-0.5">
+                  {Math.max(10, Number(addonSeats) || 10)} seats × ₹{addonPlanInfo.pricePerPerson}/seat
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-indigo-200 text-[10px] font-bold uppercase tracking-wider">New Billing Date</p>
+                <p className="text-white text-sm font-black">
+                  {new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </p>
+                <p className="text-indigo-200 text-[10px] font-medium">Separate from plan bill</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+          <p className="text-amber-800 text-xs font-bold">
+            ⚡ <strong>Separate billing cycle</strong> — This add-on has its own monthly renewal date, independent of your main plan billing date.
+          </p>
+        </div>
+
+        <button
+          onClick={() => handleAddonOrder(null)}
+          disabled={isProcessingAddon || !addonPlanInfo}
+          className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-100 text-sm uppercase tracking-wide"
+        >
+          {isProcessingAddon ? "Processing..." : `Pay ₹${addonPlanInfo ? (addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10)).toLocaleString('en-IN') : "..."} & Activate`}
+        </button>
+      </ModalWrapper>
 
       <ModalWrapper isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} containerClass="bg-white rounded-[0.5rem] w-full max-w-md p-8 shadow-2xl relative flex flex-col">
         <button
@@ -1275,13 +1485,21 @@ const AdminProfile = () => {
                           minute: "2-digit",
                         })}
                       </td>
-                      <td className="py-4 px-4 capitalize font-bold text-gray-900">{bill.plan}</td>
+                      <td className="py-4 px-4 capitalize font-bold text-gray-900">
+                        <span>{bill.plan}</span>
+                        {bill.isAddon && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-600 border border-indigo-200">Add-on</span>
+                        )}
+                      </td>
                       <td className="py-4 px-4">
                         <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-black tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-100">
                           {bill.billingCycle}
                         </span>
                       </td>
-                      <td className="py-4 px-4 text-center font-black text-gray-900">{bill.employeeCount}</td>
+                      <td className="py-4 px-4 text-center font-black text-gray-900">
+                        {bill.employeeCount}
+                        <span className="block text-[9px] font-bold text-gray-400 uppercase tracking-wider">{bill.isAddon ? 'Add-on Seats' : 'Seats'}</span>
+                      </td>
                       <td className="py-4 px-4 font-black text-slate-900 text-base">₹{bill.amount}</td>
                       <td className="py-4 px-4 font-semibold text-gray-500 capitalize">{bill.method}</td>
                       <td className="py-4 px-4 font-mono text-[11px] text-gray-400 select-all">{bill.paymentId}</td>
@@ -1310,7 +1528,7 @@ const AdminProfile = () => {
         </div>
       </ModalWrapper>
 
-      <ModalWrapper isOpen={isPayBillModalOpen} onClose={() => setIsPayBillModalOpen(false)} containerClass="bg-white w-full max-w-md rounded-[0.5rem] shadow-2xl p-8 relative flex flex-col">
+      <ModalWrapper isOpen={isPayBillModalOpen} onClose={() => setIsPayBillModalOpen(false)} containerClass="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-8 relative flex flex-col max-h-[85vh]">
         <button
           onClick={() => setIsPayBillModalOpen(false)}
           className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
@@ -1322,7 +1540,7 @@ const AdminProfile = () => {
           <h3 className="text-2xl font-black text-gray-900 flex items-center gap-2">
             <FaCreditCard className="text-emerald-600 animate-pulse" /> Pay Subscription Bill
           </h3>
-          <p className="text-gray-500 font-medium text-sm mt-1">Renew your current subscription plan to keep your account active.</p>
+          <p className="text-gray-500 font-medium text-sm mt-1">Renew your current subscription plan or separate user limit add-on packages.</p>
         </div>
 
         {loadingBillInfo ? (
@@ -1334,71 +1552,127 @@ const AdminProfile = () => {
           <div className="text-center py-8 text-red-500 font-bold">
             Failed to load billing details. Please try again.
           </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">
-              <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Current Plan</span>
-                <span className="text-sm font-black text-indigo-600 capitalize">{nextBillInfo.planName}</span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Next Billing Date</span>
-                <span className="text-sm font-black text-gray-800">
-                  {nextBillInfo.nextBillingDate ? formatDate(nextBillInfo.nextBillingDate) : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Billable Seats</span>
-                <span className="text-sm font-black text-gray-800">{nextBillInfo.employeeCount} Employees</span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-gray-200">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Price per Seat</span>
-                <span className="text-sm font-black text-gray-800">₹{nextBillInfo.pricePerPerson} / month</span>
-              </div>
-              <div className="flex justify-between items-center pt-2">
-                <span className="text-sm font-black text-gray-900 uppercase tracking-wider">Total Amount Due</span>
-                <span className="text-2xl font-black text-emerald-600">₹{nextBillInfo.amount}</span>
-              </div>
+        ) : (() => {
+          const billsToRender = nextBillInfo.bills || [{
+            id: "main",
+            type: "main",
+            planName: nextBillInfo.planName,
+            pricePerPerson: nextBillInfo.pricePerPerson,
+            employeeCount: nextBillInfo.employeeCount,
+            amount: nextBillInfo.amount,
+            nextBillingDate: nextBillInfo.nextBillingDate,
+            planInfo: nextBillInfo.planInfo,
+          }];
+
+          return (
+            <div className="space-y-6 overflow-y-auto pr-2 max-h-[60vh]">
+              {billsToRender.map((bill, index) => {
+                const isMain = bill.type === "main";
+                const isPayable = isSpecificBillPayable(bill);
+
+                return (
+                  <div key={bill.id || index} className="bg-gray-50 rounded-2xl p-6 border border-gray-200 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
+                    <div className={`absolute top-0 left-0 bottom-0 w-2 ${isMain ? "bg-indigo-600" : "bg-purple-600"}`}></div>
+                    
+                    <div className="pl-2 space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="text-base font-black text-gray-900 flex items-center gap-2 capitalize">
+                            {bill.planName}
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${isMain ? "bg-indigo-100 text-indigo-600 border border-indigo-200" : "bg-purple-100 text-purple-600 border border-purple-200"}`}>
+                              {isMain ? "Main Plan" : "Add-on Seats"}
+                            </span>
+                          </h4>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                            Billing Date: {bill.nextBillingDate ? formatDate(bill.nextBillingDate) : "N/A"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-2xl font-black text-emerald-600 block">₹{bill.amount}</span>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total Amount</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-3 border-t border-gray-200/60 text-xs font-semibold text-gray-600">
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Billable Seats</p>
+                          <p className="text-gray-900 font-black text-sm">
+                            {bill.employeeCount} Users
+                          </p>
+                          {isMain && bill.addonLimit > 0 && (
+                            <p className="text-[9px] text-indigo-500 font-bold mt-0.5">
+                              (Base {bill.userLimit} + {bill.addonLimit} Add-on)
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Price Per Seat</p>
+                          <p className="text-gray-900 font-black text-sm">
+                            ₹{bill.pricePerPerson} / month
+                          </p>
+                        </div>
+                        <div className="col-span-2 sm:col-span-1 flex items-center justify-end sm:justify-start">
+                          {isPayable ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Ready to Pay
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-100">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                              Locked until {formatDate(bill.nextBillingDate)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex justify-between items-center gap-4">
+                        {isMain && (
+                          <p className="text-[10px] text-gray-400 font-medium max-w-[60%]">
+                            💡 Note: User limit chosen during registration ({bill.userLimit} Users) + any same-date addons are included.
+                          </p>
+                        )}
+                        {!isMain && (
+                          <p className="text-[10px] text-gray-400 font-medium max-w-[60%]">
+                            ⚡ Note: This is a separate add-on billing cycle.
+                          </p>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (isMain) {
+                              handlePayBillSubmit(bill);
+                            } else {
+                              handleAddonOrder(bill.addonId);
+                            }
+                          }}
+                          disabled={isPayingBill || isProcessingAddon || !isPayable}
+                          className={`ml-auto font-bold px-5 py-2.5 rounded-xl uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-1.5 ${
+                            isPayingBill || isProcessingAddon || !isPayable
+                              ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none"
+                              : isMain
+                                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100 cursor-pointer"
+                                : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-100 cursor-pointer"
+                          }`}
+                        >
+                          {isPayingBill || isProcessingAddon ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <FaCreditCard size={11} /> Pay Now
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            <div className="p-3.5 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-start gap-2.5">
-              <span className="text-base mt-0.5">💡</span>
-              <p className="text-indigo-800 text-[11px] font-bold leading-normal">
-                <strong>Note:</strong> Active employees and those deactivated after 15 days of the current cycle are included in this billing count. Early renewals will extend from your existing billing end date.
-              </p>
-            </div>
-
-            {!isBillPayable && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2.5">
-                <span className="text-base mt-0.5">⚠️</span>
-                <p className="text-amber-800 text-[11px] font-bold leading-normal">
-                  <strong>Payment Locked:</strong> Your next bill can only be paid on or after your billing date: <strong>{formatDate(profile.planExpiresAt)}</strong>.
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={handlePayBillSubmit}
-              disabled={isPayingBill || !isBillPayable}
-              className={`w-full font-bold py-3.5 rounded-2xl uppercase tracking-widest text-sm transition-all flex items-center justify-center gap-2 ${
-                isPayingBill || !isBillPayable
-                  ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none"
-                  : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-100 cursor-pointer"
-              }`}
-            >
-              {isPayingBill ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <FaCreditCard size={14} /> Proceed to Payment
-                </>
-              )}
-            </button>
-          </div>
-        )}
+          );
+        })()}
       </ModalWrapper>
     </div>
   );

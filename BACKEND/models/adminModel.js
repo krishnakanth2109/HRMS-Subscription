@@ -49,6 +49,23 @@ const adminSchema = new mongoose.Schema(
     razorpayPaymentId: { type: String, default: null },
     lastPaymentAmount: { type: Number, default: 0 },
 
+    /* ==================== LIMIT ADD-ONS ==================== */
+    // Each entry represents a separately purchased limit package with its own billing date
+    limitAddons: [
+      {
+        addonLimit: { type: Number, required: true },       // Extra seats purchased (e.g. 10, 15)
+        pricePaid: { type: Number, required: true },        // Amount paid per month for this addon
+        planName: { type: String, required: true },         // Plan under which addon was purchased
+        activatedAt: { type: Date, default: Date.now },    // When the addon was activated
+        expiresAt: { type: Date, required: true },          // 1 month from activatedAt (separate billing date)
+        razorpayOrderId: { type: String, default: null },
+        razorpayPaymentId: { type: String, default: null },
+        isPaid: { type: Boolean, default: false },
+        mergedIntoMainPlan: { type: Boolean, default: false },
+        mergedAt: { type: Date, default: null },
+      }
+    ],
+
     /* ==================== STRIPE SUBSCRIPTION ==================== */
     stripeCustomerId: { type: String, default: null },
     stripeSubscriptionId: { type: String, default: null },

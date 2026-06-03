@@ -308,23 +308,10 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
   useEffect(() => {
     if (isMobile) {
       setMobileOpen(false);
-    } else {
-      setCollapsed(true);
-      setIsPinned(false);
     }
   }, [location.pathname, isMobile, setMobileOpen]);
 
-  useEffect(() => {
-    if (isMobile) return;
-    const handleClickOutside = (event) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-        setIsPinned(false);
-        setCollapsed(true);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isMobile]);
+
 
   useEffect(() => {
     const fetchPlanFeatures = async () => {

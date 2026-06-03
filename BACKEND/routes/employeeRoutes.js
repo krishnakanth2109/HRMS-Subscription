@@ -33,14 +33,29 @@ const checkUserLimit = async (adminId) => {
     }
   }
 
-  if (maxUsers !== null) {
+  // Sum active addon limits (only those that are paid and not yet expired)
+  const now = new Date();
+  const activeAddonTotal = (admin.limitAddons || []).reduce((sum, addon) => {
+    const alreadyMainBilled =
+      (addon.razorpayPaymentId && admin.razorpayPaymentId && addon.razorpayPaymentId === admin.razorpayPaymentId) ||
+      (addon.razorpayOrderId && admin.razorpayOrderId && addon.razorpayOrderId === admin.razorpayOrderId);
+
+    if (addon.isPaid && !addon.mergedIntoMainPlan && !alreadyMainBilled && addon.expiresAt && new Date(addon.expiresAt) > now) {
+      return sum + (addon.addonLimit || 0);
+    }
+    return sum;
+  }, 0);
+
+  const effectiveLimit = (maxUsers || 0) + activeAddonTotal;
+
+  if (effectiveLimit > 0) {
     const currentEmployeeCount = await Employee.countDocuments({ adminId });
     const currentSupportAdminCount = await SupportAdmin.countDocuments({ adminId });
     const totalCount = currentEmployeeCount + currentSupportAdminCount; // Admin is account owner and does not count toward user limit
-    if (totalCount >= maxUsers) {
+    if (totalCount >= effectiveLimit) {
       return {
         allowed: false,
-        limit: maxUsers,
+        limit: effectiveLimit,
         plan: admin.plan
       };
     }

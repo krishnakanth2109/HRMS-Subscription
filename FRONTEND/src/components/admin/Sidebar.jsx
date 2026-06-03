@@ -229,14 +229,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           icon: Settings,
           alwaysAllowed: true,
         },
-        // {
-        //   to: "/admin/payrollcandidates",
-        //   route: "/admin/payrollcandidates",
-        //   label: "Payroll Candidates",
-        //   icon: ReceiptText,
-        //   isPayrollCandidates: true,
-        //   ownerOnly: true,
-        // },
       ],
     },
   ];
@@ -265,7 +257,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
   const countPending = (items = []) =>
     items.reduce((count, item) => count + (isPending(item?.status) ? 1 : 0), 0);
-
   const handleDisabledClick = (featureLabel) => {
     Swal.fire({
       title: `${featureLabel} Feature Restricted`,
@@ -288,23 +279,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   useEffect(() => {
     if (isMobile) {
       setMobileOpen(false);
-    } else {
-      setCollapsed(true);
-      setIsPinned(false);
     }
   }, [location.pathname, isMobile, setMobileOpen]);
-
-  useEffect(() => {
-    if (isMobile) return;
-    const handleClickOutside = (event) => {
-      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
-        setIsPinned(false);
-        setCollapsed(true);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isMobile]);
 
   useEffect(() => {
     const fetchPlanFeatures = async () => {

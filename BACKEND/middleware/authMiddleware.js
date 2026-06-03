@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import Admin from "../models/adminModel.js";
 import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
+import { getExpiredSubscriptionPayload, resolveRootAdmin } from "../utils/subscriptionAccess.js";
 
 /*
   PROTECT MIDDLEWARE
@@ -60,6 +61,12 @@ export const protect = async (req, res, next) => {
 
     if (!currentUser) {
       return res.status(401).json({ message: "Not authorized, user not found" });
+    }
+
+    const rootAdmin = await resolveRootAdmin(currentUser);
+    const expiredPayload = await getExpiredSubscriptionPayload(rootAdmin, currentUser.role);
+    if (expiredPayload) {
+      return res.status(expiredPayload.status).json(expiredPayload.body);
     }
 
     req.user = currentUser;

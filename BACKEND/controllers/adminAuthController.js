@@ -4,7 +4,7 @@ import PlanSetting from "../models/planSettingModel.js";
 import Employee from "../models/employeeModel.js";
 import Feature from "../models/featureModel.js";
 import jwt from "jsonwebtoken";
-import { getBillableEmployeesCount } from "../utils/billingHelper.js";
+import { getExpiredSubscriptionPayload } from "../utils/subscriptionAccess.js";
 
 /* ==================== JWT SIGN ==================== */
 const signToken = (id, role) => {
@@ -140,32 +140,9 @@ export const loginAdmin = async (req, res) => {
     const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
 
     if (!isUnlimitedPlan) {
-      /* === PLAN EXPIRY BLOCKER (with 7-day grace period) === */
-      const now = new Date();
-      const expiryDate = new Date(rootAdmin.planExpiresAt);
-      const gracePeriodEndDate = new Date(expiryDate);
-      gracePeriodEndDate.setDate(gracePeriodEndDate.getDate() + 7);
-
-      if (rootAdmin.planExpiresAt && now > gracePeriodEndDate) {
-        const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
-        const billableCount = await getBillableEmployeesCount(rootAdmin._id, rootAdmin.planActivatedAt);
-        const employeeCount = Math.max(1, billableCount);
-
-        return res.status(403).json({
-          message: "Your plan has expired and the 7-day grace period has ended. Please pay your bill to restore access.",
-          expired: true,
-          role: "admin",
-          adminDetails: {
-            name: rootAdmin.name,
-            email: rootAdmin.email,
-            plan: rootAdmin.plan,
-            planActivatedAt: rootAdmin.planActivatedAt,
-            planExpiresAt: rootAdmin.planExpiresAt,
-            expiredDaysAgo: expiredDaysAgo,
-            employeeCount: employeeCount,
-            userLimit: rootAdmin.userLimit || 30,
-          },
-        });
+      const expiredPayload = await getExpiredSubscriptionPayload(rootAdmin, "admin");
+      if (expiredPayload) {
+        return res.status(expiredPayload.status).json(expiredPayload.body);
       }
     }
 
@@ -405,12 +382,28 @@ export const getAdminProfile = async (req, res) => {
     const supportAdminCount = await SupportAdmin.countDocuments({ adminId: rootAdminId });
     adminObj.supportAdminCount = supportAdminCount;
 
+    // Calculate active addon sum (addons that are paid and not expired)
+    const now = new Date();
+    const activeAddonTotal = (adminObj.limitAddons || []).reduce((sum, addon) => {
+      const alreadyMainBilled =
+        (addon.razorpayPaymentId && adminObj.razorpayPaymentId && addon.razorpayPaymentId === adminObj.razorpayPaymentId) ||
+        (addon.razorpayOrderId && adminObj.razorpayOrderId && addon.razorpayOrderId === adminObj.razorpayOrderId);
+
+      if (addon.isPaid && !addon.mergedIntoMainPlan && !alreadyMainBilled && addon.expiresAt && new Date(addon.expiresAt) > now) {
+        return sum + (addon.addonLimit || 0);
+      }
+      return sum;
+    }, 0);
+    adminObj.activeAddonTotal = activeAddonTotal;
+    adminObj.effectiveUserLimit = (adminObj.userLimit || 30) + activeAddonTotal;
+
     res.status(200).json(adminObj);
   } catch (error) {
     console.error("Profile Fetch Error:", error);
     res.status(500).json({ message: "Server error fetching profile" });
   }
 };
+
 
 /* ==================== UPDATE ADMIN PROFILE ==================== */
 export const updateAdminProfile = async (req, res) => {

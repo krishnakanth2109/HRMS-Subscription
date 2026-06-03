@@ -9,6 +9,49 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+const isSameBillingDay = (date1, date2) => {
+  if (!date1 || !date2) return false;
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  return d1.getDate() === d2.getDate();
+};
+
+const mergeSameDateAddonsIntoMain = (admin, oldPlanExpiresAt) => {
+  let mergedSeats = 0;
+
+  (admin.limitAddons || []).forEach((addon) => {
+    const alreadyBilledWithMain =
+      (addon.razorpayPaymentId && admin.razorpayPaymentId && addon.razorpayPaymentId === admin.razorpayPaymentId) ||
+      (addon.razorpayOrderId && admin.razorpayOrderId && addon.razorpayOrderId === admin.razorpayOrderId);
+
+    if (alreadyBilledWithMain && !addon.mergedIntoMainPlan) {
+      addon.isPaid = false;
+      addon.mergedIntoMainPlan = true;
+      addon.mergedAt = new Date();
+      return;
+    }
+
+    if (
+      addon.isPaid &&
+      !addon.mergedIntoMainPlan &&
+      addon.expiresAt &&
+      isSameBillingDay(addon.expiresAt, oldPlanExpiresAt)
+    ) {
+      mergedSeats += addon.addonLimit || 0;
+      addon.isPaid = false;
+      addon.mergedIntoMainPlan = true;
+      addon.mergedAt = new Date();
+    }
+  });
+
+  return mergedSeats;
+};
+
+const isAddonAlreadyMainBilled = (addon, admin) =>
+  addon.mergedIntoMainPlan ||
+  (addon.razorpayPaymentId && admin.razorpayPaymentId && addon.razorpayPaymentId === admin.razorpayPaymentId) ||
+  (addon.razorpayOrderId && admin.razorpayOrderId && addon.razorpayOrderId === admin.razorpayOrderId);
+
 /* ─────────────────────────────────────────────
    1.  CREATE ORDER
    POST /api/razorpay/create-order
@@ -156,8 +199,13 @@ export const verifyPayment = async (req, res) => {
     }
 
     if (existing) {
+      const oldPlanExpiresAt = existing.planExpiresAt;
+      const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
+      const requestedUserLimit = Number(userLimit) || 30;
+      const renewedUserLimit = Math.max(requestedUserLimit, (existing.userLimit || 30) + mergedAddonSeats);
+
       existing.plan = planName;
-      existing.userLimit = Number(userLimit) || 30;
+      existing.userLimit = renewedUserLimit;
       existing.isPaid = true;
       existing.razorpayOrderId = razorpay_order_id;
       existing.razorpayPaymentId = razorpay_payment_id;
@@ -289,8 +337,13 @@ export const razorpayWebhookHandler = async (req, res) => {
     }
 
     if (existing) {
+      const oldPlanExpiresAt = existing.planExpiresAt;
+      const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
+      const requestedUserLimit = Number(userLimit) || 30;
+      const renewedUserLimit = Math.max(requestedUserLimit, (existing.userLimit || 30) + mergedAddonSeats);
+
       existing.plan = planName;
-      existing.userLimit = Number(userLimit) || 30;
+      existing.userLimit = renewedUserLimit;
       existing.isPaid = true;
       existing.razorpayOrderId = orderId;
       existing.razorpayPaymentId = paymentId;
@@ -343,17 +396,24 @@ export const getBillingHistory = async (req, res) => {
     // Filter payments for this admin email and only return captured/successful payments
     const history = payments
       .filter((p) => p.status === "captured" && p.notes && p.notes.email && p.notes.email.toLowerCase().trim() === adminEmail)
-      .map((p) => ({
-        paymentId: p.id,
-        orderId: p.order_id,
-        amount: p.amount / 100, // convert paise to INR
-        plan: p.notes.plan || "N/A",
-        billingCycle: p.notes.billingCycle || "N/A",
-        employeeCount: p.notes.employeeCount ? parseInt(p.notes.employeeCount) : 1,
-        method: p.method,
-        status: p.status,
-        date: new Date(p.created_at * 1000).toISOString(),
-      }));
+      .map((p) => {
+        const isAddon = p.notes.isAddon === "true";
+        return {
+          paymentId: p.id,
+          orderId: p.order_id,
+          amount: p.amount / 100, // convert paise to INR
+          plan: p.notes.plan || "N/A",
+          billingCycle: p.notes.billingCycle || "N/A",
+          // For addon payments use addonLimit as the seat count; for plan payments use employeeCount
+          employeeCount: isAddon
+            ? parseInt(p.notes.addonLimit) || 0
+            : p.notes.employeeCount ? parseInt(p.notes.employeeCount) : 1,
+          isAddon,
+          method: p.method,
+          status: p.status,
+          date: new Date(p.created_at * 1000).toISOString(),
+        };
+      });
 
     return res.status(200).json(history);
   } catch (err) {
@@ -361,6 +421,7 @@ export const getBillingHistory = async (req, res) => {
     return res.status(500).json({ message: err.message });
   }
 };
+
 
 /* ─────────────────────────────────────────────
    5.  GET NEXT BILL INFO
@@ -379,23 +440,278 @@ export const getNextBillInfo = async (req, res) => {
       return res.status(404).json({ message: "Plan settings not found" });
     }
 
-    const billableCount = await getBillableEmployeesCount(
-      admin._id,
-      admin.planActivatedAt || new Date()
-    );
-    const employeeCount = Math.max(1, billableCount);
-    const amount = planInfo.price * employeeCount;
+    const baseLimit = admin.userLimit || 30;
+    let mergedAddonSeats = 0;
+    const separateAddons = [];
 
-    return res.status(200).json({
+    if (admin.limitAddons && admin.limitAddons.length > 0) {
+      admin.limitAddons.forEach((addon) => {
+        if (!addon.isPaid || isAddonAlreadyMainBilled(addon, admin) || !addon.expiresAt) return;
+        if (isSameBillingDay(addon.expiresAt, admin.planExpiresAt)) {
+          mergedAddonSeats += addon.addonLimit || 0;
+        } else {
+          separateAddons.push(addon);
+        }
+      });
+    }
+
+    const mainBillSeats = baseLimit + mergedAddonSeats;
+    const mainBillAmount = planInfo.price * mainBillSeats;
+
+    const bills = [];
+    const isFreePlan = admin.plan?.toLowerCase()?.includes("free");
+    if (!isFreePlan) {
+      bills.push({
+        id: "main",
+        type: "main",
+        planName: admin.plan,
+        pricePerPerson: planInfo.price,
+        employeeCount: mainBillSeats,
+        userLimit: baseLimit,
+        addonLimit: mergedAddonSeats,
+        amount: mainBillAmount,
+        nextBillingDate: admin.planExpiresAt,
+        planInfo,
+      });
+    }
+
+    separateAddons.forEach((addon) => {
+      const addonSeats = addon.addonLimit || 10;
+      const addonAmount = planInfo.price * addonSeats;
+      bills.push({
+        id: addon._id.toString(),
+        type: "addon",
+        addonId: addon._id.toString(),
+        planName: `${admin.plan} - Add-on`,
+        pricePerPerson: planInfo.price,
+        employeeCount: addonSeats,
+        amount: addonAmount,
+        nextBillingDate: addon.expiresAt,
+        planInfo,
+      });
+    });
+
+    const defaultBill = bills.find(b => b.type === "main") || bills[0] || {
       planName: admin.plan,
       pricePerPerson: planInfo.price,
-      employeeCount,
-      amount,
+      employeeCount: baseLimit,
+      amount: planInfo.price * baseLimit,
       nextBillingDate: admin.planExpiresAt,
       planInfo,
+    };
+
+    return res.status(200).json({
+      ...defaultBill,
+      bills,
     });
   } catch (err) {
     console.error("GET NEXT BILL INFO ERROR:", err.message);
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   6.  CREATE ADDON ORDER
+   POST /api/razorpay/create-addon-order
+   Creates a Razorpay order for purchasing additional user seats.
+   Each add-on has its own monthly billing cycle independent of the main plan.
+ ───────────────────────────────────────────── */
+export const createAddonOrder = async (req, res) => {
+  try {
+    const { addonLimit, addonId } = req.body;
+
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Free plan restriction
+    const isFreePlan = admin.plan?.toLowerCase()?.includes("free");
+    if (isFreePlan) {
+      return res.status(400).json({
+        message: "User limit add-ons are only available on paid plans. Please upgrade your plan first."
+      });
+    }
+
+    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
+    if (!planInfo || planInfo.price === 0) {
+      return res.status(400).json({
+        message: "Cannot purchase add-on seats on the current plan. Please upgrade to a paid plan."
+      });
+    }
+
+    let seats;
+    let isRenewal = false;
+
+    if (addonId) {
+      // Renew an existing expired addon
+      const existingAddon = admin.limitAddons?.id(addonId);
+      if (!existingAddon) {
+        return res.status(404).json({ message: "Add-on not found" });
+      }
+      if (isAddonAlreadyMainBilled(existingAddon, admin)) {
+        return res.status(400).json({ message: "This add-on is already included in your main plan." });
+      }
+      seats = existingAddon.addonLimit;
+      isRenewal = true;
+    } else {
+      // New addon purchase
+      seats = Math.max(10, Number(addonLimit) || 10);
+    }
+
+    const amountInPaise = Math.round(planInfo.price * seats * 100);
+
+    const order = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt: `addon_${Date.now()}`,
+      notes: {
+        email: admin.email,
+        name: admin.name,
+        addonLimit: seats.toString(),
+        plan: admin.plan,
+        pricePerSeat: planInfo.price.toString(),
+        billingCycle: planInfo.billingCycle || "monthly",
+        isAddon: "true",
+        isRenewal: isRenewal ? "true" : "false",
+        addonId: addonId || "",
+        amount: (amountInPaise / 100).toString(),
+      },
+    });
+
+    return res.status(200).json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      seats,
+      pricePerSeat: planInfo.price,
+      planName: admin.plan,
+    });
+  } catch (err) {
+    console.error("CREATE ADDON ORDER ERROR:", err.message);
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+/* ─────────────────────────────────────────────
+   7.  VERIFY ADDON PAYMENT
+   POST /api/razorpay/verify-addon-payment
+   Verifies payment and provisions the add-on limit package into admin.limitAddons.
+   Each addon has its own expiresAt date (1 month from activation), separate from the main plan.
+ ───────────────────────────────────────────── */
+export const verifyAddonPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    // Verify signature
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: "Payment verification failed" });
+    }
+
+    // Fetch order notes from Razorpay
+    const order = await razorpay.orders.fetch(razorpay_order_id);
+    const notes = order.notes || {};
+
+    const {
+      email,
+      addonLimit,
+      plan: planName,
+      pricePerSeat,
+      billingCycle,
+      isRenewal,
+      addonId,
+      amount,
+    } = notes;
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const activatedAt = new Date();
+    const expiresAt = new Date(activatedAt);
+
+    // Set expiry based on billing cycle (default 1 month for addon)
+    if (billingCycle === "quarterly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 3);
+    } else if (billingCycle === "halfYearly") {
+      expiresAt.setMonth(expiresAt.getMonth() + 6);
+    } else if (billingCycle === "yearly") {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    } else {
+      // Default: monthly addon billing cycle
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+    }
+
+    if (isRenewal === "true" && addonId) {
+      // Renew existing expired addon
+      const existingAddon = admin.limitAddons?.id(addonId);
+      if (existingAddon) {
+        if (isAddonAlreadyMainBilled(existingAddon, admin)) {
+          return res.status(400).json({ message: "This add-on is already included in your main plan." });
+        }
+        const renewBase = existingAddon.expiresAt && new Date(existingAddon.expiresAt) > new Date()
+          ? new Date(existingAddon.expiresAt)
+          : activatedAt;
+        const newExpiry = new Date(renewBase);
+        if (billingCycle === "quarterly") {
+          newExpiry.setMonth(newExpiry.getMonth() + 3);
+        } else if (billingCycle === "halfYearly") {
+          newExpiry.setMonth(newExpiry.getMonth() + 6);
+        } else if (billingCycle === "yearly") {
+          newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+        } else {
+          newExpiry.setMonth(newExpiry.getMonth() + 1);
+        }
+        existingAddon.expiresAt = newExpiry;
+        existingAddon.isPaid = true;
+        existingAddon.razorpayOrderId = razorpay_order_id;
+        existingAddon.razorpayPaymentId = razorpay_payment_id;
+        existingAddon.pricePaid = Number(pricePerSeat) * Number(addonLimit);
+        console.log(`✅ Addon renewed for admin: ${email}, id: ${addonId}`);
+      } else {
+        // Addon not found, create a new one anyway
+        admin.limitAddons.push({
+          addonLimit: Number(addonLimit) || 10,
+          pricePaid: Number(amount) || 0,
+          planName: planName || admin.plan,
+          activatedAt,
+          expiresAt,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          isPaid: true,
+        });
+      }
+    } else {
+      // New addon purchase
+      admin.limitAddons.push({
+        addonLimit: Number(addonLimit) || 10,
+        pricePaid: Number(amount) || 0,
+        planName: planName || admin.plan,
+        activatedAt,
+        expiresAt,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        isPaid: true,
+      });
+      console.log(`✅ New addon purchased for admin: ${email}, seats: ${addonLimit}`);
+    }
+
+    await admin.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Add-on limit activated successfully",
+      paymentId: razorpay_payment_id,
+    });
+  } catch (err) {
+    console.error("VERIFY ADDON PAYMENT ERROR:", err.message);
     return res.status(500).json({ message: err.message });
   }
 };

@@ -25,6 +25,7 @@ const getDaysRemaining = (expiryDate) => {
 const AdminDashboard = () => {
   const [admins, setAdmins] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [masterStats, setMasterStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -38,12 +39,14 @@ const AdminDashboard = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [adminsRes, plansRes] = await Promise.all([
+      const [adminsRes, plansRes, masterRes] = await Promise.all([
         api.get("/api/admin/login-access"),
-        api.get("/api/admin/all-plans")
+        api.get("/api/admin/all-plans"),
+        api.get("/api/master/admins")
       ]);
       setAdmins(adminsRes.data);
       setPlans(plansRes.data);
+      setMasterStats(masterRes.data?.stats || null);
     } catch (err) {
       console.error("Failed to load data:", err);
     } finally {
@@ -64,9 +67,10 @@ const AdminDashboard = () => {
     const totalStaff = admins.reduce((sum, a) => sum + (a.totalEmployees || 0), 0);
     const activeStaff = admins.reduce((sum, a) => sum + (a.totalEmployees - (a.disabledEmployees || 0)), 0);
     const totalRevenue = plans.reduce((sum, plan) => sum + (plan.price || 0), 0);
+    const generatedRevenue = masterStats?.totalRevenueGenerated ?? admins.reduce((sum, admin) => sum + (admin.billPaid || 0), 0);
     
-    return { total, active, expired, blocked, totalStaff, activeStaff, totalRevenue };
-  }, [admins, plans]);
+    return { total, active, expired, blocked, totalStaff, activeStaff, totalRevenue, generatedRevenue };
+  }, [admins, plans, masterStats]);
 
   const violations = useMemo(() => {
     return admins.filter(a => 
@@ -114,7 +118,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6 mb-8">
         {/* Total Companies */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-3">
@@ -169,6 +173,20 @@ const AdminDashboard = () => {
           </div>
           <h3 className="text-2xl font-bold text-gray-800">₹{stats.totalRevenue.toLocaleString()}</h3>
           <p className="text-sm text-gray-500 mt-1">Total Plan Value</p>
+        </div>
+
+        {/* Total Revenue Generated */}
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 bg-green-100 rounded-lg">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m4-4H9m12 0l-3-3m3 3l-3 3"></path>
+              </svg>
+            </div>
+            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">Paid</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-800">₹{Math.round(stats.generatedRevenue).toLocaleString("en-IN")}</h3>
+          <p className="text-sm text-gray-500 mt-1">Total Revenue</p>
         </div>
       </div>
 
