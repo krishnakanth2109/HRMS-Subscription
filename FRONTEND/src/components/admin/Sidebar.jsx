@@ -7,6 +7,7 @@ import {
   Users,
   UserCheck,
   UserPlus,
+  LocateFixed,
   MapPin,
   PieChart,
   Calendar,
@@ -151,6 +152,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           route: "/admin/settings",
           label: "Shift Management",
           icon: UserPlus,
+        },
+        {
+          to: "/admin/field-tracking",
+          route: "/admin/field-tracking",
+          label: "Live Tracking",
+          icon: LocateFixed,
+          alwaysAllowed: true,
         },
         {
           to: "/admin/shifttype",

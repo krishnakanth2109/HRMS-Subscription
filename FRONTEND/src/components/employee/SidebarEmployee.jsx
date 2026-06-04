@@ -8,6 +8,7 @@ import {
   Clock,
   CalendarClock,
   Laptop,
+  MapPinned,
   Receipt,
   Users,
   ClipboardList,
@@ -47,6 +48,7 @@ const NAV_SECTIONS = [
     links: [
       { to: "/employee/payslip", label: "Pay-Slip", icon: IndianRupee },
       { to: "/employee/chatting", label: "Connect", icon: Users },
+      { to: "/employee/field-work", label: "Field Work", icon: MapPinned },
       { to: "/employee/daily-work-tracker", label: "Work Tracker", icon: ClipboardList },
     ]
   },

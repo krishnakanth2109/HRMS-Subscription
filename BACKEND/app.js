@@ -53,6 +53,7 @@ import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
+import fieldTrackingRoutes from "./routes/fieldTrackingRoutes.js";
 
 /* ==================== DOMAIN IMPORTS ==================== */
 import { subdomainMiddleware } from "./middleware/subdomainmiddleware.js";
@@ -263,6 +264,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/induction", inductionRoutes);
 app.use("/api/resignations", resignationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
+app.use("/api/field-tracking", fieldTrackingRoutes);
 app.use("/api/work", employeeWorkRoutes);
 app.use("/api/work/admin", adminWorkRoutes);
 app.use("/api/webauthn", webauthnRoutes);

@@ -114,6 +114,8 @@ import AdminWelcomeKits from "./pages/Adminwelcomekits";
 import WhatsNew from "./pages/versionpage";
 import DomainSettings from "./pages/Domainsettings";
 import EditEmailTemplate from "./pages/EditEmailTemplate";
+import AdminFieldTracking from "./pages/tracker/AdminFieldTracking";
+import EmployeeFieldWork from "./pages/tracker/EmployeeFieldWork";
 
 
 
@@ -285,6 +287,7 @@ function App() {
         <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
+        <Route path="/admin/field-tracking" element={<AdminFieldTracking />} />
         <Route path="/admin/shifttype" element={<AdminLocationSettings />} />
         <Route path="/admin/payroll" element={<Payroll />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
@@ -353,6 +356,7 @@ function App() {
         <Route path="/employee/rules" element={<EmployeeViewRules />} />
         <Route path="/employee/payslip" element={<EmployeePayslip />} />
         <Route path="/employee/chatting" element={<ConnectWithEmployee />} />
+        <Route path="/employee/field-work" element={<EmployeeFieldWork />} />
         <Route path="/employee/daily-work-tracker" element={<EmployeeWorkTracker />} />
         <Route path="/employee/setup-face" element={<CurrentEmployeeFaceSetup />} />
         <Route path="/employee/issues" element={<EmployeeIssues />} />

@@ -205,6 +205,48 @@ export const activateEmployeeById = async (id, data) =>
   (await api.patch(`/api/employees/${id}/reactivate`, data)).data;
 
 /* =============================================================================
+   FIELD WORK LIVE LOCATION TRACKING
+============================================================================= */
+export const getFieldTrackingSetting = async () =>
+  (await api.get("/api/field-tracking/setting")).data;
+
+export const updateFieldTrackingSetting = async (enabled) =>
+  (await api.put("/api/field-tracking/admin/setting", { enabled })).data;
+
+export const getFieldTrackingEmployees = async ({ page = 1, limit = 10, search = "" } = {}) =>
+  (
+    await api.get("/api/field-tracking/admin/employees", {
+      params: { page, limit, search },
+    })
+  ).data;
+
+export const getFieldTripsForEmployee = async (employeeId, date) =>
+  (
+    await api.get(`/api/field-tracking/admin/employees/${employeeId}/trips`, {
+      params: { date },
+    })
+  ).data;
+
+export const getRecentFieldTrips = async (limit = 10) =>
+  (
+    await api.get("/api/field-tracking/admin/recent-trips", {
+      params: { limit },
+    })
+  ).data;
+
+export const getMyActiveFieldTrip = async () =>
+  (await api.get("/api/field-tracking/employee/active-trip")).data;
+
+export const startFieldTrip = async (location = {}) =>
+  (await api.post("/api/field-tracking/employee/trips/start", location)).data;
+
+export const postFieldTripLocation = async (tripId, location) =>
+  (await api.post(`/api/field-tracking/employee/trips/${tripId}/location`, location)).data;
+
+export const stopFieldTrip = async (tripId, payload = {}) =>
+  (await api.post(`/api/field-tracking/employee/trips/${tripId}/stop`, payload)).data;
+
+/* =============================================================================
    IDLE TIME TRACKING
 ============================================================================= */
 
