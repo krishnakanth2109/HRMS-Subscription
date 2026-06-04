@@ -125,6 +125,7 @@ const EmployeeDashboard = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [punchStatus, setPunchStatus] = useState("IDLE");
   const [shiftTimings, setShiftTimings] = useState(null);
+  const [mobileAccessEnabled, setMobileAccessEnabled] = useState(true);
 
   // ✅ Office Settings State
   const [officeConfig, setOfficeConfig] = useState(null);
@@ -207,6 +208,19 @@ const EmployeeDashboard = () => {
 
   // ✅ NEW: Break state toggle
   const [isOnBreak, setIsOnBreak] = useState(false);
+
+  useEffect(() => {
+    const fetchMobileAccess = async () => {
+      try {
+        const { data } = await api.get("/api/admin/mobile-access");
+        setMobileAccessEnabled(data.mobileAccessEnabled !== false);
+      } catch {
+        setMobileAccessEnabled(true);
+      }
+    };
+
+    fetchMobileAccess();
+  }, []);
 
   // ✅ Sync isOnBreak with todayLog
   useEffect(() => {
@@ -1711,7 +1725,11 @@ const EmployeeDashboard = () => {
             </div>
 
             <div className="pt-2">
-              {isShiftCompleted ? (
+              {!mobileAccessEnabled ? (
+                <div className="w-full text-center bg-gray-50 text-gray-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-dashed border-gray-200">
+                  Mobile Punch Access Disabled
+                </div>
+              ) : isShiftCompleted ? (
                 <div className="w-full text-center bg-gray-50 text-gray-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest border border-dashed border-gray-200">
                   Daily Shift Completed
                 </div>

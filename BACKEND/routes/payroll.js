@@ -74,6 +74,7 @@ router.post('/save-batch', safeAdminCheck, async (req, res) => {
   try {
     const { records, period, templateUrl } = req.body;
     if (!records || !Array.isArray(records)) return res.status(400).json({ message: 'No records' });
+    if (!templateUrl) return res.status(400).json({ message: 'Template is required to release payslips.' });
 
     const monthIdentifier = period.start.substring(0, 7); 
     const safeCompanyId = req.user.company || req.user.companyId || req.user._id;

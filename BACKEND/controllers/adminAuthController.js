@@ -443,6 +443,58 @@ export const updateAdminProfile = async (req, res) => {
   }
 };
 
+/* ==================== MOBILE ATTENDANCE ACCESS ==================== */
+export const getMobileAccess = async (req, res) => {
+  try {
+    const rootAdminId = req.user?.role === "employee" ? req.user.adminId : req.user?._id;
+
+    if (!rootAdminId) {
+      return res.status(400).json({ message: "Admin account not found for this user" });
+    }
+
+    const admin = await Admin.findById(rootAdminId).select("mobileAccessEnabled").lean();
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({
+      mobileAccessEnabled: admin.mobileAccessEnabled !== false,
+    });
+  } catch (error) {
+    console.error("Mobile access fetch error:", error);
+    res.status(500).json({ message: "Failed to fetch mobile access setting" });
+  }
+};
+
+export const updateMobileAccess = async (req, res) => {
+  try {
+    const { mobileAccessEnabled } = req.body;
+
+    if (typeof mobileAccessEnabled !== "boolean") {
+      return res.status(400).json({ message: "mobileAccessEnabled must be a boolean" });
+    }
+
+    const admin = await Admin.findByIdAndUpdate(
+      req.user._id,
+      { mobileAccessEnabled },
+      { new: true, runValidators: true }
+    ).select("mobileAccessEnabled");
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({
+      message: `Mobile attendance access ${mobileAccessEnabled ? "enabled" : "disabled"} successfully`,
+      mobileAccessEnabled: admin.mobileAccessEnabled !== false,
+    });
+  } catch (error) {
+    console.error("Mobile access update error:", error);
+    res.status(500).json({ message: "Failed to update mobile access setting" });
+  }
+};
+
 /* ==================== GET ALL AVAILABLE FEATURES (for MasterSettings) ==================== */
 export const getAllFeatures = async (req, res) => {
   try {

@@ -1621,9 +1621,18 @@ router.get("/request-limit/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
     const attendanceRecord = await Attendance.findOne({ employeeId });
-    if (!attendanceRecord) return res.status(404).json({ message: "Employee not found" });
-
     const currentMonth = new Date().toISOString().slice(0, 7);
+
+    if (!attendanceRecord) {
+      const employeeDoc = await Employee.findOne({ employeeId });
+      const employeeName = employeeDoc ? employeeDoc.name : "Employee";
+      return res.json({
+        employeeId,
+        employeeName,
+        monthlyRequestLimits: { [currentMonth]: { limit: 5, used: 0 } }
+      });
+    }
+
     const monthData = attendanceRecord.monthlyRequestLimits?.get(currentMonth) || { limit: 5, used: 0 };
 
     res.json({

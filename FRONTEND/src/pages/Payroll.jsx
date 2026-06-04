@@ -1,6 +1,6 @@
 // --- START OF FILE Paste February 23, 2026 - 4:15PM ---
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Swal from 'sweetalert2';
@@ -14,7 +14,8 @@ import {
   getAllShifts,
   getPayrollRules,
   savePayrollRules,
-  getOfferLetterTemplates
+  getOfferLetterTemplates,
+  uploadOfferLetterTemplate
 } from '../api';
 
 // --- DEFAULT RULES ---
@@ -933,10 +934,12 @@ const TemplatePickerModal = ({ onSelect, onClose }) => {
 };
 
 // ✅ STEP 2: LETTERHEAD PICKER inside Release flow
-const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, periodEnd }) => {
+const LetterheadPickerModal = ({ onSelect, onClose, selectedIds, periodStart, periodEnd }) => {
   const [templates, setTemplates] = useState([]);
   const [loadingT, setLoadingT] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [uploadingTemplate, setUploadingTemplate] = useState(false);
+  const uploadInputRef = useRef(null);
 
   useEffect(() => {
     getOfferLetterTemplates()
@@ -944,6 +947,117 @@ const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, per
       .catch(() => { })
       .finally(() => setLoadingT(false));
   }, []);
+
+  const handleAddTemplate = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', file.name.replace(/\.[^/.]+$/, ''));
+
+    setUploadingTemplate(true);
+    try {
+      const uploadedTemplate = await uploadOfferLetterTemplate(formData);
+      const freshTemplates = await getOfferLetterTemplates();
+      setTemplates(freshTemplates || []);
+      setSelectedTemplate(uploadedTemplate);
+    } catch (error) {
+      alert(error.response?.data?.message || error.message || 'Template upload failed');
+    } finally {
+      setUploadingTemplate(false);
+      event.target.value = '';
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!selectedTemplate?.templateUrl) return;
+    const previewWindow = window.open('', '_blank');
+
+    const safeTitle = (selectedTemplate.name || 'Letterhead Preview').replace(/[<>&"]/g, '');
+    if (!previewWindow) return;
+
+    previewWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${safeTitle}</title>
+          <style>
+            body { margin: 0; background: #0f172a; font-family: Arial, sans-serif; color: #fff; display: grid; place-items: center; min-height: 100vh; }
+            .loader { font-size: 14px; font-weight: 700; color: #cbd5e1; }
+          </style>
+        </head>
+        <body><div class="loader">Loading preview...</div></body>
+      </html>
+    `);
+    previewWindow.document.close();
+
+    try {
+      const response = await api.get('/api/offer-letters/templates/fetch', {
+        params: { url: selectedTemplate.templateUrl },
+        responseType: 'blob',
+      });
+
+      let blob = response.data;
+      let mimeType = blob.type || '';
+
+      if (!mimeType || mimeType.includes('octet-stream')) {
+        const bytes = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+        const hex = Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+        if (hex.startsWith('25504446')) mimeType = 'application/pdf';
+        else if (hex.startsWith('ffd8ff')) mimeType = 'image/jpeg';
+        else if (hex.startsWith('89504e47')) mimeType = 'image/png';
+        else if (hex.startsWith('52494646') && hex.includes('57454250')) mimeType = 'image/webp';
+        else mimeType = 'application/pdf';
+
+        blob = new Blob([blob], { type: mimeType });
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+      const isImage = mimeType.startsWith('image/');
+
+      previewWindow.document.open();
+      previewWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>${safeTitle}</title>
+            <style>
+              * { box-sizing: border-box; }
+              body { margin: 0; background: #0f172a; font-family: Arial, sans-serif; color: #fff; }
+              .stage { width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: auto; background: #e5e7eb; }
+              iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+              img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; box-shadow: 0 20px 60px rgba(15,23,42,0.28); }
+            </style>
+          </head>
+          <body>
+            <main class="stage">
+              ${isImage
+                ? `<img src="${blobUrl}" alt="${safeTitle}" />`
+                : `<iframe src="${blobUrl}" title="${safeTitle}"></iframe>`}
+            </main>
+          </body>
+        </html>
+      `);
+      previewWindow.document.close();
+    } catch (error) {
+      previewWindow.document.open();
+      previewWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head><title>${safeTitle}</title></head>
+          <body style="margin:0;background:#0f172a;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;">
+            <div style="text-align:center;">
+              <h2 style="margin:0 0 8px;">Preview failed</h2>
+              <p style="color:#cbd5e1;margin:0;">Please try re-uploading this letterhead template.</p>
+            </div>
+          </body>
+        </html>
+      `);
+      previewWindow.document.close();
+    }
+  };
 
   return (
     <div style={{
@@ -953,7 +1067,7 @@ const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, per
     }}>
       <div style={{
         background: '#fff', borderRadius: '20px', padding: '32px',
-        width: '92%', maxWidth: '680px', maxHeight: '85vh',
+        width: '94%', maxWidth: '940px', maxHeight: '92vh',
         display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.35)'
       }}>
         {/* Header */}
@@ -964,6 +1078,53 @@ const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, per
               <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '0.82rem' }}>
                 Choose a background template for the payslip PDF — <strong>{selectedIds} employee{selectedIds > 1 ? 's' : ''}</strong> • {formatDateDMY(periodStart)} → {formatDateDMY(periodEnd)}
               </p>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                onClick={handlePreview}
+                disabled={!selectedTemplate}
+                style={{
+                  height: 36,
+                  padding: '0 14px',
+                  borderRadius: '12px',
+                  border: selectedTemplate ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                  background: selectedTemplate ? '#eff6ff' : '#f8fafc',
+                  color: selectedTemplate ? '#2563eb' : '#94a3b8',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: selectedTemplate ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(15,23,42,0.06)'
+                }}
+              >
+                Preview
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close letterhead picker"
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  color: '#64748b',
+                  fontSize: '1.2rem',
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(15,23,42,0.06)'
+                }}
+              >
+                X
+              </button>
             </div>
           </div>
           <div style={{ marginTop: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '8px 14px', fontSize: '0.8rem', color: '#92400e' }}>
@@ -1019,18 +1180,47 @@ const LetterheadPickerModal = ({ onSelect, onSkip, selectedIds, periodStart, per
         </div>
 
         {/* Footer */}
-        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-          <button onClick={() => onSkip()} style={{ padding: '10px 20px', borderRadius: '10px', border: '1px solid #cbd5e1', background: '#f1f5f9', fontWeight: 600, cursor: 'pointer', fontSize: '0.88rem', color: '#475569' }}>Skip (No Template)</button>
-          <button
-            onClick={() => onSelect(selectedTemplate)}
-            disabled={!selectedTemplate}
-            style={{
-              padding: '10px 28px', borderRadius: '10px', border: 'none',
-              background: selectedTemplate ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : '#e2e8f0',
-              color: selectedTemplate ? '#fff' : '#94a3b8',
-              fontWeight: 700, cursor: selectedTemplate ? 'pointer' : 'not-allowed', fontSize: '0.88rem'
-            }}
-          >{selectedTemplate ? `✅ Use "${selectedTemplate.name}"` : 'Select a Template'}</button>
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', paddingTop: '16px', borderTop: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+          <div>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={handleAddTemplate}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              onClick={() => uploadInputRef.current?.click()}
+              disabled={uploadingTemplate}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '10px',
+                border: '1px solid #bfdbfe',
+                background: '#eff6ff',
+                color: '#2563eb',
+                fontWeight: 800,
+                cursor: uploadingTemplate ? 'wait' : 'pointer',
+                fontSize: '0.88rem',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.08)'
+              }}
+            >
+              {uploadingTemplate ? 'Uploading...' : '+ Add Template'}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => onSelect(selectedTemplate)}
+              disabled={!selectedTemplate}
+              style={{
+                padding: '10px 28px', borderRadius: '10px', border: 'none',
+                background: selectedTemplate ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : '#e2e8f0',
+                color: selectedTemplate ? '#fff' : '#94a3b8',
+                fontWeight: 700, cursor: selectedTemplate ? 'pointer' : 'not-allowed', fontSize: '0.88rem'
+              }}
+            >{selectedTemplate ? 'Continue' : 'Select a Template'}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1111,7 +1301,7 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
           periodStart={periodStart}
           periodEnd={periodEnd}
           onSelect={handleLetterheadSelected}
-          onSkip={() => handleLetterheadSelected(null)}
+          onClose={() => setShowLetterhead(false)}
         />
       )}
 
@@ -2003,6 +2193,16 @@ const PayrollManagement = () => {
   // ✅ Confirm release: selectedRecords = employees, templateUrl = chosen letterhead (or null)
   const handleConfirmRelease = async (selectedRecords, templateUrl) => {
     setShowReleaseModal(false);
+
+    if (!templateUrl) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Template Required',
+        text: 'Please select a letterhead template before releasing payslips.',
+        confirmButtonColor: '#4338CA',
+      });
+      return;
+    }
 
     // SweetAlert2 confirmation
     const confirmResult = await Swal.fire({

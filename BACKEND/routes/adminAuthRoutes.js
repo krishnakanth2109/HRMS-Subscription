@@ -13,6 +13,8 @@ import {
     getLoginAccessStatus,
     getAdminProfile,
     updateAdminProfile,
+    getMobileAccess,
+    updateMobileAccess,
     getAllFeatures,
     getMyPlanFeatures,
     changeAdminPassword,
@@ -33,6 +35,8 @@ router.post("/login", loginAdmin);
 // Protected routes (only these two)
 router.get("/profile", protect, getAdminProfile);
 router.put("/profile/update", protect, updateAdminProfile);
+router.get("/mobile-access", protect, getMobileAccess);
+router.patch("/mobile-access", protect, updateMobileAccess);
 router.post("/free-upgrade-to-owner", protect, freeUpgradeToOwner);
 router.post("/support-admins", protect, registerSupportAdmin);
 router.get("/support-admins", protect, getSupportAdmins);

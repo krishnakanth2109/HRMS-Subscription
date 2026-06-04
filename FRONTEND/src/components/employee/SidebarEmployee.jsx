@@ -168,8 +168,9 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
           }
         }}
       >
-        <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
+        <div className={`flex items-center shrink-0 ${collapsed && !isMobile ? "h-20 flex-col justify-center gap-2 px-2 py-3" : "h-16 justify-between px-4"}`}>
           {!collapsed || isMobile ? (
+            <>
              <div className="flex items-center gap-2 overflow-hidden h-[68px]">
                 <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
                   <User size={24} />
@@ -179,10 +180,37 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Panel</span>
                 </div>
              </div>
+             {!isMobile && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCollapsed(true);
+                    setIsPinned(false);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
+                  title="Collapse Sidebar"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+             )}
+            </>
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-              <User size={18} />
-            </div>
+            <>
+              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-950/20 ring-1 ring-blue-400/30">
+                <User size={18} />
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCollapsed(false);
+                  setIsPinned(true);
+                }}
+                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 rounded-lg transition-all shrink-0"
+                title="Expand Sidebar"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </>
           )}
           {isMobile && (
             <button onClick={() => setMobileOpen(false)} className="p-1 text-slate-400 hover:text-white transition-colors">
@@ -191,7 +219,7 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
           )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 space-y-6 no-scrollbar">
+        <nav className={`flex-1 overflow-y-auto overflow-x-hidden no-scrollbar ${collapsed && !isMobile ? "px-2 py-3 space-y-5" : "py-4 px-3 space-y-6"}`}>
           {NAV_SECTIONS.map((section, sIdx) => (
             <div key={sIdx} className="space-y-1">
               {(!collapsed || isMobile) && (
@@ -202,19 +230,27 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
               <div className="space-y-1">
                 {section.links.map((link, lIdx) => {
                   const Icon = link.icon;
-                  const isActive = location.pathname === link.to;
 
                   return (
                     <NavLink
                       key={lIdx}
                       to={link.to}
-                      className={({ isActive }) => `
-                        group flex items-center gap-3 px-3 min-h-[44px] rounded-md transition-all duration-200
-                        ${isActive 
-                          ? "bg-blue-500/10 text-blue-400 border-l-2 border-blue-500" 
-                          : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-l-2 border-transparent"}
-                        ${collapsed && !isMobile ? "justify-center px-0" : ""}
-                      `}
+                      className={({ isActive }) => {
+                        const compact = collapsed && !isMobile;
+                        const compactState = isActive
+                          ? "bg-blue-500/15 text-blue-300 border-blue-400/50 shadow-[0_0_0_1px_rgba(59,130,246,0.12)]"
+                          : "text-slate-400 border-transparent hover:bg-slate-800/70 hover:text-slate-100";
+                        const expandedState = isActive
+                          ? "bg-blue-500/10 text-blue-400 border-l-2 border-blue-500"
+                          : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-l-2 border-transparent";
+
+                        return `
+                          group flex items-center transition-all duration-200
+                          ${compact
+                            ? `mx-auto h-11 w-11 justify-center rounded-xl border ${compactState}`
+                            : `gap-3 px-3 min-h-[44px] rounded-md ${expandedState}`}
+                        `;
+                      }}
                       title={collapsed && !isMobile ? link.label : ""}
                     >
                       <div className="relative">
@@ -242,24 +278,6 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
         </nav>
 
         <div className="p-3 border-t border-slate-800">
-          {!isMobile && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const nextCollapsed = !collapsed;
-                setCollapsed(nextCollapsed);
-                setIsPinned(!nextCollapsed);
-              }}
-              className="w-full flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all mb-2"
-            >
-              {collapsed ? <ChevronRight size={20} /> : (
-                <>
-                  <ChevronLeft size={20} />
-                  <span className="text-sm font-medium">Collapse</span>
-                </>
-              )}
-            </button>
-          )}
           <div className={`px-3 py-2 text-[10px] text-slate-500 font-medium ${collapsed && !isMobile ? "text-center" : ""}`}>
             &copy; {new Date().getFullYear()} HRMS
           </div>

@@ -1,40 +1,77 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const DailyWorkSchema = new mongoose.Schema({
-  adminId: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
-  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
-  employeeId: { type: String, required: true },
-  employeeName: { type: String, required: true },
-  date: { type: String, required: true }, // Format: YYYY-MM-DD
-  
-  morning_title: { type: String },
-  morning_description: { type: String },
-  morning_time: { type: String }, // e.g. "09:30 AM"
-  
-  evening_description: { type: String },
-  evening_time: { type: String }, // e.g. "06:30 PM"
-  
-  employee_submitted_percentage: { type: Number, default: 0 },
-  daily_work_percentage: { type: Number, default: 0 }, // Admin approved percentage
-  
-  status: { 
-    type: String, 
-    enum: ['pending', 'approved', 'rejected'], 
-    default: 'pending' 
+const DailyWorkEntrySchema = new mongoose.Schema(
+  {
+    employeeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+      required: true,
+      index: true,
+    },
+    date: {
+      type: Date,
+      required: true,
+      index: true,
+    },
+    morning_title: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 200,
+    },
+    morning_description: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5000,
+    },
+    morning_time: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    evening_description: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 5000,
+    },
+    evening_time: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    employee_submitted_percentage: {
+      type: Number,
+      default: null,
+      min: 0,
+      max: 100,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+      index: true,
+    },
+    daily_work_percentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100,
+    },
+    percentage_generated_at: {
+      type: Date,
+      default: null,
+    },
+    percentage_mode: {
+      type: String,
+      enum: ["auto", "manual", "none"],
+      default: "none",
+    },
   },
-  
-  images: [{
-    image_url: { type: String },
-    public_id: { type: String }
-  }],
-  
-  percentage_mode: { type: String, default: 'none' }, // e.g. 'manual', 'auto'
-  percentage_generated_at: { type: Date },
-  
-  createdAt: { type: Date, default: Date.now }
-});
+  { timestamps: true }
+);
 
-// Compound index for efficient lookup and preventing duplicates for same day
-DailyWorkSchema.index({ employeeId: 1, date: 1 }, { unique: true });
+DailyWorkEntrySchema.index({ employeeId: 1, date: 1 }, { unique: true });
 
-export default mongoose.model('DailyWork', DailyWorkSchema);
+export default mongoose.model("DailyWorkEntry", DailyWorkEntrySchema);

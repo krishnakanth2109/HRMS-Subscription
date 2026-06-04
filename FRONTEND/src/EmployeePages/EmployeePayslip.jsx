@@ -12,6 +12,8 @@ const EmployeePayslip = () => {
   const [payslipData, setPayslipData] = useState(null);
   const [employeeDetails, setEmployeeDetails] = useState(null);
   const [templateImageUrl, setTemplateImageUrl] = useState(null);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateLoadFailed, setTemplateLoadFailed] = useState(false);
   
   // Default to current month (YYYY-MM)
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -44,6 +46,8 @@ const EmployeePayslip = () => {
     setLoading(true);
     setPayslipData(null);
     setTemplateImageUrl(null);
+    setTemplateLoading(false);
+    setTemplateLoadFailed(false);
     try {
       const res = await getEmployeePayroll(user.employeeId, selectedMonth);
       setPayslipData(res.data);
@@ -60,10 +64,14 @@ const EmployeePayslip = () => {
   useEffect(() => {
     if (!payslipData?.templateUrl) {
       setTemplateImageUrl(null);
+      setTemplateLoading(false);
+      setTemplateLoadFailed(false);
       return;
     }
 
     let cancelled = false;
+    setTemplateLoading(true);
+    setTemplateLoadFailed(false);
 
     const loadTemplate = async () => {
       try {
@@ -88,6 +96,8 @@ const EmployeePayslip = () => {
           const url = URL.createObjectURL(blob);
           if (!cancelled) {
             setTemplateImageUrl(url);
+            setTemplateLoading(false);
+            setTemplateLoadFailed(false);
             console.log('✅ Template loaded as image');
           }
         } else if (isPDF) {
@@ -120,14 +130,24 @@ const EmployeePayslip = () => {
           if (!cancelled) {
             const dataUrl = canvas.toDataURL('image/png');
             setTemplateImageUrl(dataUrl);
+            setTemplateLoading(false);
+            setTemplateLoadFailed(false);
             console.log('✅ Template PDF page 1 rendered to image');
           }
         } else {
           console.warn('⚠️ Unknown template file type');
+          if (!cancelled) {
+            setTemplateLoading(false);
+            setTemplateLoadFailed(true);
+          }
         }
       } catch (err) {
         console.warn('Template background failed:', err.message);
-        if (!cancelled) setTemplateImageUrl(null);
+        if (!cancelled) {
+          setTemplateImageUrl(null);
+          setTemplateLoading(false);
+          setTemplateLoadFailed(true);
+        }
       }
     };
 
@@ -220,28 +240,12 @@ const EmployeePayslip = () => {
 
   // Whether we have a letterhead template
   const hasTemplate = !!templateImageUrl;
+  const waitingForTemplate = !!payslipData?.templateUrl && !templateImageUrl && !templateLoadFailed;
 
   return (
-    <div className="min-h-screen p-4 font-sans print:bg-white print:p-0 print:m-0">
+    <div className="min-h-screen p-2 sm:p-4 pb-32 md:pb-40 font-sans print:bg-white print:p-0 print:m-0">
       
-      {/* --- Enforce Print Margins and Background Bleed --- */}
-      <style>{`
-        @media print {
-          @page { margin: 0; size: A4 portrait; }
-          body { 
-            -webkit-print-color-adjust: exact !important; 
-            print-color-adjust: exact !important; 
-          }
-          #payslip-container {
-            width: 100% !important;
-            height: 100vh !important;
-            max-height: 297mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: hidden !important;
-          }
-        }
-      `}</style>
+      {/* Print CSS is consolidated in the style block at the bottom */}
       
       {/* --- Controls (Hidden on Print) --- */}
       <div className="max-w-5xl mx-auto mb-8 print:hidden">
@@ -276,10 +280,12 @@ const EmployeePayslip = () => {
       </div>
 
       {/* --- Content Area --- */}
-      <div className="max-w-5xl mx-auto print:max-w-none print:w-full print:mx-0">
+      <div id="payslip-print-root" className="max-w-5xl mx-auto pb-24 md:pb-32 print:max-w-none print:w-full print:mx-0 print:pb-0">
         
-        {loading ? (
-          <div className="text-center p-10 bg-white">Loading...</div>
+        {loading || templateLoading || waitingForTemplate ? (
+          <div className="text-center p-10 bg-white rounded-xl shadow-lg border border-gray-100">
+            {templateLoading || waitingForTemplate ? "Loading selected payslip template..." : "Loading..."}
+          </div>
         ) : !payslipData ? (
           <div className="text-center p-8 md:p-12 bg-white rounded-xl shadow-lg border border-gray-100">
             <div className="flex justify-center mb-4">
@@ -305,9 +311,12 @@ const EmployeePayslip = () => {
               width: '100%',
               maxWidth: '210mm',
               minHeight: hasTemplate ? '297mm' : 'auto',
-              margin: '0 auto',
+              margin: '0 auto 2rem',
               position: 'relative',
               overflow: 'hidden',
+              boxSizing: 'border-box',
+              boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+              borderRadius: '4px',
             }}
           >
             
@@ -338,10 +347,10 @@ const EmployeePayslip = () => {
               position: 'relative',
               zIndex: 1,
               /* Generous padding to respect template header/footer areas */
-              paddingTop: hasTemplate ? '170px' : '32px',
-              paddingBottom: hasTemplate ? '80px' : '32px',
-              paddingLeft: hasTemplate ? '40px' : '32px',
-              paddingRight: hasTemplate ? '40px' : '32px',
+              paddingTop: hasTemplate ? '180px' : '32px',
+              paddingBottom: hasTemplate ? '60px' : '32px',
+              paddingLeft: hasTemplate ? '32px' : '32px',
+              paddingRight: hasTemplate ? '32px' : '32px',
             }}>
               
               {/* --- Company Header (shown only if NO template, since template has its own header) --- */}
@@ -351,7 +360,7 @@ const EmployeePayslip = () => {
                     {companyName}
                   </h1>
                   <h2 className="text-base font-bold text-gray-700 mt-2 uppercase">
-                    PAYSLIP FOR THE MONTH {getMonthYear(selectedMonth)}
+                    PAYSLIP FOR  {getMonthYear(selectedMonth)}
                   </h2>
                   <p className="text-sm text-gray-600 mt-1 px-4 font-medium">
                     Spline Arcade 201, 2nd floor, Above Rayalaseema Spice Restaurant, Madhapur, Hyderabad, 500081
@@ -361,19 +370,20 @@ const EmployeePayslip = () => {
 
               {/* If template exists, show a smaller inline header for the month */}
               {hasTemplate && (
-                <div className="text-center mb-3">
-                  <h2 className="text-lg font-bold text-gray-800 uppercase tracking-wide">
-                    PAYSLIP FOR THE MONTH {getMonthYear(selectedMonth)}
+                <div className="text-center" style={{ marginTop: '16px', marginBottom: '8px' }}>
+                  <h2 className="font-bold text-gray-800 uppercase tracking-wide" style={{ fontSize: '17px', lineHeight: 1.15 }}>
+                    PAYSLIP FOR {getMonthYear(selectedMonth)}
                   </h2>
                 </div>
               )}
 
               {/* Main content box */}
               <div style={{
-                border: hasTemplate ? '1px solid rgba(0,0,0,0.3)' : '2px solid #1f2937',
-                background: hasTemplate ? 'rgba(255,255,255,0.85)' : 'white',
+                border: hasTemplate ? '1.5px solid #374151' : '2px solid #1f2937',
+                background: 'white',
                 borderRadius: hasTemplate ? '4px' : '0',
                 position: 'relative',
+                overflow: 'hidden',
               }}>
 
                 {/* Watermark (only shown when no template) */}
@@ -385,51 +395,51 @@ const EmployeePayslip = () => {
 
                 <div className="relative z-10">
                   {/* Employee Details Grid */}
-                  <div className="p-4 text-sm font-medium">
-                    <div className="flex justify-between gap-8">
+                  <div className={`${hasTemplate ? 'p-3 text-[12px]' : 'p-4 text-sm'} font-medium`}>
+                    <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-6">
                       {/* Left Column */}
                       <div className="flex-1 space-y-1">
-                        <div className="flex"><span className="w-36 text-gray-600">Employee Name</span><span className="mr-2">:</span><span className="font-bold text-gray-900">{payslipData.employeeName}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Designation</span><span className="mr-2">:</span><span>{payslipData.role}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Department</span><span className="mr-2">:</span><span>{currentJob.department || 'IT'}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">PAN Number</span><span className="mr-2">:</span><span>{personalDetails.panNumber || 'NA'}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Branch</span><span className="mr-2">:</span><span>Hyderabad</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Bank Name</span><span className="mr-2">:</span><span>{bankDetails.bankName || 'NA'}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">No. Of Working Days</span><span className="mr-2">:</span><span>{attendanceSummary.totalDaysInMonth}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">UAN NO</span><span className="mr-2">:</span><span>{personalDetails.uan || 'NA'}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Employee Name</span><span className="mr-2">:</span><span className="font-bold text-gray-900 break-all">{payslipData.employeeName}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Designation</span><span className="mr-2">:</span><span className="break-all">{payslipData.role}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Department</span><span className="mr-2">:</span><span className="break-all">{currentJob.department || 'IT'}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">PAN Number</span><span className="mr-2">:</span><span>{personalDetails.panNumber || 'NA'}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Branch</span><span className="mr-2">:</span><span>Hyderabad</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Bank Name</span><span className="mr-2">:</span><span className="break-all">{bankDetails.bankName || 'NA'}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">No. Of Working Days</span><span className="mr-2">:</span><span>{attendanceSummary.totalDaysInMonth}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">UAN NO</span><span className="mr-2">:</span><span>{personalDetails.uan || 'NA'}</span></div>
                       </div>
 
                       {/* Right Column */}
                       <div className="flex-1 space-y-1">
-                        <div className="flex"><span className="w-36 text-gray-600">Employee Code</span><span className="mr-2">:</span><span>{payslipData.employeeId}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Location</span><span className="mr-2">:</span><span>HYDERABAD</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Joining Date</span><span className="mr-2">:</span><span>{currentJob.joiningDate ? formatDate(currentJob.joiningDate) : 'NA'}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">PF Account No</span><span className="mr-2">:</span><span>NA</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Bank Account No</span><span className="mr-2">:</span><span>{bankDetails.accountNumber || 'NA'}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Grade</span><span className="mr-2">:</span><span>Associate</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">Leaves Taken</span><span className="mr-2">:</span><span>{String(leavesTaken).padStart(2, '0')}</span></div>
-                        <div className="flex"><span className="w-36 text-gray-600">LOP</span><span className="mr-2">:</span><span>{String(attendanceSummary.lopDays || 0).padStart(2, '0')}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Employee Code</span><span className="mr-2">:</span><span>{payslipData.employeeId}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Location</span><span className="mr-2">:</span><span>HYDERABAD</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Joining Date</span><span className="mr-2">:</span><span>{currentJob.joiningDate ? formatDate(currentJob.joiningDate) : 'NA'}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">PF Account No</span><span className="mr-2">:</span><span>NA</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Bank Account No</span><span className="mr-2">:</span><span className="break-all">{bankDetails.accountNumber || 'NA'}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Grade</span><span className="mr-2">:</span><span>Associate</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">Leaves Taken</span><span className="mr-2">:</span><span>{String(leavesTaken).padStart(2, '0')}</span></div>
+                        <div className="flex"><span className="w-28 sm:w-36 shrink-0 text-gray-600">LOP</span><span className="mr-2">:</span><span>{String(attendanceSummary.lopDays || 0).padStart(2, '0')}</span></div>
                       </div>
                     </div>
                   </div>
 
                   {/* Salary Table */}
-                  <div className="mx-4 mt-2 border-t-2 border-b-2 border-black">
+                  <div className={`${hasTemplate ? 'mx-3 mt-1' : 'mx-4 mt-2'} border-t-2 border-b-2 border-black`}>
                     <div className="flex border-b border-black">
-                      <div className="w-1/2 py-2 pl-2 font-bold uppercase tracking-wider border-r border-black text-sm">EARNINGS</div>
-                      <div className="w-1/2 py-2 text-right pr-2 font-bold uppercase tracking-wider text-sm">DEDUCTIONS</div>
+                      <div className={`${hasTemplate ? 'py-1.5 text-xs' : 'py-2 text-sm'} w-1/2 pl-2 font-bold uppercase tracking-wider border-r border-black`}>EARNINGS</div>
+                      <div className={`${hasTemplate ? 'py-1.5 text-xs' : 'py-2 text-sm'} w-1/2 text-right pr-2 font-bold uppercase tracking-wider`}>DEDUCTIONS</div>
                     </div>
 
                     <div className="divide-y divide-black">
                       {zippedRows.map((row, idx) => (
                         <div key={idx} className="flex">
                           {/* EARNINGS */}
-                          <div className="w-1/2 border-r border-black flex justify-between px-2 py-1 text-sm">
+                          <div className={`${hasTemplate ? 'py-1 text-xs' : 'py-1 text-sm'} w-1/2 border-r border-black flex justify-between px-2`}>
                             <span className="uppercase truncate max-w-[200px]">{row.earn.name}</span>
                             <span>{row.earn.val !== null && row.earn.val !== undefined ? formatCurrency(row.earn.val) : ''}</span>
                           </div>
                           {/* DEDUCTIONS */}
-                          <div className="w-1/2 flex justify-between px-2 py-1 text-sm">
+                          <div className={`${hasTemplate ? 'py-1 text-xs' : 'py-1 text-sm'} w-1/2 flex justify-between px-2`}>
                             <span className="uppercase truncate max-w-[200px]">{row.deduct.name}</span>
                             <span>{row.deduct.val !== null && row.deduct.val !== undefined ? formatCurrency(row.deduct.val) : ''}</span>
                           </div>
@@ -438,32 +448,31 @@ const EmployeePayslip = () => {
                     </div>
 
                     {/* Totals */}
-                    <div className="flex border-t border-black font-bold text-sm">
-                      <div className="w-1/2 border-r border-black flex justify-between px-2 py-2">
+                    <div className={`${hasTemplate ? 'text-xs' : 'text-sm'} flex border-t border-black font-bold`}>
+                      <div className={`${hasTemplate ? 'py-1.5' : 'py-2'} w-1/2 border-r border-black flex justify-between px-2`}>
                         <span>Gross Amount</span><span>{formatCurrency(breakdown.gross)}</span>
                       </div>
-                      <div className="w-1/2 flex justify-between px-2 py-2">
+                      <div className={`${hasTemplate ? 'py-1.5' : 'py-2'} w-1/2 flex justify-between px-2`}>
                         <span>Total Deduction</span><span>{formatCurrency(salaryDetails.totalDeductions)}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Net Salary */}
-                  <div className="mx-4 mt-4 mb-2">
-                    <p className="font-bold text-lg">Net Salary : {formatCurrency(salaryDetails.netPayableSalary)}</p>
+                  <div className={`${hasTemplate ? 'mx-3 mt-3 mb-1' : 'mx-4 mt-4 mb-2'} border-t-2 border-black pt-2`}>
+                    <p className={`${hasTemplate ? 'text-sm' : 'text-lg'} font-bold text-gray-900`}>Net Salary : ₹ {formatCurrency(salaryDetails.netPayableSalary)}</p>
                   </div>
                 </div>
 
                 {/* Signature & Note */}
-                <div className="relative z-10 mx-4 pb-4">
-                  <div className="flex justify-end mb-4">
+                <div className={`${hasTemplate ? 'mx-3 pb-3' : 'mx-4 pb-4'} relative z-10`}>
+                  <div className={`${hasTemplate ? 'mb-3' : 'mb-4'} flex justify-end`}>
                     <div className="text-center">
-<br />
-<br />
+                      <div style={{ height: hasTemplate ? '22px' : '44px' }} />
                       <p className="text-xs font-bold border-t border-black pt-1 px-4">Authorized Signatory</p>
                     </div>
                   </div>
-                  <div className="text-center text-xs font-medium border-t border-gray-300 pt-2">
+                  <div className={`${hasTemplate ? 'text-[10px]' : 'text-xs'} text-center font-medium border-t border-gray-300 pt-2`}>
                     <p>Note: This is a computer-generated payslip, hence no physical signature is required.</p>
                     <p>If you have any queries regarding this payslip, please contact the HR department.</p>
                   </div>
@@ -481,26 +490,41 @@ const EmployeePayslip = () => {
             size: A4 portrait;
             margin: 0;
           }
-          body {
-            margin: 0;
-            padding: 0;
-            background-color: white;
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: white !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          body * { visibility: hidden; }
-          #payslip-container, #payslip-container * { visibility: visible; }
-          #payslip-container {
-            position: absolute;
-            left: 0; top: 0;
-            width: 210mm;
-            height: 297mm;
-            padding: 0;
-            margin: 0;
-            background-color: white;
-            box-sizing: border-box;
+          /* Hide all elements visually */
+          body * {
+            visibility: hidden !important;
           }
+          /* Reveal only the payslip container and its children */
+          #payslip-container,
+          #payslip-container * {
+            visibility: visible !important;
+          }
+          #payslip-container {
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            height: 297mm !important;
+            max-width: 210mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background-color: white !important;
+            box-sizing: border-box !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            overflow: hidden !important;
+          }
+          /* Ensure flex layouts survive print */
           .flex { display: flex !important; }
+          /* Hide controls */
+          .print\:hidden { display: none !important; visibility: hidden !important; }
         }
       `}</style>
     </div>

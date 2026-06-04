@@ -161,6 +161,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           alwaysAllowed: true,
         },
         {
+          to: "/admin/work-reports",
+          route: "/admin/work-reports",
+          label: "Performance Management",
+          icon: ClipboardCheck,
+          alwaysAllowed: true,
+        },
+        {
           to: "/admin/shifttype",
           route: "/admin/shifttype",
           label: "Location Settings",

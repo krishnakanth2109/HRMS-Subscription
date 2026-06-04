@@ -116,6 +116,7 @@ import DomainSettings from "./pages/Domainsettings";
 import EditEmailTemplate from "./pages/EditEmailTemplate";
 import AdminFieldTracking from "./pages/tracker/AdminFieldTracking";
 import EmployeeFieldWork from "./pages/tracker/EmployeeFieldWork";
+import AdminWorkReports from "./pages/AdminWorkReports";
 
 
 
@@ -315,6 +316,7 @@ function App() {
         <Route path="/admin/rules" element={<AdminRulesPost />} />
         <Route path="/admin/issues" element={<AdminIssues/>} />
         <Route path="/admin/live-tracking" element={<AdminLiveTracking />} />
+        <Route path="/admin/work-reports" element={<AdminWorkReports />} />
         <Route path="/admin/idletime-tracking" element={<AdminLiveTracking />} />
         <Route path="/admin/setup-face" element={<CurrentEmployeeFaceSetup />} />
         <Route path="/admin/induction" element={<Induction />} />

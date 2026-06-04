@@ -1194,6 +1194,78 @@ export const getMyDailyWorkRecords = async (month, year) =>
     })
   ).data;
 
+export const getAdminWorkRecords = async (params = {}) =>
+  (await api.get("/api/work/admin/work-records", { params })).data;
+
+export const getWorkPercentageSettings = async () =>
+  (await api.get("/api/work/admin/work-percentage-settings")).data;
+
+export const updateWorkPercentageSettings = async (payload) =>
+  (await api.patch("/api/work/admin/work-percentage-settings", payload)).data;
+
+export const getAdminWorkPerformance = async (employeeId, month, year) =>
+  (
+    await api.get(`/api/work/admin/work-performance/${employeeId}`, {
+      params: { month, year },
+    })
+  ).data;
+
+export const approveWorkEntry = async (id, daily_work_percentage) =>
+  (
+    await api.patch(`/api/work/admin/work/${id}/approve`, {
+      daily_work_percentage,
+    })
+  ).data;
+
+export const rejectWorkEntry = async (id) =>
+  (await api.patch(`/api/work/admin/work/${id}/reject`)).data;
+
+export const updateWorkEntryStatus = async (
+  id,
+  status,
+  daily_work_percentage
+) =>
+  (
+    await api.patch(`/api/work/admin/work/${id}/update-status`, {
+      status,
+      daily_work_percentage,
+    })
+  ).data;
+
+export const generateWorkEntryPercentage = async (id, daily_work_percentage) =>
+  (
+    await api.post(`/api/work/admin/work/${id}/generate-percentage`, {
+      daily_work_percentage,
+    })
+  ).data;
+
+export const bulkGenerateWorkEntryPercentage = async (entryIds, daily_work_percentage) =>
+  (
+    await api.post("/api/work/admin/work/bulk-generate-percentage", {
+      entryIds,
+      daily_work_percentage,
+    })
+  ).data;
+
+export const deleteWorkEntry = async (id) =>
+  (await api.delete(`/api/work/admin/work/${id}`)).data;
+
+export const sendEmployeeMonthlyWorkSummary = async (employeeId, month, year) =>
+  (
+    await api.post(`/api/work/admin/work-performance/${employeeId}/send-summary`, {
+      month,
+      year,
+    })
+  ).data;
+
+export const getEmployeeWorkPerformance = async (employeeId, month, year) =>
+  (
+    await api.get(`/api/work/admin/work-performance/${employeeId}`, {
+      params: { month, year },
+    })
+  ).data;
+
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ✅ ADD THESE LINES inside the  /* LEAVES */  section of api.js
 //    (paste right after  cancelLeaveRequestById )

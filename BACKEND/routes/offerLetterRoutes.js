@@ -932,9 +932,26 @@ router.get("/templates/fetch", async (req, res) => {
     const magicHex = buffer.slice(0, 4).toString('hex');
     console.log(`📡 Backend fetched ${buffer.length} bytes. Magic: (${magicHex})`);
 
-    const contentType = response.headers['content-type'] || (url.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+    let contentType = response.headers['content-type'] || "";
+    const lowerUrl = url.toLowerCase();
+
+    if (!contentType || contentType.includes("application/octet-stream")) {
+      if (magicHex === "25504446" || lowerUrl.includes(".pdf")) {
+        contentType = "application/pdf";
+      } else if (magicHex.startsWith("ffd8ff") || lowerUrl.includes(".jpg") || lowerUrl.includes(".jpeg")) {
+        contentType = "image/jpeg";
+      } else if (magicHex === "89504e47" || lowerUrl.includes(".png")) {
+        contentType = "image/png";
+      } else if (lowerUrl.includes(".webp")) {
+        contentType = "image/webp";
+      } else {
+        contentType = "image/jpeg";
+      }
+    }
+
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", buffer.length);
+    res.setHeader("Content-Disposition", "inline");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(buffer);
 

@@ -10,7 +10,7 @@ import {
   FaClock, FaCreditCard, FaEdit, FaSave, FaTimes,
   FaMapMarkerAlt, FaGlobeAsia, FaFingerprint, FaLayerGroup,
   FaDotCircle, FaWifi, FaCity, FaFlag, FaHashtag, FaChevronDown,
-  FaEye, FaEyeSlash, FaUsers, FaTrash, FaDownload, FaFilePdf
+  FaEye, FaEyeSlash, FaUsers, FaTrash, FaDownload, FaFilePdf, FaMobileAlt
 } from "react-icons/fa";
 import { MdRadar, MdLocationOn } from "react-icons/md";
 
@@ -34,6 +34,8 @@ const AdminProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [upgradeLoadingFree, setUpgradeLoadingFree] = useState(false);
+  const [mobileAccessEnabled, setMobileAccessEnabled] = useState(true);
+  const [mobileAccessLoading, setMobileAccessLoading] = useState(false);
 
   // Create Admin Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -312,6 +314,7 @@ const AdminProfile = () => {
     try {
       const res = await api.get("/api/admin/profile");
       setProfile(res.data);
+      setMobileAccessEnabled(res.data.mobileAccessEnabled !== false);
       // Initialize form data with fetched values
       setFormData({
         name: res.data.name || "",
@@ -413,6 +416,22 @@ const AdminProfile = () => {
       alert(err.response?.data?.message || "Update failed");
     } finally {
       setUpdateLoading(false);
+    }
+  };
+
+  const handleMobileAccessToggle = async () => {
+    const nextValue = !mobileAccessEnabled;
+    setMobileAccessLoading(true);
+    try {
+      const { data } = await api.patch("/api/admin/mobile-access", {
+        mobileAccessEnabled: nextValue,
+      });
+      setMobileAccessEnabled(data.mobileAccessEnabled !== false);
+      setProfile((prev) => prev ? { ...prev, mobileAccessEnabled: data.mobileAccessEnabled !== false } : prev);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update mobile access");
+    } finally {
+      setMobileAccessLoading(false);
     }
   };
 
@@ -931,6 +950,51 @@ const AdminProfile = () => {
                 </div>
 
                 <InfoItem icon={<FaClock />} label="Member Since" value={formatDate(profile?.createdAt)} />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[0.5rem] p-6 shadow-sm border border-gray-100">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-gray-900 font-bold flex items-center gap-2">
+                    <FaMobileAlt className="text-purple-500 text-sm" /> Mobile Access
+                  </h3>
+                  <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+                    Controls mobile punch in and punch out visibility for employees.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleMobileAccessToggle}
+                  disabled={mobileAccessLoading}
+                  className={`relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border transition-all duration-300 ${
+                    mobileAccessEnabled
+                      ? "bg-emerald-500 border-emerald-500 shadow-emerald-100"
+                      : "bg-gray-200 border-gray-300"
+                  } ${mobileAccessLoading ? "opacity-70 cursor-wait" : "cursor-pointer"}`}
+                  aria-label="Toggle mobile access"
+                >
+                  <span
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                      mobileAccessEnabled ? "translate-x-9" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className={`mt-5 rounded-xl border px-4 py-3 ${
+                mobileAccessEnabled
+                  ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                  : "bg-rose-50 border-rose-100 text-rose-700"
+              }`}>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em]">
+                  {mobileAccessEnabled ? "Mobile Punch Enabled" : "Mobile Punch Disabled"}
+                </p>
+                <p className="text-xs font-semibold mt-1">
+                  {mobileAccessEnabled
+                    ? "Employees can use punch controls from mobile screens."
+                    : "Punch in and punch out buttons are hidden on mobile screens."}
+                </p>
               </div>
             </div>
           </div>

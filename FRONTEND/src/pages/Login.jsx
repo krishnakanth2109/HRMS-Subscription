@@ -275,6 +275,7 @@ const Login = () => {
       const result = await verifyWebAuthnLogin(credentialData, options.challenge);
       finishBiometricLogin(result);
     } catch (err) {
+      console.error("❌ Fingerprint authentication error:", err);
       if (err.name === "NotAllowedError") {
         setError("Fingerprint authentication was cancelled.");
       } else if (err.name === "SecurityError") {

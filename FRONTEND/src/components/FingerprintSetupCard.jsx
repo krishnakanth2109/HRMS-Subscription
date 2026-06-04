@@ -158,10 +158,16 @@ const FingerprintSetupCard = () => {
         });
       }
     } catch (err) {
+      console.error("❌ Fingerprint registration error:", err);
       if (err.name === "NotAllowedError") {
         setFpMessage({
           type: "error",
           text: "Fingerprint registration was cancelled.",
+        });
+      } else if (err.name === "SecurityError") {
+        setFpMessage({
+          type: "error",
+          text: "Fingerprint registration requires HTTPS or localhost.",
         });
       } else if (err.name === "InvalidStateError") {
         setFpMessage({

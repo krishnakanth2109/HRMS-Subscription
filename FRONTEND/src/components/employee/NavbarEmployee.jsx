@@ -12,13 +12,14 @@ import {
   FaPalette,
   FaCheck,
   FaMoon,
+  FaBars,
 } from "react-icons/fa";
 import { CurrentEmployeeNotificationContext } from "../../EmployeeContext/CurrentEmployeeNotificationContext";
 import WelcomeKitPopup from "./WelcomeKitPopup"; // ✅ Import the popup
 import api from "../../api"; // ✅ Import api for status check
 
 
-const NavbarEmployee = ({ currentTheme, onThemeChange }) => {
+const NavbarEmployee = ({ currentTheme, onThemeChange, setMobileOpen }) => {
   const { logout } = useContext(AuthContext);
   const { unreadNotifications } = useContext(CurrentEmployeeNotificationContext);
 
@@ -98,14 +99,23 @@ const NavbarEmployee = ({ currentTheme, onThemeChange }) => {
       )}
 
       {/* Navbar — no changes to existing structure/logic below */}
-      <nav className="h-16 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 flex items-center justify-between px-6 shadow-lg relative z-10">
+      <nav className="h-16 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 flex items-center justify-between px-4 sm:px-6 shadow-lg relative z-10">
 
         {/* Logo */}
-        <div
-          className="flex items-center gap-3 cursor-pointer"
-          onClick={() => navigate("/employee/dashboard")}
-        >
-          <h1 className="pl-10 text-2xl font-bold text-white tracking-wide drop-shadow">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="md:hidden w-10 h-10 flex items-center justify-center rounded-xl text-white bg-white/10 hover:bg-white/20 transition-colors"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open employee sidebar"
+          >
+            <FaBars />
+          </button>
+
+          <h1
+            className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow cursor-pointer"
+            onClick={() => navigate("/employee/dashboard")}
+          >
             HRMS
           </h1>
         </div>
