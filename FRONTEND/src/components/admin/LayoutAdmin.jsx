@@ -53,22 +53,11 @@ const LayoutAdmin = () => {
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-gray-900' : theme === 'white' ? 'bg-white' : 'bg-[#F8FAFF]'}`}>
       
       {/* SIDEBAR */}
-      <div className="z-30 hidden md:block md:relative">
-        {user?.role === "support-admin" ? (
-          <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-        ) : (
-          <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-        )}
-      </div>
-      
-      {/* Mobile Sidebar (Portal-like behavior) */}
-      <div className="md:hidden">
-        {user?.role === "support-admin" ? (
-          <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-        ) : (
-          <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-        )}
-      </div>
+      {user?.role === "support-admin" ? (
+        <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      ) : (
+        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      )}
 
       <div className="flex flex-col flex-1 min-w-0">
         

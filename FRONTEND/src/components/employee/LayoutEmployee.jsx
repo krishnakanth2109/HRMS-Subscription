@@ -90,14 +90,7 @@ const LayoutEmployee = () => {
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${getMainClassNames()}`}>
       
       {/* SIDEBAR */}
-      <div className="z-30 hidden md:block md:relative">
-        <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      </div>
-
-      {/* Mobile Sidebar */}
-      <div className="md:hidden">
-        <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      </div>
+      <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       <div className="flex flex-col flex-1 min-w-0">
         
