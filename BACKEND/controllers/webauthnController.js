@@ -38,7 +38,7 @@ const getRpId = (req) => {
     } catch { /* fall through */ }
   }
 
-  // 4. Extract hostname from FRONTEND_URL (e.g. "https://hrms-ask.vercel.app" → "hrms-ask.vercel.app")
+  // 4. Extract hostname from FRONTEND_URL
   if (process.env.FRONTEND_URL) {
     try {
       return new URL(process.env.FRONTEND_URL).hostname;

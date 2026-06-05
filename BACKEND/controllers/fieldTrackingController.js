@@ -60,6 +60,12 @@ const formatTrip = (trip) => ({
   updatedAt: trip.updatedAt,
 });
 
+const emitFieldTrackingEvent = (req, adminId, event, payload) => {
+  const io = req.app.get("io");
+  if (!io || !adminId) return;
+  io.to(`user_${adminId.toString()}`).emit(event, payload);
+};
+
 export const getFieldTrackingSetting = async (req, res) => {
   try {
     const adminId = getRootAdminId(req.user);
@@ -196,6 +202,9 @@ export const startFieldWorkTrip = async (req, res) => {
     });
 
     if (activeTrip) {
+      emitFieldTrackingEvent(req, adminId, "fieldTracking:tripStarted", {
+        trip: formatTrip(activeTrip),
+      });
       return res.json({ message: "Active field work trip resumed.", trip: formatTrip(activeTrip) });
     }
 
@@ -209,6 +218,10 @@ export const startFieldWorkTrip = async (req, res) => {
       status: "active",
       startedAt: new Date(),
       path: firstPoint ? [firstPoint] : [],
+    });
+
+    emitFieldTrackingEvent(req, adminId, "fieldTracking:tripStarted", {
+      trip: formatTrip(trip),
     });
 
     return res.status(201).json({ message: "Field work trip started.", trip: formatTrip(trip) });
@@ -264,6 +277,20 @@ export const postFieldWorkLocation = async (req, res) => {
       return res.status(404).json({ message: "No active field work trip found." });
     }
 
+    emitFieldTrackingEvent(req, employee.adminId, "fieldTracking:location", {
+      tripId: trip._id,
+      employee: employee._id,
+      employeeId: employee.employeeId,
+      employeeName: employee.name,
+      point,
+      pathLength: trip.path?.length || 0,
+      distanceKm: trip.distanceKm || 0,
+      stoppedSeconds: trip.stoppedSeconds || 0,
+      status: trip.status,
+      startedAt: trip.startedAt,
+      updatedAt: trip.updatedAt,
+    });
+
     return res.json({ message: "Location recorded.", trip: formatTrip(trip) });
   } catch (error) {
     console.error("Error posting field work location:", error);
@@ -317,6 +344,10 @@ export const stopFieldWorkTrip = async (req, res) => {
     if (!trip) {
       return res.status(404).json({ message: "Active trip not found." });
     }
+
+    emitFieldTrackingEvent(req, employee.adminId, "fieldTracking:tripStopped", {
+      trip: formatTrip(trip),
+    });
 
     return res.json({ message: "Field work trip completed.", trip: formatTrip(trip) });
   } catch (error) {
@@ -383,6 +414,34 @@ export const getEmployeeTripsByDate = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching field work trips:", error);
+    return res.status(500).json({ message: "Failed to fetch field work trips." });
+  }
+};
+
+export const getMyTripsByDate = async (req, res) => {
+  try {
+    if (!isEmployeeRole(req.user)) {
+      return res.status(403).json({ message: "Only employees can view their field locations." });
+    }
+
+    const employeeId = req.user._id;
+    const adminId = req.user.adminId;
+
+    const { start, end, dateKey } = getDateRange(req.query.date);
+    const trips = await FieldWorkTrip.find({
+      adminId,
+      employee: employeeId,
+      startedAt: { $gte: start, $lte: end },
+    })
+      .sort({ startedAt: -1 })
+      .lean();
+
+    return res.json({
+      date: dateKey,
+      trips: trips.map(formatTrip),
+    });
+  } catch (error) {
+    console.error("Error fetching my field work trips:", error);
     return res.status(500).json({ message: "Failed to fetch field work trips." });
   }
 };

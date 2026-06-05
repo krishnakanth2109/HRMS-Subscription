@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000", {
-  transports: ["websocket"],
+  transports: ["polling", "websocket"],
 });
 
 const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {

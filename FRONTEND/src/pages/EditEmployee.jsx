@@ -130,7 +130,8 @@ const EditEmployee = () => {
       setTimeout(() => navigate(-1), 1500);
     } catch (err) {
       console.error("Update failed:", err);
-      setSnackbar("❌ Update failed");
+      const errMsg = err.response?.data?.error || err.response?.data?.message || "Update failed";
+      setSnackbar(`❌ ${errMsg}`);
     }
   };
 

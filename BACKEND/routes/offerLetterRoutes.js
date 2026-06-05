@@ -752,7 +752,7 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
     // Generate token
     const token = crypto.randomBytes(32).toString("hex");
     emp.offer_token = token;
-    emp.expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    emp.expires_at = null; // No expiry
     emp.status = "Offer Sent";
     emp.sent_at = new Date();
     if (uploadedPdfUrl) {

@@ -33,13 +33,7 @@ router.get("/respond", async (req, res) => {
       ));
     }
 
-    // Check expiry
-    if (emp.expires_at && new Date() > new Date(emp.expires_at)) {
-      await OfferLetterEmployee.findByIdAndUpdate(emp._id, {
-        $set: { status: "Rejected", rejection_reason: "Offer Expired (24h)", offer_token: null }
-      });
-      return res.send(buildResponsePage("Offer Expired", "This offer has expired after 24 hours.", "error"));
-    }
+    // Expiry check removed (offers do not expire)
 
     // Process response
     if (action === "accept") {

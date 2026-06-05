@@ -500,14 +500,32 @@ router.put("/:id", protect, async (req, res) => {
     const existingEmployee = await Employee.findOne(query);
     if (!existingEmployee) return res.status(404).json({ error: "Employee not found" });
 
+    // Strip immutable/metadata fields
+    const updateData = { ...req.body };
+    delete updateData._id;
+    delete updateData.__v;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.employeeId;
+    delete updateData.adminId;
+    delete updateData.company;
+
     // If email is provided and it differs from the current one, save the old email
-    if (req.body.email && req.body.email.toLowerCase() !== existingEmployee.email.toLowerCase()) {
-      req.body.previousEmail = existingEmployee.email;
+    if (updateData.email && updateData.email.toLowerCase() !== existingEmployee.email.toLowerCase()) {
+      updateData.previousEmail = existingEmployee.email;
     }
 
-    const updated = await Employee.findOneAndUpdate(query, req.body, { new: true });
+    const updated = await Employee.findOneAndUpdate(query, updateData, { new: true, runValidators: true });
     res.json(updated);
   } catch (err) {
+    console.error("❌ Employee update error:", err);
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyPattern)[0];
+      return res.status(400).json({
+        error: `Duplicate value entered for ${field}. This ${field} is already in use by another employee.`,
+        field: field,
+      });
+    }
     res.status(500).json({ error: err.message });
   }
 });

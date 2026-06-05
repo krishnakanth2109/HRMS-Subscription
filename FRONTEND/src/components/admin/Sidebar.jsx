@@ -493,7 +493,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests]);
 
   useEffect(() => {
-    const s = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    const s = io(SOCKET_URL, { transports: ["polling", "websocket"] });
     s.on("connect", () => {
       try {
         const raw = sessionStorage.getItem("hrmsUser");

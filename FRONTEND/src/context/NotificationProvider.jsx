@@ -68,7 +68,7 @@ export const NotificationProvider = ({ children }) => {
     if (!user?._id) return;
 
     const socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
     });
     socketRef.current = socket;
 

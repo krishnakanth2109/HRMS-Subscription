@@ -237,6 +237,13 @@ export const getRecentFieldTrips = async (limit = 10) =>
 export const getMyActiveFieldTrip = async () =>
   (await api.get("/api/field-tracking/employee/active-trip")).data;
 
+export const getMyFieldTrips = async (date) =>
+  (
+    await api.get("/api/field-tracking/employee/trips", {
+      params: { date },
+    })
+  ).data;
+
 export const startFieldTrip = async (location = {}) =>
   (await api.post("/api/field-tracking/employee/trips/start", location)).data;
 

@@ -13,7 +13,7 @@ import OfficeSettings from "../models/OfficeSettings.js";
 router.get("/settings/tracker", async (req, res) => {
   try {
     const settings = await OfficeSettings.findOne({ type: "Global" }).sort({ updatedAt: -1 });
-    return res.json({ screenshotIntervalMinutes: settings?.screenshotIntervalMinutes || 5 });
+    return res.json({ screenshotIntervalMinutes: settings?.screenshotIntervalMinutes || 60 });
   } catch (err) {
     console.error("Fetch tracker settings error:", err);
     return res.status(500).json({ message: "Server error" });
@@ -33,7 +33,7 @@ router.put("/settings/tracker", async (req, res) => {
         message: "Office settings not found. Configure office settings before saving tracker settings.",
       });
     }
-    settings.screenshotIntervalMinutes = Math.max(1, Number(screenshotIntervalMinutes) || 5);
+    settings.screenshotIntervalMinutes = Math.max(1, Number(screenshotIntervalMinutes) || 60);
     await settings.save();
     return res.json({ message: "Settings updated successfully", screenshotIntervalMinutes: settings.screenshotIntervalMinutes });
   } catch (err) {

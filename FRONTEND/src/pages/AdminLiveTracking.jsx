@@ -48,7 +48,7 @@ const AdminLiveTracking = () => {
     const [lightboxUrl, setLightboxUrl] = useState(null);
 
     // Tracker Settings
-    const [screenshotInterval, setScreenshotInterval] = useState(5);
+    const [screenshotInterval, setScreenshotInterval] = useState(60);
     const [savingSettings, setSavingSettings] = useState(false);
 
     useEffect(() => {

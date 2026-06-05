@@ -171,7 +171,7 @@ const DocumentVerificationForm = () => {
       setUploadedMap(map);
       if (rec.status === 'submitted' || rec.status === 'verified') setSubmitted(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Invalid or expired verification link.');
+      setError(err.response?.data?.error || 'Invalid verification link.');
     } finally {
       setLoading(false);
     }

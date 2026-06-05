@@ -419,7 +419,7 @@ useEffect(() => {
         requiredDocuments: bulkSelectedDocuments[index] || []
       }));
 
-      await api.post('/api/invited-employees/invite-bulk', {
+      await api.post('/api/invited-employees/bulk-invite', {
         employees: employeesWithDocs,
         companyId: selectedCompany
       });

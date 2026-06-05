@@ -106,7 +106,7 @@ const CurrentEmployeeNotificationProvider = ({ children }) => {
   useEffect(() => {
     if (!loggedUser?._id) return;
 
-    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    const socket = io(SOCKET_URL, { transports: ["polling", "websocket"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {

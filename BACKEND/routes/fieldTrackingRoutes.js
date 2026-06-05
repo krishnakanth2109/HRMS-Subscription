@@ -4,6 +4,7 @@ import {
   getEmployeeTripsByDate,
   getFieldTrackingSetting,
   getMyActiveTrip,
+  getMyTripsByDate,
   getRecentFieldTrips,
   listTrackingEmployees,
   postFieldWorkLocation,
@@ -23,6 +24,7 @@ router.get("/admin/recent-trips", getRecentFieldTrips);
 router.get("/admin/employees/:employeeId/trips", getEmployeeTripsByDate);
 
 router.get("/employee/active-trip", getMyActiveTrip);
+router.get("/employee/trips", getMyTripsByDate);
 router.post("/employee/trips/start", startFieldWorkTrip);
 router.post("/employee/trips/:tripId/location", postFieldWorkLocation);
 router.post("/employee/location", postFieldWorkLocation);

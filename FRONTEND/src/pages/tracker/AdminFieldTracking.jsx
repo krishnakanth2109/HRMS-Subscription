@@ -11,6 +11,11 @@ import {
   Search,
   UserRound,
 } from "lucide-react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { io } from "socket.io-client";
 import ModalWrapper from "../../components/ModalWrapper";
 import Pagination from "../../components/Pagination";
 import {
@@ -21,7 +26,38 @@ import {
   updateFieldTrackingSetting,
 } from "../../api";
 
+const SOCKET_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL_PRODUCTION
+    : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";
+
 const todayKey = () => new Date().toISOString().slice(0, 10);
+
+const toDateKey = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 10);
+};
+
+const getCurrentUser = () => {
+  try {
+    const raw = sessionStorage.getItem("hrmsUser");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const sameId = (a, b) => String(a || "") === String(b || "");
+
+const isSamePoint = (a, b) =>
+  a &&
+  b &&
+  String(a.recordedAt || "") === String(b.recordedAt || "") &&
+  Number(a.latitude) === Number(b.latitude) &&
+  Number(a.longitude) === Number(b.longitude);
 
 const formatDateTime = (value) => {
   if (!value) return "--";
@@ -38,12 +74,162 @@ const formatDuration = (seconds = 0) => {
   return `${hours}h ${minutes}m`;
 };
 
-const buildMapUrl = (point) => {
-  if (!point) return "";
+const toLatLng = (point) => {
+  if (!point) return null;
   const lat = Number(point.latitude);
   const lng = Number(point.longitude);
-  const delta = 0.01;
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${lng - delta}%2C${lat - delta}%2C${lng + delta}%2C${lat + delta}&layer=mapnik&marker=${lat}%2C${lng}`;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return [lat, lng];
+};
+
+const stopPinIcon = L.divIcon({
+  className: "",
+  html: renderToStaticMarkup(
+    <div
+      style={{
+        alignItems: "center",
+        background: "#ef4444",
+        border: "3px solid #ffffff",
+        borderRadius: "9999px",
+        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
+        color: "#ffffff",
+        display: "flex",
+        height: "34px",
+        justifyContent: "center",
+        width: "34px",
+      }}
+    >
+      <MapPin size={21} strokeWidth={3} />
+    </div>
+  ),
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  popupAnchor: [0, -17],
+});
+
+const createMapPinIcon = (background) =>
+  L.divIcon({
+    className: "",
+    html: renderToStaticMarkup(
+      <div
+        style={{
+          alignItems: "center",
+          background,
+          border: "3px solid #ffffff",
+          borderRadius: "9999px",
+          boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
+          color: "#ffffff",
+          display: "flex",
+          height: "34px",
+          justifyContent: "center",
+          width: "34px",
+        }}
+      >
+        <MapPin size={21} strokeWidth={3} />
+      </div>
+    ),
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17],
+  });
+
+const startPinIcon = createMapPinIcon("#16a34a");
+const currentPinIcon = createMapPinIcon("#2563eb");
+const endPinIcon = createMapPinIcon("#f97316");
+
+const FitTripBounds = ({ positions }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+
+  useEffect(() => {
+    if (!positions.length) return;
+
+    if (positions.length === 1) {
+      map.setView(positions[0], 16);
+    } else {
+      map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
+    }
+
+    window.setTimeout(() => map.invalidateSize(), 80);
+  }, [map, positions]);
+
+  return null;
+};
+
+const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
+  const routePositions = routePoints.map((point) => point.position);
+  const stopPositions = stopPoints.map((point) => point.position);
+  const visibleRoutePositions = routePositions;
+  const allPositions = [...visibleRoutePositions, ...stopPositions];
+  const center = allPositions[0] || [20.5937, 78.9629];
+  const startPoint = routePoints[0];
+  const endPoint = routePoints[routePoints.length - 1];
+
+  return (
+    <MapContainer center={center} zoom={13} className="h-[520px] w-full" scrollWheelZoom>
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <FitTripBounds positions={allPositions} />
+
+      {visibleRoutePositions.length > 1 && (
+        <Polyline positions={visibleRoutePositions} pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.8 }} />
+      )}
+
+      <div className="leaflet-top leaflet-right">
+        <div className="m-3 rounded-xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow">
+          Captured GPS route
+        </div>
+      </div>
+
+      {startPoint && (
+        <Marker position={startPoint.position} icon={startPinIcon}>
+          <Popup>
+            <div className="text-xs font-semibold text-slate-700">
+              <p className="font-black text-slate-900">Start</p>
+              <p>{formatDateTime(startPoint.recordedAt)}</p>
+            </div>
+          </Popup>
+        </Marker>
+      )}
+
+      {endPoint && (
+        <Marker position={endPoint.position} icon={isActiveTrip ? currentPinIcon : endPinIcon}>
+          <Popup>
+            <div className="text-xs font-semibold text-slate-700">
+              <p className="font-black text-slate-900">{isActiveTrip ? "Current Location" : "End Location"}</p>
+              <p>{formatDateTime(endPoint.recordedAt)}</p>
+            </div>
+          </Popup>
+        </Marker>
+      )}
+
+      {stopPoints.map((stop, index) => (
+        <Marker
+          key={`stop-${stop.stoppedAt || index}-${index}`}
+          position={stop.position}
+          icon={stopPinIcon}
+        >
+          <Popup>
+            <div className="text-xs font-semibold text-slate-700">
+              <p className="font-black text-red-700">Stopped point {index + 1}</p>
+              <p>{formatDateTime(stop.stoppedAt)}</p>
+              <p>Duration: {formatDuration(stop.durationSeconds)}</p>
+              <p>
+                {Number(stop.latitude).toFixed(6)}, {Number(stop.longitude).toFixed(6)}
+              </p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </MapContainer>
+  );
 };
 
 const AdminFieldTracking = () => {
@@ -69,14 +255,28 @@ const AdminFieldTracking = () => {
   const [recentTrips, setRecentTrips] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
   const mapSectionRef = useRef(null);
+  const selectedEmployeeRef = useRef(null);
+  const selectedDateRef = useRef(selectedDate);
 
   const selectedTrip = useMemo(() => {
     if (!tripData?.trips?.length) return null;
     if (!selectedTripId) return tripData.trips[0];
     return tripData.trips.find((trip) => trip._id === selectedTripId) || tripData.trips[0];
   }, [tripData, selectedTripId]);
-  const latestPoint = selectedTrip?.path?.[selectedTrip.path.length - 1] || null;
-  const mapUrl = useMemo(() => buildMapUrl(latestPoint), [latestPoint]);
+  const routePoints = useMemo(
+    () =>
+      (selectedTrip?.path || [])
+        .map((point) => ({ ...point, position: toLatLng(point) }))
+        .filter((point) => point.position),
+    [selectedTrip],
+  );
+  const stopPoints = useMemo(
+    () =>
+      (selectedTrip?.stops || [])
+        .map((stop) => ({ ...stop, position: toLatLng(stop) }))
+        .filter((stop) => stop.position),
+    [selectedTrip],
+  );
   const visibleEmployees = useMemo(
     () => employees.filter((employee) => employeeStatusFilter === "all" || employee.isFieldLive),
     [employees, employeeStatusFilter],
@@ -141,6 +341,79 @@ const AdminFieldTracking = () => {
     }
   }, []);
 
+  const upsertLiveTrip = useCallback((incomingTrip) => {
+    if (!incomingTrip) return;
+
+    setTripData((prev) => {
+      const selectedEmployeeId = selectedEmployeeRef.current?._id;
+      const selectedDateValue = selectedDateRef.current;
+
+      if (!sameId(incomingTrip.employee, selectedEmployeeId) || toDateKey(incomingTrip.startedAt) !== selectedDateValue) {
+        return prev;
+      }
+
+      if (!prev) {
+        return {
+          employee: {
+            _id: incomingTrip.employee,
+            employeeId: incomingTrip.employeeId,
+            name: incomingTrip.employeeName,
+          },
+          date: selectedDateValue,
+          trips: [incomingTrip],
+        };
+      }
+
+      const trips = prev.trips || [];
+      const existingIndex = trips.findIndex((trip) => sameId(trip._id, incomingTrip._id));
+      if (existingIndex === -1) {
+        return { ...prev, trips: [incomingTrip, ...trips] };
+      }
+
+      return {
+        ...prev,
+        trips: trips.map((trip, index) => (index === existingIndex ? { ...trip, ...incomingTrip } : trip)),
+      };
+    });
+  }, []);
+
+  const appendLivePoint = useCallback((payload) => {
+    if (!payload?.tripId || !payload?.point) return;
+
+    setTripData((prev) => {
+      const selectedEmployeeId = selectedEmployeeRef.current?._id;
+      const selectedDateValue = selectedDateRef.current;
+
+      if (!sameId(payload.employee, selectedEmployeeId) || toDateKey(payload.startedAt || payload.point.recordedAt) !== selectedDateValue) {
+        return prev;
+      }
+
+      if (!prev?.trips?.length) return prev;
+
+      let changed = false;
+      const trips = prev.trips.map((trip) => {
+        if (!sameId(trip._id, payload.tripId)) return trip;
+
+        const path = trip.path || [];
+        const nextPath = path.some((point) => isSamePoint(point, payload.point))
+          ? path
+          : [...path, payload.point];
+
+        changed = true;
+        return {
+          ...trip,
+          status: payload.status || trip.status,
+          distanceKm: payload.distanceKm ?? trip.distanceKm,
+          stoppedSeconds: payload.stoppedSeconds ?? trip.stoppedSeconds,
+          updatedAt: payload.updatedAt || trip.updatedAt,
+          path: nextPath,
+        };
+      });
+
+      return changed ? { ...prev, trips } : prev;
+    });
+  }, []);
+
   useEffect(() => {
     loadSetting();
   }, [loadSetting]);
@@ -156,6 +429,45 @@ const AdminFieldTracking = () => {
   useEffect(() => {
     loadRecentTrips();
   }, [loadRecentTrips]);
+
+  useEffect(() => {
+    selectedEmployeeRef.current = selectedEmployee;
+  }, [selectedEmployee]);
+
+  useEffect(() => {
+    selectedDateRef.current = selectedDate;
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user?._id) return undefined;
+
+    const socket = io(SOCKET_URL, { transports: ["polling", "websocket"] });
+
+    socket.on("connect", () => {
+      socket.emit("authenticate", user._id);
+    });
+
+    socket.on("fieldTracking:tripStarted", ({ trip }) => {
+      upsertLiveTrip(trip);
+      loadRecentTrips();
+      loadEmployees();
+    });
+
+    socket.on("fieldTracking:location", (payload) => {
+      appendLivePoint(payload);
+    });
+
+    socket.on("fieldTracking:tripStopped", ({ trip }) => {
+      upsertLiveTrip(trip);
+      loadRecentTrips();
+      loadEmployees();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [appendLivePoint, loadEmployees, loadRecentTrips, upsertLiveTrip]);
 
   const handleToggle = async () => {
     const nextValue = !trackingEnabled;
@@ -247,39 +559,39 @@ const AdminFieldTracking = () => {
           </div>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[360px_1fr]">
-          <div ref={mapSectionRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm scroll-mt-6">
-            <h2 className="mb-4 text-lg font-black text-slate-900">Employee & Date</h2>
-
+        <div ref={mapSectionRef} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm scroll-mt-6">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end">
             <button
               type="button"
               onClick={() => setEmployeeModalOpen(true)}
-              className="mb-4 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              className="flex min-h-[58px] flex-1 items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-blue-300 hover:bg-blue-50"
             >
-              <span>
+              <span className="min-w-0">
                 <span className="block text-xs font-black uppercase text-slate-400">Selected employee</span>
-                <span className="block text-sm font-black text-slate-900">
+                <span className="block truncate text-sm font-black text-slate-900">
                   {selectedEmployee ? selectedEmployee.name : "Choose employee"}
                 </span>
                 {selectedEmployee && (
                   <span className="block text-xs font-semibold text-slate-500">{selectedEmployee.employeeId}</span>
                 )}
               </span>
-              <UserRound className="text-blue-600" size={22} />
+              <UserRound className="shrink-0 text-blue-600" size={22} />
             </button>
 
-            <label className="mb-2 block text-xs font-black uppercase text-slate-400">Calendar filter</label>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-              <CalendarDays size={18} className="text-slate-400" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(event) => setSelectedDate(event.target.value)}
-                className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none"
-              />
+            <div className="min-w-0 flex-1">
+              <label className="mb-2 block text-xs font-black uppercase text-slate-400">Calendar filter</label>
+              <div className="flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                <CalendarDays size={18} className="shrink-0 text-slate-400" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(event) => setSelectedDate(event.target.value)}
+                  className="w-full bg-transparent text-sm font-bold text-slate-800 outline-none"
+                />
+              </div>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 sm:w-auto sm:min-w-[260px]">
               <button type="button" onClick={() => setDateOffset(0)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200">
                 Today
               </button>
@@ -295,13 +607,15 @@ const AdminFieldTracking = () => {
               type="button"
               onClick={loadTrips}
               disabled={!selectedEmployee || tripLoading}
-              className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 xl:w-44"
             >
               <RefreshCw size={16} className={tripLoading ? "animate-spin" : ""} />
               Fetch Locations
             </button>
           </div>
+        </div>
 
+        <div className="grid gap-5">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -312,7 +626,7 @@ const AdminFieldTracking = () => {
               </div>
               {selectedTrip && (
                 <span className="rounded-full bg-blue-50 px-4 py-2 text-xs font-black text-blue-700">
-                  {selectedTrip.path.length} coordinates
+                  {routePoints.length} coordinates{stopPoints.length ? ` - ${stopPoints.length} stops` : ""}
                 </span>
               )}
             </div>
@@ -333,13 +647,17 @@ const AdminFieldTracking = () => {
                 <p className="font-black text-slate-600">No field-work locations found for this date.</p>
               </div>
             ) : (
-              <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                  {mapUrl ? (
-                    <iframe title="Latest field location" src={mapUrl} className="h-[420px] w-full border-0" />
+              <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                  {routePoints.length ? (
+                    <TripRouteMap
+                      routePoints={routePoints}
+                      stopPoints={stopPoints}
+                      isActiveTrip={selectedTrip.status === "active"}
+                    />
                   ) : (
-                    <div className="flex h-[420px] items-center justify-center text-sm font-bold text-slate-500">
-                      No map point available.
+                    <div className="flex h-[520px] items-center justify-center text-sm font-bold text-slate-500">
+                      No route points available.
                     </div>
                   )}
                 </div>
@@ -355,8 +673,40 @@ const AdminFieldTracking = () => {
                       <p>Ended: {selectedTrip.endedAt ? formatDateTime(selectedTrip.endedAt) : "Active"}</p>
                       <p>Distance: {(selectedTrip.distanceKm || 0).toFixed(2)} km</p>
                       <p>Stopped: {formatDuration(selectedTrip.stoppedSeconds)}</p>
+                      <p>Stops: {stopPoints.length}</p>
                     </div>
                   </div>
+
+                  {stopPoints.length > 0 && (
+                    <div className="rounded-2xl border border-red-100 bg-red-50/60 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-black text-red-700">
+                        <MapPin size={18} />
+                        Stopped Locations
+                      </div>
+                      <div className="max-h-[150px] space-y-2 overflow-y-auto pr-1">
+                        {stopPoints.map((stop, index) => (
+                          <a
+                            key={`${stop.stoppedAt}-${index}`}
+                            href={`https://www.google.com/maps?q=${stop.latitude},${stop.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block rounded-xl border border-red-100 bg-white p-3 transition hover:border-red-300"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
+                              <span className="text-xs font-bold text-slate-500">{formatDateTime(stop.stoppedAt)}</span>
+                            </div>
+                            <p className="mt-1 text-xs font-bold text-slate-700">
+                              {Number(stop.latitude).toFixed(6)}, {Number(stop.longitude).toFixed(6)}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              Duration: {formatDuration(stop.durationSeconds)}
+                            </p>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="max-h-[270px] space-y-2 overflow-y-auto pr-1">
                     {selectedTrip.path.map((point, index) => (
@@ -463,9 +813,10 @@ const AdminFieldTracking = () => {
       <ModalWrapper
         isOpen={employeeModalOpen}
         onClose={() => setEmployeeModalOpen(false)}
-        containerClass="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+        backdropClass="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/10 p-4 backdrop-blur-md animate-fadeIn"
+        containerClass="relative z-[2010] flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
       >
-        <div className="border-b border-slate-200 p-5">
+        <div className="shrink-0 border-b border-slate-200 p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-xl font-black text-slate-900">Select Employee</h3>
             <div className="flex flex-wrap items-center gap-2">
@@ -536,7 +887,7 @@ const AdminFieldTracking = () => {
           </div>
         </div>
 
-        <div className="max-h-[430px] overflow-y-auto p-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">
           {employeeLoading ? (
             <div className="py-10 text-center text-sm font-black text-slate-500">Loading employees...</div>
           ) : employees.length === 0 ? (
@@ -600,12 +951,14 @@ const AdminFieldTracking = () => {
           )}
         </div>
 
-        <Pagination
-          totalItems={employeeTotal}
-          itemsPerPage={8}
-          currentPage={employeePage}
-          onPageChange={setEmployeePage}
-        />
+        <div className="shrink-0 border-t border-slate-100">
+          <Pagination
+            totalItems={employeeTotal}
+            itemsPerPage={8}
+            currentPage={employeePage}
+            onPageChange={setEmployeePage}
+          />
+        </div>
       </ModalWrapper>
     </div>
   );

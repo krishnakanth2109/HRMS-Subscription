@@ -288,7 +288,7 @@ router.get('/by-token/:token', async (req, res) => {
   try {
     const record = await DocumentVerification.findOne({ token: req.params.token })
       .populate('company', 'name _id');
-    if (!record) return res.status(404).json({ success: false, error: 'Invalid or expired link' });
+    if (!record) return res.status(404).json({ success: false, error: 'Invalid link' });
     const docFields = DOCUMENT_FIELDS;
     res.status(200).json({ success: true, data: record, docFields });
   } catch (error) {
