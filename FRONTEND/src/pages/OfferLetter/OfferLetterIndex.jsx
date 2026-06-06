@@ -82,11 +82,84 @@ function OfferLetterIndex() {
   const handleSaveEmployee = async (data) => {
     const isEdit = !!selectedEmployeeForEdit;
     try {
+      let createdEmployeeId = null;
+      
       if (isEdit) {
         await api.updateOfferLetterEmployee(selectedEmployeeForEdit._id || selectedEmployeeForEdit.id, data);
+        createdEmployeeId = selectedEmployeeForEdit._id || selectedEmployeeForEdit.id;
       } else {
-        await api.createOfferLetterEmployee(data);
+        const res = await api.createOfferLetterEmployee(data);
+        createdEmployeeId = res._id || res.id;
       }
+
+      // Ask if user wants to send offer letter now
+      const shouldSendOffer = !isEdit && window.confirm(
+        `Employee "${data.name}" has been created successfully!\n\nDo you want to send the offer letter now?`
+      );
+
+      if (shouldSendOffer) {
+        // Get default company from first available company or use selectedCompanyId
+        const defaultCompany = selectedCompanyId !== 'All' 
+          ? companies.find(c => c._id === selectedCompanyId)
+          : companies[0];
+        
+        if (!defaultCompany) {
+          alert("No company available. Please set up a company first.");
+          setIsModalOpen(false);
+          setSelectedEmployeeForEdit(null);
+          fetchEmployees();
+          return;
+        }
+
+        // Get templates for the company
+        try {
+          const templates = await api.getOfferLetterTemplates();
+          const companyTemplates = templates.filter(t => 
+            !t.companyName || t.companyName === defaultCompany.name || t.companyName === ''
+          );
+          
+          if (companyTemplates.length === 0) {
+            alert("No offer letter templates available for this company. Please set up a template first.");
+            setIsModalOpen(false);
+            setSelectedEmployeeForEdit(null);
+            fetchEmployees();
+            return;
+          }
+
+          const selectedTemplate = companyTemplates[0]; // Use first available template
+          const emp = await api.getOfferLetterEmployeeById(createdEmployeeId);
+
+          // Generate offer letter
+          const genData = await api.generateOfferLetter({
+            employeeId: createdEmployeeId,
+            letterType: 'Offer Letter',
+            companyName: defaultCompany.name
+          });
+
+          const htmlContent = genData.content || genData;
+          const contentWithoutHeader = htmlContent.replace(
+            /<div style="text-align: center; border-bottom: 2px solid #0056b3;[\s\S]*?<\/div>/i,
+            ''
+          );
+
+          // Generate PDF
+          const pdfDataUri = await generateOfferLetterPdf(contentWithoutHeader, selectedTemplate);
+
+          // Send email with PDF attachment
+          await api.sendOfferLetterEmail({
+            employeeId: createdEmployeeId,
+            pdfBase64: pdfDataUri,
+            emailBody: `Dear ${emp.name},\n\nWe are pleased to offer you the position at ${defaultCompany.name}.\n\nPlease find the detailed offer letter attached.\n\nBest Regards,\nHR Team`,
+            companyName: defaultCompany.name
+          });
+
+          alert(`✅ Offer letter sent successfully to ${emp.email}!`);
+        } catch (sendErr) {
+          console.error("Error sending offer letter:", sendErr);
+          alert(`⚠️ Employee saved but offer letter sending failed: ${sendErr.message}`);
+        }
+      }
+
       setIsModalOpen(false);
       setSelectedEmployeeForEdit(null);
       fetchEmployees();

@@ -821,19 +821,18 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
       const base64Data = pdfBase64.replace(/^data:application\/pdf;base64,/, "");
       mailOptions.attachments = [{
         filename: `Offer_Letter_${emp.name.replace(/\s+/g, "_")}.pdf`,
-        content: Buffer.from(base64Data, "base64"),
+        content: base64Data,
+        encoding: "base64",
         contentType: "application/pdf"
       }];
     }
 
-    // Send the email in the background - DO NOT AWAIT 
-    // This makes the UI respond instantly while the heavy PDF attachment uploads in its own thread
-    transporter.sendMail(mailOptions).catch(err => {
-      console.error("🔥 BACKGROUND OFFER MAIL ERROR:", err);
-    });
+    // Await the email sending so that serverless environments don't kill the process
+    // before the email is fully sent, and we can catch SMTP errors.
+    await transporter.sendMail(mailOptions);
 
     res.status(200).json({
-      message: "Offer sending initiated! The candidate will receive their document shortly in the background.",
+      message: "Offer email sent successfully with the attached PDF.",
       status: "Offer Sent"
     });
   } catch (error) {
