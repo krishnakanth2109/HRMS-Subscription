@@ -32,13 +32,13 @@ const checkUserLimit = async (adminId) => {
   let maxUsers = admin.userLimit || null;
   if (maxUsers === null) {
     const planSetting = await PlanSetting.findOne({ planName: admin.plan });
-    
+
     if (planSetting && planSetting.maxUsers) {
-        maxUsers = planSetting.maxUsers;
+      maxUsers = planSetting.maxUsers;
     } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
-        // Fallback for free plans if no setting exists
-        const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
-        maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+      // Fallback for free plans if no setting exists
+      const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
+      maxUsers = freeSetting ? freeSetting.maxUsers : 30;
     }
   }
 

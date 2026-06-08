@@ -341,199 +341,199 @@ const AttendanceDetailModal = ({ isOpen, onClose, employeeData, shiftsMap, holid
       containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden animate-scaleIn"
     >
       <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white shrink-0 z-20">
-          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold sm:text-xl overflow-hidden bg-gray-50 shrink-0">
-              {profilePic ? <img src={profilePic} alt={employeeData.name} className="w-full h-full object-cover" /> : (employeeData.name || "U").charAt(0)}
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">{employeeData.name}</h3>
-              <p className="text-gray-500 font-medium text-[10px] sm:text-sm flex items-center gap-2 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>{employeeData.supportAdminId || employeeData.employeeId}</p>
-            </div>
+        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 font-bold sm:text-xl overflow-hidden bg-gray-50 shrink-0">
+            {profilePic ? <img src={profilePic} alt={employeeData.name} className="w-full h-full object-cover" /> : (employeeData.name || "U").charAt(0)}
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-            <div className="flex items-center gap-2">
-              <button onClick={handleShareImage} className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-700 text-[10px] sm:text-sm font-bold rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"><FaShareAlt /> <span className="hidden xs:inline">Share</span></button>
-              <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-[10px] sm:text-sm font-bold rounded-xl hover:bg-green-700 transition-colors shadow-sm"><FaFileExcel /> <span className="hidden xs:inline">Download</span></button>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-800 p-2 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={18} /></button>
+          <div className="min-w-0">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate">{employeeData.name}</h3>
+            <p className="text-gray-500 font-medium text-[10px] sm:text-sm flex items-center gap-2 mt-0.5"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>{employeeData.supportAdminId || employeeData.employeeId}</p>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto bg-gray-50/50 custom-scrollbar" ref={contentRef}>
-          <div className="p-3 sm:p-6 flex sm:grid sm:grid-cols-5 gap-2 sm:gap-4 overflow-x-auto bg-white border-b border-gray-200/50 no-scrollbar items-stretch">
-            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow shrink-0">
-              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-400 tracking-wider text-center leading-tight">Working Days</span>
-              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.workingDays}</span>
-            </div>
-            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-indigo-500 shrink-0">
-              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-indigo-500 tracking-wider text-center leading-tight">Present</span>
-              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.present}</span>
-            </div>
-            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-green-500 shrink-0">
-              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-green-500 tracking-wider text-center leading-tight">Full Days</span>
-              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.fullDays}</span>
-            </div>
-            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-yellow-500 shrink-0">
-              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-yellow-600 tracking-wider text-center leading-tight">Half Days</span>
-              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.halfDays}</span>
-            </div>
-            <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-red-500 shrink-0">
-              <span className="text-[7px] sm:text-[10px] font-bold uppercase text-red-500 tracking-wider text-center leading-tight">Absent</span>
-              <span className="text-base sm:text-2xl font-black text-gray-800">{stats.absent}</span>
-            </div>
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-2">
+            <button onClick={handleShareImage} className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-700 text-[10px] sm:text-sm font-bold rounded-xl hover:bg-gray-100 transition-colors border border-gray-200"><FaShareAlt /> <span className="hidden xs:inline">Share</span></button>
+            <button onClick={downloadIndividualReport} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white text-[10px] sm:text-sm font-bold rounded-xl hover:bg-green-700 transition-colors shadow-sm"><FaFileExcel /> <span className="hidden xs:inline">Download</span></button>
           </div>
-          <div className="px-6 mb-6 mt-4">
-            <div className="flex bg-gray-200/50 p-1.5 rounded-xl w-fit border border-gray-200">
-              <button onClick={() => setViewMode("daily")} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "daily" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}><FaList /> Daily History</button>
-              <button onClick={() => setViewMode("weekly")} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "weekly" ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}><FaLayerGroup /> Weekly Report</button>
-            </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-800 p-2 hover:bg-gray-100 rounded-full transition-colors"><FaTimes size={18} /></button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto bg-gray-50/50 custom-scrollbar" ref={contentRef}>
+        <div className="p-3 sm:p-6 flex sm:grid sm:grid-cols-5 gap-2 sm:gap-4 overflow-x-auto bg-white border-b border-gray-200/50 no-scrollbar items-stretch">
+          <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow shrink-0">
+            <span className="text-[7px] sm:text-[10px] font-bold uppercase text-gray-400 tracking-wider text-center leading-tight">Working Days</span>
+            <span className="text-base sm:text-2xl font-black text-gray-800">{stats.workingDays}</span>
           </div>
-          <div className="px-6 pb-10">
-            {viewMode === "daily" ? (
-              <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full text-sm text-left whitespace-nowrap">
-                    <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-xs font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20">
-                      <tr>
-                        <th className="px-4 sm:px-6 py-4">Date</th>
-                        <th className="px-4 sm:px-6 py-4">Punch In</th>
-                        <th className="px-4 sm:px-6 py-4">Punch Out</th>
-                        <th className="px-6 py-4 hidden lg:table-cell">Assigned</th>
-                        <th className="px-6 py-4 hidden md:table-cell">Duration</th>
-                        <th className="px-6 py-4 hidden xl:table-cell">Login Status</th>
-                        <th className="px-4 sm:px-6 py-4">Worked Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
-                        <tr key={idx} className={`transition-all duration-200 ${item.rowClass}`}>
-                          <td className="px-4 sm:px-6 py-4 font-semibold text-gray-800">
-                            {formatDateDMY(item.date)}
-                            <div className="text-[10px] font-medium text-gray-400 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
-                          </td>
-                          <td className="px-4 sm:px-6 py-4 text-green-600 font-semibold">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                          <td className="px-4 sm:px-6 py-4 text-red-600 font-semibold">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                          <td className="px-6 py-4 text-gray-500 font-medium hidden lg:table-cell">{formatDecimalHours(item.shiftHours)}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-gray-700 hidden md:table-cell">{item.displayTime}</td>
-                          <td className="px-6 py-4 hidden xl:table-cell">{item.loginStatus !== "--" && (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide ${item.loginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.loginStatus}</span>)}</td>
-                          <td className="px-4 sm:px-6 py-4 font-semibold"><span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span></td>
-                        </tr>
-                      ))) : (<tr><td colSpan="7" className="text-center p-10 text-gray-500 font-medium bg-white">No data for selected range.</td></tr>)}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile Daily Cards */}
-                <div className="md:hidden divide-y divide-gray-100">
-                  {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
-                    <div key={idx} className={`p-4 space-y-3 ${item.rowClass}`}>
-                      <div className="flex justify-between items-center">
-                        <div className="font-bold text-gray-800 text-sm">
+          <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-indigo-500 shrink-0">
+            <span className="text-[7px] sm:text-[10px] font-bold uppercase text-indigo-500 tracking-wider text-center leading-tight">Present</span>
+            <span className="text-base sm:text-2xl font-black text-gray-800">{stats.present}</span>
+          </div>
+          <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-green-500 shrink-0">
+            <span className="text-[7px] sm:text-[10px] font-bold uppercase text-green-500 tracking-wider text-center leading-tight">Full Days</span>
+            <span className="text-base sm:text-2xl font-black text-gray-800">{stats.fullDays}</span>
+          </div>
+          <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-yellow-500 shrink-0">
+            <span className="text-[7px] sm:text-[10px] font-bold uppercase text-yellow-600 tracking-wider text-center leading-tight">Half Days</span>
+            <span className="text-base sm:text-2xl font-black text-gray-800">{stats.halfDays}</span>
+          </div>
+          <div className="flex-1 min-w-[75px] sm:min-w-0 bg-white p-2 sm:p-4 rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center justify-center gap-0.5 sm:gap-1 hover:shadow-md transition-shadow border-b-2 sm:border-b-4 border-b-red-500 shrink-0">
+            <span className="text-[7px] sm:text-[10px] font-bold uppercase text-red-500 tracking-wider text-center leading-tight">Absent</span>
+            <span className="text-base sm:text-2xl font-black text-gray-800">{stats.absent}</span>
+          </div>
+        </div>
+        <div className="px-6 mb-6 mt-4">
+          <div className="flex bg-gray-200/50 p-1.5 rounded-xl w-fit border border-gray-200">
+            <button onClick={() => setViewMode("daily")} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "daily" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}><FaList /> Daily History</button>
+            <button onClick={() => setViewMode("weekly")} className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${viewMode === "weekly" ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}><FaLayerGroup /> Weekly Report</button>
+          </div>
+        </div>
+        <div className="px-6 pb-10">
+          {viewMode === "daily" ? (
+            <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full text-sm text-left whitespace-nowrap">
+                  <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-xs font-bold tracking-wider border-b border-gray-200 sticky top-0 z-20">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-4">Date</th>
+                      <th className="px-4 sm:px-6 py-4">Punch In</th>
+                      <th className="px-4 sm:px-6 py-4">Punch Out</th>
+                      <th className="px-6 py-4 hidden lg:table-cell">Assigned</th>
+                      <th className="px-6 py-4 hidden md:table-cell">Duration</th>
+                      <th className="px-6 py-4 hidden xl:table-cell">Login Status</th>
+                      <th className="px-4 sm:px-6 py-4">Worked Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
+                      <tr key={idx} className={`transition-all duration-200 ${item.rowClass}`}>
+                        <td className="px-4 sm:px-6 py-4 font-semibold text-gray-800">
                           {formatDateDMY(item.date)}
-                          <span className="ml-2 text-[10px] text-gray-400 font-medium uppercase">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 bg-white/50 p-2.5 rounded-xl border border-gray-100/50">
-                        <div>
-                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch In</p>
-                          <p className="text-[11px] font-bold text-green-600">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch Out</p>
-                          <p className="text-[11px] font-bold text-red-600">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Worked</p>
-                          <p className="text-[11px] font-mono font-bold text-gray-700">{item.displayTime || "--"}</p>
-                        </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Status</p>
-                          <p className="text-[11px] font-bold">{item.loginStatus !== "--" ? <span className={item.loginStatus === "LATE" ? "text-red-600" : "text-green-600"}>{item.loginStatus}</span> : "--"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))) : (<div className="text-center p-10 text-gray-500 font-medium">No records found.</div>)}
-                </div>
+                          <div className="text-[10px] font-medium text-gray-400 uppercase mt-0.5">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-green-600 font-semibold">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                        <td className="px-4 sm:px-6 py-4 text-red-600 font-semibold">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                        <td className="px-6 py-4 text-gray-500 font-medium hidden lg:table-cell">{formatDecimalHours(item.shiftHours)}</td>
+                        <td className="px-6 py-4 font-mono font-bold text-gray-700 hidden md:table-cell">{item.displayTime}</td>
+                        <td className="px-6 py-4 hidden xl:table-cell">{item.loginStatus !== "--" && (<span className={`px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wide ${item.loginStatus === "LATE" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"}`}>{item.loginStatus}</span>)}</td>
+                        <td className="px-4 sm:px-6 py-4 font-semibold"><span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span></td>
+                      </tr>
+                    ))) : (<tr><td colSpan="7" className="text-center p-10 text-gray-500 font-medium bg-white">No data for selected range.</td></tr>)}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {weeklyHistory.length > 0 ? (weeklyHistory.map((week, wIdx) => {
-                  const isExpanded = expandedWeeks[week.weekStart];
-                  return (
-                    <div key={wIdx} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
-                      <div className="bg-gray-50 border-b border-gray-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
-                          <div><span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest block mb-0.5">Weekly Range</span><span className="text-sm sm:text-base font-bold text-gray-800">{formatDateDMY(week.weekStart)} — {formatDateDMY(week.weekEnd)}</span></div>
-                          <button onClick={() => toggleWeekExpansion(week.weekStart)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase text-gray-600 transition-colors shadow-sm"><FaInfoCircle className="text-blue-500" /> {isExpanded ? "Hide" : "Details"} {isExpanded ? <FaChevronUp /> : <FaChevronDown />}</button>
-                        </div>
-                        <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
-                          <span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest block mb-0.5">Total Hours</span>
-                          <span className="text-lg sm:text-xl font-black text-green-600 font-mono bg-green-50 px-3 py-1 rounded-lg border border-green-100/50">{formatDecimalHours(week.totalHours)}</span>
-                        </div>
-                      </div>
-                      {isExpanded && (
-                        <div className="p-4 sm:p-5 bg-gray-50/50 border-b border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 animate-in slide-in-from-top duration-300">
-                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-green-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Full</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.full}</p></div>
-                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-yellow-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Half</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.half}</p></div>
-                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-red-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Abs</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.absent}</p></div>
-                          <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-orange-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Late</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.late}</p></div>
-                        </div>
-                      )}
-                      <div className="overflow-x-auto">
-                        <table className="hidden md:table min-w-full text-sm text-left whitespace-nowrap">
-                          <thead className="bg-white text-gray-400 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-100">
-                            <tr>
-                              <th className="px-4 sm:px-6 py-3">Day</th>
-                              <th className="px-4 sm:px-6 py-3">Punch In</th>
-                              <th className="px-4 sm:px-6 py-3">Punch Out</th>
-                              <th className="px-6 py-3 text-center hidden md:table-cell">Login Status</th>
-                              <th className="px-6 py-3 text-right hidden sm:table-cell">Hours Worked</th>
-                              <th className="px-4 sm:px-6 py-3">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50">
-                            {week.days.map((day, dIdx) => (
-                              <tr key={dIdx} className={day.rowClass}>
-                                <td className="px-4 sm:px-6 py-3.5 font-semibold text-gray-700">
-                                  {formatDateDMY(day.date)}
-                                  <span className="ml-1 text-[10px] text-gray-400 font-medium uppercase bg-gray-100 px-1 py-0.5 rounded sm:ml-2 sm:px-1.5">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                </td>
-                                <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-600">{day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                                <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-600">{day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
-                                <td className="px-6 py-3.5 text-center hidden md:table-cell">{day.loginStatus !== "--" && (<span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${day.loginStatus === "LATE" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>{day.loginStatus}</span>)}</td>
-                                <td className="px-6 py-3.5 text-right font-mono font-bold text-gray-700 hidden sm:table-cell">{day.displayTime || "0h 0m"}</td>
-                                <td className="px-4 sm:px-6 py-3.5"><span className={`px-2 sm:px-2.5 py-1 rounded-full font-bold text-[9px] sm:text-[10px] ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border border-green-100" : day.isAbsent ? "bg-red-50 text-red-700 border border-red-100" : "bg-gray-100 text-gray-600 border border-gray-200"}`}>{day.workedStatus}</span></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
 
-                        {/* Mobile Weekly Detail Cards */}
-                        <div className="md:hidden divide-y divide-gray-50">
-                          {week.days.map((day, dIdx) => (
-                            <div key={dIdx} className={`p-4 space-y-2 ${day.rowClass}`}>
-                              <div className="flex justify-between items-center">
-                                <div className="text-[11px] font-bold text-gray-700">{formatDateDMY(day.date)} <span className="ml-1 text-[9px] text-gray-400 uppercase">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span></div>
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700" : day.isAbsent ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{day.workedStatus}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-[10px]">
-                                <div className="flex gap-3">
-                                  <span className="text-green-600 font-medium">In: {day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
-                                  <span className="text-red-600 font-medium">Out: {day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
-                                </div>
-                                <div className="font-mono font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{day.displayTime || "0h 0m"}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+              {/* Mobile Daily Cards */}
+              <div className="md:hidden divide-y divide-gray-100">
+                {completeHistory.length > 0 ? (completeHistory.map((item, idx) => (
+                  <div key={idx} className={`p-4 space-y-3 ${item.rowClass}`}>
+                    <div className="flex justify-between items-center">
+                      <div className="font-bold text-gray-800 text-sm">
+                        {formatDateDMY(item.date)}
+                        <span className="ml-2 text-[10px] text-gray-400 font-medium uppercase">{new Date(item.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm border ${item.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border-green-100" : item.workedStatus === "Half Day" ? "bg-yellow-50 text-yellow-700 border-yellow-100" : item.isAbsent ? "bg-red-50 text-red-700 border-red-100" : "bg-gray-50 text-gray-600 border-gray-200"}`}>{item.workedStatus}</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 bg-white/50 p-2.5 rounded-xl border border-gray-100/50">
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch In</p>
+                        <p className="text-[11px] font-bold text-green-600">{item.punchIn ? new Date(item.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Punch Out</p>
+                        <p className="text-[11px] font-bold text-red-600">{item.punchOut ? new Date(item.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Worked</p>
+                        <p className="text-[11px] font-mono font-bold text-gray-700">{item.displayTime || "--"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">Status</p>
+                        <p className="text-[11px] font-bold">{item.loginStatus !== "--" ? <span className={item.loginStatus === "LATE" ? "text-red-600" : "text-green-600"}>{item.loginStatus}</span> : "--"}</p>
                       </div>
                     </div>
-                  );
-                })) : (<div className="text-center p-10 bg-white rounded-2xl border border-gray-200 text-gray-500 font-medium shadow-sm">No weekly history available.</div>)}
+                  </div>
+                ))) : (<div className="text-center p-10 text-gray-500 font-medium">No records found.</div>)}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {weeklyHistory.length > 0 ? (weeklyHistory.map((week, wIdx) => {
+                const isExpanded = expandedWeeks[week.weekStart];
+                return (
+                  <div key={wIdx} className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden transition-all duration-300">
+                    <div className="bg-gray-50 border-b border-gray-200 p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6 w-full sm:w-auto">
+                        <div><span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest block mb-0.5">Weekly Range</span><span className="text-sm sm:text-base font-bold text-gray-800">{formatDateDMY(week.weekStart)} — {formatDateDMY(week.weekEnd)}</span></div>
+                        <button onClick={() => toggleWeekExpansion(week.weekStart)} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-[10px] font-bold uppercase text-gray-600 transition-colors shadow-sm"><FaInfoCircle className="text-blue-500" /> {isExpanded ? "Hide" : "Details"} {isExpanded ? <FaChevronUp /> : <FaChevronDown />}</button>
+                      </div>
+                      <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0">
+                        <span className="text-[9px] font-bold uppercase text-gray-400 tracking-widest block mb-0.5">Total Hours</span>
+                        <span className="text-lg sm:text-xl font-black text-green-600 font-mono bg-green-50 px-3 py-1 rounded-lg border border-green-100/50">{formatDecimalHours(week.totalHours)}</span>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="p-4 sm:p-5 bg-gray-50/50 border-b border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 animate-in slide-in-from-top duration-300">
+                        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-green-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Full</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.full}</p></div>
+                        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-yellow-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Half</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.half}</p></div>
+                        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-red-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Abs</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.absent}</p></div>
+                        <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-l-4 border-orange-500 border border-gray-100"><p className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Late</p><p className="text-base sm:text-xl font-black text-gray-800 mt-1">{week.stats.late}</p></div>
+                      </div>
+                    )}
+                    <div className="overflow-x-auto">
+                      <table className="hidden md:table min-w-full text-sm text-left whitespace-nowrap">
+                        <thead className="bg-white text-gray-400 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-100">
+                          <tr>
+                            <th className="px-4 sm:px-6 py-3">Day</th>
+                            <th className="px-4 sm:px-6 py-3">Punch In</th>
+                            <th className="px-4 sm:px-6 py-3">Punch Out</th>
+                            <th className="px-6 py-3 text-center hidden md:table-cell">Login Status</th>
+                            <th className="px-6 py-3 text-right hidden sm:table-cell">Hours Worked</th>
+                            <th className="px-4 sm:px-6 py-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {week.days.map((day, dIdx) => (
+                            <tr key={dIdx} className={day.rowClass}>
+                              <td className="px-4 sm:px-6 py-3.5 font-semibold text-gray-700">
+                                {formatDateDMY(day.date)}
+                                <span className="ml-1 text-[10px] text-gray-400 font-medium uppercase bg-gray-100 px-1 py-0.5 rounded sm:ml-2 sm:px-1.5">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                              </td>
+                              <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-600">{day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                              <td className="px-4 sm:px-6 py-3.5 font-medium text-gray-600">{day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</td>
+                              <td className="px-6 py-3.5 text-center hidden md:table-cell">{day.loginStatus !== "--" && (<span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${day.loginStatus === "LATE" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>{day.loginStatus}</span>)}</td>
+                              <td className="px-6 py-3.5 text-right font-mono font-bold text-gray-700 hidden sm:table-cell">{day.displayTime || "0h 0m"}</td>
+                              <td className="px-4 sm:px-6 py-3.5"><span className={`px-2 sm:px-2.5 py-1 rounded-full font-bold text-[9px] sm:text-[10px] ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700 border border-green-100" : day.isAbsent ? "bg-red-50 text-red-700 border border-red-100" : "bg-gray-100 text-gray-600 border border-gray-200"}`}>{day.workedStatus}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+
+                      {/* Mobile Weekly Detail Cards */}
+                      <div className="md:hidden divide-y divide-gray-50">
+                        {week.days.map((day, dIdx) => (
+                          <div key={dIdx} className={`p-4 space-y-2 ${day.rowClass}`}>
+                            <div className="flex justify-between items-center">
+                              <div className="text-[11px] font-bold text-gray-700">{formatDateDMY(day.date)} <span className="ml-1 text-[9px] text-gray-400 uppercase">{new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}</span></div>
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shadow-sm ${day.workedStatus === "Full Day" ? "bg-green-50 text-green-700" : day.isAbsent ? "bg-red-50 text-red-700" : "bg-gray-100 text-gray-600"}`}>{day.workedStatus}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px]">
+                              <div className="flex gap-3">
+                                <span className="text-green-600 font-medium">In: {day.punchIn ? new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                                <span className="text-red-600 font-medium">Out: {day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                              </div>
+                              <div className="font-mono font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{day.displayTime || "0h 0m"}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })) : (<div className="text-center p-10 bg-white rounded-2xl border border-gray-200 text-gray-500 font-medium shadow-sm">No weekly history available.</div>)}
+            </div>
+          )}
         </div>
+      </div>
     </ModalWrapper>
   );
 };
@@ -563,131 +563,131 @@ const StatusListModal = ({ isOpen, onClose, title, employees, employeeImages, al
       containerClass="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden animate-scaleIn"
     >
       <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">{isOnBreakModal && <FaCoffee className="text-amber-500" />}{title}</h3>
-            {!loading && <p className="text-sm text-gray-500 font-medium mt-0.5">{employees.length} Support Admins</p>}
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={20} /></button>
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">{isOnBreakModal && <FaCoffee className="text-amber-500" />}{title}</h3>
+          {!loading && <p className="text-sm text-gray-500 font-medium mt-0.5">{employees.length} Support Admins</p>}
         </div>
-        <div className="p-6 overflow-y-auto bg-gray-50/50">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-10 text-gray-500"><FaSpinner className="animate-spin text-3xl mb-3 text-blue-500" />Loading...</div>
-          ) : employees.length > 0 ? (
-            <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
-              {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full text-sm text-left whitespace-nowrap">
-                  <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 sm:px-6 py-4">Support Admin</th>
-                      <th className="px-6 py-4 hidden md:table-cell">Role</th>
-                      {isOnBreakModal && <th className="px-4 sm:px-6 py-4">Break At</th>}
-                      {isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Total Break Time</th>}
-                      {!isLoginRequired && !isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Worked Status</th>}
-                      {canPunchOutInModal && <th className="px-4 sm:px-6 py-4 text-center">Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {employees.map((emp, index) => {
-                      const employeeInfo = employeeInfoMap[emp.employeeId] || {};
-                      const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
-                      const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
-                      const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
-                      return (
-                        <tr key={emp.employeeId || index} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 sm:px-6 py-4">
-                            <div className="flex items-center gap-3 sm:gap-4">
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50 shrink-0">
-                                {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-gray-800 text-xs sm:text-sm truncate">{emp.name || emp.employeeName || employeeInfo.name}</p>
-                                <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{empIdDisplayMap[emp.employeeId] || emp.employeeId}</p>
-                                <p className="text-[10px] text-blue-600 font-medium md:hidden truncate">{employeeInfo.role}</p>
-                              </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors"><FaTimes size={20} /></button>
+      </div>
+      <div className="p-6 overflow-y-auto bg-gray-50/50">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-10 text-gray-500"><FaSpinner className="animate-spin text-3xl mb-3 text-blue-500" />Loading...</div>
+        ) : employees.length > 0 ? (
+          <div className="rounded-2xl shadow-lg border border-gray-200 relative z-10 overflow-hidden bg-white">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full text-sm text-left whitespace-nowrap">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-[10px] sm:text-[11px] font-bold tracking-wider border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 sm:px-6 py-4">Support Admin</th>
+                    <th className="px-6 py-4 hidden md:table-cell">Role</th>
+                    {isOnBreakModal && <th className="px-4 sm:px-6 py-4">Break At</th>}
+                    {isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Total Break Time</th>}
+                    {!isLoginRequired && !isOnBreakModal && <th className="px-6 py-4 hidden sm:table-cell">Worked Status</th>}
+                    {canPunchOutInModal && <th className="px-4 sm:px-6 py-4 text-center">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 bg-white">
+                  {employees.map((emp, index) => {
+                    const employeeInfo = employeeInfoMap[emp.employeeId] || {};
+                    const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                    const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
+                    const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
+                    return (
+                      <tr key={emp.employeeId || index} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 sm:px-6 py-4">
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50 shrink-0">
+                              {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
                             </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-800 text-xs sm:text-sm truncate">{emp.name || emp.employeeName || employeeInfo.name}</p>
+                              <p className="text-[10px] text-gray-500 font-mono mt-0.5 truncate">{empIdDisplayMap[emp.employeeId] || emp.employeeId}</p>
+                              <p className="text-[10px] text-blue-600 font-medium md:hidden truncate">{employeeInfo.role}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 hidden md:table-cell"><span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">{employeeInfo.role || "N/A"}</span></td>
+                        {isOnBreakModal && (
+                          <td className="px-4 sm:px-6 py-4">
+                            {breakStartTime ? (
+                              <div className="flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">
+                                  <FaCoffee size={10} /> {new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                                <span className="text-[10px] font-mono text-orange-600 sm:hidden">{formatBreakDuration(totalBreakSecs)}</span>
+                              </div>
+                            ) : (<span className="text-gray-400 text-xs">--</span>)}
                           </td>
-                          <td className="px-6 py-4 hidden md:table-cell"><span className="text-xs font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-md border border-gray-200">{employeeInfo.role || "N/A"}</span></td>
-                          {isOnBreakModal && (
-                            <td className="px-4 sm:px-6 py-4">
-                              {breakStartTime ? (
-                                <div className="flex flex-col gap-1">
-                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-100 w-fit">
-                                    <FaCoffee size={10} /> {new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                  </span>
-                                  <span className="text-[10px] font-mono text-orange-600 sm:hidden">{formatBreakDuration(totalBreakSecs)}</span>
-                                </div>
-                              ) : (<span className="text-gray-400 text-xs">--</span>)}
-                            </td>
-                          )}
-                          {isOnBreakModal && (<td className="px-6 py-4 hidden sm:table-cell"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100 font-mono">{formatBreakDuration(totalBreakSecs)}</span></td>)}
-                          {!isLoginRequired && !isOnBreakModal && (<td className="px-6 py-4 hidden sm:table-cell">{emp.displayLoginStatus && (<span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md font-bold ${emp.displayLoginStatus === 'LATE' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{emp.displayLoginStatus}</span>)}</td>)}
-                          {canPunchOutInModal && (
-                            <td className="px-4 sm:px-6 py-4 text-center">
-                              <button onClick={() => onPunchOut(emp)} className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg text-[10px] font-bold transition-all shadow-sm border border-red-100"><FaSignOutAlt size={10} /> Punch Out</button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                        )}
+                        {isOnBreakModal && (<td className="px-6 py-4 hidden sm:table-cell"><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100 font-mono">{formatBreakDuration(totalBreakSecs)}</span></td>)}
+                        {!isLoginRequired && !isOnBreakModal && (<td className="px-6 py-4 hidden sm:table-cell">{emp.displayLoginStatus && (<span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md font-bold ${emp.displayLoginStatus === 'LATE' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>{emp.displayLoginStatus}</span>)}</td>)}
+                        {canPunchOutInModal && (
+                          <td className="px-4 sm:px-6 py-4 text-center">
+                            <button onClick={() => onPunchOut(emp)} className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-lg text-[10px] font-bold transition-all shadow-sm border border-red-100"><FaSignOutAlt size={10} /> Punch Out</button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Mobile Card View */}
-              <div className="md:hidden divide-y divide-gray-100">
-                {employees.map((emp, index) => {
-                  const employeeInfo = employeeInfoMap[emp.employeeId] || {};
-                  const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
-                  const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
-                  const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
-                  return (
-                    <div key={emp.employeeId || index} className="p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50">
-                            {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-800 text-sm">{emp.name || emp.employeeName || employeeInfo.name}</p>
-                            <p className="text-[10px] text-gray-500 font-mono">{empIdDisplayMap[emp.employeeId] || emp.employeeId}</p>
-                          </div>
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-gray-100">
+              {employees.map((emp, index) => {
+                const employeeInfo = employeeInfoMap[emp.employeeId] || {};
+                const profilePic = employeeImages ? employeeImages[emp.employeeId] : null;
+                const breakStartTime = isOnBreakModal ? getBreakStartTime(emp) : null;
+                const totalBreakSecs = isOnBreakModal ? calcTotalBreakSeconds(emp.breakSessions || []) : 0;
+                return (
+                  <div key={emp.employeeId || index} className="p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-gray-500 font-bold border border-gray-200 overflow-hidden bg-gray-50">
+                          {profilePic ? <img src={profilePic} alt="" className="w-full h-full object-cover" /> : (emp.name || emp.employeeName || "U").charAt(0)}
                         </div>
-                        <div className="text-right">
-                          <p className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{employeeInfo.role || "N/A"}</p>
+                        <div>
+                          <p className="font-bold text-gray-800 text-sm">{emp.name || emp.employeeName || employeeInfo.name}</p>
+                          <p className="text-[10px] text-gray-500 font-mono">{empIdDisplayMap[emp.employeeId] || emp.employeeId}</p>
                         </div>
                       </div>
-
-                      <div className="flex flex-wrap gap-2 items-center justify-between bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50">
-                        {isOnBreakModal && (
-                          <div className="flex gap-3">
-                            <div className="flex flex-col">
-                              <span className="text-[8px] text-gray-400 font-bold uppercase">Break At</span>
-                              <span className="text-[10px] font-bold text-amber-600">{breakStartTime ? new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[8px] text-gray-400 font-bold uppercase">Duration</span>
-                              <span className="text-[10px] font-bold text-orange-600 font-mono">{formatBreakDuration(totalBreakSecs)}</span>
-                            </div>
-                          </div>
-                        )}
-                        {!isLoginRequired && !isOnBreakModal && emp.displayLoginStatus && (
-                          <div className="flex flex-col">
-                            <span className="text-[8px] text-gray-400 font-bold uppercase">Status</span>
-                            <span className={`text-[10px] font-bold ${emp.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600'}`}>{emp.displayLoginStatus}</span>
-                          </div>
-                        )}
-                        {canPunchOutInModal && (
-                          <button onClick={() => onPunchOut(emp)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-bold shadow-sm"><FaSignOutAlt /> Punch Out</button>
-                        )}
+                      <div className="text-right">
+                        <p className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{employeeInfo.role || "N/A"}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <div className="flex flex-wrap gap-2 items-center justify-between bg-gray-50/50 p-2.5 rounded-xl border border-gray-100/50">
+                      {isOnBreakModal && (
+                        <div className="flex gap-3">
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-gray-400 font-bold uppercase">Break At</span>
+                            <span className="text-[10px] font-bold text-amber-600">{breakStartTime ? new Date(breakStartTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "--"}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-gray-400 font-bold uppercase">Duration</span>
+                            <span className="text-[10px] font-bold text-orange-600 font-mono">{formatBreakDuration(totalBreakSecs)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {!isLoginRequired && !isOnBreakModal && emp.displayLoginStatus && (
+                        <div className="flex flex-col">
+                          <span className="text-[8px] text-gray-400 font-bold uppercase">Status</span>
+                          <span className={`text-[10px] font-bold ${emp.displayLoginStatus === 'LATE' ? 'text-red-600' : 'text-green-600'}`}>{emp.displayLoginStatus}</span>
+                        </div>
+                      )}
+                      {canPunchOutInModal && (
+                        <button onClick={() => onPunchOut(emp)} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-bold shadow-sm"><FaSignOutAlt /> Punch Out</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ) : <p className="text-center text-slate-500 py-8">No support admins in this category.</p>}
-        </div>
+          </div>
+        ) : <p className="text-center text-slate-500 py-8">No support admins in this category.</p>}
+      </div>
     </ModalWrapper>
   );
 };

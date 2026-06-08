@@ -70,7 +70,7 @@ api.interceptors.response.use(
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;
-    } catch {}
+    } catch { }
 
     const isEmployee = user?.role === "Employee";
 

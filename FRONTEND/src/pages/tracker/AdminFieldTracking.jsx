@@ -71,7 +71,35 @@ const formatDuration = (seconds = 0) => {
   const total = Number(seconds) || 0;
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
-  return `${hours}h ${minutes}m`;
+  const secs = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
+const getLiveStopDurationSeconds = (stop, index, stops, isActiveTrip, now = Date.now()) => {
+  const stored = Number(stop.durationSeconds) || 0;
+  if (!isActiveTrip || !stop.stoppedAt) return stored;
+
+  const isLastStop = index === stops.length - 1;
+  if (!isLastStop) return stored;
+
+  const live = Math.floor((now - new Date(stop.stoppedAt).getTime()) / 1000);
+  return Math.max(stored, live);
+};
+
+const computeLiveStoppedSeconds = (trip, now = Date.now()) => {
+  if (!trip) return 0;
+
+  const stops = trip.stops || [];
+  if (!stops.length) return Number(trip.stoppedSeconds) || 0;
+
+  if (trip.status !== "active") {
+    return stops.reduce((sum, stop) => sum + (Number(stop.durationSeconds) || 0), 0);
+  }
+
+  return stops.reduce(
+    (sum, stop, index) => sum + getLiveStopDurationSeconds(stop, index, stops, true, now),
+    0,
+  );
 };
 
 const toLatLng = (point) => {
@@ -218,12 +246,9 @@ const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
         >
           <Popup>
             <div className="text-xs font-semibold text-slate-700">
-              <p className="font-black text-red-700">Stopped point {index + 1}</p>
+              <p className="font-black text-red-700">Stop {index + 1}</p>
               <p>{formatDateTime(stop.stoppedAt)}</p>
               <p>Duration: {formatDuration(stop.durationSeconds)}</p>
-              <p>
-                {Number(stop.latitude).toFixed(6)}, {Number(stop.longitude).toFixed(6)}
-              </p>
             </div>
           </Popup>
         </Marker>
@@ -254,6 +279,7 @@ const AdminFieldTracking = () => {
   const [tripError, setTripError] = useState("");
   const [recentTrips, setRecentTrips] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
+  const [liveTick, setLiveTick] = useState(0);
   const mapSectionRef = useRef(null);
   const selectedEmployeeRef = useRef(null);
   const selectedDateRef = useRef(selectedDate);
@@ -270,12 +296,21 @@ const AdminFieldTracking = () => {
         .filter((point) => point.position),
     [selectedTrip],
   );
-  const stopPoints = useMemo(
-    () =>
-      (selectedTrip?.stops || [])
-        .map((stop) => ({ ...stop, position: toLatLng(stop) }))
-        .filter((stop) => stop.position),
-    [selectedTrip],
+  const stopPoints = useMemo(() => {
+    const stops = selectedTrip?.stops || [];
+    const isActiveTrip = selectedTrip?.status === "active";
+    return stops
+      .map((stop, index) => ({
+        ...stop,
+        position: toLatLng(stop),
+        durationSeconds: getLiveStopDurationSeconds(stop, index, stops, isActiveTrip),
+      }))
+      .filter((stop) => stop.position);
+  }, [selectedTrip, liveTick]);
+
+  const displayStoppedSeconds = useMemo(
+    () => computeLiveStoppedSeconds(selectedTrip),
+    [selectedTrip, liveTick],
   );
   const visibleEmployees = useMemo(
     () => employees.filter((employee) => employeeStatusFilter === "all" || employee.isFieldLive),
@@ -405,6 +440,7 @@ const AdminFieldTracking = () => {
           status: payload.status || trip.status,
           distanceKm: payload.distanceKm ?? trip.distanceKm,
           stoppedSeconds: payload.stoppedSeconds ?? trip.stoppedSeconds,
+          stops: Array.isArray(payload.stops) ? payload.stops : trip.stops,
           updatedAt: payload.updatedAt || trip.updatedAt,
           path: nextPath,
         };
@@ -437,6 +473,12 @@ const AdminFieldTracking = () => {
   useEffect(() => {
     selectedDateRef.current = selectedDate;
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (selectedTrip?.status !== "active") return undefined;
+    const timer = setInterval(() => setLiveTick((value) => value + 1), 1000);
+    return () => clearInterval(timer);
+  }, [selectedTrip?._id, selectedTrip?.status]);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -626,7 +668,8 @@ const AdminFieldTracking = () => {
               </div>
               {selectedTrip && (
                 <span className="rounded-full bg-blue-50 px-4 py-2 text-xs font-black text-blue-700">
-                  {routePoints.length} coordinates{stopPoints.length ? ` - ${stopPoints.length} stops` : ""}
+                  {selectedTrip.status === "active" ? "Live route" : "Recorded route"}
+                  {stopPoints.length ? ` · ${stopPoints.length} stops` : ""}
                 </span>
               )}
             </div>
@@ -647,7 +690,7 @@ const AdminFieldTracking = () => {
                 <p className="font-black text-slate-600">No field-work locations found for this date.</p>
               </div>
             ) : (
-              <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+              <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                   {routePoints.length ? (
                     <TripRouteMap
@@ -657,7 +700,7 @@ const AdminFieldTracking = () => {
                     />
                   ) : (
                     <div className="flex h-[520px] items-center justify-center text-sm font-bold text-slate-500">
-                      No route points available.
+                      Waiting for route data...
                     </div>
                   )}
                 </div>
@@ -672,7 +715,7 @@ const AdminFieldTracking = () => {
                       <p>Started: {formatDateTime(selectedTrip.startedAt)}</p>
                       <p>Ended: {selectedTrip.endedAt ? formatDateTime(selectedTrip.endedAt) : "Active"}</p>
                       <p>Distance: {(selectedTrip.distanceKm || 0).toFixed(2)} km</p>
-                      <p>Stopped: {formatDuration(selectedTrip.stoppedSeconds)}</p>
+                      <p>Stopped: {formatDuration(displayStoppedSeconds)}</p>
                       <p>Stops: {stopPoints.length}</p>
                     </div>
                   </div>
@@ -683,50 +726,24 @@ const AdminFieldTracking = () => {
                         <MapPin size={18} />
                         Stopped Locations
                       </div>
-                      <div className="max-h-[150px] space-y-2 overflow-y-auto pr-1">
+                      <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
                         {stopPoints.map((stop, index) => (
-                          <a
+                          <div
                             key={`${stop.stoppedAt}-${index}`}
-                            href={`https://www.google.com/maps?q=${stop.latitude},${stop.longitude}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block rounded-xl border border-red-100 bg-white p-3 transition hover:border-red-300"
+                            className="rounded-xl border border-red-100 bg-white p-3"
                           >
                             <div className="flex items-center justify-between gap-3">
                               <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
                               <span className="text-xs font-bold text-slate-500">{formatDateTime(stop.stoppedAt)}</span>
                             </div>
-                            <p className="mt-1 text-xs font-bold text-slate-700">
-                              {Number(stop.latitude).toFixed(6)}, {Number(stop.longitude).toFixed(6)}
-                            </p>
                             <p className="mt-1 text-xs font-semibold text-slate-500">
                               Duration: {formatDuration(stop.durationSeconds)}
                             </p>
-                          </a>
+                          </div>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  <div className="max-h-[270px] space-y-2 overflow-y-auto pr-1">
-                    {selectedTrip.path.map((point, index) => (
-                      <a
-                        key={`${point.recordedAt}-${index}`}
-                        href={`https://www.google.com/maps?q=${point.latitude},${point.longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block rounded-xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="text-xs font-black text-slate-400">Point {index + 1}</span>
-                          <span className="text-xs font-bold text-slate-500">{formatDateTime(point.recordedAt)}</span>
-                        </div>
-                        <p className="mt-1 text-xs font-bold text-slate-700">
-                          {Number(point.latitude).toFixed(6)}, {Number(point.longitude).toFixed(6)}
-                        </p>
-                      </a>
-                    ))}
-                  </div>
                 </div>
               </div>
             )}

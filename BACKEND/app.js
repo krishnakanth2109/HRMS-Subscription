@@ -7,6 +7,8 @@ import mongoose from "mongoose";
 import http from "http";
 import path from "path";
 import { Server } from "socket.io";
+import Employee from "./models/employeeModel.js";
+import { recordFieldWorkLocationForEmployee } from "./controllers/fieldTrackingController.js";
 
 /* ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
@@ -170,7 +172,60 @@ io.on("connection", (socket) => {
   socket.on("authenticate", (userId) => {
     if (!userId) return;
 
+    socket.userId = userId.toString();
     socket.join(`user_${userId.toString()}`);
+  });
+
+  socket.on("fieldTracking:postLocation", async (payload = {}, ack) => {
+    try {
+      if (!socket.userId) {
+        if (typeof ack === "function") ack({ ok: false, message: "Not authenticated." });
+        return;
+      }
+
+      const employee = await Employee.findById(socket.userId).lean();
+      if (!employee) {
+        if (typeof ack === "function") ack({ ok: false, message: "Employee not found." });
+        return;
+      }
+
+      const result = await recordFieldWorkLocationForEmployee({
+        employee,
+        tripId: payload.tripId,
+        body: {
+          latitude: payload.point?.latitude ?? payload.latitude,
+          longitude: payload.point?.longitude ?? payload.longitude,
+          accuracy: payload.point?.accuracy ?? payload.accuracy,
+          speed: payload.point?.speed ?? payload.speed,
+          heading: payload.point?.heading ?? payload.heading,
+          recordedAt: payload.point?.recordedAt ?? payload.recordedAt,
+          distanceKm: payload.distanceKm,
+          stoppedSeconds: payload.stoppedSeconds,
+          stops: payload.stops,
+        },
+        io,
+      });
+
+      if (result.error) {
+        if (typeof ack === "function") {
+          ack({
+            ok: false,
+            trackingDisabled: result.error.trackingDisabled,
+            message: result.error.message,
+          });
+        }
+        return;
+      }
+
+      if (typeof ack === "function") {
+        ack({ ok: true, trip: result.trip });
+      }
+    } catch (error) {
+      console.error("fieldTracking:postLocation socket error:", error);
+      if (typeof ack === "function") {
+        ack({ ok: false, message: "Failed to record location." });
+      }
+    }
   });
 
   socket.on("disconnect", () => {

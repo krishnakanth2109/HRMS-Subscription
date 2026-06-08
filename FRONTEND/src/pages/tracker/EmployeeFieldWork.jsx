@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { io } from "socket.io-client";
 import {
   getFieldTrackingSetting,
   getMyActiveFieldTrip,
@@ -12,6 +13,22 @@ import {
   startFieldTrip,
   stopFieldTrip,
 } from "../../api";
+
+const SOCKET_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL_PRODUCTION
+    : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";
+
+const LOCATION_INTERVAL_MS = 3000;
+
+const getCurrentUser = () => {
+  try {
+    const raw = sessionStorage.getItem("hrmsUser");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 const calculateDistanceKm = (a, b) => {
   if (!a || !b) return 0;
@@ -35,7 +52,7 @@ const formatDuration = (seconds = 0) => {
 };
 
 const STOP_RADIUS_KM = 0.03;
-const STOP_MIN_SECONDS = 60;
+const STOP_MIN_SECONDS = 120;
 
 const toLatLng = (point) => {
   if (!point) return null;
@@ -248,7 +265,9 @@ const EmployeeFieldWork = () => {
   const [historyError, setHistoryError] = useState("");
   const [selectedHistoryTripId, setSelectedHistoryTripId] = useState(null);
 
-  const watchRef = useRef(null);
+  const socketRef = useRef(null);
+  const locationIntervalRef = useRef(null);
+  const activeTripIdRef = useRef(null);
   const lastPointRef = useRef(null);
   const startTimeRef = useRef(null);
   const distanceRef = useRef(0);
@@ -258,58 +277,72 @@ const EmployeeFieldWork = () => {
 
   const latestPoint = points[points.length - 1] || null;
 
-  const mapLink = useMemo(() => {
-    if (!latestPoint) return "";
-    return `https://www.google.com/maps?q=${latestPoint.latitude},${latestPoint.longitude}`;
-  }, [latestPoint]);
-
-  const stopWatch = useCallback(() => {
-    if (watchRef.current) {
-      navigator.geolocation.clearWatch(watchRef.current);
-      watchRef.current = null;
+  const stopLocationInterval = useCallback(() => {
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
     }
   }, []);
 
   const getLiveStoppedSeconds = useCallback((now = Date.now()) => {
+    let total = stoppedSecondsRef.current;
     const candidate = stopCandidateRef.current;
-    if (!candidate) return stoppedSecondsRef.current;
+    if (!candidate) return total;
 
-    const durationSeconds = Math.floor((now - candidate.startedAt) / 1000);
-    return durationSeconds >= STOP_MIN_SECONDS
-      ? stoppedSecondsRef.current + durationSeconds
-      : stoppedSecondsRef.current;
+    const idleSeconds = Math.floor((now - candidate.startedAt) / 1000);
+    if (idleSeconds >= STOP_MIN_SECONDS) {
+      total += idleSeconds;
+    }
+    return total;
   }, []);
 
-  const saveStopIfNeeded = useCallback((endedAt = Date.now()) => {
+  const syncStopMarker = useCallback((now = Date.now()) => {
     const candidate = stopCandidateRef.current;
     if (!candidate) return;
 
-    const durationSeconds = Math.floor((endedAt - candidate.startedAt) / 1000);
-    if (durationSeconds < STOP_MIN_SECONDS) {
-      stopCandidateRef.current = null;
-      return;
+    const idleSeconds = Math.floor((now - candidate.startedAt) / 1000);
+    if (idleSeconds < STOP_MIN_SECONDS) return;
+
+    const stopData = {
+      latitude: candidate.point.latitude,
+      longitude: candidate.point.longitude,
+      stoppedAt: new Date(candidate.startedAt).toISOString(),
+      durationSeconds: idleSeconds,
+    };
+
+    if (!candidate.recorded) {
+      stopsRef.current = [...stopsRef.current, stopData];
+      candidate.recorded = true;
+    } else {
+      const updatedStops = [...stopsRef.current];
+      updatedStops[updatedStops.length - 1] = stopData;
+      stopsRef.current = updatedStops;
     }
+    setStops([...stopsRef.current]);
+  }, []);
 
-    const alreadySaved = stopsRef.current.some(
-      (stop) =>
-        calculateDistanceKm(stop, candidate.point) < STOP_RADIUS_KM &&
-        Math.abs(new Date(stop.stoppedAt).getTime() - candidate.startedAt) < STOP_MIN_SECONDS * 1000,
-    );
+  const finalizeStop = useCallback((endedAt = Date.now()) => {
+    const candidate = stopCandidateRef.current;
+    if (!candidate) return;
 
-    if (!alreadySaved) {
-      const nextStops = [
-        ...stopsRef.current,
-        {
-          latitude: candidate.point.latitude,
-          longitude: candidate.point.longitude,
-          stoppedAt: new Date(candidate.startedAt).toISOString(),
-          durationSeconds,
-        },
-      ];
-      stopsRef.current = nextStops;
-      setStops(nextStops);
-      stoppedSecondsRef.current += durationSeconds;
-      setStoppedSeconds(stoppedSecondsRef.current);
+    const idleSeconds = Math.floor((endedAt - candidate.startedAt) / 1000);
+    if (idleSeconds >= STOP_MIN_SECONDS) {
+      const stopData = {
+        latitude: candidate.point.latitude,
+        longitude: candidate.point.longitude,
+        stoppedAt: new Date(candidate.startedAt).toISOString(),
+        durationSeconds: idleSeconds,
+      };
+
+      if (!candidate.recorded) {
+        stopsRef.current = [...stopsRef.current, stopData];
+      } else {
+        const updatedStops = [...stopsRef.current];
+        updatedStops[updatedStops.length - 1] = stopData;
+        stopsRef.current = updatedStops;
+      }
+      setStops([...stopsRef.current]);
+      stoppedSecondsRef.current += idleSeconds;
     }
 
     stopCandidateRef.current = null;
@@ -325,62 +358,105 @@ const EmployeeFieldWork = () => {
     }
 
     if (movedKm >= STOP_RADIUS_KM) {
-      saveStopIfNeeded(pointTime);
+      finalizeStop(pointTime);
       stopCandidateRef.current = { point, startedAt: pointTime };
     } else if (!stopCandidateRef.current) {
       stopCandidateRef.current = { point: lastPointRef.current, startedAt: pointTime };
     }
 
     setStoppedSeconds(getLiveStoppedSeconds(pointTime));
-  }, [getLiveStoppedSeconds, saveStopIfNeeded]);
+  }, [finalizeStop, getLiveStoppedSeconds]);
 
-  const postLocation = useCallback(async (tripId, point) => {
-    const moved = calculateDistanceKm(lastPointRef.current, point);
-    trackStopCandidate(point, moved);
-    setPoints((prev) => [...prev, point]);
+  const handleTrackingDisabled = useCallback(() => {
+    setTrackingEnabled(false);
+    setError("Admin turned off live tracking. Location posting has stopped.");
+    stopLocationInterval();
+    setIsTracking(false);
+  }, [stopLocationInterval]);
 
-    if (!lastPointRef.current || moved >= 0.01) {
-      distanceRef.current += moved;
-      setDistanceKm(distanceRef.current);
-      lastPointRef.current = point;
-    }
+  const sendLocationUpdate = useCallback(
+    async (tripId, point) => {
+      const payload = {
+        tripId,
+        point,
+        distanceKm: distanceRef.current,
+        stoppedSeconds: getLiveStoppedSeconds(),
+        stops: stopsRef.current,
+      };
 
-    await postFieldTripLocation(tripId, {
-      ...point,
-      distanceKm: distanceRef.current,
-      stoppedSeconds: getLiveStoppedSeconds(),
-    });
-  }, [getLiveStoppedSeconds, trackStopCandidate]);
+      const socket = socketRef.current;
+      if (socket?.connected) {
+        return new Promise((resolve, reject) => {
+          socket.emit("fieldTracking:postLocation", payload, (ack) => {
+            if (!ack?.ok) {
+              if (ack?.trackingDisabled) {
+                handleTrackingDisabled();
+              }
+              reject(new Error(ack?.message || "Failed to send location."));
+              return;
+            }
+            resolve(ack);
+          });
+        });
+      }
 
-  const startWatch = useCallback(
+      const result = await postFieldTripLocation(tripId, {
+        ...point,
+        distanceKm: distanceRef.current,
+        stoppedSeconds: getLiveStoppedSeconds(),
+        stops: stopsRef.current,
+      });
+      return result;
+    },
+    [getLiveStoppedSeconds, handleTrackingDisabled],
+  );
+
+  const captureAndSendLocation = useCallback(
+    async (tripId) => {
+      if (!tripId) return;
+
+      try {
+        const position = await getCurrentPosition();
+        const point = positionToPoint(position);
+        const moved = calculateDistanceKm(lastPointRef.current, point);
+
+        trackStopCandidate(point, moved);
+        setPoints((prev) => [...prev, point]);
+
+        if (!lastPointRef.current || moved >= 0.01) {
+          distanceRef.current += moved;
+          setDistanceKm(distanceRef.current);
+          lastPointRef.current = point;
+        }
+
+        await sendLocationUpdate(tripId, point);
+      } catch (err) {
+        console.error("Failed to capture/send field location:", err);
+        if (err.response?.data?.trackingDisabled) {
+          handleTrackingDisabled();
+          return;
+        }
+        setError(err.message || "Unable to read current location.");
+      }
+    },
+    [handleTrackingDisabled, sendLocationUpdate, trackStopCandidate],
+  );
+
+  const startLocationBroadcast = useCallback(
     (tripId) => {
       if (!navigator.geolocation) {
         setError("Geolocation is not supported on this device.");
         return;
       }
 
-      stopWatch();
-      watchRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          const point = positionToPoint(position);
-          postLocation(tripId, point).catch((err) => {
-            console.error("Failed to post field location:", err);
-            if (err.response?.data?.trackingDisabled) {
-              setTrackingEnabled(false);
-              setError("Admin turned off live tracking. Location posting has stopped.");
-              stopWatch();
-              setIsTracking(false);
-            }
-          });
-        },
-        (geoError) => {
-          console.error("Geolocation error:", geoError);
-          setError(geoError.message || "Unable to read current location.");
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
-      );
+      activeTripIdRef.current = tripId;
+      stopLocationInterval();
+      captureAndSendLocation(tripId);
+      locationIntervalRef.current = setInterval(() => {
+        captureAndSendLocation(activeTripIdRef.current);
+      }, LOCATION_INTERVAL_MS);
     },
-    [postLocation, stopWatch],
+    [captureAndSendLocation, stopLocationInterval],
   );
 
   const loadState = useCallback(async () => {
@@ -406,7 +482,7 @@ const EmployeeFieldWork = () => {
         startTimeRef.current = active.trip.startedAt ? new Date(active.trip.startedAt).getTime() : Date.now();
         if (setting.enabled) {
           setIsTracking(true);
-          startWatch(active.trip._id);
+          startLocationBroadcast(active.trip._id);
         }
       }
     } catch (err) {
@@ -415,22 +491,40 @@ const EmployeeFieldWork = () => {
     } finally {
       setLoading(false);
     }
-  }, [startWatch]);
+  }, [startLocationBroadcast]);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user?._id) return undefined;
+
+    const socket = io(SOCKET_URL, { transports: ["polling", "websocket"] });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("authenticate", user._id);
+    });
+
+    return () => {
+      stopLocationInterval();
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [stopLocationInterval]);
 
   useEffect(() => {
     loadState();
-    return () => stopWatch();
-  }, [loadState, stopWatch]);
+  }, [loadState]);
 
   useEffect(() => {
     if (!isTracking || !startTimeRef.current) return undefined;
     const timer = setInterval(() => {
       const now = Date.now();
-      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setElapsedSeconds(Math.floor((now - startTimeRef.current) / 1000));
       setStoppedSeconds(getLiveStoppedSeconds(now));
+      syncStopMarker(now);
     }, 1000);
     return () => clearInterval(timer);
-  }, [getLiveStoppedSeconds, isTracking]);
+  }, [getLiveStoppedSeconds, isTracking, syncStopMarker]);
 
   const handleStartTrip = async () => {
     try {
@@ -453,7 +547,7 @@ const EmployeeFieldWork = () => {
       startTimeRef.current = trip.startedAt ? new Date(trip.startedAt).getTime() : Date.now();
       setElapsedSeconds(0);
       setIsTracking(true);
-      startWatch(trip._id);
+      startLocationBroadcast(trip._id);
     } catch (err) {
       console.error("Failed to start field trip:", err);
       setError(err.response?.data?.message || err.message || "Unable to start field work.");
@@ -467,8 +561,8 @@ const EmployeeFieldWork = () => {
     try {
       setStopping(true);
       setError("");
-      stopWatch();
-      saveStopIfNeeded(Date.now());
+      stopLocationInterval();
+      finalizeStop(Date.now());
       const result = await stopFieldTrip(activeTrip._id, {
         distanceKm: distanceRef.current,
         stoppedSeconds: stoppedSecondsRef.current,
@@ -531,7 +625,7 @@ const EmployeeFieldWork = () => {
               <div>
                 <h1 className="text-3xl font-black text-slate-900">Field Work</h1>
                 <p className="text-sm font-semibold text-slate-500">
-                  Start a field trip and share live location coordinates with admin.
+                  Start a field trip and share your live route with admin.
                 </p>
               </div>
             </div>
@@ -618,8 +712,8 @@ const EmployeeFieldWork = () => {
                   <p className="mt-1 text-lg font-black text-slate-900">{distanceKm.toFixed(2)} km</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
-                  <p className="text-xs font-black uppercase text-slate-400">Points</p>
-                  <p className="mt-1 text-lg font-black text-slate-900">{points.length}</p>
+                  <p className="text-xs font-black uppercase text-slate-400">Stops</p>
+                  <p className="mt-1 text-lg font-black text-slate-900">{stops.length}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-xs font-black uppercase text-slate-400">Stopped</p>
@@ -633,65 +727,15 @@ const EmployeeFieldWork = () => {
                 <div>
                   <h2 className="text-lg font-black text-slate-900">Current Trip</h2>
                   <p className="text-sm font-semibold text-slate-500">
-                    {activeTrip ? `Trip ${activeTrip._id}` : "No trip started yet."}
+                    {isTracking ? "Live route in progress" : activeTrip ? "Trip completed" : "No trip started yet."}
                   </p>
                 </div>
                 <Route className="text-blue-600" size={24} />
               </div>
 
               {latestPoint ? (
-                <div className="grid gap-4 xl:grid-cols-[1fr_280px]">
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                    <LiveTripMap path={points} stops={stops} currentPoint={latestPoint} isActiveTrip={isTracking} />
-                  </div>
-                  <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-slate-400">
-                        <MapPin size={15} className="text-emerald-600" />
-                        Latest coordinate
-                      </div>
-                      <p className="text-xs font-bold text-slate-700">
-                        {Number(latestPoint.latitude).toFixed(6)}, {Number(latestPoint.longitude).toFixed(6)}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-slate-500">
-                        Accuracy: {latestPoint.accuracy ? `${Math.round(latestPoint.accuracy)} m` : "--"}
-                      </p>
-                      {mapLink && (
-                        <a
-                          href={mapLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-3 inline-flex rounded-lg bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-slate-800"
-                        >
-                          Open in Google Maps
-                        </a>
-                      )}
-                    </div>
-
-                    {stops.length > 0 && (
-                      <div className="rounded-xl border border-red-100 bg-red-50 p-3">
-                        <p className="mb-2 text-xs font-black uppercase text-red-500">Stopped locations</p>
-                        <div className="space-y-2">
-                          {stops.map((stop, index) => (
-                            <div key={`${stop.stoppedAt}-${index}`} className="rounded-lg bg-white p-2 text-xs font-semibold text-slate-600">
-                              <p className="font-black text-red-600">Stop {index + 1}</p>
-                              <p>{Number(stop.latitude).toFixed(5)}, {Number(stop.longitude).toFixed(5)}</p>
-                              <p>{formatDuration(stop.durationSeconds)}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {points.map((point, index) => (
-                      <div key={`${point.recordedAt}-${index}`} className="rounded-xl border border-slate-200 p-3">
-                        <p className="text-xs font-black text-slate-400">Point {index + 1}</p>
-                        <p className="mt-1 text-xs font-bold text-slate-700">
-                          {Number(point.latitude).toFixed(5)}, {Number(point.longitude).toFixed(5)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                  <LiveTripMap path={points} stops={stops} currentPoint={latestPoint} isActiveTrip={isTracking} />
                 </div>
               ) : (
                 <div className="flex min-h-[360px] items-center justify-center rounded-2xl bg-slate-50 text-center">
@@ -758,22 +802,20 @@ const EmployeeFieldWork = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-                <div className="space-y-4">
-                  {/* Map panel */}
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h2 className="mb-4 text-lg font-black text-slate-900">Trip Path Map</h2>
-                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                      <LiveTripMap
-                        path={selectedHistoryTrip.path}
-                        stops={selectedHistoryTrip.stops}
-                        currentPoint={null}
-                        isActiveTrip={selectedHistoryTrip.status === "active"}
-                      />
-                    </div>
+              <div className="space-y-5">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="mb-4 text-lg font-black text-slate-900">Trip Route</h2>
+                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                    <LiveTripMap
+                      path={selectedHistoryTrip.path}
+                      stops={selectedHistoryTrip.stops}
+                      currentPoint={selectedHistoryTrip.path?.[selectedHistoryTrip.path.length - 1] || null}
+                      isActiveTrip={selectedHistoryTrip.status === "active"}
+                    />
                   </div>
+                </div>
 
-                  {/* List of trips on this date */}
+                <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h2 className="mb-4 text-lg font-black text-slate-900">Trips on {historyDate}</h2>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -783,105 +825,70 @@ const EmployeeFieldWork = () => {
                           type="button"
                           onClick={() => setSelectedHistoryTripId(trip._id)}
                           className={`flex flex-col rounded-xl border p-4 text-left transition ${
-                            (selectedHistoryTrip?._id === trip._id)
+                            selectedHistoryTrip?._id === trip._id
                               ? "border-emerald-500 bg-emerald-50/40"
                               : "border-slate-200 hover:border-slate-300"
                           }`}
                         >
-                          <span className={`self-start rounded-full px-2 py-0.5 text-[10px] font-black uppercase mb-2 ${
-                            trip.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-                          }`}>
+                          <span
+                            className={`mb-2 self-start rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                              trip.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
                             {trip.status}
                           </span>
                           <span className="text-xs font-semibold text-slate-500">
-                            Start: {new Date(trip.startedAt).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })}
+                            Start: {new Date(trip.startedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                           <span className="text-xs font-semibold text-slate-500">
-                            End: {trip.endedAt ? new Date(trip.endedAt).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : "Active"}
+                            End: {trip.endedAt ? new Date(trip.endedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "Active"}
                           </span>
-                          <span className="mt-2 text-sm font-black text-slate-900">
-                            {(trip.distanceKm || 0).toFixed(2)} km
-                          </span>
+                          <span className="mt-2 text-sm font-black text-slate-900">{(trip.distanceKm || 0).toFixed(2)} km</span>
                         </button>
                       ))}
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  {/* Trip details card */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-900">
-                      <Route size={18} className="text-blue-600" />
-                      Trip Summary
-                    </div>
-                    <div className="space-y-2 text-sm font-semibold text-slate-600">
-                      <p>Started: {new Date(selectedHistoryTrip.startedAt).toLocaleString("en-IN")}</p>
-                      <p>Ended: {selectedHistoryTrip.endedAt ? new Date(selectedHistoryTrip.endedAt).toLocaleString("en-IN") : "Active"}</p>
-                      <p>Distance: {(selectedHistoryTrip.distanceKm || 0).toFixed(2)} km</p>
-                      <p>Stopped: {formatDuration(selectedHistoryTrip.stoppedSeconds)}</p>
-                      <p>Stops: {selectedHistoryTrip.stops?.length || 0}</p>
-                    </div>
-                  </div>
-
-                  {/* Stops Card */}
-                  {selectedHistoryTrip.stops?.length > 0 && (
+                  <div className="space-y-4">
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="mb-3 flex items-center gap-2 text-sm font-black text-red-700">
-                        <MapPin size={18} />
-                        Stopped Locations
+                      <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-900">
+                        <Route size={18} className="text-blue-600" />
+                        Trip Summary
                       </div>
-                      <div className="max-h-[200px] space-y-2 overflow-y-auto pr-1">
-                        {selectedHistoryTrip.stops.map((stop, index) => (
-                          <a
-                            key={`${stop.stoppedAt}-${index}`}
-                            href={`https://www.google.com/maps?q=${stop.latitude},${stop.longitude}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-red-300"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
-                              <span className="text-[10px] font-semibold text-slate-500">
-                                {stop.stoppedAt ? new Date(stop.stoppedAt).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : "--"}
-                              </span>
-                            </div>
-                            <p className="mt-1 text-xs font-bold text-slate-700">
-                              {Number(stop.latitude).toFixed(6)}, {Number(stop.longitude).toFixed(6)}
-                            </p>
-                            <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                              Duration: {formatDuration(stop.durationSeconds)}
-                            </p>
-                          </a>
-                        ))}
+                      <div className="space-y-2 text-sm font-semibold text-slate-600">
+                        <p>Started: {new Date(selectedHistoryTrip.startedAt).toLocaleString("en-IN")}</p>
+                        <p>Ended: {selectedHistoryTrip.endedAt ? new Date(selectedHistoryTrip.endedAt).toLocaleString("en-IN") : "Active"}</p>
+                        <p>Distance: {(selectedHistoryTrip.distanceKm || 0).toFixed(2)} km</p>
+                        <p>Stopped: {formatDuration(selectedHistoryTrip.stoppedSeconds)}</p>
+                        <p>Stops: {selectedHistoryTrip.stops?.length || 0}</p>
                       </div>
                     </div>
-                  )}
 
-                  {/* Coordinates Log */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h3 className="mb-3 text-sm font-black text-slate-900">Coordinates Log</h3>
-                    <div className="max-h-[300px] space-y-2 overflow-y-auto pr-1">
-                      {selectedHistoryTrip.path?.map((point, index) => (
-                        <a
-                          key={`${point.recordedAt}-${index}`}
-                          href={`https://www.google.com/maps?q=${point.latitude},${point.longitude}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block rounded-xl border border-slate-200 p-3 transition hover:border-blue-300 hover:bg-blue-50"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-[10px] font-black text-slate-400">Point {index + 1}</span>
-                            <span className="text-[10px] font-semibold text-slate-500">
-                              {point.recordedAt ? new Date(point.recordedAt).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : "--"}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs font-bold text-slate-700">
-                            {Number(point.latitude).toFixed(6)}, {Number(point.longitude).toFixed(6)}
-                          </p>
-                        </a>
-                      ))}
-                    </div>
+                    {selectedHistoryTrip.stops?.length > 0 && (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="mb-3 flex items-center gap-2 text-sm font-black text-red-700">
+                          <MapPin size={18} />
+                          Stopped Locations
+                        </div>
+                        <div className="space-y-2">
+                          {selectedHistoryTrip.stops.map((stop, index) => (
+                            <div key={`${stop.stoppedAt}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {stop.stoppedAt
+                                    ? new Date(stop.stoppedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                                    : "--"}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                                Duration: {formatDuration(stop.durationSeconds)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

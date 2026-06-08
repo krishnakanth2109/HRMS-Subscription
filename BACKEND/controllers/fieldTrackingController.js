@@ -60,10 +60,100 @@ const formatTrip = (trip) => ({
   updatedAt: trip.updatedAt,
 });
 
-const emitFieldTrackingEvent = (req, adminId, event, payload) => {
-  const io = req.app.get("io");
+const emitFieldTrackingEvent = (io, adminId, event, payload) => {
   if (!io || !adminId) return;
   io.to(`user_${adminId.toString()}`).emit(event, payload);
+};
+
+const normalizeStops = (stops = []) =>
+  (Array.isArray(stops) ? stops : [])
+    .map((stop) => {
+      const coordinate = normalizeCoordinate({
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        recordedAt: stop.stoppedAt,
+      });
+      if (!coordinate) return null;
+      return {
+        latitude: coordinate.latitude,
+        longitude: coordinate.longitude,
+        stoppedAt: coordinate.recordedAt,
+        durationSeconds: Number(stop.durationSeconds) || 0,
+      };
+    })
+    .filter(Boolean);
+
+export const recordFieldWorkLocationForEmployee = async ({
+  employee,
+  tripId,
+  body = {},
+  io = null,
+}) => {
+  const setting = await FieldTrackingSetting.findOne({ adminId: employee.adminId }).lean();
+  if (!setting?.enabled) {
+    return {
+      error: {
+        status: 403,
+        trackingDisabled: true,
+        message: "Live tracking is currently off. Location was not recorded.",
+      },
+    };
+  }
+
+  const point = normalizeCoordinate(body);
+  if (!point) {
+    return { error: { status: 400, message: "Valid latitude and longitude are required." } };
+  }
+
+  const query = {
+    employee: employee._id,
+    status: "active",
+  };
+
+  if (tripId && mongoose.Types.ObjectId.isValid(tripId)) {
+    query._id = tripId;
+  }
+
+  const updateSet = {
+    distanceKm: Number(body.distanceKm) || 0,
+    stoppedSeconds: Number(body.stoppedSeconds) || 0,
+  };
+
+  if (Array.isArray(body.stops)) {
+    updateSet.stops = normalizeStops(body.stops);
+  }
+
+  const trip = await FieldWorkTrip.findOneAndUpdate(
+    query,
+    {
+      $push: { path: point },
+      $set: updateSet,
+    },
+    { new: true },
+  );
+
+  if (!trip) {
+    return { error: { status: 404, message: "No active field work trip found." } };
+  }
+
+  const payload = {
+    tripId: trip._id,
+    employee: employee._id,
+    employeeId: employee.employeeId,
+    employeeName: employee.name,
+    point,
+    pathLength: trip.path?.length || 0,
+    distanceKm: trip.distanceKm || 0,
+    stoppedSeconds: trip.stoppedSeconds || 0,
+    stops: trip.stops || [],
+    status: trip.status,
+    startedAt: trip.startedAt,
+    updatedAt: trip.updatedAt,
+  };
+
+  emitFieldTrackingEvent(io, employee.adminId, "fieldTracking:location", payload);
+
+  return { trip: formatTrip(trip), payload };
 };
 
 export const getFieldTrackingSetting = async (req, res) => {
@@ -202,7 +292,7 @@ export const startFieldWorkTrip = async (req, res) => {
     });
 
     if (activeTrip) {
-      emitFieldTrackingEvent(req, adminId, "fieldTracking:tripStarted", {
+      emitFieldTrackingEvent(req.app.get("io"), adminId, "fieldTracking:tripStarted", {
         trip: formatTrip(activeTrip),
       });
       return res.json({ message: "Active field work trip resumed.", trip: formatTrip(activeTrip) });
@@ -220,7 +310,7 @@ export const startFieldWorkTrip = async (req, res) => {
       path: firstPoint ? [firstPoint] : [],
     });
 
-    emitFieldTrackingEvent(req, adminId, "fieldTracking:tripStarted", {
+    emitFieldTrackingEvent(req.app.get("io"), adminId, "fieldTracking:tripStarted", {
       trip: formatTrip(trip),
     });
 
@@ -237,61 +327,22 @@ export const postFieldWorkLocation = async (req, res) => {
       return res.status(403).json({ message: "Only employees can post field locations." });
     }
 
-    const employee = req.user;
-    const setting = await FieldTrackingSetting.findOne({ adminId: employee.adminId }).lean();
-    if (!setting?.enabled) {
-      return res.status(403).json({
-        trackingDisabled: true,
-        message: "Live tracking is currently off. Location was not recorded.",
+    const tripId = req.params.tripId || req.body.tripId;
+    const result = await recordFieldWorkLocationForEmployee({
+      employee: req.user,
+      tripId,
+      body: req.body || {},
+      io: req.app.get("io"),
+    });
+
+    if (result.error) {
+      return res.status(result.error.status).json({
+        trackingDisabled: result.error.trackingDisabled,
+        message: result.error.message,
       });
     }
 
-    const point = normalizeCoordinate(req.body || {});
-    if (!point) {
-      return res.status(400).json({ message: "Valid latitude and longitude are required." });
-    }
-
-    const tripId = req.params.tripId || req.body.tripId;
-    const query = {
-      employee: employee._id,
-      status: "active",
-    };
-
-    if (tripId && mongoose.Types.ObjectId.isValid(tripId)) {
-      query._id = tripId;
-    }
-
-    const trip = await FieldWorkTrip.findOneAndUpdate(
-      query,
-      {
-        $push: { path: point },
-        $set: {
-          distanceKm: Number(req.body.distanceKm) || 0,
-          stoppedSeconds: Number(req.body.stoppedSeconds) || 0,
-        },
-      },
-      { new: true },
-    );
-
-    if (!trip) {
-      return res.status(404).json({ message: "No active field work trip found." });
-    }
-
-    emitFieldTrackingEvent(req, employee.adminId, "fieldTracking:location", {
-      tripId: trip._id,
-      employee: employee._id,
-      employeeId: employee.employeeId,
-      employeeName: employee.name,
-      point,
-      pathLength: trip.path?.length || 0,
-      distanceKm: trip.distanceKm || 0,
-      stoppedSeconds: trip.stoppedSeconds || 0,
-      status: trip.status,
-      startedAt: trip.startedAt,
-      updatedAt: trip.updatedAt,
-    });
-
-    return res.json({ message: "Location recorded.", trip: formatTrip(trip) });
+    return res.json({ message: "Location recorded.", trip: result.trip });
   } catch (error) {
     console.error("Error posting field work location:", error);
     return res.status(500).json({ message: "Failed to record location." });
@@ -345,7 +396,7 @@ export const stopFieldWorkTrip = async (req, res) => {
       return res.status(404).json({ message: "Active trip not found." });
     }
 
-    emitFieldTrackingEvent(req, employee.adminId, "fieldTracking:tripStopped", {
+    emitFieldTrackingEvent(req.app.get("io"), employee.adminId, "fieldTracking:tripStopped", {
       trip: formatTrip(trip),
     });
 

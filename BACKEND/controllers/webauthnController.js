@@ -23,14 +23,14 @@ const getRpId = (req) => {
   if (process.env.WEBAUTHN_RP_ID) {
     return process.env.WEBAUTHN_RP_ID;
   }
-  
+
   // 2. Extract from request Origin header (sent with POST requests)
   if (req.headers.origin) {
     try {
       return new URL(req.headers.origin).hostname;
     } catch { /* fall through */ }
   }
-  
+
   // 3. Extract from request Referer header
   if (req.headers.referer) {
     try {
@@ -44,7 +44,7 @@ const getRpId = (req) => {
       return new URL(process.env.FRONTEND_URL).hostname;
     } catch { /* fall through */ }
   }
-  
+
   // 5. Fallback to request host header (works for localhost dev)
   return req.headers.host?.split(":")[0] || "localhost";
 };

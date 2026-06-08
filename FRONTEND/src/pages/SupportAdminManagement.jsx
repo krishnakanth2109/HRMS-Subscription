@@ -758,14 +758,14 @@ const SupportAdminManagement = () => {
           </div>
 
           <div>
-              <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
-              <input
-                type="text"
-                required
-                value={editAdminForm.name}
-                onChange={(event) => setEditAdminForm({ ...editAdminForm, name: event.target.value })}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-              />
+            <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Full Name</label>
+            <input
+              type="text"
+              required
+              value={editAdminForm.name}
+              onChange={(event) => setEditAdminForm({ ...editAdminForm, name: event.target.value })}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
+            />
           </div>
 
           <div>
@@ -964,11 +964,10 @@ const SupportAdminManagement = () => {
           <button
             type="button"
             onClick={() => setIsFeatureModalOpen(false)}
-            className={`w-full rounded-xl py-3 font-bold text-white shadow-lg transition-all ${
-              featureModalMode === "create"
+            className={`w-full rounded-xl py-3 font-bold text-white shadow-lg transition-all ${featureModalMode === "create"
                 ? "bg-purple-600 shadow-purple-200 hover:bg-purple-700"
                 : "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
-            }`}
+              }`}
           >
             Done
           </button>

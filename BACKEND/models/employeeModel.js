@@ -12,7 +12,7 @@ const experienceSchema = new mongoose.Schema({
   lastWorkingDate: String,
   salary: Number,
   reason: String,
-  experienceLetterUrl: String, 
+  experienceLetterUrl: String,
   employmentType: String,
 });
 
@@ -23,8 +23,8 @@ const personalSchema = new mongoose.Schema({
   nationality: String,
   panNumber: String,
   aadhaarNumber: String,
-  aadhaarFileUrl: String, 
-  panFileUrl: String,     
+  aadhaarFileUrl: String,
+  panFileUrl: String,
 });
 
 const bankSchema = new mongoose.Schema({
@@ -46,10 +46,10 @@ const companyDocumentSchema = new mongoose.Schema({
 // Main Employee Schema
 const EmployeeSchema = new mongoose.Schema({
   // HIERARCHY: Links to Admin and Company
-  adminId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "Admin", 
-    required: true 
+  adminId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Admin",
+    required: true
   },
   company: {
     type: mongoose.Schema.Types.ObjectId,
@@ -71,19 +71,19 @@ const EmployeeSchema = new mongoose.Schema({
     select: false,
     default: null, // Can be null if created by admin and not yet activated
   },
-  
+
   phone: String,
   address: String,
-  emergency: String, 
-  emergencyPhone: String, 
-  
+  emergency: String,
+  emergencyPhone: String,
+
   /* ==================== LOGIN ACCESS CONTROL ==================== */
   loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle per-employee
 
   // STATUS & DEACTIVATION
   isActive: { type: Boolean, default: true },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
-  
+
   deactivationDate: { type: String, default: null },
   deactivationReason: { type: String, default: null },
   reactivationDate: { type: String, default: null },
