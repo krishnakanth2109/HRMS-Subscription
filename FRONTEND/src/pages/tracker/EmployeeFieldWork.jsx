@@ -134,6 +134,30 @@ const startPinIcon = createMapPinIcon("#16a34a");
 const currentPinIcon = createMapPinIcon("#2563eb");
 const endPinIcon = createMapPinIcon("#f97316");
 
+const createArrowIcon = (angle) =>
+  L.divIcon({
+    className: "",
+    html: `<div style="
+      transform: rotate(${angle}deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background-color: #10B981;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    ">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+        <polyline points="12 5 19 12 12 19"></polyline>
+      </svg>
+    </div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+
 const ResizeAndFitMap = ({ positions, currentPosition }) => {
   const map = useMap();
 
@@ -164,11 +188,106 @@ const LiveTripMap = ({ path = [], stops = [], currentPoint = null, isActiveTrip 
   const routePoints = useMemo(() => path.map(normalizeMapPoint).filter(Boolean), [path]);
   const stopPoints = useMemo(() => stops.map(normalizeMapPoint).filter(Boolean), [stops]);
   const currentMapPoint = useMemo(() => normalizeMapPoint(currentPoint), [currentPoint]);
-  const routePositions = routePoints.map((point) => point.position);
-  const visibleRoutePositions = routePositions;
+  const routePositions = useMemo(() => routePoints.map((point) => point.position), [routePoints]);
+
+  const [osrmPath, setOsrmPath] = useState([]);
+  
+  const startPos = routePositions[0] || null;
+  const endPos = routePositions[routePositions.length - 1] || null;
+
+  const pathKey = useMemo(() => {
+    const parts = [];
+    if (startPos) parts.push(`${startPos[0]},${startPos[1]}`);
+    stopPoints.forEach((s) => {
+      if (s.position) parts.push(`${s.position[0]},${s.position[1]}`);
+    });
+    if (endPos) parts.push(`${endPos[0]},${endPos[1]}`);
+    return parts.join(";");
+  }, [startPos, endPos, stopPoints]);
+
+  useEffect(() => {
+    if (routePositions.length < 2) {
+      setOsrmPath([]);
+      return;
+    }
+
+    let active = true;
+    const fetchRoute = async () => {
+      try {
+        const waypoints = [];
+        if (startPos) waypoints.push(startPos);
+
+        stopPoints.forEach((stop) => {
+          const pos = stop.position;
+          const last = waypoints[waypoints.length - 1];
+          if (last && (Math.abs(pos[0] - last[0]) > 1e-6 || Math.abs(pos[1] - last[1]) > 1e-6)) {
+            waypoints.push(pos);
+          }
+        });
+
+        if (endPos) {
+          const last = waypoints[waypoints.length - 1];
+          if (!last || (Math.abs(endPos[0] - last[0]) > 1e-6 || Math.abs(endPos[1] - last[1]) > 1e-6)) {
+            waypoints.push(endPos);
+          }
+        }
+
+        if (waypoints.length < 2) {
+          setOsrmPath([]);
+          return;
+        }
+
+        const coordsString = waypoints.map((p) => `${p[1]},${p[0]}`).join(";");
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error("OSRM route fetch failed");
+        }
+        const data = await res.json();
+        if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
+          const snapped = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+          if (active) {
+            setOsrmPath(snapped);
+          }
+        }
+      } catch (err) {
+        console.error("OSRM Routing failed, falling back to straight breadcrumbs:", err);
+      }
+    };
+
+    fetchRoute();
+    return () => {
+      active = false;
+    };
+  }, [pathKey, routePositions]);
+
+  const polylinePositions = osrmPath.length > 0 ? osrmPath : routePositions;
+
+  const arrowMarkers = useMemo(() => {
+    if (polylinePositions.length < 2) return [];
+    const markers = [];
+    const step = Math.max(5, Math.floor(polylinePositions.length / 8));
+    for (let i = 0; i < polylinePositions.length - 1; i += step) {
+      const current = polylinePositions[i];
+      const nextIndex = Math.min(i + 1, polylinePositions.length - 1);
+      const next = polylinePositions[nextIndex];
+      const latDiff = next[0] - current[0];
+      const lngDiff = next[1] - current[1];
+      if (Math.abs(latDiff) > 1e-7 || Math.abs(lngDiff) > 1e-7) {
+        const angle = -Math.atan2(latDiff, lngDiff) * 180 / Math.PI;
+        markers.push({
+          position: current,
+          angle,
+          key: `arrow-${i}`
+        });
+      }
+    }
+    return markers;
+  }, [polylinePositions]);
+
   const currentPosition = currentMapPoint?.position || routePositions[routePositions.length - 1] || null;
   const allPositions = [
-    ...visibleRoutePositions,
+    ...routePositions,
     ...stopPoints.map((point) => point.position),
     ...(currentPosition ? [currentPosition] : []),
   ];
@@ -182,9 +301,18 @@ const LiveTripMap = ({ path = [], stops = [], currentPoint = null, isActiveTrip 
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
-      {visibleRoutePositions.length > 1 && (
-        <Polyline positions={visibleRoutePositions} pathOptions={{ color: "#2563eb", weight: 5, opacity: 0.85 }} />
+      {polylinePositions.length > 1 && (
+        <Polyline positions={polylinePositions} pathOptions={{ color: "#10B981", weight: 5, opacity: 0.85 }} />
       )}
+
+      {arrowMarkers.map((arrow) => (
+        <Marker
+          key={arrow.key}
+          position={arrow.position}
+          icon={createArrowIcon(arrow.angle)}
+          interactive={false}
+        />
+      ))}
 
       {routePoints[0] && (
         <Marker position={routePoints[0].position} icon={startPinIcon}>
@@ -266,7 +394,7 @@ const EmployeeFieldWork = () => {
   const [selectedHistoryTripId, setSelectedHistoryTripId] = useState(null);
 
   const socketRef = useRef(null);
-  const locationIntervalRef = useRef(null);
+  const locationWatchRef = useRef(null);
   const activeTripIdRef = useRef(null);
   const lastPointRef = useRef(null);
   const startTimeRef = useRef(null);
@@ -277,10 +405,10 @@ const EmployeeFieldWork = () => {
 
   const latestPoint = points[points.length - 1] || null;
 
-  const stopLocationInterval = useCallback(() => {
-    if (locationIntervalRef.current) {
-      clearInterval(locationIntervalRef.current);
-      locationIntervalRef.current = null;
+  const stopLocationWatch = useCallback(() => {
+    if (locationWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = null;
     }
   }, []);
 
@@ -370,9 +498,9 @@ const EmployeeFieldWork = () => {
   const handleTrackingDisabled = useCallback(() => {
     setTrackingEnabled(false);
     setError("Admin turned off live tracking. Location posting has stopped.");
-    stopLocationInterval();
+    stopLocationWatch();
     setIsTracking(false);
-  }, [stopLocationInterval]);
+  }, [stopLocationWatch]);
 
   const sendLocationUpdate = useCallback(
     async (tripId, point) => {
@@ -411,12 +539,12 @@ const EmployeeFieldWork = () => {
     [getLiveStoppedSeconds, handleTrackingDisabled],
   );
 
-  const captureAndSendLocation = useCallback(
-    async (tripId) => {
+  const handleWatchPositionUpdate = useCallback(
+    async (position) => {
+      const tripId = activeTripIdRef.current;
       if (!tripId) return;
 
       try {
-        const position = await getCurrentPosition();
         const point = positionToPoint(position);
         const moved = calculateDistanceKm(lastPointRef.current, point);
 
@@ -431,7 +559,7 @@ const EmployeeFieldWork = () => {
 
         await sendLocationUpdate(tripId, point);
       } catch (err) {
-        console.error("Failed to capture/send field location:", err);
+        console.error("Failed to handle field location update:", err);
         if (err.response?.data?.trackingDisabled) {
           handleTrackingDisabled();
           return;
@@ -450,13 +578,25 @@ const EmployeeFieldWork = () => {
       }
 
       activeTripIdRef.current = tripId;
-      stopLocationInterval();
-      captureAndSendLocation(tripId);
-      locationIntervalRef.current = setInterval(() => {
-        captureAndSendLocation(activeTripIdRef.current);
-      }, LOCATION_INTERVAL_MS);
+      stopLocationWatch();
+
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          handleWatchPositionUpdate(position);
+        },
+        (err) => {
+          console.error("Failed to capture field location:", err);
+          setError(err.message || "Unable to read current location.");
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 10000,
+        }
+      );
+      locationWatchRef.current = watchId;
     },
-    [captureAndSendLocation, stopLocationInterval],
+    [handleWatchPositionUpdate, stopLocationWatch],
   );
 
   const loadState = useCallback(async () => {
@@ -505,11 +645,11 @@ const EmployeeFieldWork = () => {
     });
 
     return () => {
-      stopLocationInterval();
+      stopLocationWatch();
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [stopLocationInterval]);
+  }, [stopLocationWatch]);
 
   useEffect(() => {
     loadState();
@@ -561,7 +701,7 @@ const EmployeeFieldWork = () => {
     try {
       setStopping(true);
       setError("");
-      stopLocationInterval();
+      stopLocationWatch();
       finalizeStop(Date.now());
       const result = await stopFieldTrip(activeTrip._id, {
         distanceKm: distanceRef.current,
