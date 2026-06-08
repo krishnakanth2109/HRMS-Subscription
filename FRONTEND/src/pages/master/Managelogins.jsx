@@ -509,7 +509,7 @@ export default function ManageLogins() {
                           <span>Plan: <span className="text-gray-800">{admin.plan || "N/A"}</span></span>
                           <span>Expires: <span className={expired ? "text-rose-500" : "text-gray-800"}>{formatDate(admin.planExpiresAt)}</span></span>
                           <span className="flex items-center gap-1">
-                            Staff Total: <span className="text-gray-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.userLimit ? `/ ${admin.userLimit}` : ''}</span>
+                            Staff Total: <span className="text-gray-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.plan?.toLowerCase() === 'owner' ? '/ Unlimited' : (admin.userLimit ? `/ ${admin.userLimit}` : '')}</span>
                           </span>
                         </div>
                       </div>

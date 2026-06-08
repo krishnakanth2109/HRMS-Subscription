@@ -797,10 +797,11 @@ const AdminProfile = () => {
   }
 
   const planExpiry = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
+  const isOwnerPlan = profile?.plan ? profile.plan.toLowerCase() === "owner" : false;
   const isFreePlan = profile?.plan ? profile.plan.toLowerCase().includes("free") : true;
-  const isBillPayable = !isFreePlan && planExpiry ? new Date() >= planExpiry : false;
+  const isBillPayable = !isFreePlan && !isOwnerPlan && planExpiry ? new Date() >= planExpiry : false;
 
-  const isGracePeriod = !isFreePlan && planExpiry && new Date() > planExpiry && new Date() <= new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const isGracePeriod = !isFreePlan && !isOwnerPlan && planExpiry && new Date() > planExpiry && new Date() <= new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000);
   const daysLeftInGrace = planExpiry ? Math.ceil((new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
 
   return (
@@ -1031,7 +1032,7 @@ const AdminProfile = () => {
                 </div>
 
                 <div className="bg-gray-50 rounded-xl border border-gray-100 flex flex-col justify-between overflow-hidden">
-                  {!isFreePlan && (
+                  {!isFreePlan && !isOwnerPlan && (
                     <button
                       onClick={openAddonModal}
                       className="flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black px-3 py-2 transition-all uppercase tracking-widest w-full"
@@ -1043,22 +1044,28 @@ const AdminProfile = () => {
                   <div className="p-6">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">User Limit</p>
                     <h4 className="text-2xl font-black text-indigo-600 capitalize">
-                      {profile?.effectiveUserLimit || profile?.userLimit || 30} Users
+                      {isOwnerPlan ? "Unlimited" : `${profile?.effectiveUserLimit || profile?.userLimit || 30} Users`}
                     </h4>
-                    {(profile?.activeAddonTotal || 0) > 0 && (
+                    {!isOwnerPlan && (profile?.activeAddonTotal || 0) > 0 && (
                       <p className="text-[10px] text-indigo-400 font-bold mt-0.5">
                         Base {profile?.userLimit || 30} + {profile?.activeAddonTotal} Add-on
                       </p>
                     )}
                     <div className="mt-4 pt-3 border-t border-gray-200/60 flex items-center justify-between text-xs font-bold text-slate-600">
                       <span>Remaining:</span>
-                      <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${
-                        (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
-                          ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
-                          : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                      }`}>
-                        {Math.max(0, (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
-                      </span>
+                      {isOwnerPlan ? (
+                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
+                          Unlimited
+                        </span>
+                      ) : (
+                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${
+                          (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
+                            ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
+                            : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                        }`}>
+                          {Math.max(0, (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1266,7 +1273,7 @@ const AdminProfile = () => {
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-gray-500 font-bold uppercase tracking-wider">Base User Limit</span>
-            <span className="text-indigo-700 font-black">{profile?.userLimit || 30} Users</span>
+            <span className="text-indigo-700 font-black">{isOwnerPlan ? "Unlimited" : `${profile?.userLimit || 30} Users`}</span>
           </div>
           {(profile?.activeAddonTotal || 0) > 0 && (
             <div className="flex justify-between text-xs">

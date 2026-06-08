@@ -20,6 +20,15 @@ const checkUserLimit = async (adminId) => {
   const admin = await Admin.findById(adminId);
   if (!admin) return { allowed: true };
 
+  // If the admin is on the Owner plan, they have unlimited user limit!
+  const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+  if (planSetting && (planSetting.isOwnerPlan || planSetting.isUnlimited)) {
+    return { allowed: true };
+  }
+  if (admin.plan && admin.plan.toLowerCase() === 'owner') {
+    return { allowed: true };
+  }
+
   let maxUsers = admin.userLimit || null;
   if (maxUsers === null) {
     const planSetting = await PlanSetting.findOne({ planName: admin.plan });

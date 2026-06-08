@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaCalendarAlt, FaChevronDown, FaFilter, FaListUl, FaSyncAlt, FaThLarge } from "react-icons/fa";
 import Swal from "sweetalert2"; // ✅ ADDED: SweetAlert import
 import ModalWrapper from "../components/ModalWrapper";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 import api, {
   getLeaveRequestsForEmployee,
@@ -123,6 +125,19 @@ const toISODateString = (date) => {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const getDayOfWeek = (dateStr) => {
+  if (!dateStr) return -1;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const d = new Date(year, month - 1, day);
+  return d.getDay();
+};
+
+const parseISODate = (dateStr) => {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
 };
 
 const EmployeeLeavemanagement = () => {
@@ -1052,6 +1067,17 @@ const EmployeeLeavemanagement = () => {
       setSubmitError("All fields are required.");
       return;
     }
+
+    if (getDayOfWeek(from) === 0 || getDayOfWeek(to) === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sunday Selected',
+        text: 'Sundays are week offs. Start and end dates cannot be Sundays.',
+        confirmButtonColor: '#3085d6'
+      });
+      setSubmitError("Start and end dates cannot be Sundays.");
+      return;
+    }
     
     // First check for sandwich warning (only if admin has the feature ON)
     if (sandwichLeaveEnabled && sandwichWarning && sandwichWarning.length > 0) {
@@ -1937,24 +1963,40 @@ const EmployeeLeavemanagement = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">From Date</label>
-              <input 
-                type="date" 
-                name="from" 
-                value={form.from} 
-                onChange={handleChange}
-                min={minSelectionDate}
+              <DatePicker
+                selected={parseISODate(form.from)}
+                onChange={(date) => {
+                  if (!date) {
+                    handleChange({ target: { name: "from", value: "" } });
+                    return;
+                  }
+                  handleChange({ target: { name: "from", value: formatDate(date) } });
+                }}
+                minDate={parseISODate(minSelectionDate)}
+                filterDate={(date) => date.getDay() !== 0}
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                dateFormat="dd-MM-yyyy"
+                placeholderText="Select Start Date"
+                wrapperClassName="w-full"
               />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">To Date</label>
-              <input 
-                type="date" 
-                name="to" 
-                value={form.to} 
-                onChange={handleChange}
-                min={form.from || minSelectionDate}
+              <DatePicker
+                selected={parseISODate(form.to)}
+                onChange={(date) => {
+                  if (!date) {
+                    handleChange({ target: { name: "to", value: "" } });
+                    return;
+                  }
+                  handleChange({ target: { name: "to", value: formatDate(date) } });
+                }}
+                minDate={form.from ? parseISODate(form.from) : parseISODate(minSelectionDate)}
+                filterDate={(date) => date.getDay() !== 0}
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition duration-200"
+                dateFormat="dd-MM-yyyy"
+                placeholderText="Select End Date"
+                wrapperClassName="w-full"
               />
             </div>
           </div>

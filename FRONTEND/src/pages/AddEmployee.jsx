@@ -391,13 +391,11 @@ const AddEmployee = () => {
     if (!formData.currentDepartment.trim()) return "Department is required.";
     if (!formData.currentRole.trim()) return "Role is required.";
     if (!formData.joiningDate) return "Joining Date is required.";
-    if (!formData.currentSalary || isNaN(formData.currentSalary))
-      return "Salary is required.";
-
-    if (Number(formData.currentSalary) <= 0)
-      return "Salary must be greater than 0.";
-    if (formData.address && formData.address.length < 10)
-      return "Address must be at least 10 characters long.";
+    if (formData.currentSalary) {
+      if (isNaN(formData.currentSalary)) return "Salary must be a number.";
+      if (Number(formData.currentSalary) <= 0)
+        return "Salary must be greater than 0.";
+    }
     if (formData.bankDetails.accountNumber) {
       if (
         formData.bankDetails.accountNumber.length < 9 ||
@@ -776,7 +774,6 @@ const AddEmployee = () => {
               name="currentSalary"
               label="Salary (INR)"
               type="number"
-              min="5000"
               step="1"
               value={formData.currentSalary}
               onChange={(e) => {
@@ -786,7 +783,6 @@ const AddEmployee = () => {
                 }
               }}
               placeholder="e.g., 85000"
-              required
             />
             <InputField
               icon={<FaCalendarAlt />}

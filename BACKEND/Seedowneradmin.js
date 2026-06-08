@@ -83,6 +83,7 @@ const seed = async () => {
       existing.planActivatedAt = new Date();
       existing.planExpiresAt   = farFuture;
       existing.loginEnabled    = true;
+      existing.userLimit       = null;
 
       await existing.save();
 
@@ -109,6 +110,7 @@ const seed = async () => {
       role:            "admin",
       department:      "Administration",
       plan:            OWNER_PLAN,
+      userLimit:       null,
       isPaid:          false,                // free for owner
       planActivatedAt: new Date(),
       planExpiresAt:   farFuture,            // 100 years from now

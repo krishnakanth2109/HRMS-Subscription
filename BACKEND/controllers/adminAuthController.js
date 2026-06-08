@@ -318,8 +318,9 @@ export const getLoginAccessStatus = async (req, res) => {
         const supportAdminCount = await SupportAdmin.countDocuments({ adminId: admin._id });
 
         const planInfo = planMap[admin.plan];
-        let userLimit = admin.userLimit || null;
-        if (userLimit === null) {
+        const isOwner = planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited) || (admin.plan && admin.plan.toLowerCase() === 'owner');
+        let userLimit = isOwner ? null : (admin.userLimit || null);
+        if (userLimit === null && !isOwner) {
           if (planInfo && planInfo.maxUsers) {
             userLimit = planInfo.maxUsers;
           } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
@@ -394,8 +395,10 @@ export const getAdminProfile = async (req, res) => {
       }
       return sum;
     }, 0);
+    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
+    const isOwner = planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited) || (admin.plan && admin.plan.toLowerCase() === 'owner');
     adminObj.activeAddonTotal = activeAddonTotal;
-    adminObj.effectiveUserLimit = (adminObj.userLimit || 30) + activeAddonTotal;
+    adminObj.effectiveUserLimit = isOwner ? null : ((adminObj.userLimit || 30) + activeAddonTotal);
 
     res.status(200).json(adminObj);
   } catch (error) {
@@ -632,9 +635,13 @@ export const registerSupportAdmin = async (req, res) => {
       return res.status(404).json({ message: "Root Admin not found" });
     }
 
+    const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+    const isOwnerPlan = planSetting && (planSetting.isOwnerPlan || planSetting.isUnlimited) || (admin.plan && admin.plan.toLowerCase() === 'owner');
+
     let maxUsers = admin.userLimit || null;
-    if (maxUsers === null) {
-      const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+    if (isOwnerPlan) {
+      maxUsers = null;
+    } else if (maxUsers === null) {
       if (planSetting && planSetting.maxUsers) {
         maxUsers = planSetting.maxUsers;
       } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
@@ -802,6 +809,7 @@ export const freeUpgradeToOwner = async (req, res) => {
     admin.isPaid = true;
     admin.planActivatedAt = new Date();
     admin.planExpiresAt = planExpiresAt;
+    admin.userLimit = null; // Unlimited
 
     await admin.save();
 

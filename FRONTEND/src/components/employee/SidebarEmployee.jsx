@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, Link } from "react-router-dom";
 import { useState, useEffect, useContext, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
@@ -171,7 +171,7 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
         <div className={`flex items-center shrink-0 ${collapsed && !isMobile ? "h-20 flex-col justify-center gap-2 px-2 py-3" : "h-16 justify-between px-4"}`}>
           {!collapsed || isMobile ? (
             <>
-             <div className="flex items-center gap-2 overflow-hidden h-[68px]">
+             <Link to="/employee/dashboard" className="flex items-center gap-2 overflow-hidden h-[68px]">
                 <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
                   <User size={24} />
                 </div>
@@ -179,7 +179,7 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
                   <span className="text-sm font-bold text-white leading-tight">Employee</span>
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Panel</span>
                 </div>
-             </div>
+             </Link>
              {!isMobile && (
                 <button
                   onClick={(e) => {
@@ -196,9 +196,9 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
             </>
           ) : (
             <>
-              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-950/20 ring-1 ring-blue-400/30">
+              <Link to="/employee/dashboard" className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-950/20 ring-1 ring-blue-400/30 hover:bg-blue-700 transition-colors">
                 <User size={18} />
-              </div>
+              </Link>
               <button
                 onClick={(e) => {
                   e.stopPropagation();

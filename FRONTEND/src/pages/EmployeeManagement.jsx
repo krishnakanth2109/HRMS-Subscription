@@ -910,6 +910,7 @@ const EmployeeManagement = () => {
   const [selectedDept, setSelectedDept] = useState("All");
   const [selectedRole, setSelectedRole] = useState("All");
   const [selectedEmploymentType, setSelectedEmploymentType] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
   const [selectedCompany, setSelectedCompany] = useState("All");
   const [companies, setCompanies] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1006,7 +1007,7 @@ const EmployeeManagement = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDept, selectedRole, selectedEmploymentType, selectedCompany]);
+  }, [searchQuery, selectedDept, selectedRole, selectedEmploymentType, selectedCompany, selectedStatus]);
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -1106,7 +1107,15 @@ const EmployeeManagement = () => {
     };
   }, [employees, searchQuery, selectedDept, selectedRole, selectedEmploymentType, selectedCompany]);
 
-  const combined = useMemo(() => [...activeEmployees, ...inactiveEmployees], [activeEmployees, inactiveEmployees]);
+  const combined = useMemo(() => {
+    if (selectedStatus === "Active") {
+      return activeEmployees;
+    }
+    if (selectedStatus === "Inactive") {
+      return inactiveEmployees;
+    }
+    return [...activeEmployees, ...inactiveEmployees];
+  }, [activeEmployees, inactiveEmployees, selectedStatus]);
 
   const paginatedEmployees = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -1312,6 +1321,15 @@ const EmployeeManagement = () => {
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="flex-1 min-w-[150px] bg-white border border-gray-200 px-3 py-2.5 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-700 text-sm"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
         </div>
 
         {/* Table Section */}
@@ -1341,7 +1359,7 @@ const EmployeeManagement = () => {
                     const combinedList = [...activeEmployees, ...inactiveEmployees];
                     const firstInactiveIdx = combinedList.findIndex(e => e.isActive === false);
                     const globalIdx = (currentPage - 1) * itemsPerPage + idx;
-                    const isFirstInactiveGlobal = firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
+                    const isFirstInactiveGlobal = selectedStatus === "All" && firstInactiveIdx !== -1 && globalIdx === firstInactiveIdx;
 
                     return (
                       <Fragment key={emp.employeeId}>
