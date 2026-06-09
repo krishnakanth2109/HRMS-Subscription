@@ -56,6 +56,7 @@ const formatTrip = (trip) => ({
   distanceKm: trip.distanceKm || 0,
   stoppedSeconds: trip.stoppedSeconds || 0,
   stops: trip.stops || [],
+  breaks: trip.breaks || [],
   createdAt: trip.createdAt,
   updatedAt: trip.updatedAt,
 });
@@ -123,6 +124,18 @@ export const recordFieldWorkLocationForEmployee = async ({
     updateSet.stops = normalizeStops(body.stops);
   }
 
+  if (Array.isArray(body.breaks)) {
+    updateSet.breaks = body.breaks.map((b) => ({
+      latitude: Number(b.latitude),
+      longitude: Number(b.longitude),
+      startedAt: b.startedAt ? new Date(b.startedAt) : new Date(),
+      endedAt: b.endedAt ? new Date(b.endedAt) : null,
+      durationSeconds: Number(b.durationSeconds) || 0,
+      photoUrl: b.photoUrl || null,
+      description: b.description || null,
+    }));
+  }
+
   const trip = await FieldWorkTrip.findOneAndUpdate(
     query,
     {
@@ -146,6 +159,7 @@ export const recordFieldWorkLocationForEmployee = async ({
     distanceKm: trip.distanceKm || 0,
     stoppedSeconds: trip.stoppedSeconds || 0,
     stops: trip.stops || [],
+    breaks: trip.breaks || [],
     status: trip.status,
     startedAt: trip.startedAt,
     updatedAt: trip.updatedAt,
@@ -378,6 +392,18 @@ export const stopFieldWorkTrip = async (req, res) => {
           }))
       : [];
 
+    const breaks = Array.isArray(req.body.breaks)
+      ? req.body.breaks.map((b) => ({
+          latitude: Number(b.latitude),
+          longitude: Number(b.longitude),
+          startedAt: b.startedAt ? new Date(b.startedAt) : new Date(),
+          endedAt: b.endedAt ? new Date(b.endedAt) : null,
+          durationSeconds: Number(b.durationSeconds) || 0,
+          photoUrl: b.photoUrl || null,
+          description: b.description || null,
+        }))
+      : [];
+
     const trip = await FieldWorkTrip.findOneAndUpdate(
       { _id: tripId, employee: employee._id, status: "active" },
       {
@@ -387,6 +413,7 @@ export const stopFieldWorkTrip = async (req, res) => {
           distanceKm: Number(req.body.distanceKm) || 0,
           stoppedSeconds: Number(req.body.stoppedSeconds) || 0,
           stops,
+          breaks,
         },
       },
       { new: true },
@@ -526,5 +553,20 @@ export const getRecentFieldTrips = async (req, res) => {
   } catch (error) {
     console.error("Error fetching recent field trips:", error);
     return res.status(500).json({ message: "Failed to fetch recent field trips." });
+  }
+};
+
+export const uploadBreakPhoto = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided." });
+    }
+    return res.status(200).json({
+      success: true,
+      url: req.file.path,
+    });
+  } catch (error) {
+    console.error("Error uploading break photo:", error);
+    return res.status(500).json({ message: "Failed to upload break photo." });
   }
 };

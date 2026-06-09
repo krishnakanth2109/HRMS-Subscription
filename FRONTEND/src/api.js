@@ -253,6 +253,11 @@ export const postFieldTripLocation = async (tripId, location) =>
 export const stopFieldTrip = async (tripId, payload = {}) =>
   (await api.post(`/api/field-tracking/employee/trips/${tripId}/stop`, payload)).data;
 
+export const uploadBreakPhotoApi = async (tripId, formData) =>
+  (await api.post(`/api/field-tracking/employee/trips/${tripId}/break-photo`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  })).data;
+
 /* =============================================================================
    IDLE TIME TRACKING
 ============================================================================= */

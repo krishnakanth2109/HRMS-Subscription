@@ -10,6 +10,7 @@ import {
   Route,
   Search,
   UserRound,
+  Coffee,
 } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
@@ -135,6 +136,37 @@ const stopPinIcon = L.divIcon({
   popupAnchor: [0, -17],
 });
 
+const breakPinIcon = L.divIcon({
+  className: "",
+  html: renderToStaticMarkup(
+    <div
+      style={{
+        alignItems: "center",
+        background: "#f59e0b",
+        border: "3px solid #ffffff",
+        borderRadius: "9999px",
+        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
+        color: "#ffffff",
+        display: "flex",
+        height: "34px",
+        justifyContent: "center",
+        width: "34px",
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+        <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+        <line x1="6" x2="6" y1="2" y2="4" />
+        <line x1="10" x2="10" y1="2" y2="4" />
+        <line x1="14" x2="14" y1="2" y2="4" />
+      </svg>
+    </div>
+  ),
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  popupAnchor: [0, -17],
+});
+
 const createMapPinIcon = (background) =>
   L.divIcon({
     className: "",
@@ -189,7 +221,7 @@ const createArrowIcon = (angle) =>
     iconAnchor: [9, 9],
   });
 
-const FitTripBounds = ({ positions }) => {
+const MapViewController = ({ positions, focusedLocation }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -199,23 +231,28 @@ const FitTripBounds = ({ positions }) => {
   }, [map]);
 
   useEffect(() => {
-    if (!positions.length) return;
-
-    if (positions.length === 1) {
-      map.setView(positions[0], 16);
+    if (focusedLocation) {
+      map.setView(focusedLocation, 17);
     } else {
-      map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
+      if (!positions.length) return;
+
+      if (positions.length === 1) {
+        map.setView(positions[0], 16);
+      } else {
+        map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
+      }
     }
 
     window.setTimeout(() => map.invalidateSize(), 80);
-  }, [map, positions]);
+  }, [map, positions, focusedLocation]);
 
   return null;
 };
 
-const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
+const TripRouteMap = ({ routePoints, stopPoints, breaks = [], isActiveTrip = false, focusedLocation, setFocusedLocation }) => {
   const routePositions = useMemo(() => routePoints.map((point) => point.position), [routePoints]);
   const stopPositions = stopPoints.map((point) => point.position);
+  const breakPositions = useMemo(() => breaks.map((b) => toLatLng(b)).filter(Boolean), [breaks]);
 
   const [osrmPath, setOsrmPath] = useState([]);
 
@@ -312,7 +349,7 @@ const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
     return markers;
   }, [polylinePositions]);
 
-  const allPositions = [...routePositions, ...stopPositions];
+  const allPositions = [...routePositions, ...stopPositions, ...breakPositions];
   const center = allPositions[0] || [20.5937, 78.9629];
   const startPoint = routePoints[0];
   const endPoint = routePoints[routePoints.length - 1];
@@ -323,7 +360,7 @@ const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitTripBounds positions={allPositions} />
+      <MapViewController positions={allPositions} focusedLocation={focusedLocation} />
 
       {polylinePositions.length > 1 && (
         <Polyline positions={polylinePositions} pathOptions={{ color: "#10B981", weight: 5, opacity: 0.8 }} />
@@ -338,10 +375,23 @@ const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
         />
       ))}
 
-      <div className="leaflet-top leaflet-right">
-        <div className="m-3 rounded-xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow">
+      <div className="leaflet-top leaflet-right flex flex-col gap-2 m-3 items-end">
+        <div className="rounded-xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow select-none">
           Captured GPS route
         </div>
+        {focusedLocation && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              setFocusedLocation(null);
+            }}
+            className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-black shadow transition pointer-events-auto"
+          >
+            Show Full Route
+          </button>
+        )}
       </div>
 
       {startPoint && (
@@ -381,6 +431,32 @@ const TripRouteMap = ({ routePoints, stopPoints, isActiveTrip = false }) => {
           </Popup>
         </Marker>
       ))}
+
+      {breaks.map((b, index) => {
+        const pos = toLatLng(b);
+        if (!pos) return null;
+        return (
+          <Marker key={`break-${b.startedAt || index}-${index}`} position={pos} icon={breakPinIcon}>
+            <Popup>
+              <div className="text-xs font-semibold text-slate-700">
+                <p className="font-black text-amber-700">Break {index + 1}</p>
+                <p>{b.startedAt ? new Date(b.startedAt).toLocaleTimeString("en-IN") : "--"}</p>
+                <p>Duration: {formatDuration(b.durationSeconds)}</p>
+                {b.description && (
+                  <p className="mt-1 font-bold text-slate-600 italic">"{b.description}"</p>
+                )}
+                {b.photoUrl && (
+                  <div className="mt-2 overflow-hidden rounded border border-slate-100">
+                    <a href={b.photoUrl} target="_blank" rel="noopener noreferrer" className="block">
+                      <img src={b.photoUrl} alt="Break Proof" className="max-h-[100px] w-full object-cover cursor-zoom-in" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
     </MapContainer>
   );
 };
@@ -408,9 +484,14 @@ const AdminFieldTracking = () => {
   const [recentTrips, setRecentTrips] = useState([]);
   const [recentLoading, setRecentLoading] = useState(false);
   const [liveTick, setLiveTick] = useState(0);
+  const [focusedLocation, setFocusedLocation] = useState(null);
   const mapSectionRef = useRef(null);
   const selectedEmployeeRef = useRef(null);
   const selectedDateRef = useRef(selectedDate);
+
+  useEffect(() => {
+    setFocusedLocation(null);
+  }, [selectedTripId, selectedEmployee?._id, selectedDate]);
 
   const selectedTrip = useMemo(() => {
     if (!tripData?.trips?.length) return null;
@@ -440,6 +521,12 @@ const AdminFieldTracking = () => {
     () => computeLiveStoppedSeconds(selectedTrip),
     [selectedTrip, liveTick],
   );
+  const displayDurationSeconds = useMemo(() => {
+    if (!selectedTrip || !selectedTrip.startedAt) return 0;
+    const start = new Date(selectedTrip.startedAt).getTime();
+    const end = selectedTrip.endedAt ? new Date(selectedTrip.endedAt).getTime() : Date.now();
+    return Math.max(0, Math.floor((end - start) / 1000));
+  }, [selectedTrip, liveTick]);
   const visibleEmployees = useMemo(
     () => employees.filter((employee) => employeeStatusFilter === "all" || employee.isFieldLive),
     [employees, employeeStatusFilter],
@@ -569,6 +656,7 @@ const AdminFieldTracking = () => {
           distanceKm: payload.distanceKm ?? trip.distanceKm,
           stoppedSeconds: payload.stoppedSeconds ?? trip.stoppedSeconds,
           stops: Array.isArray(payload.stops) ? payload.stops : trip.stops,
+          breaks: Array.isArray(payload.breaks) ? payload.breaks : trip.breaks,
           updatedAt: payload.updatedAt || trip.updatedAt,
           path: nextPath,
         };
@@ -824,7 +912,10 @@ const AdminFieldTracking = () => {
                     <TripRouteMap
                       routePoints={routePoints}
                       stopPoints={stopPoints}
+                      breaks={selectedTrip?.breaks || []}
                       isActiveTrip={selectedTrip.status === "active"}
+                      focusedLocation={focusedLocation}
+                      setFocusedLocation={setFocusedLocation}
                     />
                   ) : (
                     <div className="flex h-[520px] items-center justify-center text-sm font-bold text-slate-500">
@@ -834,6 +925,27 @@ const AdminFieldTracking = () => {
                 </div>
 
                 <div className="space-y-3">
+                  {/* Dropdown - Trips */}
+                  {tripData?.trips?.length > 1 && (
+                    <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50/50">
+                      <div className="mb-2 flex items-center gap-2 text-sm font-black text-slate-900">
+                        <Route size={18} className="text-blue-600" />
+                        Trips
+                      </div>
+                      <select
+                        value={selectedTrip?._id || ""}
+                        onChange={(e) => setSelectedTripId(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-400 cursor-pointer"
+                      >
+                        {tripData.trips.map((trip, index) => (
+                          <option key={trip._id} value={trip._id}>
+                            Trip - {tripData.trips.length - index} ({new Date(trip.startedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <div className="rounded-2xl border border-slate-200 p-4">
                     <div className="mb-3 flex items-center gap-2 text-sm font-black text-slate-900">
                       <Route size={18} className="text-blue-600" />
@@ -842,9 +954,11 @@ const AdminFieldTracking = () => {
                     <div className="space-y-2 text-sm font-semibold text-slate-600">
                       <p>Started: {formatDateTime(selectedTrip.startedAt)}</p>
                       <p>Ended: {selectedTrip.endedAt ? formatDateTime(selectedTrip.endedAt) : "Active"}</p>
+                      <p>Duration: {formatDuration(displayDurationSeconds)}</p>
                       <p>Distance: {(selectedTrip.distanceKm || 0).toFixed(2)} km</p>
                       <p>Stopped: {formatDuration(displayStoppedSeconds)}</p>
                       <p>Stops: {stopPoints.length}</p>
+                      <p>Breaks: {selectedTrip.breaks?.length || 0}</p>
                     </div>
                   </div>
 
@@ -855,20 +969,91 @@ const AdminFieldTracking = () => {
                         Stopped Locations
                       </div>
                       <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
-                        {stopPoints.map((stop, index) => (
-                          <div
-                            key={`${stop.stoppedAt}-${index}`}
-                            className="rounded-xl border border-red-100 bg-white p-3"
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
-                              <span className="text-xs font-bold text-slate-500">{formatDateTime(stop.stoppedAt)}</span>
-                            </div>
-                            <p className="mt-1 text-xs font-semibold text-slate-500">
-                              Duration: {formatDuration(stop.durationSeconds)}
-                            </p>
-                          </div>
-                        ))}
+                        {stopPoints.map((stop, index) => {
+                          const isFocused =
+                            focusedLocation &&
+                            focusedLocation[0] === stop.position[0] &&
+                            focusedLocation[1] === stop.position[1];
+                          return (
+                            <button
+                              key={`${stop.stoppedAt || index}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                if (isFocused) {
+                                  setFocusedLocation(null);
+                                } else {
+                                  setFocusedLocation(stop.position);
+                                }
+                              }}
+                              className={`w-full text-left rounded-xl border p-3 transition-all ${
+                                isFocused
+                                  ? "border-red-400 bg-red-100/50 shadow-sm"
+                                  : "border-red-100 bg-white hover:bg-red-50/50 hover:border-red-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
+                                <span className="text-xs font-bold text-slate-500">{formatDateTime(stop.stoppedAt)}</span>
+                              </div>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                Duration: {formatDuration(stop.durationSeconds)}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedTrip.breaks?.length > 0 && (
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-black text-amber-700">
+                        <Coffee size={18} />
+                        Break Locations
+                      </div>
+                      <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
+                        {selectedTrip.breaks.map((b, index) => {
+                          const pos = toLatLng(b);
+                          if (!pos) return null;
+                          const isFocused =
+                            focusedLocation &&
+                            focusedLocation[0] === pos[0] &&
+                            focusedLocation[1] === pos[1];
+                          return (
+                            <button
+                              key={`break-item-${b.startedAt || index}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                if (isFocused) {
+                                  setFocusedLocation(null);
+                                } else {
+                                  setFocusedLocation(pos);
+                                }
+                              }}
+                              className={`w-full text-left rounded-xl border p-3 transition-all ${
+                                isFocused
+                                  ? "border-amber-400 bg-amber-100/50 shadow-sm"
+                                  : "border-amber-100 bg-white hover:bg-amber-50/50 hover:border-amber-200"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-black text-amber-500">Break {index + 1}</span>
+                                <span className="text-xs font-bold text-slate-500">{formatDateTime(b.startedAt)}</span>
+                              </div>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                Duration: {formatDuration(b.durationSeconds)}
+                              </p>
+                              {b.description && (
+                                <p className="mt-1 text-xs text-slate-600 italic">"{b.description}"</p>
+                              )}
+                              {b.photoUrl && (
+                                <div className="mt-2 overflow-hidden rounded border border-slate-100 max-h-[80px] bg-slate-50">
+                                  <img src={b.photoUrl} alt="Break Proof Thumbnail" className="max-h-[80px] w-full object-cover" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

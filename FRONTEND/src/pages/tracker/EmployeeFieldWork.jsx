@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LocateFixed, MapPin, Navigation, Power, RefreshCw, Route, CalendarDays } from "lucide-react";
+import { LocateFixed, MapPin, Navigation, Power, RefreshCw, Route, CalendarDays, Coffee, Camera } from "lucide-react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -12,6 +12,7 @@ import {
   postFieldTripLocation,
   startFieldTrip,
   stopFieldTrip,
+  uploadBreakPhotoApi,
 } from "../../api";
 
 const SOCKET_URL =
@@ -51,7 +52,7 @@ const formatDuration = (seconds = 0) => {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 };
 
-const STOP_RADIUS_KM = 0.03;
+const STOP_RADIUS_KM = 0.05;
 const STOP_MIN_SECONDS = 120;
 
 const toLatLng = (point) => {
@@ -134,6 +135,37 @@ const startPinIcon = createMapPinIcon("#16a34a");
 const currentPinIcon = createMapPinIcon("#2563eb");
 const endPinIcon = createMapPinIcon("#f97316");
 
+const breakPinIcon = L.divIcon({
+  className: "",
+  html: renderToStaticMarkup(
+    <div
+      style={{
+        alignItems: "center",
+        background: "#f59e0b",
+        border: "3px solid #ffffff",
+        borderRadius: "9999px",
+        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
+        color: "#ffffff",
+        display: "flex",
+        height: "34px",
+        justifyContent: "center",
+        width: "34px",
+      }}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
+        <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
+        <line x1="6" x2="6" y1="2" y2="4" />
+        <line x1="10" x2="10" y1="2" y2="4" />
+        <line x1="14" x2="14" y1="2" y2="4" />
+      </svg>
+    </div>
+  ),
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  popupAnchor: [0, -17],
+});
+
 const createArrowIcon = (angle) =>
   L.divIcon({
     className: "",
@@ -184,7 +216,7 @@ const ResizeAndFitMap = ({ positions, currentPosition }) => {
   return null;
 };
 
-const LiveTripMap = ({ path = [], stops = [], currentPoint = null, isActiveTrip = false }) => {
+const LiveTripMap = ({ path = [], stops = [], breaks = [], currentPoint = null, isActiveTrip = false }) => {
   const routePoints = useMemo(() => path.map(normalizeMapPoint).filter(Boolean), [path]);
   const stopPoints = useMemo(() => stops.map(normalizeMapPoint).filter(Boolean), [stops]);
   const currentMapPoint = useMemo(() => normalizeMapPoint(currentPoint), [currentPoint]);
@@ -289,6 +321,7 @@ const LiveTripMap = ({ path = [], stops = [], currentPoint = null, isActiveTrip 
   const allPositions = [
     ...routePositions,
     ...stopPoints.map((point) => point.position),
+    ...breaks.map((b) => toLatLng(b)).filter(Boolean),
     ...(currentPosition ? [currentPosition] : []),
   ];
   const center = currentPosition || allPositions[0] || [20.5937, 78.9629];
@@ -338,6 +371,30 @@ const LiveTripMap = ({ path = [], stops = [], currentPoint = null, isActiveTrip 
         </Marker>
       ))}
 
+      {breaks.map((b, index) => {
+        const pos = toLatLng(b);
+        if (!pos) return null;
+        return (
+          <Marker key={`break-${b.startedAt || index}-${index}`} position={pos} icon={breakPinIcon}>
+            <Popup>
+              <div className="text-xs font-semibold text-slate-700">
+                <p className="font-black text-amber-700">Break {index + 1}</p>
+                <p>{b.startedAt ? new Date(b.startedAt).toLocaleTimeString("en-IN") : "--"}</p>
+                <p>Duration: {formatDuration(b.durationSeconds)}</p>
+                {b.description && (
+                  <p className="mt-1 font-bold text-slate-600 italic">"{b.description}"</p>
+                )}
+                {b.photoUrl && (
+                  <div className="mt-2 overflow-hidden rounded border border-slate-100">
+                    <img src={b.photoUrl} alt="Break Proof" className="max-h-[100px] w-full object-cover" />
+                  </div>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+
       <div className="leaflet-top leaflet-right">
         <div className="m-3 rounded-xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow">
           Captured GPS route
@@ -372,6 +429,13 @@ const getCurrentPosition = () =>
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
+const getHistoryTripDuration = (trip) => {
+  if (!trip || !trip.startedAt) return 0;
+  const start = new Date(trip.startedAt).getTime();
+  const end = trip.endedAt ? new Date(trip.endedAt).getTime() : Date.now();
+  return Math.max(0, Math.floor((end - start) / 1000));
+};
+
 const EmployeeFieldWork = () => {
   const [activeTab, setActiveTab] = useState("live");
   const [trackingEnabled, setTrackingEnabled] = useState(false);
@@ -385,6 +449,11 @@ const EmployeeFieldWork = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [stoppedSeconds, setStoppedSeconds] = useState(0);
   const [stops, setStops] = useState([]);
+  const [isBreakActive, setIsBreakActive] = useState(false);
+  const [activeBreak, setActiveBreak] = useState(null);
+  const [breaks, setBreaks] = useState([]);
+  const [breakDescription, setBreakDescription] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState("");
 
   const [historyDate, setHistoryDate] = useState(todayKey());
@@ -402,6 +471,8 @@ const EmployeeFieldWork = () => {
   const stopCandidateRef = useRef(null);
   const stoppedSecondsRef = useRef(0);
   const stopsRef = useRef([]);
+  const breaksRef = useRef([]);
+  const isBreakActiveRef = useRef(false);
 
   const latestPoint = points[points.length - 1] || null;
 
@@ -414,6 +485,9 @@ const EmployeeFieldWork = () => {
 
   const getLiveStoppedSeconds = useCallback((now = Date.now()) => {
     let total = stoppedSecondsRef.current;
+    if (isBreakActiveRef.current) {
+      return total;
+    }
     const candidate = stopCandidateRef.current;
     if (!candidate) return total;
 
@@ -425,6 +499,7 @@ const EmployeeFieldWork = () => {
   }, []);
 
   const syncStopMarker = useCallback((now = Date.now()) => {
+    if (isBreakActiveRef.current) return;
     const candidate = stopCandidateRef.current;
     if (!candidate) return;
 
@@ -476,20 +551,24 @@ const EmployeeFieldWork = () => {
     stopCandidateRef.current = null;
   }, []);
 
-  const trackStopCandidate = useCallback((point, movedKm) => {
+  const trackStopCandidate = useCallback((point) => {
+    if (isBreakActiveRef.current) {
+      return;
+    }
     const recordedAt = new Date(point.recordedAt).getTime();
     const pointTime = Number.isFinite(recordedAt) ? recordedAt : Date.now();
 
-    if (!lastPointRef.current) {
+    const candidate = stopCandidateRef.current;
+    if (!candidate) {
       stopCandidateRef.current = { point, startedAt: pointTime };
       return;
     }
 
-    if (movedKm >= STOP_RADIUS_KM) {
+    const distanceFromCandidate = calculateDistanceKm(candidate.point, point);
+
+    if (distanceFromCandidate >= STOP_RADIUS_KM) {
       finalizeStop(pointTime);
       stopCandidateRef.current = { point, startedAt: pointTime };
-    } else if (!stopCandidateRef.current) {
-      stopCandidateRef.current = { point: lastPointRef.current, startedAt: pointTime };
     }
 
     setStoppedSeconds(getLiveStoppedSeconds(pointTime));
@@ -503,13 +582,14 @@ const EmployeeFieldWork = () => {
   }, [stopLocationWatch]);
 
   const sendLocationUpdate = useCallback(
-    async (tripId, point) => {
+    async (tripId, point, currentBreaks = breaksRef.current) => {
       const payload = {
         tripId,
         point,
         distanceKm: distanceRef.current,
         stoppedSeconds: getLiveStoppedSeconds(),
         stops: stopsRef.current,
+        breaks: currentBreaks,
       };
 
       const socket = socketRef.current;
@@ -533,6 +613,7 @@ const EmployeeFieldWork = () => {
         distanceKm: distanceRef.current,
         stoppedSeconds: getLiveStoppedSeconds(),
         stops: stopsRef.current,
+        breaks: currentBreaks,
       });
       return result;
     },
@@ -548,7 +629,7 @@ const EmployeeFieldWork = () => {
         const point = positionToPoint(position);
         const moved = calculateDistanceKm(lastPointRef.current, point);
 
-        trackStopCandidate(point, moved);
+        trackStopCandidate(point);
         setPoints((prev) => [...prev, point]);
 
         if (!lastPointRef.current || moved >= 0.01) {
@@ -616,6 +697,8 @@ const EmployeeFieldWork = () => {
         setDistanceKm(distanceRef.current);
         stopsRef.current = active.trip.stops || [];
         setStops(stopsRef.current);
+        breaksRef.current = active.trip.breaks || [];
+        setBreaks(breaksRef.current);
         stoppedSecondsRef.current = Number(active.trip.stoppedSeconds) || 0;
         setStoppedSeconds(stoppedSecondsRef.current);
         lastPointRef.current = active.trip.path?.[active.trip.path.length - 1] || null;
@@ -660,8 +743,10 @@ const EmployeeFieldWork = () => {
     const timer = setInterval(() => {
       const now = Date.now();
       setElapsedSeconds(Math.floor((now - startTimeRef.current) / 1000));
-      setStoppedSeconds(getLiveStoppedSeconds(now));
-      syncStopMarker(now);
+      if (!isBreakActiveRef.current) {
+        setStoppedSeconds(getLiveStoppedSeconds(now));
+        syncStopMarker(now);
+      }
     }, 1000);
     return () => clearInterval(timer);
   }, [getLiveStoppedSeconds, isTracking, syncStopMarker]);
@@ -680,6 +765,11 @@ const EmployeeFieldWork = () => {
       setDistanceKm(0);
       stopsRef.current = [];
       setStops([]);
+      breaksRef.current = [];
+      setBreaks([]);
+      setActiveBreak(null);
+      setIsBreakActive(false);
+      isBreakActiveRef.current = false;
       stoppedSecondsRef.current = 0;
       setStoppedSeconds(0);
       stopCandidateRef.current = { point: firstPoint, startedAt: Date.now() };
@@ -707,15 +797,121 @@ const EmployeeFieldWork = () => {
         distanceKm: distanceRef.current,
         stoppedSeconds: stoppedSecondsRef.current,
         stops: stopsRef.current,
+        breaks: breaksRef.current,
       });
       setActiveTrip(result.trip);
       setStops(result.trip?.stops || stopsRef.current);
+      setBreaks(result.trip?.breaks || breaksRef.current);
       setIsTracking(false);
+      setIsBreakActive(false);
+      isBreakActiveRef.current = false;
+      setActiveBreak(null);
+      setBreakDescription("");
     } catch (err) {
       console.error("Failed to stop field trip:", err);
       setError(err.response?.data?.message || "Unable to stop field work.");
     } finally {
       setStopping(false);
+    }
+  };
+
+  const startBreak = async () => {
+    if (!activeTrip?._id) return;
+    try {
+      let pt = null;
+      try {
+        const position = await getCurrentPosition();
+        pt = positionToPoint(position);
+      } catch (geoErr) {
+        console.warn("Failed to get current GPS coordinate for start break, falling back to last point:", geoErr);
+        pt = lastPointRef.current || (points.length > 0 ? points[points.length - 1] : null);
+      }
+
+      if (!pt) {
+        throw new Error("Unable to capture location coordinates. Please try again.");
+      }
+
+      setBreakDescription("");
+      const breakData = {
+        latitude: pt.latitude,
+        longitude: pt.longitude,
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+        durationSeconds: 0,
+        photoUrl: null,
+        description: "",
+      };
+      setActiveBreak(breakData);
+      setIsBreakActive(true);
+      isBreakActiveRef.current = true;
+      alert("Break started!");
+    } catch (err) {
+      console.error("Failed to start break:", err);
+      alert(err.message || "Unable to start break.");
+    }
+  };
+
+  const endBreak = async () => {
+    if (!activeBreak || !activeTrip?._id) return;
+    try {
+      const endedAt = new Date();
+      const durationSeconds = Math.max(0, Math.floor((endedAt.getTime() - new Date(activeBreak.startedAt).getTime()) / 1000));
+      const finalBreak = {
+        ...activeBreak,
+        endedAt: endedAt.toISOString(),
+        durationSeconds,
+      };
+      const updatedBreaks = [...breaksRef.current, finalBreak];
+      breaksRef.current = updatedBreaks;
+      setBreaks(updatedBreaks);
+      setActiveBreak(null);
+      setIsBreakActive(false);
+      isBreakActiveRef.current = false;
+
+      // Immediately send location update to save the finalized break
+      let pt = null;
+      try {
+        const position = await getCurrentPosition();
+        pt = positionToPoint(position);
+      } catch (geoErr) {
+        console.warn("Failed to get current GPS coordinate for end break, falling back to last point:", geoErr);
+        pt = lastPointRef.current || (points.length > 0 ? points[points.length - 1] : null);
+      }
+
+      if (pt) {
+        await sendLocationUpdate(activeTrip._id, pt, updatedBreaks);
+      } else {
+        console.warn("No location point available to sync break end.");
+      }
+      setBreakDescription("");
+      alert("Break ended!");
+    } catch (err) {
+      console.error("Failed to end break:", err);
+      alert("Break ended, but failed to sync final coordinates.");
+    }
+  };
+
+  const handlePhotoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !activeTrip?._id || !activeBreak) return;
+
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await uploadBreakPhotoApi(activeTrip._id, formData);
+      if (response?.success && response?.url) {
+        const uploadedUrl = response.url;
+        const updatedBreak = { ...activeBreak, photoUrl: uploadedUrl };
+        setActiveBreak(updatedBreak);
+        alert("Break photo uploaded successfully!");
+      }
+    } catch (err) {
+      console.error("Failed to upload break photo:", err);
+      alert("Failed to upload break photo. Please try again.");
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -842,6 +1038,77 @@ const EmployeeFieldWork = () => {
                 </button>
               )}
 
+              {isTracking && (
+                <div className="mt-4 space-y-3">
+                  <button
+                    type="button"
+                    onClick={isBreakActive ? endBreak : startBreak}
+                    className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-black text-white shadow-md transition ${
+                      isBreakActive ? "bg-amber-500 hover:bg-amber-600" : "bg-slate-700 hover:bg-slate-800"
+                    }`}
+                  >
+                    <Coffee size={16} />
+                    {isBreakActive ? "End Break" : "Start Break"}
+                  </button>
+
+                  {isBreakActive && (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 space-y-3">
+                      <p className="text-xs font-black text-amber-800 uppercase tracking-wider">Break in progress</p>
+                      
+                      <div className="space-y-1">
+                        <label className="block text-xs font-bold text-slate-600">
+                          Break Description
+                        </label>
+                        <input
+                          type="text"
+                          value={breakDescription}
+                          onChange={(e) => {
+                            setBreakDescription(e.target.value);
+                            setActiveBreak((prev) => prev ? { ...prev, description: e.target.value } : null);
+                          }}
+                          placeholder="Why are you taking a break?"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-amber-400"
+                        />
+                      </div>
+                      
+                      {activeBreak?.photoUrl ? (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-emerald-700 flex items-center gap-1">
+                            ✓ Photo Uploaded
+                          </p>
+                          <div className="overflow-hidden rounded-lg border border-amber-200">
+                            <img src={activeBreak.photoUrl} alt="Break proof" className="max-h-[120px] w-full object-cover" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <label className="block text-xs font-bold text-slate-600">
+                            Upload Proof Photo (Only during break)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handlePhotoUpload}
+                              disabled={uploadingPhoto}
+                              className="hidden"
+                              id="break-photo-file"
+                            />
+                            <label
+                              htmlFor="break-photo-file"
+                              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white border border-slate-200 px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:bg-slate-50"
+                            >
+                              <Camera size={14} />
+                              {uploadingPhoto ? "Uploading to Cloudinary..." : "Take/Upload Photo"}
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-slate-50 p-4">
                   <p className="text-xs font-black uppercase text-slate-400">Duration</p>
@@ -875,7 +1142,7 @@ const EmployeeFieldWork = () => {
 
               {latestPoint ? (
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                  <LiveTripMap path={points} stops={stops} currentPoint={latestPoint} isActiveTrip={isTracking} />
+                  <LiveTripMap path={points} stops={stops} breaks={breaks} currentPoint={latestPoint} isActiveTrip={isTracking} />
                 </div>
               ) : (
                 <div className="flex min-h-[360px] items-center justify-center rounded-2xl bg-slate-50 text-center">
@@ -949,6 +1216,7 @@ const EmployeeFieldWork = () => {
                     <LiveTripMap
                       path={selectedHistoryTrip.path}
                       stops={selectedHistoryTrip.stops}
+                      breaks={selectedHistoryTrip.breaks || []}
                       currentPoint={selectedHistoryTrip.path?.[selectedHistoryTrip.path.length - 1] || null}
                       isActiveTrip={selectedHistoryTrip.status === "active"}
                     />
@@ -998,6 +1266,7 @@ const EmployeeFieldWork = () => {
                       <div className="space-y-2 text-sm font-semibold text-slate-600">
                         <p>Started: {new Date(selectedHistoryTrip.startedAt).toLocaleString("en-IN")}</p>
                         <p>Ended: {selectedHistoryTrip.endedAt ? new Date(selectedHistoryTrip.endedAt).toLocaleString("en-IN") : "Active"}</p>
+                        <p>Duration: {formatDuration(getHistoryTripDuration(selectedHistoryTrip))}</p>
                         <p>Distance: {(selectedHistoryTrip.distanceKm || 0).toFixed(2)} km</p>
                         <p>Stopped: {formatDuration(selectedHistoryTrip.stoppedSeconds)}</p>
                         <p>Stops: {selectedHistoryTrip.stops?.length || 0}</p>

@@ -22,6 +22,19 @@ const stopSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const breakSchema = new mongoose.Schema(
+  {
+    latitude: { type: Number, required: true },
+    longitude: { type: Number, required: true },
+    startedAt: { type: Date, default: Date.now },
+    endedAt: { type: Date, default: null },
+    durationSeconds: { type: Number, default: 0 },
+    photoUrl: { type: String, default: null },
+    description: { type: String, default: null },
+  },
+  { _id: false },
+);
+
 const fieldWorkTripSchema = new mongoose.Schema(
   {
     adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true, index: true },
@@ -41,6 +54,7 @@ const fieldWorkTripSchema = new mongoose.Schema(
     distanceKm: { type: Number, default: 0 },
     stoppedSeconds: { type: Number, default: 0 },
     stops: { type: [stopSchema], default: [] },
+    breaks: { type: [breakSchema], default: [] },
   },
   { timestamps: true },
 );
