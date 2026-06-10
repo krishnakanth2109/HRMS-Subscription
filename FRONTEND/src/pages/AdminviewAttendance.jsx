@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
-import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaExchangeAlt, FaCheck, FaHome, FaList, FaLayerGroup, FaChevronDown, FaChevronUp, FaInfoCircle, FaCoffee, FaSpinner } from "react-icons/fa";
+import { FaCalendarAlt, FaUsers, FaFileExcel, FaClock, FaCheckCircle, FaEye, FaTimes, FaMapMarkerAlt, FaUserSlash, FaSignOutAlt, FaShareAlt, FaSearch, FaBriefcase, FaUserTimes, FaFilter, FaCalendarDay, FaExchangeAlt, FaCheck, FaHome, FaList, FaLayerGroup, FaChevronDown, FaChevronUp, FaInfoCircle, FaCoffee, FaSpinner, FaTrophy } from "react-icons/fa";
 import { toBlob } from 'html-to-image';
 import { io } from "socket.io-client";
 import ModalWrapper from "../components/ModalWrapper";
@@ -230,6 +230,300 @@ const PunchOutRequestsModal = ({ isOpen, onClose, requests, loading, onAction, o
       </div>
       <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
         <button onClick={onClose} className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-semibold hover:bg-gray-900 transition-colors">Close</button>
+      </div>
+    </ModalWrapper>
+  );
+};
+
+const PerformanceModal = ({ isOpen, onClose, allEmployees, shiftsMap, holidays, summaryStartDate, summaryEndDate, employeeImages }) => {
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState([]);
+
+  const startStr = summaryStartDate;
+  const endStr = summaryEndDate;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const fetchPerformanceData = async () => {
+      setLoading(true);
+      try {
+        const activeEmps = allEmployees.filter(e => e.isActive !== false);
+        const empIds = activeEmps.map(e => e.employeeId);
+        
+        if (empIds.length === 0) {
+          setStats([]);
+          setLoading(false);
+          return;
+        }
+
+        const { data } = await api.post(`/api/attendance/admin/date-range-for-employees`, {
+          start: startStr,
+          end: endStr,
+          employeeIds: empIds
+        });
+
+        // Compute stats
+        const attendanceMap = new Map();
+        data.forEach(r => { 
+          const key = `${r.employeeId}_${normalizeDateStr(r.date)}`; 
+          attendanceMap.set(key, r); 
+        });
+
+        const computed = activeEmps.map(emp => {
+          const shift = shiftsMap[emp.employeeId];
+          const weeklyOffs = shift?.weeklyOffDays || [0];
+          const adminFullDayHours = shift?.fullDayHours || 9;
+          
+          let empStats = {
+            employeeId: emp.employeeId,
+            employeeName: emp.name,
+            presentDays: 0,
+            onTimeDays: 0,
+            lateDays: 0,
+            absentDays: 0,
+          };
+
+          const start = new Date(startStr);
+          const end = new Date(endStr);
+          
+          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            const key = `${emp.employeeId}_${dateStr}`;
+            const record = attendanceMap.get(key);
+            const holidayObj = isHoliday(dateStr, holidays);
+            const isWeeklyOff = weeklyOffs.includes(d.getDay());
+
+            if (record) {
+              if (record.punchIn) {
+                empStats.presentDays++;
+                if (calculateLoginStatus(record.punchIn, shift, record.loginStatus) === 'LATE') {
+                  empStats.lateDays++;
+                } else {
+                  empStats.onTimeDays++;
+                }
+              }
+              const wStat = getWorkedStatus(record.punchIn, record.punchOut, record.status, adminFullDayHours, shift?.halfDayHours || 4.5);
+              if (record.status === "ABSENT" || wStat.includes("Absent")) {
+                empStats.absentDays++;
+              }
+            } else if (!holidayObj && !isWeeklyOff) {
+              empStats.absentDays++;
+            }
+          }
+          return empStats;
+        });
+
+        setStats(computed);
+      } catch (err) {
+        console.error("Error fetching performance stats:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPerformanceData();
+  }, [isOpen, allEmployees, shiftsMap, holidays, startStr, endStr]);
+
+  const sortedPerformers = useMemo(() => {
+    if (stats.length === 0) return [];
+    
+    return [...stats].sort((a, b) => {
+      // 1. Less absent days (less leaves)
+      if (a.absentDays !== b.absentDays) {
+        return a.absentDays - b.absentDays;
+      }
+      // 2. Less late days
+      if (a.lateDays !== b.lateDays) {
+        return a.lateDays - b.lateDays;
+      }
+      // 3. More present days
+      return b.presentDays - a.presentDays;
+    });
+  }, [stats]);
+
+  // Find Top Performer: lowest absentDays (leaves), then lowest lateDays (late logins)
+  const topPerformer = useMemo(() => {
+    return sortedPerformers[0] || null;
+  }, [sortedPerformers]);
+
+  const top5 = useMemo(() => {
+    return sortedPerformers.slice(0, 5).map((p, idx) => ({ ...p, rank: idx + 1 }));
+  }, [sortedPerformers]);
+
+  const bottom5 = useMemo(() => {
+    if (sortedPerformers.length <= 5) {
+      return [...sortedPerformers]
+        .reverse()
+        .map(p => ({ ...p, rank: sortedPerformers.indexOf(p) + 1 }));
+    }
+    return sortedPerformers
+      .slice(-5)
+      .reverse()
+      .map(p => ({ ...p, rank: sortedPerformers.indexOf(p) + 1 }));
+  }, [sortedPerformers]);
+
+  return (
+    <ModalWrapper
+      isOpen={isOpen}
+      onClose={onClose}
+      backdropClass="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] flex justify-center items-center p-4 animate-in fade-in duration-200"
+      containerClass="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden animate-scaleIn flex flex-col"
+    >
+      {/* Header */}
+      <div className="p-5 border-b border-gray-100 flex items-start justify-between gap-4 shrink-0">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <FaTrophy className="text-yellow-500 shrink-0" /> Employee Performance
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Analyzing performance from {formatDateDMY(startStr)} to {formatDateDMY(endStr)}.
+          </p>
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-800 hover:bg-gray-100 p-2 rounded-full transition-colors shrink-0">
+          <FaTimes size={20} />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-6 overflow-y-auto flex-1 bg-gray-50 space-y-6">
+        {loading ? (
+          <div className="text-center py-20 text-gray-500 font-medium flex flex-col items-center justify-center gap-3">
+            <FaSpinner className="animate-spin text-3xl text-blue-600" />
+            <span>Calculating employee performance metrics...</span>
+          </div>
+        ) : stats.length === 0 ? (
+          <div className="text-center py-20 text-gray-500 font-medium">No performance metrics available.</div>
+        ) : (
+          <>
+            {/* Best and Worst Performers Tables */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Top 5 Performers (Green Table) */}
+              <div className="bg-white border border-green-100 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                <div className="bg-green-50/80 border-b border-green-100 px-4 py-3 flex items-center justify-between">
+                  <div className="font-extrabold text-green-800 text-sm flex items-center gap-2">
+                    <span className="text-base">🏆</span>
+                    Top 5 Best Performers
+                  </div>
+                  <span className="text-[9px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Best Attendance
+                  </span>
+                </div>
+                <div className="divide-y divide-gray-100 flex-1">
+                  {top5.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 text-xs font-medium">No records available.</div>
+                  ) : (
+                    top5.map((emp) => {
+                      const profilePic = employeeImages[emp.employeeId];
+                      return (
+                        <div key={emp.employeeId} className="p-4 flex flex-row items-center justify-between gap-3 transition-colors hover:bg-green-50/10">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-6 h-6 text-[10px] font-black bg-green-100 text-green-800 rounded-full flex items-center justify-center shrink-0">
+                              #{emp.rank}
+                            </span>
+                            <div className="w-9 h-9 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center font-bold text-gray-400 shrink-0">
+                              {profilePic ? (
+                                <img src={profilePic} className="w-full h-full object-cover" alt="" />
+                              ) : (
+                                emp.employeeName.charAt(0)
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-gray-800 text-xs truncate">
+                                {emp.employeeName}
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-mono truncate">{emp.employeeId}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 justify-end shrink-0">
+                            <div className="text-center px-2 py-1 bg-green-50 rounded border border-green-100 min-w-[50px]">
+                              <span className="block text-[7px] font-bold text-green-600 uppercase tracking-tighter">Present</span>
+                              <span className="text-[10px] font-black text-green-700">{emp.presentDays}d</span>
+                            </div>
+                            <div className="text-center px-2 py-1 bg-red-50 rounded border border-red-100 min-w-[50px]">
+                              <span className="block text-[7px] font-bold text-red-600 uppercase tracking-tighter">Leaves</span>
+                              <span className="text-[10px] font-black text-red-700">{emp.absentDays}d</span>
+                            </div>
+                            <div className="text-center px-2 py-1 bg-orange-50 rounded border border-orange-100 min-w-[50px]">
+                              <span className="block text-[7px] font-bold text-orange-600 uppercase tracking-tighter">Late</span>
+                              <span className="text-[10px] font-black text-orange-700">{emp.lateDays}d</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom 5 Performers (Red Table) */}
+              <div className="bg-white border border-red-100 rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                <div className="bg-red-50/80 border-b border-red-100 px-4 py-3 flex items-center justify-between">
+                  <div className="font-extrabold text-red-800 text-sm flex items-center gap-2">
+                    <span className="text-base">⚠️</span>
+                    Bottom 5 Performers
+                  </div>
+                  <span className="text-[9px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Needs Attention
+                  </span>
+                </div>
+                <div className="divide-y divide-gray-100 flex-1">
+                  {bottom5.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 text-xs font-medium">No records available.</div>
+                  ) : (
+                    bottom5.map((emp) => {
+                      const profilePic = employeeImages[emp.employeeId];
+                      return (
+                        <div key={emp.employeeId} className="p-4 flex flex-row items-center justify-between gap-3 transition-colors hover:bg-red-50/10">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-6 h-6 text-[10px] font-black bg-red-100 text-red-800 rounded-full flex items-center justify-center shrink-0">
+                              #{emp.rank}
+                            </span>
+                            <div className="w-9 h-9 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center font-bold text-gray-400 shrink-0">
+                              {profilePic ? (
+                                <img src={profilePic} className="w-full h-full object-cover" alt="" />
+                              ) : (
+                                emp.employeeName.charAt(0)
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-gray-800 text-xs truncate">
+                                {emp.employeeName}
+                              </div>
+                              <div className="text-[10px] text-gray-400 font-mono truncate">{emp.employeeId}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 justify-end shrink-0">
+                            <div className="text-center px-2 py-1 bg-green-50 rounded border border-green-100 min-w-[50px]">
+                              <span className="block text-[7px] font-bold text-green-600 uppercase tracking-tighter">Present</span>
+                              <span className="text-[10px] font-black text-green-700">{emp.presentDays}d</span>
+                            </div>
+                            <div className="text-center px-2 py-1 bg-red-50 rounded border border-red-100 min-w-[50px]">
+                              <span className="block text-[7px] font-bold text-red-600 uppercase tracking-tighter">Leaves</span>
+                              <span className="text-[10px] font-black text-red-700">{emp.absentDays}d</span>
+                            </div>
+                            <div className="text-center px-2 py-1 bg-orange-50 rounded border border-orange-100 min-w-[50px]">
+                              <span className="block text-[7px] font-bold text-orange-600 uppercase tracking-tighter">Late</span>
+                              <span className="text-[10px] font-black text-orange-700">{emp.lateDays}d</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end shrink-0">
+        <button onClick={onClose} className="px-5 py-2.5 bg-gray-800 text-white font-bold text-xs rounded-xl hover:bg-gray-900 transition-colors shadow-sm">
+          Close Performance View
+        </button>
       </div>
     </ModalWrapper>
   );
@@ -794,6 +1088,7 @@ const AdminAttendance = () => {
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [selectedCompareIds, setSelectedCompareIds] = useState([]);
   const [isComparisonModalOpen, setIsComparisonModalOpen] = useState(false);
+  const [isPerformanceModalOpen, setIsPerformanceModalOpen] = useState(false);
 
   const [dailyCounts, setDailyCounts] = useState({ working: 0, completed: 0, onBreak: 0, presentIds: [], absent: 0 });
   const [openBreakDropdownId, setOpenBreakDropdownId] = useState(null);
@@ -918,14 +1213,14 @@ const AdminAttendance = () => {
     return () => clearTimeout(delayDebounceFn);
   }, [fetchDailyData]);
 
-  useEffect(() => { if (startDate === endDate && allEmployees.length > 0) fetchDailyCounts(startDate); }, [startDate, endDate, fetchDailyCounts, allEmployees]);
+  useEffect(() => { if (allEmployees.length > 0) fetchDailyCounts(startDate); }, [startDate, fetchDailyCounts, allEmployees]);
 
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["polling", "websocket"] });
     const refreshPunchOutRequests = async () => {
       await fetchPunchOutRequests();
       await fetchDailyData();
-      if (startDate === endDate) await fetchDailyCounts(startDate);
+      await fetchDailyCounts(startDate);
     };
 
     socket.on("punchout:new", refreshPunchOutRequests);
@@ -1213,7 +1508,7 @@ const AdminAttendance = () => {
   };
 
   const handleOpenStatusModal = async (type) => {
-    if (type === 'ABSENT' && startDate === endDate) {
+    if (type === 'ABSENT') {
       const absentList = allEmployees.filter(e => e.isActive !== false && !dailyCounts.presentIds.includes(e.employeeId));
       setStatusListModal({ isOpen: true, title: "Login Required", employees: absentList, loading: false });
     } else {
@@ -1259,6 +1554,10 @@ const AdminAttendance = () => {
                   <span className="truncate">Punch Out Requests</span>
                   {pendingPunchOutRequests.length > 0 && (<span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black px-2 py-1 animate-pulse">{pendingPunchOutRequests.length}</span>)}
                 </button>
+                <button onClick={() => setIsPerformanceModalOpen(true)} className="flex-1 sm:flex-none relative flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95">
+                  <FaTrophy size={16} className="text-yellow-500" />
+                  <span className="truncate">Performance</span>
+                </button>
                 <button onClick={exportDailyLogToExcel} className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all active:scale-95"><FaFileExcel size={16} /><span className="truncate">Export CSV</span></button>
               </div>
             </div>
@@ -1283,7 +1582,7 @@ const AdminAttendance = () => {
             <StatCard icon={<FaClock className="text-orange-500 text-2xl" />} title="Currently Working" value={dailyCounts.working} colorClass="bg-orange-500" onClick={() => handleOpenStatusModal('WORKING')} />
             <StatCard icon={<FaCheckCircle className="text-green-500 text-2xl" />} title="Shift Completed" value={dailyCounts.completed} colorClass="bg-green-500" onClick={() => handleOpenStatusModal('COMPLETED')} />
             <StatCard icon={<FaCoffee className="text-amber-500 text-2xl" />} title="On Break" value={dailyCounts.onBreak} colorClass="bg-amber-500" onClick={() => handleOpenStatusModal('ON_BREAK')} />
-            {startDate === endDate && (<StatCard icon={<FaUserSlash className="text-red-500 text-2xl" />} title="Login Required" value={dailyCounts.absent} colorClass="bg-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />)}
+            <StatCard icon={<FaUserSlash className="text-red-500 text-2xl" />} title="Login Required" value={dailyCounts.absent} colorClass="bg-red-500" onClick={() => handleOpenStatusModal('ABSENT')} />
 
           </div>
 
@@ -1679,6 +1978,7 @@ const AdminAttendance = () => {
       <AdminPunchOutModal isOpen={punchOutModal.isOpen} onClose={() => setPunchOutModal({ isOpen: false, employee: null })} employee={punchOutModal.employee} onPunchOut={handleAdminPunchOut} />
       <PunchOutRequestsModal isOpen={isPunchOutRequestsOpen} onClose={() => setIsPunchOutRequestsOpen(false)} requests={punchOutRequests} loading={requestsLoading} onAction={handlePunchOutRequestAction} onDelete={handleDeletePunchOutRequest} actionLoading={requestActionLoading} />
       <AttendanceComparisonModal isOpen={isComparisonModalOpen} onClose={() => setIsComparisonModalOpen(false)} selectedStats={selectedStatsForComparison} employeeImages={employeeImages} startDate={summaryStartDate} endDate={summaryEndDate} />
+      <PerformanceModal isOpen={isPerformanceModalOpen} onClose={() => setIsPerformanceModalOpen(false)} allEmployees={allEmployees} shiftsMap={shiftsMap} holidays={holidays} summaryStartDate={summaryStartDate} summaryEndDate={summaryEndDate} employeeImages={employeeImages} />
 
       {previewImage && (
         <div className="fixed inset-0 z-[200] bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setPreviewImage(null)}>
