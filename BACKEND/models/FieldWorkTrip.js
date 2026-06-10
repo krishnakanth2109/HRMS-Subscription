@@ -18,6 +18,7 @@ const stopSchema = new mongoose.Schema(
     longitude: { type: Number, required: true },
     stoppedAt: { type: Date, default: Date.now },
     durationSeconds: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: false },
   },
   { _id: false },
 );

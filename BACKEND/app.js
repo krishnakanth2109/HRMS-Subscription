@@ -202,6 +202,7 @@ io.on("connection", (socket) => {
           distanceKm: payload.distanceKm,
           stoppedSeconds: payload.stoppedSeconds,
           stops: payload.stops,
+          breaks: payload.breaks,
         },
         io,
       });

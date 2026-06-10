@@ -80,6 +80,8 @@ const getLiveStopDurationSeconds = (stop, index, stops, isActiveTrip, now = Date
   const stored = Number(stop.durationSeconds) || 0;
   if (!isActiveTrip || !stop.stoppedAt) return stored;
 
+  if (!stop.isActive) return stored;
+
   const isLastStop = index === stops.length - 1;
   if (!isLastStop) return stored;
 
@@ -91,16 +93,21 @@ const computeLiveStoppedSeconds = (trip, now = Date.now()) => {
   if (!trip) return 0;
 
   const stops = trip.stops || [];
-  if (!stops.length) return Number(trip.stoppedSeconds) || 0;
-
-  if (trip.status !== "active") {
-    return stops.reduce((sum, stop) => sum + (Number(stop.durationSeconds) || 0), 0);
+  if (trip.status !== "active" || !stops.length) {
+    return Number(trip.stoppedSeconds) || 0;
   }
 
-  return stops.reduce(
-    (sum, stop, index) => sum + getLiveStopDurationSeconds(stop, index, stops, true, now),
-    0,
-  );
+  const activeStop = stops.find((s) => s.isActive);
+  if (activeStop) {
+    const nonActiveStopsDuration = stops
+      .filter((s) => !s.isActive)
+      .reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0);
+
+    const liveStopDuration = Math.max(0, Math.floor((now - new Date(activeStop.stoppedAt).getTime()) / 1000));
+    return nonActiveStopsDuration + liveStopDuration;
+  }
+
+  return Number(trip.stoppedSeconds) || 0;
 };
 
 const toLatLng = (point) => {
@@ -167,6 +174,27 @@ const breakPinIcon = L.divIcon({
   popupAnchor: [0, -17],
 });
 
+const intermediatePinIcon = L.divIcon({
+  className: "",
+  html: renderToStaticMarkup(
+    <div
+      style={{
+        alignItems: "center",
+        background: "#10b981",
+        border: "2px solid #ffffff",
+        borderRadius: "9999px",
+        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+        display: "flex",
+        height: "12px",
+        width: "12px",
+      }}
+    />
+  ),
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+  popupAnchor: [0, -6],
+});
+
 const createMapPinIcon = (background) =>
   L.divIcon({
     className: "",
@@ -231,6 +259,15 @@ const MapViewController = ({ positions, focusedLocation }) => {
   }, [map]);
 
   useEffect(() => {
+    const timers = [100, 300, 800, 1500].map((delay) =>
+      window.setTimeout(() => {
+        map.invalidateSize({ debounceStart: true });
+      }, delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [map, positions, focusedLocation]);
+
+  useEffect(() => {
     if (focusedLocation) {
       map.setView(focusedLocation, 17);
     } else {
@@ -242,8 +279,6 @@ const MapViewController = ({ positions, focusedLocation }) => {
         map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
       }
     }
-
-    window.setTimeout(() => map.invalidateSize(), 80);
   }, [map, positions, focusedLocation]);
 
   return null;
@@ -256,21 +291,54 @@ const TripRouteMap = ({ routePoints, stopPoints, breaks = [], isActiveTrip = fal
 
   const [osrmPath, setOsrmPath] = useState([]);
 
-  const startPos = routePositions[0] || null;
-  const endPos = routePositions[routePositions.length - 1] || null;
+  // Sample routePoints every 15 seconds based on recordedAt
+  const sampledPoints = useMemo(() => {
+    if (routePoints.length === 0) return [];
+    const sampled = [];
+    let lastTime = 0;
+    for (let i = 0; i < routePoints.length; i++) {
+      const pt = routePoints[i];
+      let time = pt.recordedAt ? new Date(pt.recordedAt).getTime() : NaN;
+      if (Number.isNaN(time)) {
+        time = i * 3000; // 3 seconds fallback interval
+      }
+      if (i === 0) {
+        sampled.push(pt);
+        lastTime = time;
+      } else if (i === routePoints.length - 1) {
+        if (sampled[sampled.length - 1] !== pt) {
+          sampled.push(pt);
+        }
+      } else {
+        if (time - lastTime >= 15000) {
+          sampled.push(pt);
+          lastTime = time;
+        }
+      }
+    }
+    return sampled;
+  }, [routePoints]);
+
+  // Capped waypoints for OSRM to avoid URL length limit (max 60 points)
+  const osrmWaypoints = useMemo(() => {
+    if (sampledPoints.length <= 60) {
+      return sampledPoints.map((p) => p.position);
+    }
+    const waypoints = [];
+    const step = (sampledPoints.length - 1) / 59;
+    for (let i = 0; i < 60; i++) {
+      const idx = Math.round(i * step);
+      waypoints.push(sampledPoints[idx].position);
+    }
+    return waypoints;
+  }, [sampledPoints]);
 
   const pathKey = useMemo(() => {
-    const parts = [];
-    if (startPos) parts.push(`${startPos[0]},${startPos[1]}`);
-    stopPoints.forEach((s) => {
-      if (s.position) parts.push(`${s.position[0]},${s.position[1]}`);
-    });
-    if (endPos) parts.push(`${endPos[0]},${endPos[1]}`);
-    return parts.join(";");
-  }, [startPos, endPos, stopPoints]);
+    return osrmWaypoints.map((pos) => `${pos[0]},${pos[1]}`).join(";");
+  }, [osrmWaypoints]);
 
   useEffect(() => {
-    if (routePositions.length < 2) {
+    if (osrmWaypoints.length < 2) {
       setOsrmPath([]);
       return;
     }
@@ -278,30 +346,7 @@ const TripRouteMap = ({ routePoints, stopPoints, breaks = [], isActiveTrip = fal
     let active = true;
     const fetchRoute = async () => {
       try {
-        const waypoints = [];
-        if (startPos) waypoints.push(startPos);
-
-        stopPoints.forEach((stop) => {
-          const pos = stop.position;
-          const last = waypoints[waypoints.length - 1];
-          if (last && (Math.abs(pos[0] - last[0]) > 1e-6 || Math.abs(pos[1] - last[1]) > 1e-6)) {
-            waypoints.push(pos);
-          }
-        });
-
-        if (endPos) {
-          const last = waypoints[waypoints.length - 1];
-          if (!last || (Math.abs(endPos[0] - last[0]) > 1e-6 || Math.abs(endPos[1] - last[1]) > 1e-6)) {
-            waypoints.push(endPos);
-          }
-        }
-
-        if (waypoints.length < 2) {
-          setOsrmPath([]);
-          return;
-        }
-
-        const coordsString = waypoints.map((p) => `${p[1]},${p[0]}`).join(";");
+        const coordsString = osrmWaypoints.map((p) => `${p[1]},${p[0]}`).join(";");
         const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
         const res = await fetch(url);
         if (!res.ok) {
@@ -323,7 +368,7 @@ const TripRouteMap = ({ routePoints, stopPoints, breaks = [], isActiveTrip = fal
     return () => {
       active = false;
     };
-  }, [pathKey, routePositions]);
+  }, [pathKey, osrmWaypoints]);
 
   const polylinePositions = osrmPath.length > 0 ? osrmPath : routePositions;
 
@@ -485,6 +530,7 @@ const AdminFieldTracking = () => {
   const [recentLoading, setRecentLoading] = useState(false);
   const [liveTick, setLiveTick] = useState(0);
   const [focusedLocation, setFocusedLocation] = useState(null);
+  const [pointsModalOpen, setPointsModalOpen] = useState(false);
   const mapSectionRef = useRef(null);
   const selectedEmployeeRef = useRef(null);
   const selectedDateRef = useRef(selectedDate);
@@ -926,23 +972,34 @@ const AdminFieldTracking = () => {
 
                 <div className="space-y-3">
                   {/* Dropdown - Trips */}
-                  {tripData?.trips?.length > 1 && (
+                  {selectedTrip && (
                     <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50/50">
-                      <div className="mb-2 flex items-center gap-2 text-sm font-black text-slate-900">
-                        <Route size={18} className="text-blue-600" />
-                        Trips
+                      <div className="mb-2 flex items-center justify-between text-sm font-black text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <Route size={18} className="text-blue-600" />
+                          Trips
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPointsModalOpen(true)}
+                          className="rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 text-xs font-black shadow-sm transition"
+                        >
+                          View Points
+                        </button>
                       </div>
-                      <select
-                        value={selectedTrip?._id || ""}
-                        onChange={(e) => setSelectedTripId(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-400 cursor-pointer"
-                      >
-                        {tripData.trips.map((trip, index) => (
-                          <option key={trip._id} value={trip._id}>
-                            Trip - {tripData.trips.length - index} ({new Date(trip.startedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })})
-                          </option>
-                        ))}
-                      </select>
+                      {tripData?.trips?.length > 1 && (
+                        <select
+                          value={selectedTrip?._id || ""}
+                          onChange={(e) => setSelectedTripId(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-400 cursor-pointer animate-none"
+                        >
+                          {tripData.trips.map((trip, index) => (
+                            <option key={trip._id} value={trip._id}>
+                              Trip - {tripData.trips.length - index} ({new Date(trip.startedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })})
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   )}
 
@@ -1288,6 +1345,74 @@ const AdminFieldTracking = () => {
             currentPage={employeePage}
             onPageChange={setEmployeePage}
           />
+        </div>
+      </ModalWrapper>
+
+      {/* Points List Modal */}
+      <ModalWrapper
+        isOpen={pointsModalOpen}
+        onClose={() => setPointsModalOpen(false)}
+        title={`Recorded GPS Points - ${selectedEmployee?.name || ""}`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <p className="text-xs font-semibold text-slate-500">
+            Below is the list of all GPS coordinates captured for this trip. Click "Focus" to center the map on a specific point.
+          </p>
+          
+          <div className="max-h-[400px] overflow-y-auto rounded-xl border border-slate-200">
+            <table className="w-full border-collapse text-left text-xs font-semibold text-slate-600">
+              <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 sticky top-0">
+                <tr>
+                  <th className="px-4 py-3">#</th>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Coordinates</th>
+                  <th className="px-4 py-3">Speed</th>
+                  <th className="px-4 py-3">Accuracy</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {routePoints.map((pt, index) => (
+                  <tr key={`point-row-${index}`} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-black text-slate-900">{index + 1}</td>
+                    <td className="px-4 py-3">{formatDateTime(pt.recordedAt)}</td>
+                    <td className="px-4 py-3 text-slate-500 font-mono">
+                      {pt.latitude.toFixed(6)}, {pt.longitude.toFixed(6)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {pt.speed !== null && pt.speed !== undefined ? `${(pt.speed * 3.6).toFixed(1)} km/h` : "0 km/h"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {pt.accuracy !== null && pt.accuracy !== undefined ? `±${Math.round(pt.accuracy)}m` : "--"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFocusedLocation(pt.position);
+                          setPointsModalOpen(false);
+                          window.requestAnimationFrame(() => {
+                            mapSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          });
+                        }}
+                        className="rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white px-2.5 py-1 text-[10px] font-black text-slate-700 transition cursor-pointer"
+                      >
+                        Focus
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {routePoints.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-6 text-slate-400">
+                      No coordinates recorded for this trip.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </ModalWrapper>
     </div>

@@ -20,7 +20,7 @@ const ModalWrapper = ({
   isOpen,
   onClose,
   children,
-  backdropClass = "fixed inset-0 bg-slate-900/10 flex items-center justify-center z-50 p-4 backdrop-blur-md animate-fadeIn",
+  backdropClass = "fixed inset-0 bg-slate-900/10 flex items-center justify-center z-[9999] p-4 backdrop-blur-md animate-fadeIn",
   containerClass = "bg-white/90 border border-white/50 backdrop-blur-xl rounded-2xl shadow-2xl max-w-lg w-full p-6 relative flex flex-col max-h-[85vh] outline-none animate-scaleIn"
 }) => {
   const onCloseRef = useRef(onClose);

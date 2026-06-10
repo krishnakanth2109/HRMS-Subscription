@@ -166,6 +166,27 @@ const breakPinIcon = L.divIcon({
   popupAnchor: [0, -17],
 });
 
+const intermediatePinIcon = L.divIcon({
+  className: "",
+  html: renderToStaticMarkup(
+    <div
+      style={{
+        alignItems: "center",
+        background: "#10b981",
+        border: "2px solid #ffffff",
+        borderRadius: "9999px",
+        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
+        display: "flex",
+        height: "12px",
+        width: "12px",
+      }}
+    />
+  ),
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+  popupAnchor: [0, -6],
+});
+
 const createArrowIcon = (angle) =>
   L.divIcon({
     className: "",
@@ -200,6 +221,15 @@ const ResizeAndFitMap = ({ positions, currentPosition }) => {
   }, [map]);
 
   useEffect(() => {
+    const timers = [100, 300, 800, 1500].map((delay) =>
+      window.setTimeout(() => {
+        map.invalidateSize({ debounceStart: true });
+      }, delay)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [map, positions, currentPosition]);
+
+  useEffect(() => {
     if (currentPosition) {
       map.setView(currentPosition, 15, { animate: true });
       return;
@@ -223,22 +253,55 @@ const LiveTripMap = ({ path = [], stops = [], breaks = [], currentPoint = null, 
   const routePositions = useMemo(() => routePoints.map((point) => point.position), [routePoints]);
 
   const [osrmPath, setOsrmPath] = useState([]);
-  
-  const startPos = routePositions[0] || null;
-  const endPos = routePositions[routePositions.length - 1] || null;
+
+  // Sample routePoints every 15 seconds based on recordedAt
+  const sampledPoints = useMemo(() => {
+    if (routePoints.length === 0) return [];
+    const sampled = [];
+    let lastTime = 0;
+    for (let i = 0; i < routePoints.length; i++) {
+      const pt = routePoints[i];
+      let time = pt.recordedAt ? new Date(pt.recordedAt).getTime() : NaN;
+      if (Number.isNaN(time)) {
+        time = i * 3000; // 3 seconds fallback interval
+      }
+      if (i === 0) {
+        sampled.push(pt);
+        lastTime = time;
+      } else if (i === routePoints.length - 1) {
+        if (sampled[sampled.length - 1] !== pt) {
+          sampled.push(pt);
+        }
+      } else {
+        if (time - lastTime >= 15000) {
+          sampled.push(pt);
+          lastTime = time;
+        }
+      }
+    }
+    return sampled;
+  }, [routePoints]);
+
+  // Capped waypoints for OSRM to avoid URL length limit (max 60 points)
+  const osrmWaypoints = useMemo(() => {
+    if (sampledPoints.length <= 60) {
+      return sampledPoints.map((p) => p.position);
+    }
+    const waypoints = [];
+    const step = (sampledPoints.length - 1) / 59;
+    for (let i = 0; i < 60; i++) {
+      const idx = Math.round(i * step);
+      waypoints.push(sampledPoints[idx].position);
+    }
+    return waypoints;
+  }, [sampledPoints]);
 
   const pathKey = useMemo(() => {
-    const parts = [];
-    if (startPos) parts.push(`${startPos[0]},${startPos[1]}`);
-    stopPoints.forEach((s) => {
-      if (s.position) parts.push(`${s.position[0]},${s.position[1]}`);
-    });
-    if (endPos) parts.push(`${endPos[0]},${endPos[1]}`);
-    return parts.join(";");
-  }, [startPos, endPos, stopPoints]);
+    return osrmWaypoints.map((pos) => `${pos[0]},${pos[1]}`).join(";");
+  }, [osrmWaypoints]);
 
   useEffect(() => {
-    if (routePositions.length < 2) {
+    if (osrmWaypoints.length < 2) {
       setOsrmPath([]);
       return;
     }
@@ -246,30 +309,7 @@ const LiveTripMap = ({ path = [], stops = [], breaks = [], currentPoint = null, 
     let active = true;
     const fetchRoute = async () => {
       try {
-        const waypoints = [];
-        if (startPos) waypoints.push(startPos);
-
-        stopPoints.forEach((stop) => {
-          const pos = stop.position;
-          const last = waypoints[waypoints.length - 1];
-          if (last && (Math.abs(pos[0] - last[0]) > 1e-6 || Math.abs(pos[1] - last[1]) > 1e-6)) {
-            waypoints.push(pos);
-          }
-        });
-
-        if (endPos) {
-          const last = waypoints[waypoints.length - 1];
-          if (!last || (Math.abs(endPos[0] - last[0]) > 1e-6 || Math.abs(endPos[1] - last[1]) > 1e-6)) {
-            waypoints.push(endPos);
-          }
-        }
-
-        if (waypoints.length < 2) {
-          setOsrmPath([]);
-          return;
-        }
-
-        const coordsString = waypoints.map((p) => `${p[1]},${p[0]}`).join(";");
+        const coordsString = osrmWaypoints.map((p) => `${p[1]},${p[0]}`).join(";");
         const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
         const res = await fetch(url);
         if (!res.ok) {
@@ -291,7 +331,7 @@ const LiveTripMap = ({ path = [], stops = [], breaks = [], currentPoint = null, 
     return () => {
       active = false;
     };
-  }, [pathKey, routePositions]);
+  }, [pathKey, osrmWaypoints]);
 
   const polylinePositions = osrmPath.length > 0 ? osrmPath : routePositions;
 
@@ -346,6 +386,8 @@ const LiveTripMap = ({ path = [], stops = [], breaks = [], currentPoint = null, 
           interactive={false}
         />
       ))}
+
+
 
       {routePoints[0] && (
         <Marker position={routePoints[0].position} icon={startPinIcon}>
@@ -473,6 +515,7 @@ const EmployeeFieldWork = () => {
   const stopsRef = useRef([]);
   const breaksRef = useRef([]);
   const isBreakActiveRef = useRef(false);
+  const lastRecordTimeRef = useRef(0);
 
   const latestPoint = points[points.length - 1] || null;
 
@@ -511,6 +554,7 @@ const EmployeeFieldWork = () => {
       longitude: candidate.point.longitude,
       stoppedAt: new Date(candidate.startedAt).toISOString(),
       durationSeconds: idleSeconds,
+      isActive: true,
     };
 
     if (!candidate.recorded) {
@@ -535,6 +579,7 @@ const EmployeeFieldWork = () => {
         longitude: candidate.point.longitude,
         stoppedAt: new Date(candidate.startedAt).toISOString(),
         durationSeconds: idleSeconds,
+        isActive: false,
       };
 
       if (!candidate.recorded) {
@@ -625,6 +670,10 @@ const EmployeeFieldWork = () => {
       const tripId = activeTripIdRef.current;
       if (!tripId) return;
 
+      const now = Date.now();
+      if (now - lastRecordTimeRef.current < 15000) return;
+      lastRecordTimeRef.current = now;
+
       try {
         const point = positionToPoint(position);
         const moved = calculateDistanceKm(lastPointRef.current, point);
@@ -703,6 +752,7 @@ const EmployeeFieldWork = () => {
         setStoppedSeconds(stoppedSecondsRef.current);
         lastPointRef.current = active.trip.path?.[active.trip.path.length - 1] || null;
         startTimeRef.current = active.trip.startedAt ? new Date(active.trip.startedAt).getTime() : Date.now();
+        lastRecordTimeRef.current = Date.now();
         if (setting.enabled) {
           setIsTracking(true);
           startLocationBroadcast(active.trip._id);
@@ -777,6 +827,7 @@ const EmployeeFieldWork = () => {
       startTimeRef.current = trip.startedAt ? new Date(trip.startedAt).getTime() : Date.now();
       setElapsedSeconds(0);
       setIsTracking(true);
+      lastRecordTimeRef.current = Date.now();
       startLocationBroadcast(trip._id);
     } catch (err) {
       console.error("Failed to start field trip:", err);
@@ -831,6 +882,7 @@ const EmployeeFieldWork = () => {
         throw new Error("Unable to capture location coordinates. Please try again.");
       }
 
+      finalizeStop(Date.now());
       setBreakDescription("");
       const breakData = {
         latitude: pt.latitude,
@@ -1270,6 +1322,7 @@ const EmployeeFieldWork = () => {
                         <p>Distance: {(selectedHistoryTrip.distanceKm || 0).toFixed(2)} km</p>
                         <p>Stopped: {formatDuration(selectedHistoryTrip.stoppedSeconds)}</p>
                         <p>Stops: {selectedHistoryTrip.stops?.length || 0}</p>
+                        <p>Breaks: {selectedHistoryTrip.breaks?.length || 0}</p>
                       </div>
                     </div>
 
@@ -1293,6 +1346,42 @@ const EmployeeFieldWork = () => {
                               <p className="mt-1 text-[11px] font-semibold text-slate-500">
                                 Duration: {formatDuration(stop.durationSeconds)}
                               </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedHistoryTrip.breaks?.length > 0 && (
+                      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="mb-3 flex items-center gap-2 text-sm font-black text-amber-700">
+                          <Coffee size={18} />
+                          Break Locations
+                        </div>
+                        <div className="space-y-2">
+                          {selectedHistoryTrip.breaks.map((b, index) => (
+                            <div key={`history-break-${b.startedAt || index}-${index}`} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="text-xs font-black text-amber-500">Break {index + 1}</span>
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {b.startedAt
+                                    ? new Date(b.startedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                                    : "--"}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                                Duration: {formatDuration(b.durationSeconds)}
+                              </p>
+                              {b.description && (
+                                <p className="mt-1 text-[11px] text-slate-600 italic">"{b.description}"</p>
+                              )}
+                              {b.photoUrl && (
+                                <div className="mt-2 overflow-hidden rounded border border-slate-100 max-h-[80px] bg-slate-50">
+                                  <a href={b.photoUrl} target="_blank" rel="noopener noreferrer">
+                                    <img src={b.photoUrl} alt="Break Proof Thumbnail" className="max-h-[80px] w-full object-cover cursor-zoom-in" />
+                                  </a>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
