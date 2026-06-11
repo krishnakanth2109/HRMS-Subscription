@@ -581,7 +581,13 @@ employeeWorkRoutes.get("/performance", async (req, res) => {
 adminWorkRoutes.get("/work-records", async (req, res) => {
   try {
     const { employee_name, employee_query, start_date, end_date, status } = req.query;
-    const query = {};
+
+    const myEmployees = await Employee.find({ adminId: req.user._id }).select("_id");
+    const myEmployeeIds = myEmployees.map(emp => emp._id);
+
+    const query = {
+      employeeId: { $in: myEmployeeIds }
+    };
 
     if (status && ["pending", "approved", "rejected"].includes(status)) {
       query.status = status;
@@ -684,12 +690,15 @@ adminWorkRoutes.patch("/work-percentage-settings", async (req, res) => {
 
 adminWorkRoutes.get("/work-performance/:employeeId", async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.employeeId).select("name employeeId");
+    const employee = await Employee.findOne({
+      _id: req.params.employeeId,
+      adminId: req.user._id,
+    }).select("name employeeId");
 
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: "Employee not found.",
+        message: "Employee not found or unauthorized.",
       });
     }
 
@@ -726,13 +735,20 @@ const updateWorkStatus = async (req, res, status) => {
   try {
     const entry = await DailyWorkEntry.findById(req.params.id).populate(
       "employeeId",
-      "name employeeId email"
+      "name employeeId email adminId"
     );
 
     if (!entry) {
       return res.status(404).json({
         success: false,
         message: "Work entry not found.",
+      });
+    }
+
+    if (!entry.employeeId || entry.employeeId.adminId?.toString() !== req.user._id?.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized action.",
       });
     }
 
@@ -795,13 +811,20 @@ adminWorkRoutes.post("/work/:id/generate-percentage", async (req, res) => {
   try {
     const entry = await DailyWorkEntry.findById(req.params.id).populate(
       "employeeId",
-      "name employeeId email"
+      "name employeeId email adminId"
     );
 
     if (!entry) {
       return res.status(404).json({
         success: false,
         message: "Work entry not found.",
+      });
+    }
+
+    if (!entry.employeeId || entry.employeeId.adminId?.toString() !== req.user._id?.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized action.",
       });
     }
 
@@ -870,14 +893,21 @@ adminWorkRoutes.post("/work/bulk-generate-percentage", async (req, res) => {
       });
     }
 
+    const myEmployees = await Employee.find({ adminId: req.user._id }).select("_id");
+    const myEmployeeIds = myEmployees.map(emp => emp._id.toString());
+
     const entries = await DailyWorkEntry.find({
       _id: { $in: entryIds },
-    }).populate("employeeId", "name employeeId email");
+    }).populate("employeeId", "name employeeId email adminId");
 
-    if (!entries.length) {
+    const authorizedEntries = entries.filter(
+      (entry) => entry.employeeId && myEmployeeIds.includes(entry.employeeId._id.toString())
+    );
+
+    if (!authorizedEntries.length) {
       return res.status(404).json({
         success: false,
-        message: "Selected work records were not found.",
+        message: "Selected work records were not found or unauthorized.",
       });
     }
 
@@ -885,7 +915,7 @@ adminWorkRoutes.post("/work/bulk-generate-percentage", async (req, res) => {
     const updatedEntries = [];
     const skippedEntries = [];
 
-    for (const entry of entries) {
+    for (const entry of authorizedEntries) {
       if (!entry.evening_time) {
         skippedEntries.push({
           _id: entry._id,
@@ -920,14 +950,15 @@ adminWorkRoutes.post("/work/bulk-generate-percentage", async (req, res) => {
 
 adminWorkRoutes.post("/work-performance/:employeeId/send-summary", async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.employeeId).select(
-      "name employeeId email"
-    );
+    const employee = await Employee.findOne({
+      _id: req.params.employeeId,
+      adminId: req.user._id,
+    }).select("name employeeId email");
 
     if (!employee) {
       return res.status(404).json({
         success: false,
-        message: "Employee not found.",
+        message: "Employee not found or unauthorized.",
       });
     }
 
@@ -992,12 +1023,22 @@ adminWorkRoutes.patch("/work/:id/update-status", async (req, res) => {
 
 adminWorkRoutes.delete("/work/:id", async (req, res) => {
   try {
-    const entry = await DailyWorkEntry.findById(req.params.id);
+    const entry = await DailyWorkEntry.findById(req.params.id).populate(
+      "employeeId",
+      "name employeeId adminId"
+    );
 
     if (!entry) {
       return res.status(404).json({
         success: false,
         message: "Work entry not found.",
+      });
+    }
+
+    if (!entry.employeeId || entry.employeeId.adminId?.toString() !== req.user._id?.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized action.",
       });
     }
 
