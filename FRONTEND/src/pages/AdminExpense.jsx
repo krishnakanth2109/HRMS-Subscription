@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import Swal from 'sweetalert2';
+import { getAllExpenses, updateExpenseStatus } from '../api';
 import { 
   FaCheck, 
   FaTimes, 
@@ -30,9 +30,9 @@ const AdminExpenseDashboard = () => {
   const fetchAllExpenses = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/expenses/all');
-      if (res.data.success) {
-        setExpenses(res.data.data);
+      const res = await getAllExpenses();
+      if (res.success) {
+        setExpenses(res.data);
       }
     } catch (err) {
       console.error("Error fetching admin expenses", err);
@@ -70,9 +70,9 @@ const AdminExpenseDashboard = () => {
 
     if (result.isConfirmed) {
       try {
-        const res = await axios.put(`http://localhost:5000/api/expenses/${id}/status`, { status: newStatus });
+        const res = await updateExpenseStatus(id, newStatus);
         
-        if (res.data.success) {
+        if (res.success) {
           Swal.fire({
             icon: 'success',
             title: 'Updated!',

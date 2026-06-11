@@ -106,9 +106,12 @@ router.get('/employee/:employeeId', async (req, res) => {
   try {
     const { employeeId } = req.params;
     
-    // Security check
-    if (req.user.employeeId !== employeeId && req.user.role !== 'admin' && req.user.role !== 'support-admin') {
-        return res.status(403).json({ message: "Forbidden" });
+    const role = req.user.role;
+    const isAdminOrSupport = role === 'admin' || role === 'support-admin';
+
+    // Employees can only fetch their own expenses
+    if (!isAdminOrSupport && String(req.user._id) !== employeeId) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
     const expenses = await Expense.find({ employeeId }).sort({ date: -1 });

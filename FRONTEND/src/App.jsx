@@ -117,7 +117,8 @@ import EditEmailTemplate from "./pages/EditEmailTemplate";
 import AdminFieldTracking from "./pages/tracker/AdminFieldTracking";
 import EmployeeFieldWork from "./pages/tracker/EmployeeFieldWork";
 import AdminWorkReports from "./pages/AdminWorkReports";
-
+import AdminExpenseDashboard from "./pages/AdminExpense";
+import AddExpense from "./EmployeePages/AddExpense";
 
 
 // ----------------------------------------------------------------------
@@ -262,7 +263,7 @@ function App() {
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
         <Route path="/attendance" element={<AdminViewAttendance />} />
-     
+            <Route path="/admin/expense" element={<AdminExpenseDashboard />} />
 
 
         <Route
@@ -382,6 +383,7 @@ function App() {
         <Route path="/employee/leave-summary" element={<EmployeeLeaveSummary />} />
         <Route path="/employee/change-password" element={<ChangePasswordPage />} />
         <Route path="/employee/resignation" element={<EmployeeResignation />} />
+        <Route path="/employee/expenses" element={<AddExpense />} />
       </Route>
     </Routes>
   );

@@ -1387,4 +1387,32 @@ export const getAllVerifiedDocCandidates = async () => {
   return records.filter((r) => r.status === "verified");
 };
 
+/* =============================================================================
+   EXPENSE MANAGEMENT
+============================================================================= */
+
+// Admin: fetch all expenses (scoped to admin)
+export const getAllExpenses = async () =>
+  (await api.get("/api/expenses/all")).data;
+
+// Admin: approve or reject an expense
+export const updateExpenseStatus = async (id, status) =>
+  (await api.put(`/api/expenses/${id}/status`, { status })).data;
+
+// Admin: delete an expense
+export const deleteExpense = async (id) =>
+  (await api.delete(`/api/expenses/${id}`)).data;
+
+// Employee: submit a new expense (multipart because of receipt upload)
+export const addExpense = async (formData) =>
+  (
+    await api.post("/api/expenses/add", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+  ).data;
+
+// Employee: get own expenses
+export const getExpensesForEmployee = async (employeeId) =>
+  (await api.get(`/api/expenses/employee/${employeeId}`)).data;
+
 export default api;

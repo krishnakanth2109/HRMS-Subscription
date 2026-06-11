@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
-import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import { addExpense, getExpensesForEmployee } from '../api';
 import Swal from 'sweetalert2';
 import { 
   FaMoneyBillWave, 
@@ -53,9 +53,9 @@ const AddExpense = () => {
     if (!user || !user._id) return;
     
     try {
-      const res = await axios.get(`http://localhost:5000/api/expenses/employee/${user._id}`);
-      if (res.data.success) {
-        setExpenseHistory(res.data.data);
+      const res = await getExpensesForEmployee(user._id);
+      if (res.success) {
+        setExpenseHistory(res.data);
       }
     } catch (err) {
       console.error("Error fetching history", err);
@@ -146,18 +146,9 @@ const AddExpense = () => {
     }
 
     try {
-      const res = await axios.post('http://localhost:5000/api/expenses/add', data, {
-        headers: { 
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 60000, // 60 seconds timeout
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          console.log('Upload Progress:', percentCompleted + '%');
-        }
-      });
+      const res = await addExpense(data);
 
-      if (res.data.success) {
+      if (res.success) {
         Swal.fire({
           icon: 'success',
           title: 'Submitted Successfully!',

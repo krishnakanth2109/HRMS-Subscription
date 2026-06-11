@@ -41,6 +41,7 @@ const NAV_SECTIONS = [
       { to: "/employee/empovertime", label: "Request Overtime", icon: Clock },
       { to: "/employee/leave-management", label: "Leave Requests", icon: CalendarClock },
       { to: "/employee/reuestworkmode", label: "WorkMode Request", icon: Laptop },
+      { to: "/employee/expenses", label: "My Expenses", icon: Receipt },
     ]
   },
   {

@@ -27,6 +27,7 @@ import {
   Menu,
   X,
   IndianRupee,
+  Receipt,
 } from "lucide-react";
 
 import { io } from "socket.io-client";
@@ -191,6 +192,12 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           route: "/admin/payroll",
           label: "Payroll",
           icon: IndianRupee,
+        },
+        {
+          to: "/admin/expense",
+          route: "/admin/expense",
+          label: "Expense Management",
+          icon: Receipt,
         },
       ],
     },
