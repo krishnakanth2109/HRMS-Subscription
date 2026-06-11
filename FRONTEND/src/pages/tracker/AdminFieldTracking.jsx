@@ -32,6 +32,8 @@ const SOCKET_URL =
     ? import.meta.env.VITE_API_URL_PRODUCTION
     : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";
 
+const LOCATION_INTERVAL_MS = 15000;
+
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 const toDateKey = (value) => {
@@ -64,7 +66,7 @@ const formatDateTime = (value) => {
   if (!value) return "--";
   return new Date(value).toLocaleString("en-IN", {
     dateStyle: "medium",
-    timeStyle: "short",
+    timeStyle: "medium",
   });
 };
 
@@ -310,7 +312,7 @@ const TripRouteMap = ({ routePoints, stopPoints, breaks = [], isActiveTrip = fal
           sampled.push(pt);
         }
       } else {
-        if (time - lastTime >= 15000) {
+        if (time - lastTime >= LOCATION_INTERVAL_MS) {
           sampled.push(pt);
           lastTime = time;
         }

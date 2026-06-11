@@ -20,7 +20,7 @@ const SOCKET_URL =
     ? import.meta.env.VITE_API_URL_PRODUCTION
     : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";
 
-const LOCATION_INTERVAL_MS = 3000;
+const LOCATION_INTERVAL_MS = 15000;
 
 const getCurrentUser = () => {
   try {
@@ -273,7 +273,7 @@ const LiveTripMap = ({ path = [], stops = [], breaks = [], currentPoint = null, 
           sampled.push(pt);
         }
       } else {
-        if (time - lastTime >= 15000) {
+        if (time - lastTime >= LOCATION_INTERVAL_MS) {
           sampled.push(pt);
           lastTime = time;
         }
@@ -671,7 +671,7 @@ const EmployeeFieldWork = () => {
       if (!tripId) return;
 
       const now = Date.now();
-      if (now - lastRecordTimeRef.current < 15000) return;
+      if (now - lastRecordTimeRef.current < LOCATION_INTERVAL_MS) return;
       lastRecordTimeRef.current = now;
 
       try {
