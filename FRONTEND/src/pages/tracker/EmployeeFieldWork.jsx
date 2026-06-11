@@ -536,7 +536,7 @@ const EmployeeFieldWork = () => {
 
     const idleSeconds = Math.floor((now - candidate.startedAt) / 1000);
     if (idleSeconds >= STOP_MIN_SECONDS) {
-      total += idleSeconds;
+      total += (idleSeconds - STOP_MIN_SECONDS);
     }
     return total;
   }, []);
@@ -553,7 +553,7 @@ const EmployeeFieldWork = () => {
       latitude: candidate.point.latitude,
       longitude: candidate.point.longitude,
       stoppedAt: new Date(candidate.startedAt).toISOString(),
-      durationSeconds: idleSeconds,
+      durationSeconds: idleSeconds - STOP_MIN_SECONDS,
       isActive: true,
     };
 
@@ -578,7 +578,7 @@ const EmployeeFieldWork = () => {
         latitude: candidate.point.latitude,
         longitude: candidate.point.longitude,
         stoppedAt: new Date(candidate.startedAt).toISOString(),
-        durationSeconds: idleSeconds,
+        durationSeconds: idleSeconds - STOP_MIN_SECONDS,
         isActive: false,
       };
 
@@ -590,7 +590,7 @@ const EmployeeFieldWork = () => {
         stopsRef.current = updatedStops;
       }
       setStops([...stopsRef.current]);
-      stoppedSecondsRef.current += idleSeconds;
+      stoppedSecondsRef.current += (idleSeconds - STOP_MIN_SECONDS);
     }
 
     stopCandidateRef.current = null;

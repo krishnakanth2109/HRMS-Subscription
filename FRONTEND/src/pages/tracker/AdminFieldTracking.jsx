@@ -88,7 +88,8 @@ const getLiveStopDurationSeconds = (stop, index, stops, isActiveTrip, now = Date
   if (!isLastStop) return stored;
 
   const live = Math.floor((now - new Date(stop.stoppedAt).getTime()) / 1000);
-  return Math.max(stored, live);
+  const liveDuration = live >= 120 ? live - 120 : 0;
+  return Math.max(stored, liveDuration);
 };
 
 const computeLiveStoppedSeconds = (trip, now = Date.now()) => {
@@ -105,7 +106,8 @@ const computeLiveStoppedSeconds = (trip, now = Date.now()) => {
       .filter((s) => !s.isActive)
       .reduce((sum, s) => sum + (Number(s.durationSeconds) || 0), 0);
 
-    const liveStopDuration = Math.max(0, Math.floor((now - new Date(activeStop.stoppedAt).getTime()) / 1000));
+    const liveStopSeconds = Math.floor((now - new Date(activeStop.stoppedAt).getTime()) / 1000);
+    const liveStopDuration = liveStopSeconds >= 120 ? liveStopSeconds - 120 : 0;
     return nonActiveStopsDuration + liveStopDuration;
   }
 
