@@ -28,6 +28,41 @@ const loadRazorpayScript = () =>
     document.body.appendChild(script);
   });
 
+const getBillingCycleMultiplier = (billingCycle, planName) => {
+  if (billingCycle === "monthly") return 1;
+  if (billingCycle === "quarterly") return 3;
+  if (billingCycle === "halfYearly") return 6;
+  if (billingCycle === "yearly") return 12;
+
+  const name = (planName || "").toLowerCase();
+  if (name.includes("quarterly") || name.includes("quarter")) return 3;
+  if (name.includes("half") || name.includes("semi")) return 6;
+  if (name.includes("annual") || name.includes("yearly") || name.includes("year")) return 12;
+
+  return 1;
+};
+
+const getNextBillingDateString = (billingCycle) => {
+  const date = new Date();
+  if (billingCycle === "quarterly") {
+    date.setMonth(date.getMonth() + 3);
+  } else if (billingCycle === "halfYearly") {
+    date.setMonth(date.getMonth() + 6);
+  } else if (billingCycle === "yearly") {
+    date.setFullYear(date.getFullYear() + 1);
+  } else {
+    date.setMonth(date.getMonth() + 1);
+  }
+  return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const getBillingIntervalLabel = (billingCycle) => {
+  if (billingCycle === "quarterly") return "every 3 months";
+  if (billingCycle === "halfYearly") return "every 6 months";
+  if (billingCycle === "yearly") return "every year";
+  return "monthly";
+};
+
 const AdminProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1309,20 +1344,20 @@ const AdminProfile = () => {
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 mb-5">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Monthly Add-on Cost</p>
+                <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Total Add-on Cost</p>
                 <p className="text-white text-2xl font-black">
-                  ₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10)).toLocaleString('en-IN')}
+                  ₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)).toLocaleString('en-IN')}
                 </p>
                 <p className="text-indigo-200 text-[10px] font-medium mt-0.5">
-                  {Math.max(10, Number(addonSeats) || 10)} seats × ₹{addonPlanInfo.pricePerPerson}/seat
+                  {Math.max(10, Number(addonSeats) || 10)} seats × ₹{addonPlanInfo.pricePerPerson}/seat × {getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)} months
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-indigo-200 text-[10px] font-bold uppercase tracking-wider">New Billing Date</p>
                 <p className="text-white text-sm font-black">
-                  {new Date(new Date().setMonth(new Date().getMonth() + 1)).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  {getNextBillingDateString(addonPlanInfo.planInfo?.billingCycle || addonPlanInfo.billingCycle)}
                 </p>
-                <p className="text-indigo-200 text-[10px] font-medium">Separate from plan bill</p>
+                <p className="text-indigo-200 text-[10px] font-medium">Billed {getBillingIntervalLabel(addonPlanInfo.planInfo?.billingCycle || addonPlanInfo.billingCycle)}</p>
               </div>
             </div>
           </div>
@@ -1330,7 +1365,7 @@ const AdminProfile = () => {
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
           <p className="text-amber-800 text-xs font-bold">
-            ⚡ <strong>Separate billing cycle</strong> — This add-on has its own monthly renewal date, independent of your main plan billing date.
+            ⚡ <strong>Separate billing cycle</strong> — This add-on has its own renewal date, independent of your main plan billing date.
           </p>
         </div>
 
@@ -1339,7 +1374,7 @@ const AdminProfile = () => {
           disabled={isProcessingAddon || !addonPlanInfo}
           className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-100 text-sm uppercase tracking-wide"
         >
-          {isProcessingAddon ? "Processing..." : `Pay ₹${addonPlanInfo ? (addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10)).toLocaleString('en-IN') : "..."} & Activate`}
+          {isProcessingAddon ? "Processing..." : `Pay ₹${addonPlanInfo ? (addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)).toLocaleString('en-IN') : "..."} & Activate`}
         </button>
       </ModalWrapper>
 

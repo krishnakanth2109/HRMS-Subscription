@@ -15,6 +15,20 @@ const signToken = (id, role) => {
   );
 };
 
+const getBillingCycleMultiplier = (billingCycle, planName) => {
+  if (billingCycle === "monthly") return 1;
+  if (billingCycle === "quarterly") return 3;
+  if (billingCycle === "halfYearly") return 6;
+  if (billingCycle === "yearly") return 12;
+
+  const name = (planName || "").toLowerCase();
+  if (name.includes("quarterly") || name.includes("quarter")) return 3;
+  if (name.includes("half") || name.includes("semi")) return 6;
+  if (name.includes("annual") || name.includes("yearly") || name.includes("year")) return 12;
+
+  return 1;
+};
+
 /* ==================== HELPER: CALCULATE EXPIRY ==================== */
 const getExpiryDate = async (planName) => {
   const setting = await PlanSetting.findOne({ planName });
@@ -336,7 +350,7 @@ export const getLoginAccessStatus = async (req, res) => {
           plan: admin.plan,
           userLimit,
           isPaid: admin.isPaid,
-          billPaid: admin.lastPaymentAmount || (planInfo?.price ? planInfo.price * Math.max(totalEmployees, 1) : 0),
+          billPaid: admin.lastPaymentAmount || (planInfo?.price ? planInfo.price * Math.max(totalEmployees, 1) * getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName) : 0),
           planPrice: planInfo?.price || 0,
           billingCycle: planInfo?.billingCycle || null,
           billingDurationDays: planInfo?.durationDays || null,

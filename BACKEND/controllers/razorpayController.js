@@ -9,6 +9,20 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+const getBillingCycleMultiplier = (billingCycle, planName) => {
+  if (billingCycle === "monthly") return 1;
+  if (billingCycle === "quarterly") return 3;
+  if (billingCycle === "halfYearly") return 6;
+  if (billingCycle === "yearly") return 12;
+
+  const name = (planName || "").toLowerCase();
+  if (name.includes("quarterly") || name.includes("quarter")) return 3;
+  if (name.includes("half") || name.includes("semi")) return 6;
+  if (name.includes("annual") || name.includes("yearly") || name.includes("year")) return 12;
+
+  return 1;
+};
+
 const isSameBillingDay = (date1, date2) => {
   if (!date1 || !date2) return false;
   const d1 = new Date(date1);
@@ -81,9 +95,10 @@ export const createOrder = async (req, res) => {
     }
 
     const limit = Math.max(30, Number(userLimit) || 30);
+    const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
 
     // Razorpay expects amount in paise (1 INR = 100 paise)
-    const amountInPaise = Math.round(planInfo.price * limit * 100);
+    const amountInPaise = Math.round(planInfo.price * limit * multiplier * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
@@ -455,8 +470,9 @@ export const getNextBillInfo = async (req, res) => {
       });
     }
 
+    const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
     const mainBillSeats = baseLimit + mergedAddonSeats;
-    const mainBillAmount = planInfo.price * mainBillSeats;
+    const mainBillAmount = planInfo.price * mainBillSeats * multiplier;
 
     const bills = [];
     const isFreePlan = admin.plan?.toLowerCase()?.includes("free");
@@ -477,7 +493,8 @@ export const getNextBillInfo = async (req, res) => {
 
     separateAddons.forEach((addon) => {
       const addonSeats = addon.addonLimit || 10;
-      const addonAmount = planInfo.price * addonSeats;
+      const addonMultiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
+      const addonAmount = planInfo.price * addonSeats * addonMultiplier;
       bills.push({
         id: addon._id.toString(),
         type: "addon",
@@ -495,7 +512,7 @@ export const getNextBillInfo = async (req, res) => {
       planName: admin.plan,
       pricePerPerson: planInfo.price,
       employeeCount: baseLimit,
-      amount: planInfo.price * baseLimit,
+      amount: planInfo.price * baseLimit * multiplier,
       nextBillingDate: admin.planExpiresAt,
       planInfo,
     };
@@ -559,7 +576,8 @@ export const createAddonOrder = async (req, res) => {
       seats = Math.max(10, Number(addonLimit) || 10);
     }
 
-    const amountInPaise = Math.round(planInfo.price * seats * 100);
+    const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
+    const amountInPaise = Math.round(planInfo.price * seats * multiplier * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,

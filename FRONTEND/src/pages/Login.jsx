@@ -35,6 +35,27 @@ const loadRazorpayScript = () =>
     document.body.appendChild(script);
   });
 
+const getBillingCycleMultiplier = (plan) => {
+  if (!plan) return 1;
+  const cycle = plan.billingCycle;
+  if (cycle === "monthly") return 1;
+  if (cycle === "quarterly") return 3;
+  if (cycle === "halfYearly") return 6;
+  if (cycle === "yearly") return 12;
+
+  const days = Number(plan.durationDays);
+  if (days >= 360) return 12;
+  if (days >= 180) return 6;
+  if (days >= 90) return 3;
+
+  const name = (plan.planName || "").toLowerCase();
+  if (name.includes("quarterly") || name.includes("quarter")) return 3;
+  if (name.includes("half") || name.includes("semi")) return 6;
+  if (name.includes("annual") || name.includes("yearly") || name.includes("year")) return 12;
+
+  return 1;
+};
+
 const Login = () => {
   const { user, login, logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -964,7 +985,7 @@ const Login = () => {
                       </div>
                       <div className="flex justify-between text-xs font-bold text-white pt-2 border-t border-purple-500/15">
                         <span className="uppercase tracking-wider text-[10px] text-gray-400">Total Amount Due</span>
-                        <span className="text-purple-300 text-sm font-black">₹{selectedUpgradePlan.price * (expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30)}</span>
+                        <span className="text-purple-300 text-sm font-black">₹{selectedUpgradePlan.price * (expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30) * getBillingCycleMultiplier(selectedUpgradePlan)}</span>
                       </div>
                     </div>
                   )}
@@ -981,7 +1002,7 @@ const Login = () => {
                     {upgradeLoading
                       ? "Redirecting..."
                       : selectedUpgradePlan
-                      ? `Pay ₹${selectedUpgradePlan.price * (expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30)} — Renew`
+                      ? `Pay ₹${selectedUpgradePlan.price * (expiredAdminDetails.userLimit || expiredAdminDetails.employeeCount || 30) * getBillingCycleMultiplier(selectedUpgradePlan)} — Renew`
                       : "Select a Plan"}
                   </button>
                 </div>

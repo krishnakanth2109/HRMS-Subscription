@@ -17,6 +17,27 @@ const loadRazorpayScript = () =>
         document.body.appendChild(script);
     });
 
+const getBillingCycleMultiplier = (plan) => {
+    if (!plan) return 1;
+    const cycle = plan.billingCycle;
+    if (cycle === "monthly") return 1;
+    if (cycle === "quarterly") return 3;
+    if (cycle === "halfYearly") return 6;
+    if (cycle === "yearly") return 12;
+
+    const days = Number(plan.durationDays);
+    if (days >= 360) return 12;
+    if (days >= 180) return 6;
+    if (days >= 90) return 3;
+
+    const name = (plan.planName || "").toLowerCase();
+    if (name.includes("quarterly") || name.includes("quarter")) return 3;
+    if (name.includes("half") || name.includes("semi")) return 6;
+    if (name.includes("annual") || name.includes("yearly") || name.includes("year")) return 12;
+
+    return 1;
+};
+
 // ── Curated Unsplash image URLs relevant to each section ──
 const IMAGES = {
     // Hero – person at laptop in bright modern office
@@ -1368,7 +1389,7 @@ const DynamicHRMSLandingPage = () => {
                                                         <p className={`font-bold text-sm capitalize ${text}`}>{selectedPlan.planName}</p>
                                                     </div>
                                                     <div className="text-blue-600 font-black text-xl">
-                                                        {Number(selectedPlan.price) === 0 ? "Free" : `₹${selectedPlan.price * userLimit}`}
+                                                        {Number(selectedPlan.price) === 0 ? "Free" : `₹${selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan)}`}
                                                     </div>
                                                 </div>
                                             )}
@@ -1378,7 +1399,7 @@ const DynamicHRMSLandingPage = () => {
                                                 disabled={signupLoading || !selectedPlan || !!signupSuccess}
                                                 className="w-full mt-1 btn-primary text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
-                                                {signupLoading ? "Processing..." : !selectedPlan ? "← Select a Plan" : Number(selectedPlan.price) === 0 ? "Create Free Account" : `Pay ₹${selectedPlan.price * userLimit} & Activate`}
+                                                {signupLoading ? "Processing..." : !selectedPlan ? "← Select a Plan" : Number(selectedPlan.price) === 0 ? "Create Free Account" : `Pay ₹${selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan)} & Activate`}
                                             </button>
 
                                             <p className={`text-center text-xs ${textMuted} uppercase tracking-wider pt-1`}>
