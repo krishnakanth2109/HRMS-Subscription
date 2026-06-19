@@ -41,7 +41,9 @@ const getExpiryDate = async (planName) => {
   }
 
   const expiryDate = new Date();
-  if (setting && setting.billingCycle) {
+  if (setting && setting.durationDays) {
+    expiryDate.setDate(expiryDate.getDate() + setting.durationDays);
+  } else if (setting && setting.billingCycle) {
     if (setting.billingCycle === "monthly") {
       expiryDate.setMonth(expiryDate.getMonth() + 1);
     } else if (setting.billingCycle === "quarterly") {
@@ -51,11 +53,10 @@ const getExpiryDate = async (planName) => {
     } else if (setting.billingCycle === "yearly") {
       expiryDate.setFullYear(expiryDate.getFullYear() + 1);
     } else {
-      expiryDate.setDate(expiryDate.getDate() + (setting.durationDays || 30));
+      expiryDate.setDate(expiryDate.getDate() + 30);
     }
   } else {
-    const days = setting ? setting.durationDays : 30;
-    expiryDate.setDate(expiryDate.getDate() + days);
+    expiryDate.setDate(expiryDate.getDate() + 30);
   }
   return expiryDate;
 };
@@ -182,25 +183,39 @@ export const loginAdmin = async (req, res) => {
 /* ==================== UPDATE DYNAMIC PLAN DAYS & PRICE ==================== */
 export const updatePlanSettings = async (req, res) => {
   try {
-    const { planName, durationDays, price, billingCycle = "monthly", maxUsers, features } = req.body;
+    const { planId, planName, durationDays, price, billingCycle = "monthly", maxUsers, features } = req.body;
 
     // ✅ Protect owner plan from being modified via API
-    const existing = await PlanSetting.findOne({ planName });
+    let existing;
+    if (planId) {
+      existing = await PlanSetting.findById(planId);
+    } else {
+      existing = await PlanSetting.findOne({ planName });
+    }
+
     if (existing && existing.isOwnerPlan) {
       return res.status(403).json({ message: "The Owner plan is protected and cannot be modified." });
     }
 
-    const setting = await PlanSetting.findOneAndUpdate(
-      { planName },
-      {
+    let setting;
+    if (existing) {
+      existing.planName = planName;
+      existing.durationDays = Number(durationDays);
+      existing.price = Number(price);
+      existing.billingCycle = billingCycle;
+      existing.maxUsers = maxUsers !== undefined ? Number(maxUsers) : null;
+      existing.features = features;
+      setting = await existing.save();
+    } else {
+      setting = await PlanSetting.create({
+        planName,
         durationDays: Number(durationDays),
         price: Number(price),
         billingCycle,
         maxUsers: maxUsers !== undefined ? Number(maxUsers) : null,
         features: features,
-      },
-      { upsert: true, new: true }
-    );
+      });
+    }
 
     res.status(200).json({
       message: `Plan ${planName} updated successfully`,
@@ -248,6 +263,33 @@ export const deletePlan = async (req, res) => {
     res.status(200).json({ message: "Plan deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Failed to delete plan" });
+  }
+};
+
+/* ==================== TOGGLE PLAN VISIBILITY ==================== */
+export const togglePlanVisibility = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const plan = await PlanSetting.findById(id);
+    if (!plan) {
+      return res.status(404).json({ message: "Plan not found" });
+    }
+
+    if (plan.isOwnerPlan) {
+      return res.status(403).json({ message: "The Owner plan is protected and cannot be toggled." });
+    }
+
+    plan.isActive = !plan.isActive;
+    await plan.save();
+
+    res.status(200).json({
+      message: `Plan "${plan.planName}" is now ${plan.isActive ? "visible" : "hidden"} on the frontend.`,
+      isActive: plan.isActive,
+    });
+  } catch (error) {
+    console.error("❌ TOGGLE PLAN VISIBILITY ERROR:", error);
+    res.status(500).json({ message: "Failed to toggle plan visibility" });
   }
 };
 

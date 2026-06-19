@@ -6,6 +6,8 @@ import SupportAdmin from "../models/supportAdminModel.js";
 import Employee from "../models/employeeModel.js";
 import { getExpiredSubscriptionPayload, resolveRootAdmin } from "../utils/subscriptionAccess.js";
 
+import MasterAdmin from "../models/MasterAdmin.js";
+
 /*
   PROTECT MIDDLEWARE
   - validates JWT
@@ -34,7 +36,7 @@ export const protect = async (req, res, next) => {
       process.env.JWT_SECRET
     );
 
-    // Check Admin first, then SupportAdmin, then Employee
+    // Check Admin first, then SupportAdmin, then Employee, then MasterAdmin
     let currentUser = await Admin.findById(decoded.id).select("-password").lean();
     if (currentUser) {
       currentUser.role = "admin";
@@ -55,6 +57,12 @@ export const protect = async (req, res, next) => {
         currentUser = await Employee.findById(decoded.id).select("-password");
         if (currentUser) {
           currentUser.role = "employee";
+        } else {
+          currentUser = await MasterAdmin.findById(decoded.id).select("-password").lean();
+          if (currentUser) {
+            currentUser.role = "master";
+            currentUser.actualId = currentUser._id;
+          }
         }
       }
     }

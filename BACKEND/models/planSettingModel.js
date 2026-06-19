@@ -10,7 +10,7 @@ const planSettingSchema = new mongoose.Schema({
   price: { type: Number, default: 0 },
   billingCycle: {
     type: String,
-    enum: ["monthly", "quarterly", "halfYearly", "yearly"],
+    enum: ["monthly", "quarterly", "halfYearly", "yearly", "custom", "free"],
     default: "monthly",
   },
   maxUsers: { type: Number, default: null }, // Null means unlimited
@@ -19,6 +19,9 @@ const planSettingSchema = new mongoose.Schema({
   // ✅ NEW: Owner/Unlimited plan flags
   isUnlimited: { type: Boolean, default: false }, // true = never expires
   isOwnerPlan: { type: Boolean, default: false },  // true = protected, cannot be deleted/edited from UI
+
+  // ✅ Visibility toggle: false = hidden from frontend/pricing pages
+  isActive: { type: Boolean, default: true },
 });
 
 const PlanSetting = mongoose.model("PlanSetting", planSettingSchema);

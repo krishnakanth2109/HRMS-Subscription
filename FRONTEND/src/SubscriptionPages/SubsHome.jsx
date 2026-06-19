@@ -129,7 +129,7 @@ const DynamicHRMSLandingPage = () => {
     }, []);
 
     const filteredPlans = plans.filter(
-        (plan) => plan.planName?.toLowerCase() !== "owner"
+        (plan) => plan.planName?.toLowerCase() !== "owner" && plan.isActive !== false
     );
 
     const handlePlanClick = (plan) => {
@@ -869,7 +869,8 @@ const DynamicHRMSLandingPage = () => {
                                                         <FaCheckCircle className={`text-xs ${isPopular || isHovered ? 'text-white' : 'text-blue-600'}`} />
                                                     </div>
                                                     <span className={`text-sm font-semibold ${isPopular || isHovered ? 'text-white' : text}`}>
-                                                        {plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}
+                                                        30 Users
+                                                        {/* {plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`} */}
                                                     </span>
                                                 </li>
                                                 {plan.features && plan.features.length > 0 ? (

@@ -83,7 +83,7 @@ function OfferLetterIndex() {
     const isEdit = !!selectedEmployeeForEdit;
     try {
       let createdEmployeeId = null;
-      
+
       if (isEdit) {
         await api.updateOfferLetterEmployee(selectedEmployeeForEdit._id || selectedEmployeeForEdit.id, data);
         createdEmployeeId = selectedEmployeeForEdit._id || selectedEmployeeForEdit.id;
@@ -99,10 +99,10 @@ function OfferLetterIndex() {
 
       if (shouldSendOffer) {
         // Get default company from first available company or use selectedCompanyId
-        const defaultCompany = selectedCompanyId !== 'All' 
+        const defaultCompany = selectedCompanyId !== 'All'
           ? companies.find(c => c._id === selectedCompanyId)
           : companies[0];
-        
+
         if (!defaultCompany) {
           alert("No company available. Please set up a company first.");
           setIsModalOpen(false);
@@ -114,10 +114,10 @@ function OfferLetterIndex() {
         // Get templates for the company
         try {
           const templates = await api.getOfferLetterTemplates();
-          const companyTemplates = templates.filter(t => 
+          const companyTemplates = templates.filter(t =>
             !t.companyName || t.companyName === defaultCompany.name || t.companyName === ''
           );
-          
+
           if (companyTemplates.length === 0) {
             alert("No offer letter templates available for this company. Please set up a template first.");
             setIsModalOpen(false);
@@ -399,8 +399,8 @@ function OfferLetterIndex() {
               ))}
             </select>
 
-       
-           
+
+
 
             <input type="file" accept=".xlsx, .xls, .csv" id="olImportFile" style={{ display: 'none' }} onChange={async e => {
               const file = e.target.files[0];

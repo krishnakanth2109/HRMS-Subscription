@@ -8,6 +8,7 @@ import {
     getAllAdmins,
     getAllPlanSettings,
     deletePlan,
+    togglePlanVisibility,
     toggleAdminLogin,
     toggleEmployeeLoginByAdmin,
     getLoginAccessStatus,
@@ -48,6 +49,7 @@ router.patch("/plan-settings", updatePlanSettings);
 router.get("/all-admins", getAllAdmins);
 router.get("/all-plans", getAllPlanSettings);
 router.delete("/delete-plan/:id", deletePlan);
+router.patch("/toggle-plan/:id", togglePlanVisibility);
 router.get("/login-access", getLoginAccessStatus);
 router.patch("/login-access/admin/:adminId", toggleAdminLogin);
 router.patch("/login-access/employees/:adminId", toggleEmployeeLoginByAdmin);

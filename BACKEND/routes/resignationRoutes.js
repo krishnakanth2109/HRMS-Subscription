@@ -40,6 +40,7 @@ const sendMail = async (to, subject, html) => {
   }
 };
 
+
 // ============================================================
 // EMPLOYEE: Submit Resignation
 // POST /api/resignations/submit

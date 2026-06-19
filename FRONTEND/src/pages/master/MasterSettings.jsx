@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import api from "../../api";
-import { FaTrash, FaEdit, FaCheck, FaChevronDown, FaChevronUp, FaLock } from "react-icons/fa";
+import { FaTrash, FaEdit, FaCheck, FaChevronDown, FaChevronUp, FaLock, FaToggleOn, FaToggleOff } from "react-icons/fa";
 import Swal from "sweetalert2";
 
 // ⭐ HARDCODED FALLBACK — includes owner-exclusive routes at the bottom
@@ -31,15 +31,7 @@ const FALLBACK_FEATURES = [
   { label: "Platform Analytics", route: "/master/analytics", description: "Owner-only: Usage analytics across all tenants" },
 ];
 
-const DEFAULT_DURATION_DAYS = 30;
 const OWNER_PLAN_NAME = "owner";
-const DEFAULT_PER_PERSON_PRICE = 49;
-const BILLING_CYCLES = [
-  { value: "monthly", label: "Monthly Plan", eyebrow: "Billed monthly", durationDays: 30 },
-  { value: "quarterly", label: "Quarterly Plan", eyebrow: "Billed every 3 months", durationDays: 90 },
-  { value: "halfYearly", label: "Half-Yearly Plan", eyebrow: "Billed every 6 months", durationDays: 180 },
-  { value: "yearly", label: "Annual Plan", eyebrow: "Billed annually", durationDays: 365 },
-];
 const OWNER_FEATURE_ROUTES = new Set([
   "/master/dashboard",
   "/master/admins",
@@ -57,18 +49,31 @@ const getAdminFeatures = (features) =>
 const isOwnerPlan = (plan) =>
   plan?.isOwnerPlan || plan?.planName?.trim().toLowerCase() === OWNER_PLAN_NAME;
 
-const getBillingCycle = (plan = {}) =>
-  BILLING_CYCLES.find((cycle) => cycle.value === plan.billingCycle) ||
-  BILLING_CYCLES.find((cycle) => cycle.durationDays === Number(plan.durationDays)) ||
-  BILLING_CYCLES[0];
+const getBillingCycleDetails = (value) => {
+  switch (value) {
+    case "monthly":
+      return { label: "Monthly Plan", eyebrow: "Billed monthly" };
+    case "quarterly":
+      return { label: "Quarterly Plan", eyebrow: "Billed every 3 months" };
+    case "halfYearly":
+      return { label: "Half-Yearly Plan", eyebrow: "Billed every 6 months" };
+    case "yearly":
+      return { label: "Annual Plan", eyebrow: "Billed annually" };
+    case "free":
+      return { label: "Free Plan", eyebrow: "Free / Trial" };
+    default:
+      return { label: "Custom Plan", eyebrow: "Billed periodically" };
+  }
+};
 
 const PlanSettings = () => {
-  const [planName, setPlanName] = useState(BILLING_CYCLES[0].label);
-  const [price, setPrice] = useState(DEFAULT_PER_PERSON_PRICE);
+  const [planName, setPlanName] = useState("");
+  const [price, setPrice] = useState("");
   const [billingCycle, setBillingCycle] = useState("monthly");
-  const [durationDays, setDurationDays] = useState(DEFAULT_DURATION_DAYS);
+  const [durationDays, setDurationDays] = useState("");
   const [maxUsers, setMaxUsers] = useState(30);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [editingPlanId, setEditingPlanId] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [existingPlans, setExistingPlans] = useState([]);
@@ -129,10 +134,7 @@ const PlanSettings = () => {
   };
 
   const handleBillingCycleChange = (value) => {
-    const cycle = BILLING_CYCLES.find((item) => item.value === value) || BILLING_CYCLES[0];
-    setBillingCycle(cycle.value);
-    setDurationDays(cycle.durationDays);
-    setPlanName(cycle.label);
+    setBillingCycle(value);
   };
 
   const handleUpdate = async (e) => {
@@ -140,6 +142,10 @@ const PlanSettings = () => {
 
     if (!planName) {
       return Swal.fire({ icon: "error", title: "Oops...", text: "Plan name is required!" });
+    }
+
+    if (!durationDays) {
+      return Swal.fire({ icon: "error", title: "Oops...", text: "Duration in days is required!" });
     }
 
     // ✅ Prevent editing the protected Owner plan via the form
@@ -157,6 +163,7 @@ const PlanSettings = () => {
       const includedFeatures = allFeatures.map((feature) => feature.route);
 
       await api.patch("/api/admin/plan-settings", {
+        planId: editingPlanId,
         planName,
         price: Number(price),
         billingCycle,
@@ -173,13 +180,14 @@ const PlanSettings = () => {
         showConfirmButton: false,
       });
 
-      setPlanName(BILLING_CYCLES[0].label);
-      setPrice(DEFAULT_PER_PERSON_PRICE);
+      setPlanName("");
+      setPrice("");
       setBillingCycle("monthly");
-      setDurationDays(DEFAULT_DURATION_DAYS);
+      setDurationDays("");
       setMaxUsers(30);
       setSelectedFeatures([]);
       setIsDropdownOpen(false);
+      setEditingPlanId(null);
       fetchPlans();
     } catch (error) {
       Swal.fire({
@@ -201,11 +209,11 @@ const PlanSettings = () => {
         text: "The Owner plan is protected and cannot be edited.",
       });
     }
+    setEditingPlanId(plan._id);
     setPlanName(plan.planName);
-    const cycle = getBillingCycle(plan);
-    setPrice(plan.price ?? DEFAULT_PER_PERSON_PRICE);
-    setBillingCycle(cycle.value);
-    setDurationDays(plan.durationDays || cycle.durationDays);
+    setPrice(plan.price ?? "");
+    setBillingCycle(plan.billingCycle || "monthly");
+    setDurationDays(plan.durationDays || "");
     setMaxUsers(plan.maxUsers === null ? "" : plan.maxUsers);
     setSelectedFeatures([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -247,11 +255,48 @@ const PlanSettings = () => {
     return f ? f.label : route;
   };
 
+  // --- TOGGLE VISIBILITY ---
+  const handleToggleVisibility = async (plan) => {
+    try {
+      const res = await api.patch(`/api/admin/toggle-plan/${plan._id}`);
+      // Optimistically update local state
+      setExistingPlans((prev) =>
+        prev.map((p) =>
+          p._id === plan._id ? { ...p, isActive: res.data.isActive } : p
+        )
+      );
+      Swal.fire({
+        icon: "success",
+        title: res.data.isActive ? "Plan Activated" : "Plan Hidden",
+        text: res.data.message,
+        timer: 1800,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Toggle Failed",
+        text: error.response?.data?.message || "Failed to toggle plan visibility",
+      });
+    }
+  };
+
   const toggleExpandPlan = (planId) => {
     setExpandedPlans((prev) => ({
       ...prev,
       [planId]: !prev[planId],
     }));
+  };
+
+  const handleCreateNewPlan = () => {
+    setPlanName("");
+    setPrice("");
+    setBillingCycle("custom");
+    setDurationDays("");
+    setMaxUsers(30);
+    setSelectedFeatures([]);
+    setIsDropdownOpen(false);
+    setEditingPlanId(null);
   };
 
   return (
@@ -260,10 +305,19 @@ const PlanSettings = () => {
 
         {/* ── FORM ── */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 h-fit">
-          <h2 className="text-2xl font-black text-gray-800 uppercase mb-6">Manage Plans</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-black text-gray-800 uppercase">Manage Plans</h2>
+            <button
+              type="button"
+              onClick={handleCreateNewPlan}
+              className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold px-3 py-1.5 rounded-lg transition-all"
+            >
+              + Add New Custom Plan
+            </button>
+          </div>
 
           <form onSubmit={handleUpdate} className="space-y-5 relative">
-            {/* <div>
+            <div>
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Plan Name</label>
               <input
                 type="text"
@@ -272,9 +326,9 @@ const PlanSettings = () => {
                 placeholder="e.g. Premium"
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
               />
-            </div> */}
+            </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Billing Cycle</label>
                 <select
@@ -282,12 +336,24 @@ const PlanSettings = () => {
                   onChange={(e) => handleBillingCycleChange(e.target.value)}
                   className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
                 >
-                  {BILLING_CYCLES.map((cycle) => (
-                    <option key={cycle.value} value={cycle.value}>
-                      {cycle.label} - {cycle.eyebrow}
-                    </option>
-                  ))}
+                  <option value="monthly">Monthly Plan</option>
+                  <option value="quarterly">Quarterly Plan</option>
+                  <option value="halfYearly">Half-Yearly Plan</option>
+                  <option value="yearly">Annual Plan</option>
+                  <option value="custom">Custom Plan</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Duration (Days)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={durationDays}
+                  onChange={(e) => setDurationDays(e.target.value)}
+                  placeholder="e.g. 30"
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
+                />
               </div>
 
               <div>
@@ -416,10 +482,10 @@ const PlanSettings = () => {
 
             <div className="mb-8 rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-sm font-black text-white">
-                {BILLING_CYCLES.find((cycle) => cycle.value === billingCycle)?.label || "Monthly Plan"}
+                {getBillingCycleDetails(billingCycle).label}
               </p>
               <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-300">
-                {BILLING_CYCLES.find((cycle) => cycle.value === billingCycle)?.eyebrow || "Billed monthly"}
+                {getBillingCycleDetails(billingCycle).eyebrow} ({durationDays || 0} Days)
               </p>
               <div className="mt-4 flex items-end gap-1">
                 <span className="text-5xl font-black">₹{price || 0}</span>
@@ -429,7 +495,7 @@ const PlanSettings = () => {
 
 
 
-
+            
             <div className="space-y-4">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Included Features</p>
               <ul className="space-y-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar-dark">
@@ -460,20 +526,30 @@ const PlanSettings = () => {
               const displayedFeatures = isExpanded ? featureRoutes : featureRoutes.slice(0, 3);
               const extraCount = featureRoutes.length - 3;
               const isOwner = isOwnerPlan(plan);
-              const planBillingCycle = getBillingCycle(plan);
+              const planBillingCycle = getBillingCycleDetails(plan.billingCycle);
 
               return (
                 <div
                   key={plan._id}
-                  className={`border p-6 rounded-2xl group transition-all relative overflow-hidden ${isOwner
+                  className={`border p-6 rounded-2xl group transition-all relative overflow-hidden ${
+                    isOwner
                       ? "border-yellow-300 bg-gradient-to-br from-yellow-50 to-amber-50 shadow-md"
+                      : plan.isActive === false
+                      ? "border-gray-200 bg-gray-100 opacity-60 hover:opacity-80 hover:border-gray-300"
                       : "border-gray-100 bg-gray-50 hover:border-purple-300 hover:shadow-lg"
-                    }`}
+                  }`}
                 >
                   {/* ✅ Owner crown badge */}
                   {isOwner && (
                     <div className="absolute top-3 right-3 flex items-center gap-1 bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">
                       <FaLock size={8} /> Protected
+                    </div>
+                  )}
+
+                  {/* Hidden badge for inactive plans */}
+                  {!isOwner && plan.isActive === false && (
+                    <div className="absolute top-3 left-3 flex items-center gap-1 bg-gray-400 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">
+                      Hidden
                     </div>
                   )}
 
@@ -487,7 +563,7 @@ const PlanSettings = () => {
                       </div>
                     </div>
 
-                    {/* Edit/Delete only for non-owner plans */}
+                    {/* Edit / Toggle / Delete — only for non-owner plans */}
                     {!isOwner && (
                       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -496,6 +572,18 @@ const PlanSettings = () => {
                           title="Edit Plan"
                         >
                           <FaEdit />
+                        </button>
+                        {/* ON / OFF toggle */}
+                        <button
+                          onClick={() => handleToggleVisibility(plan)}
+                          className={`p-2.5 rounded-xl shadow-sm border transition-colors bg-white ${
+                            plan.isActive !== false
+                              ? "text-green-500 hover:text-green-700 hover:bg-green-50 border-gray-200"
+                              : "text-gray-400 hover:text-gray-600 hover:bg-gray-100 border-gray-200"
+                          }`}
+                          title={plan.isActive !== false ? "Visible — click to hide" : "Hidden — click to show"}
+                        >
+                          {plan.isActive !== false ? <FaToggleOn size={18} /> : <FaToggleOff size={18} />}
                         </button>
                         <button
                           onClick={() => handleDelete(plan._id, plan)}
@@ -513,7 +601,9 @@ const PlanSettings = () => {
                   </div>
 
                   <div className="mb-4 rounded-xl border border-white bg-white/70 p-3 shadow-sm">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-600">{planBillingCycle.eyebrow}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-600">
+                      {planBillingCycle.eyebrow} ({plan.durationDays || 0} Days)
+                    </p>
                     <p className="mt-1 text-sm font-black text-slate-900">{planBillingCycle.label}</p>
                   </div>
 

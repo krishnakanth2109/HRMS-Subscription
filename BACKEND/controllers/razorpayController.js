@@ -199,7 +199,9 @@ export const verifyPayment = async (req, res) => {
       expiresAt = new Date(existing.planExpiresAt);
     }
 
-    if (billingCycle === "monthly") {
+    if (durationDays) {
+      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+    } else if (billingCycle === "monthly") {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     } else if (billingCycle === "quarterly") {
       expiresAt.setMonth(expiresAt.getMonth() + 3);
@@ -207,8 +209,6 @@ export const verifyPayment = async (req, res) => {
       expiresAt.setMonth(expiresAt.getMonth() + 6);
     } else if (billingCycle === "yearly") {
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    } else if (durationDays) {
-      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
     } else {
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
@@ -337,7 +337,9 @@ export const razorpayWebhookHandler = async (req, res) => {
       expiresAt = new Date(existing.planExpiresAt);
     }
 
-    if (billingCycle === "monthly") {
+    if (durationDays) {
+      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
+    } else if (billingCycle === "monthly") {
       expiresAt.setMonth(expiresAt.getMonth() + 1);
     } else if (billingCycle === "quarterly") {
       expiresAt.setMonth(expiresAt.getMonth() + 3);
@@ -345,8 +347,6 @@ export const razorpayWebhookHandler = async (req, res) => {
       expiresAt.setMonth(expiresAt.getMonth() + 6);
     } else if (billingCycle === "yearly") {
       expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-    } else if (durationDays) {
-      expiresAt.setDate(expiresAt.getDate() + parseInt(durationDays));
     } else {
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
