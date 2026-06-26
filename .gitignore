@@ -43,3 +43,6 @@ BACKEND/seedDummyLimit.js
 FRONTEND/dist.zip
 
 RBAC.md
+
+# Agent customizations
+.agents/

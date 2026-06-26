@@ -7,9 +7,10 @@ import {
   LogOut, 
   Hexagon, 
   ChevronLeft, 
-  UserCog ,
-  LifeBuoy  ,
-  ChevronRight ,Bug, CalendarCheck
+  UserCog,
+  Sliders,
+  LifeBuoy,
+  ChevronRight, Bug, CalendarCheck
 } from "lucide-react";
 
 const LayoutMaster = () => {
@@ -33,6 +34,11 @@ const LayoutMaster = () => {
   label: "Manage Logins", 
   path: "/master/manage-logins", 
   icon: <UserCog size={22} /> 
+},
+{ 
+  label: "Customize", 
+  path: "/master/customize", 
+  icon: <Sliders size={22} /> 
 },
 
 { 
@@ -124,7 +130,9 @@ const LayoutMaster = () => {
         {/* Top Header */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm z-10">
           <h1 className="text-2xl font-bold text-slate-800 capitalize truncate">
-            {location.pathname.split("/").pop().replace("-", " ")}
+            {location.pathname.includes("customizing-admin")
+              ? "Customizing Admin"
+              : location.pathname.split("/").pop().replace("-", " ")}
           </h1>
           
         </header>

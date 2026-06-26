@@ -93,6 +93,8 @@ import EmployeeViewRules from "./EmployeePages/EmployeeViewRules";
 import AdminRulesPost from "./pages/AdminRulespost";
 import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
 import ManageLogins from "./pages/master/Managelogins";
+import Customize from "./pages/master/Customize";
+import CustomizingAdmin from "./pages/master/CustomizingAdmin";
 import SendOnboardingForm from "./pages/InviteEmployee";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import SuperAdminIssues from "./pages/SuperAdminIssues";
@@ -233,6 +235,8 @@ function App() {
         <Route path="admins" element={<MasterAdminUsers />} />
         <Route path="settings" element={<MasterSettings />} />
         <Route path="manage-logins" element={<ManageLogins />} />
+        <Route path="customize" element={<Customize />} />
+        <Route path="customizing-admin/:id" element={<CustomizingAdmin />} />
          <Route path="manage-issues" element={<SuperAdminIssues/>} />
          <Route path="manage-demo-requests" element={<AdminDemoRequests />}/>
          <Route path="domain-settings" element={<DomainSettings/>} />
