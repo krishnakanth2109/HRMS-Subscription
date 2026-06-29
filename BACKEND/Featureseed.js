@@ -89,7 +89,13 @@ const ALL_FEATURES = [
     route: "/admin/live-tracking",
     iconKey: "FaMapMarkerAlt",
     description: "Monitor employee idle time in real-time",
-  }, 
+  },
+  {
+    label: "Expense Management",
+    route: "/admin/expense",
+    iconKey: "FaReceipt",
+    description: "Handle and review employee expense requests",
+  } 
   // {
   //   label : "Users Limit",
   //   route : "/admin/users-limit",

@@ -331,6 +331,7 @@ app.use("/api/face-auth", faceAuthRoutes);
 /* ==================== 🔹 RAZORPAY ROUTES ==================== */
 app.use("/api/razorpay", razorpayRoutes);
 app.use("/api/master", masterRoutes);
+app.use("/api/superadmin", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
 app.use("/api/domain", domainRoutes);
 

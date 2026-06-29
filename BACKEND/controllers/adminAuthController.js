@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Admin from "../models/adminModel.js";
 import SupportAdmin from "../models/supportAdminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
@@ -75,14 +76,28 @@ export const registerAdmin = async (req, res) => {
       return res.status(400).json({ message: "Admin with this email already exists" });
     }
 
-    const planInfo = await PlanSetting.findOne({ planName: plan });
+    const planInfo = await PlanSetting.findOne({ planName: plan || "Free" });
 
-    if (!planInfo && plan !== "Free") {
+    if (!planInfo && plan && plan !== "Free") {
       return res.status(400).json({ message: "The selected plan is invalid or no longer exists." });
     }
 
     const isPaid = planInfo ? planInfo.price > 0 : false;
     const planExpiresAt = await getExpiryDate(plan || "Free");
+
+    const planDetails = {
+      planName: planInfo ? planInfo.planName : (plan || "Free"),
+      price: planInfo ? planInfo.price : 0,
+      billingCycle: planInfo ? planInfo.billingCycle : "free",
+      durationDays: planInfo ? planInfo.durationDays : 30,
+      maxUsers: planInfo ? (planInfo.maxUsers ?? 30) : 30,
+      features: planInfo ? [...planInfo.features] : [],
+      isUnlimited: planInfo ? planInfo.isUnlimited : false,
+      isPaid: isPaid,
+      activatedAt: new Date(),
+      expiresAt: planExpiresAt,
+      sourcePlanId: planInfo ? planInfo._id : null,
+    };
 
     const admin = await Admin.create({
       name,
@@ -91,11 +106,7 @@ export const registerAdmin = async (req, res) => {
       phone: phone || "",
       role: role || "admin",
       department: department || "Administration",
-      plan: plan || "Free",
-      userLimit: Number(userLimit) || 30,
-      isPaid: isPaid,
-      planActivatedAt: new Date(),
-      planExpiresAt: planExpiresAt,
+      planDetails,
       loginEnabled: true,
       adminId: adminId || null,
     });
@@ -172,6 +183,8 @@ export const loginAdmin = async (req, res) => {
         role: admin.role,
         plan: admin.plan,
         isOwner: isUnlimitedPlan || false, // ✅ frontend can use this flag
+        companyLogo: admin.companyLogo || null,
+        navTemplate: admin.navTemplate || "sidebar",
       },
     });
   } catch (error) {
@@ -183,8 +196,35 @@ export const loginAdmin = async (req, res) => {
 /* ==================== UPDATE DYNAMIC PLAN DAYS & PRICE ==================== */
 export const updatePlanSettings = async (req, res) => {
   try {
-    const { planId, planName, durationDays, price, billingCycle = "monthly", maxUsers, features } = req.body;
+    const { planId, planName, durationDays, price, billingCycle = "monthly", maxUsers, features, targetAdminIds } = req.body;
 
+    // 1️⃣ Customize specifically for selected admins only
+    if (targetAdminIds && targetAdminIds.length > 0 && !targetAdminIds.includes("all")) {
+      const updatedAdmins = [];
+      for (const adminId of targetAdminIds) {
+        const admin = await Admin.findById(adminId);
+        if (admin) {
+          if (!admin.planDetails) {
+            admin.planDetails = {};
+          }
+
+          admin.planDetails.price = Number(price);
+          if (features) {
+            admin.planDetails.features = features;
+          }
+          admin.markModified("planDetails");
+          await admin.save();
+          updatedAdmins.push(admin.name || admin.email);
+        }
+      }
+
+      return res.status(200).json({
+        message: `Plan settings customized specifically for: ${updatedAdmins.join(", ")}`,
+        setting: null,
+      });
+    }
+
+    // 2️⃣ Update Master Plan and propagate to all enrolled admins
     // ✅ Protect owner plan from being modified via API
     let existing;
     if (planId) {
@@ -206,6 +246,17 @@ export const updatePlanSettings = async (req, res) => {
       existing.maxUsers = maxUsers !== undefined ? Number(maxUsers) : null;
       existing.features = features;
       setting = await existing.save();
+
+      // ✅ Update features and price of all current admins enrolled in this plan
+      await Admin.updateMany(
+        { "planDetails.planName": planName },
+        { 
+          $set: { 
+            "planDetails.features": features,
+            "planDetails.price": Number(price)
+          } 
+        }
+      );
     } else {
       setting = await PlanSetting.create({
         planName,
@@ -242,7 +293,21 @@ export const getAllPlanSettings = async (req, res) => {
 export const getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find({}).sort({ createdAt: -1 });
-    res.status(200).json(admins);
+    
+    // Map nested planDetails to top-level properties for frontend compatibility
+    const mappedAdmins = admins.map((admin) => {
+      const adminObj = admin.toObject();
+      if (adminObj.planDetails) {
+        adminObj.plan = adminObj.planDetails.planName || adminObj.plan;
+        adminObj.isPaid = adminObj.planDetails.isPaid !== undefined ? adminObj.planDetails.isPaid : adminObj.isPaid;
+        adminObj.planActivatedAt = adminObj.planDetails.activatedAt || adminObj.planActivatedAt;
+        adminObj.planExpiresAt = adminObj.planDetails.expiresAt || adminObj.planExpiresAt;
+        adminObj.userLimit = adminObj.planDetails.maxUsers !== undefined ? adminObj.planDetails.maxUsers : adminObj.userLimit;
+      }
+      return adminObj;
+    });
+
+    res.status(200).json(mappedAdmins);
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch admins" });
   }
@@ -361,7 +426,7 @@ export const getLoginAccessStatus = async (req, res) => {
     plans.forEach(p => planMap[p.planName] = p);
 
     const admins = await Admin.find({})
-      .select("name email plan userLimit loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount createdAt")
+      .select("name email plan userLimit loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount planDetails createdAt")
       .sort({ createdAt: -1 });
 
     const adminData = await Promise.all(
@@ -373,14 +438,24 @@ export const getLoginAccessStatus = async (req, res) => {
 
         const supportAdminCount = await SupportAdmin.countDocuments({ adminId: admin._id });
 
-        const planInfo = planMap[admin.plan];
-        const isOwner = planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited) || (admin.plan && admin.plan.toLowerCase() === 'owner');
-        let userLimit = isOwner ? null : (admin.userLimit || null);
+        let details = admin.planDetails || {};
+        let planName = details.planName || admin.plan || "Free";
+        let isPaid = details.planName ? details.isPaid : admin.isPaid;
+        let planActivatedAt = details.planName ? details.activatedAt : admin.planActivatedAt;
+        let planExpiresAt = details.planName ? details.expiresAt : admin.planExpiresAt;
+        let lastPaymentAmount = details.planName ? details.lastPaymentAmount : admin.lastPaymentAmount;
+        let lastPaymentAt = details.planName ? details.lastPaymentAt : admin.lastPaymentAt;
+
+        const planInfo = planMap[planName];
+        const isOwner = details.planName
+          ? details.isUnlimited
+          : (planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited)) || (planName?.toLowerCase() === 'owner');
+
+        let userLimit = isOwner ? null : (details.planName ? details.maxUsers : (admin.userLimit || null));
         if (userLimit === null && !isOwner) {
           if (planInfo && planInfo.maxUsers) {
             userLimit = planInfo.maxUsers;
-          } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
-            // If no specific setting found for Free plan, default to 30 or whatever was intended as fallback
+          } else if (planName === 'Free' || planName === 'Free Trail' || planName?.toLowerCase()?.includes('free')) {
             userLimit = planMap['Free']?.maxUsers || 30;
           }
         }
@@ -389,17 +464,17 @@ export const getLoginAccessStatus = async (req, res) => {
           id: admin._id,
           name: admin.name,
           email: admin.email,
-          plan: admin.plan,
+          plan: planName,
           userLimit,
-          isPaid: admin.isPaid,
-          billPaid: admin.lastPaymentAmount || (planInfo?.price ? planInfo.price * Math.max(totalEmployees, 1) * getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName) : 0),
-          planPrice: planInfo?.price || 0,
-          billingCycle: planInfo?.billingCycle || null,
-          billingDurationDays: planInfo?.durationDays || null,
-          planActivatedAt: admin.planActivatedAt,
-          lastPaymentAt: admin.lastPaymentAt,
+          isPaid: isPaid,
+          billPaid: lastPaymentAmount || (planInfo?.price ? planInfo.price * Math.max(totalEmployees, 1) * getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName) : 0),
+          planPrice: details.planName ? details.price : (planInfo?.price || 0),
+          billingCycle: details.planName ? details.billingCycle : (planInfo?.billingCycle || null),
+          billingDurationDays: details.planName ? details.durationDays : (planInfo?.durationDays || null),
+          planActivatedAt: planActivatedAt,
+          lastPaymentAt: lastPaymentAt,
           loginEnabled: admin.loginEnabled !== false,
-          planExpiresAt: admin.planExpiresAt,
+          planExpiresAt: planExpiresAt,
           createdAt: admin.createdAt,
           totalEmployees,
           disabledEmployees,
@@ -441,20 +516,50 @@ export const getAdminProfile = async (req, res) => {
 
     // Calculate active addon sum (addons that are paid and not expired)
     const now = new Date();
+    const currentRazorpayPaymentId = adminObj.planDetails?.razorpayPaymentId || adminObj.razorpayPaymentId;
+    const currentRazorpayOrderId = adminObj.planDetails?.razorpayOrderId || adminObj.razorpayOrderId;
+
     const activeAddonTotal = (adminObj.limitAddons || []).reduce((sum, addon) => {
       const alreadyMainBilled =
-        (addon.razorpayPaymentId && adminObj.razorpayPaymentId && addon.razorpayPaymentId === adminObj.razorpayPaymentId) ||
-        (addon.razorpayOrderId && adminObj.razorpayOrderId && addon.razorpayOrderId === adminObj.razorpayOrderId);
+        (addon.razorpayPaymentId && currentRazorpayPaymentId && addon.razorpayPaymentId === currentRazorpayPaymentId) ||
+        (addon.razorpayOrderId && currentRazorpayOrderId && addon.razorpayOrderId === currentRazorpayOrderId);
 
       if (addon.isPaid && !addon.mergedIntoMainPlan && !alreadyMainBilled && addon.expiresAt && new Date(addon.expiresAt) > now) {
         return sum + (addon.addonLimit || 0);
       }
       return sum;
     }, 0);
-    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
-    const isOwner = planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited) || (admin.plan && admin.plan.toLowerCase() === 'owner');
+
+    let isOwner = false;
+    let baseLimit = 30;
+
+    if (adminObj.planDetails && adminObj.planDetails.planName) {
+      isOwner = adminObj.planDetails.isUnlimited;
+      baseLimit = adminObj.planDetails.maxUsers;
+      // Populate legacy flat properties to preserve compatibility with frontend/sidebar routing
+      adminObj.plan = adminObj.planDetails.planName;
+      adminObj.isPaid = adminObj.planDetails.isPaid;
+      adminObj.planActivatedAt = adminObj.planDetails.activatedAt;
+      adminObj.planExpiresAt = adminObj.planDetails.expiresAt;
+      adminObj.userLimit = adminObj.planDetails.maxUsers;
+    } else {
+      const planInfo = await PlanSetting.findOne({ planName: admin.plan });
+      isOwner = (planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited)) || (admin.plan && admin.plan.toLowerCase() === 'owner');
+      baseLimit = adminObj.userLimit || 30;
+    }
+
     adminObj.activeAddonTotal = activeAddonTotal;
-    adminObj.effectiveUserLimit = isOwner ? null : ((adminObj.userLimit || 30) + activeAddonTotal);
+    adminObj.effectiveUserLimit = isOwner ? null : (baseLimit + activeAddonTotal);
+
+    if (req.user.role === "support-admin") {
+      const parentAdmin = await Admin.findById(rootAdminId).select("companyLogo navTemplate");
+      adminObj.companyLogo = parentAdmin?.companyLogo || null;
+      adminObj.navTemplate = parentAdmin?.navTemplate || "sidebar";
+    } else {
+      const fullAdmin = await Admin.findById(rootAdminId).select("companyLogo navTemplate");
+      adminObj.companyLogo = fullAdmin?.companyLogo || null;
+      adminObj.navTemplate = fullAdmin?.navTemplate || "sidebar";
+    }
 
     res.status(200).json(adminObj);
   } catch (error) {
@@ -572,15 +677,29 @@ export const getMyPlanFeatures = async (req, res) => {
       return res.status(401).json({ message: "User not authenticated" });
     }
 
-    const admin = await Admin.findById(req.user._id).select("plan");
+    const admin = await Admin.findById(req.user._id).select("planDetails plan");
     if (!admin) {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    const plan = await PlanSetting.findOne({ planName: admin.plan });
+    let planName = "Free";
+    let isOwner = false;
+    let allowedRoutes = [];
+
+    if (admin.planDetails && admin.planDetails.planName) {
+      planName = admin.planDetails.planName;
+      isOwner = admin.planDetails.isUnlimited;
+      allowedRoutes = admin.planDetails.features || [];
+    } else {
+      // Fallback for pre-migration documents
+      const planInfo = await PlanSetting.findOne({ planName: admin.plan || "Free" });
+      planName = admin.plan || "Free";
+      isOwner = (planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited)) || (planName?.toLowerCase() === 'owner');
+      allowedRoutes = planInfo ? planInfo.features : [];
+    }
 
     // ✅ Owner / unlimited plan → return ALL features from all plans (no restriction)
-    if (plan && (plan.isOwnerPlan || plan.isUnlimited)) {
+    if (isOwner) {
       // Gather every unique route from all plans + owner-exclusive routes
       const allPlans = await PlanSetting.find({});
       const allRoutes = new Set();
@@ -599,19 +718,15 @@ export const getMyPlanFeatures = async (req, res) => {
       ownerExclusiveRoutes.forEach((r) => allRoutes.add(r));
 
       return res.status(200).json({
-        planName: admin.plan,
+        planName,
         isOwnerPlan: true,
         allowedRoutes: Array.from(allRoutes),
       });
     }
 
-    if (!plan || !plan.features || plan.features.length === 0) {
-      return res.status(200).json({ planName: admin.plan, allowedRoutes: [] });
-    }
-
     res.status(200).json({
-      planName: plan.planName,
-      allowedRoutes: plan.features,
+      planName,
+      allowedRoutes,
     });
   } catch (error) {
     console.error("❌ GET MY PLAN FEATURES ERROR:", error);
@@ -654,16 +769,65 @@ export const deleteAdmin = async (req, res) => {
       return res.status(404).json({ message: "Admin not found" });
     }
 
-    // Delete the admin
+    // 1. Fetch related IDs to perform dynamic cascade delete
+    const companyDocs = await mongoose.model("Company").find({ adminId });
+    const companyIds = companyDocs.map((c) => c._id);
+
+    const employeeDocs = await mongoose.model("Employee").find({ adminId });
+    const employeeIds = employeeDocs.map((emp) => emp.employeeId);
+    const employeeObjectIds = employeeDocs.map((emp) => emp._id);
+
+    const supportAdminDocs = await mongoose.model("SupportAdmin").find({ adminId });
+    const supportAdminObjectIds = supportAdminDocs.map((sa) => sa._id);
+
+    const allUserObjectIds = [admin._id, ...employeeObjectIds, ...supportAdminObjectIds];
+
+    // 2. Cascade delete on all registered models dynamically
+    const modelNames = mongoose.modelNames();
+    for (const modelName of modelNames) {
+      // Skip the Admin model itself during dynamic loop to delete it specifically last
+      if (modelName === "Admin") continue;
+
+      const Model = mongoose.model(modelName);
+      
+      // A. If the schema has an adminId path
+      if (Model.schema.paths.adminId) {
+        await Model.deleteMany({ adminId });
+      }
+      
+      // B. If the schema has an employeeId path
+      if (Model.schema.paths.employeeId) {
+        await Model.deleteMany({
+          employeeId: { $in: [...employeeIds, ...employeeObjectIds] }
+        });
+      }
+
+      // C. If the schema has a userId path
+      if (Model.schema.paths.userId) {
+        await Model.deleteMany({
+          userId: { $in: allUserObjectIds }
+        });
+      }
+
+      // D. If the schema has a companyId path
+      if (Model.schema.paths.companyId) {
+        await Model.deleteMany({
+          companyId: { $in: companyIds }
+        });
+      }
+
+      // E. If the schema has a company path
+      if (Model.schema.paths.company) {
+        await Model.deleteMany({
+          company: { $in: companyIds }
+        });
+      }
+    }
+
+    // 3. Delete the admin itself
     await Admin.findByIdAndDelete(adminId);
 
-    // Delete all employees under this admin
-    await Employee.deleteMany({ adminId });
-
-    // Delete all support admins under this admin
-    await SupportAdmin.deleteMany({ adminId });
-
-    res.status(200).json({ message: `Admin account for ${admin.name} and all associated logins have been permanently deleted` });
+    res.status(200).json({ message: `Admin account for ${admin.name} and all associated logins and data have been permanently deleted` });
   } catch (error) {
     console.error("❌ DELETE ADMIN ERROR:", error);
     res.status(500).json({ message: "Failed to delete admin account" });
@@ -849,7 +1013,7 @@ export const freeUpgradeToOwner = async (req, res) => {
     }
 
     // Check if the current plan is Free
-    const currentPlanLower = (admin.plan || "").toLowerCase();
+    const currentPlanLower = (admin.planDetails?.planName || admin.plan || "").toLowerCase();
     if (!currentPlanLower.includes("free")) {
       return res.status(400).json({ message: "Only users on the Free plan can upgrade to Owner for free." });
     }
@@ -861,21 +1025,29 @@ export const freeUpgradeToOwner = async (req, res) => {
 
     const planExpiresAt = await getExpiryDate("Owner");
 
-    admin.plan = "Owner";
-    admin.isPaid = true;
-    admin.planActivatedAt = new Date();
-    admin.planExpiresAt = planExpiresAt;
-    admin.userLimit = null; // Unlimited
+    admin.planDetails = {
+      planName: "Owner",
+      price: ownerPlan.price,
+      billingCycle: ownerPlan.billingCycle,
+      durationDays: ownerPlan.durationDays,
+      maxUsers: ownerPlan.maxUsers ?? null,
+      features: [...ownerPlan.features],
+      isUnlimited: ownerPlan.isUnlimited,
+      isPaid: true,
+      activatedAt: new Date(),
+      expiresAt: planExpiresAt,
+      sourcePlanId: ownerPlan._id,
+    };
 
     await admin.save();
 
     res.status(200).json({
       message: "Upgraded to Owner plan successfully!",
       admin: {
-        plan: admin.plan,
-        isPaid: admin.isPaid,
-        planActivatedAt: admin.planActivatedAt,
-        planExpiresAt: admin.planExpiresAt,
+        plan: admin.planDetails.planName,
+        isPaid: admin.planDetails.isPaid,
+        planActivatedAt: admin.planDetails.activatedAt,
+        planExpiresAt: admin.planDetails.expiresAt,
       }
     });
   } catch (error) {

@@ -17,7 +17,6 @@ import {
   FileText,
   ChevronLeft,
   ChevronRight,
-  User,
   IndianRupee,
   X
 } from "lucide-react";
@@ -172,15 +171,15 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
         <div className={`flex items-center shrink-0 ${collapsed && !isMobile ? "h-20 flex-col justify-center gap-2 px-2 py-3" : "h-16 justify-between px-4"}`}>
           {!collapsed || isMobile ? (
             <>
-             <Link to="/employee/dashboard" className="flex items-center gap-2 overflow-hidden h-[68px]">
-                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white">
-                  <User size={24} />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white leading-tight">Employee</span>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Panel</span>
-                </div>
-             </Link>
+              <div className="flex items-center justify-center flex-1 overflow-hidden">
+                <Link to="/employee/dashboard" className="flex items-center justify-center h-[68px]">
+                  <img
+                    src={user?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
+                    alt="Logo"
+                    className="h-[68px] w-auto object-contain"
+                  />
+                </Link>
+              </div>
              {!isMobile && (
                 <button
                   onClick={(e) => {
@@ -197,8 +196,12 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
             </>
           ) : (
             <>
-              <Link to="/employee/dashboard" className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-950/20 ring-1 ring-blue-400/30 hover:bg-blue-700 transition-colors">
-                <User size={18} />
+              <Link to="/employee/dashboard" className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-slate-800 ring-1 ring-slate-700 hover:opacity-90 transition-opacity">
+                <img
+                  src={user?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
+                  alt="Logo"
+                  className="w-full h-full object-contain p-0.5"
+                />
               </Link>
               <button
                 onClick={(e) => {

@@ -20,34 +20,58 @@ const checkUserLimit = async (adminId) => {
   const admin = await Admin.findById(adminId);
   if (!admin) return { allowed: true };
 
-  // If the admin is on the Owner plan, they have unlimited user limit!
-  const planSetting = await PlanSetting.findOne({ planName: admin.plan });
-  if (planSetting && (planSetting.isOwnerPlan || planSetting.isUnlimited)) {
-    return { allowed: true };
-  }
-  if (admin.plan && admin.plan.toLowerCase() === 'owner') {
+  // If the admin is on the Owner plan or is unlimited, they have unlimited user limit!
+  const hasUnlimitedPlan = 
+    admin.planDetails?.isUnlimited || 
+    admin.plan?.toLowerCase() === 'owner';
+  
+  if (hasUnlimitedPlan) {
     return { allowed: true };
   }
 
-  let maxUsers = admin.userLimit || null;
-  if (maxUsers === null) {
+  // Check planSetting fallback for unmigrated admins
+  if (!admin.planDetails || !admin.planDetails.planName) {
     const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+    if (planSetting && (planSetting.isOwnerPlan || planSetting.isUnlimited)) {
+      return { allowed: true };
+    }
+  }
 
-    if (planSetting && planSetting.maxUsers) {
-      maxUsers = planSetting.maxUsers;
-    } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
-      // Fallback for free plans if no setting exists
-      const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
-      maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+  let maxUsers = 30;
+  let planName = admin.plan || "Free";
+
+  if (admin.planDetails && admin.planDetails.planName) {
+    maxUsers = admin.planDetails.maxUsers;
+    planName = admin.planDetails.planName;
+  } else {
+    // Fallback logic for unmigrated admin
+    maxUsers = admin.userLimit || null;
+    if (maxUsers === null) {
+      const planSetting = await PlanSetting.findOne({ planName: admin.plan });
+
+      if (planSetting && planSetting.maxUsers) {
+        maxUsers = planSetting.maxUsers;
+      } else if (admin.plan === 'Free' || admin.plan === 'Free Trail' || admin.plan?.toLowerCase()?.includes('free')) {
+        // Fallback for free plans if no setting exists
+        const freeSetting = await PlanSetting.findOne({ planName: 'Free' });
+        maxUsers = freeSetting ? freeSetting.maxUsers : 30;
+      } else {
+        maxUsers = 30;
+      }
     }
   }
 
   // Sum active addon limits (only those that are paid and not yet expired)
   const now = new Date();
+  
+  // Use razorpay details from planDetails if available, otherwise from top-level
+  const currentRazorpayPaymentId = admin.planDetails?.razorpayPaymentId || admin.razorpayPaymentId;
+  const currentRazorpayOrderId = admin.planDetails?.razorpayOrderId || admin.razorpayOrderId;
+
   const activeAddonTotal = (admin.limitAddons || []).reduce((sum, addon) => {
     const alreadyMainBilled =
-      (addon.razorpayPaymentId && admin.razorpayPaymentId && addon.razorpayPaymentId === admin.razorpayPaymentId) ||
-      (addon.razorpayOrderId && admin.razorpayOrderId && addon.razorpayOrderId === admin.razorpayOrderId);
+      (addon.razorpayPaymentId && currentRazorpayPaymentId && addon.razorpayPaymentId === currentRazorpayPaymentId) ||
+      (addon.razorpayOrderId && currentRazorpayOrderId && addon.razorpayOrderId === currentRazorpayOrderId);
 
     if (addon.isPaid && !addon.mergedIntoMainPlan && !alreadyMainBilled && addon.expiresAt && new Date(addon.expiresAt) > now) {
       return sum + (addon.addonLimit || 0);
@@ -65,7 +89,7 @@ const checkUserLimit = async (adminId) => {
       return {
         allowed: false,
         limit: effectiveLimit,
-        plan: admin.plan
+        plan: planName
       };
     }
   }

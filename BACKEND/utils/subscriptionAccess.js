@@ -21,18 +21,39 @@ export const resolveRootAdmin = async (user) => {
 export const getExpiredSubscriptionPayload = async (rootAdmin, role = "admin") => {
   if (!rootAdmin) return null;
 
-  const planInfo = await PlanSetting.findOne({ planName: rootAdmin.plan });
-  const isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
-  if (isUnlimitedPlan || !rootAdmin.planExpiresAt) return null;
+  let isUnlimitedPlan = false;
+  let expiresAt = null;
+  let activatedAt = null;
+  let planName = "Free";
+  let maxUsers = 30;
+
+  if (rootAdmin.planDetails && rootAdmin.planDetails.planName) {
+    const details = rootAdmin.planDetails;
+    isUnlimitedPlan = details.isUnlimited;
+    expiresAt = details.expiresAt;
+    activatedAt = details.activatedAt;
+    planName = details.planName;
+    maxUsers = details.maxUsers;
+  } else {
+    // Fallback for pre-migration documents
+    const planInfo = await PlanSetting.findOne({ planName: rootAdmin.plan });
+    isUnlimitedPlan = planInfo && (planInfo.isUnlimited || planInfo.isOwnerPlan);
+    expiresAt = rootAdmin.planExpiresAt;
+    activatedAt = rootAdmin.planActivatedAt;
+    planName = rootAdmin.plan || "Free";
+    maxUsers = rootAdmin.userLimit || 30;
+  }
+
+  if (isUnlimitedPlan || !expiresAt) return null;
 
   const now = new Date();
-  const expiryDate = new Date(rootAdmin.planExpiresAt);
+  const expiryDate = new Date(expiresAt);
   const gracePeriodEndDate = getGracePeriodEndDate(expiryDate);
 
   if (!gracePeriodEndDate || now <= gracePeriodEndDate) return null;
 
   const expiredDaysAgo = Math.floor((now - expiryDate) / (1000 * 60 * 60 * 24));
-  const billableCount = await getBillableEmployeesCount(rootAdmin._id, rootAdmin.planActivatedAt);
+  const billableCount = await getBillableEmployeesCount(rootAdmin._id, activatedAt);
   const employeeCount = Math.max(1, billableCount);
 
   return {
@@ -44,12 +65,12 @@ export const getExpiredSubscriptionPayload = async (rootAdmin, role = "admin") =
       adminDetails: {
         name: rootAdmin.name,
         email: rootAdmin.email,
-        plan: rootAdmin.plan,
-        planActivatedAt: rootAdmin.planActivatedAt,
-        planExpiresAt: rootAdmin.planExpiresAt,
+        plan: planName,
+        planActivatedAt: activatedAt,
+        planExpiresAt: expiresAt,
         expiredDaysAgo,
         employeeCount,
-        userLimit: rootAdmin.userLimit || 30,
+        userLimit: maxUsers,
       },
     },
   };

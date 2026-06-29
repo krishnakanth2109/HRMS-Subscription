@@ -41,6 +41,7 @@ const seed = async () => {
         "/admin/late-requests",
         "/admin/admin-overtime",
         "/admin/live-tracking",
+        "/admin/expense",
       ];
 
       const OWNER_EXCLUSIVE_FEATURES = [
@@ -78,20 +79,28 @@ const seed = async () => {
       const farFuture = new Date();
       farFuture.setFullYear(farFuture.getFullYear() + 100);
 
-      existing.plan            = OWNER_PLAN;
-      existing.isPaid          = false;
-      existing.planActivatedAt = new Date();
-      existing.planExpiresAt   = farFuture;
+      existing.planDetails = {
+        planName: OWNER_PLAN,
+        price: ownerPlan.price || 0,
+        billingCycle: ownerPlan.billingCycle || "free",
+        durationDays: ownerPlan.durationDays || 36500,
+        maxUsers: null, // Unlimited
+        features: [...ownerPlan.features],
+        isUnlimited: true,
+        isPaid: false,
+        activatedAt: new Date(),
+        expiresAt: farFuture,
+        sourcePlanId: ownerPlan._id,
+      };
       existing.loginEnabled    = true;
-      existing.userLimit       = null;
 
       await existing.save();
 
       console.log("✅ Existing admin updated to Owner plan.");
       console.log(`   ID         : ${existing._id}`);
       console.log(`   Email      : ${existing.email}`);
-      console.log(`   Plan       : ${existing.plan}`);
-      console.log(`   Expires At : ${existing.planExpiresAt}`);
+      console.log(`   Plan       : ${existing.planDetails.planName}`);
+      console.log(`   Expires At : ${existing.planDetails.expiresAt}`);
 
       await mongoose.disconnect();
       process.exit(0);
@@ -109,11 +118,19 @@ const seed = async () => {
       phone:           "",
       role:            "admin",
       department:      "Administration",
-      plan:            OWNER_PLAN,
-      userLimit:       null,
-      isPaid:          false,                // free for owner
-      planActivatedAt: new Date(),
-      planExpiresAt:   farFuture,            // 100 years from now
+      planDetails: {
+        planName: OWNER_PLAN,
+        price: ownerPlan.price || 0,
+        billingCycle: ownerPlan.billingCycle || "free",
+        durationDays: ownerPlan.durationDays || 36500,
+        maxUsers: null, // Unlimited
+        features: [...ownerPlan.features],
+        isUnlimited: true,
+        isPaid: false,
+        activatedAt: new Date(),
+        expiresAt: farFuture,
+        sourcePlanId: ownerPlan._id,
+      },
       loginEnabled:    true,
     });
 
@@ -123,8 +140,8 @@ const seed = async () => {
     console.log(`   Name       : ${ownerAdmin.name}`);
     console.log(`   Email      : ${ownerAdmin.email}`);
     console.log(`   Role       : ${ownerAdmin.role}`);
-    console.log(`   Plan       : ${ownerAdmin.plan}`);
-    console.log(`   Expires At : ${ownerAdmin.planExpiresAt}`);
+    console.log(`   Plan       : ${ownerAdmin.planDetails.planName}`);
+    console.log(`   Expires At : ${ownerAdmin.planDetails.expiresAt}`);
     console.log(`   Features   : ${ownerPlan.features.length} total (all features + owner-exclusive)`);
     console.log("─────────────────────────────────────\n");
 

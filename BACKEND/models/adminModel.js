@@ -37,18 +37,39 @@ const adminSchema = new mongoose.Schema(
     loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle this
     mobileAccessEnabled: { type: Boolean, default: true },
 
-    /* ==================== PLAN & BILLING ==================== */
-    plan: {
+    /* ==================== BRANDING ==================== */
+    companyLogo: {
       type: String,
-      default: "Free",
+      default: "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png",
     },
-    userLimit: { type: Number, default: 30 },
-    isPaid: { type: Boolean, default: false },
-    planActivatedAt: { type: Date, default: null },
-    planExpiresAt: { type: Date, default: null },
-    razorpayOrderId: { type: String, default: null },
-    razorpayPaymentId: { type: String, default: null },
-    lastPaymentAmount: { type: Number, default: 0 },
+    navTemplate: {
+      type: String,
+      enum: ["sidebar", "navbar"],
+      default: "sidebar",
+    },
+
+    /* ==================== PLAN & BILLING ==================== */
+    planDetails: {
+      planName: { type: String, default: "Free" },
+      price: { type: Number, default: 0 },
+      billingCycle: {
+        type: String,
+        enum: ["monthly", "quarterly", "halfYearly", "yearly", "custom", "free"],
+        default: "free",
+      },
+      durationDays: { type: Number, default: 30 },
+      maxUsers: { type: Number, default: 30 },
+      features: [{ type: String }],
+      isUnlimited: { type: Boolean, default: false },
+      isPaid: { type: Boolean, default: false },
+      activatedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null },
+      razorpayOrderId: { type: String, default: null },
+      razorpayPaymentId: { type: String, default: null },
+      lastPaymentAmount: { type: Number, default: 0 },
+      lastPaymentAt: { type: Date, default: null },
+      sourcePlanId: { type: mongoose.Schema.Types.ObjectId, ref: "PlanSetting", default: null },
+    },
 
     /* ==================== LIMIT ADD-ONS ==================== */
     // Each entry represents a separately purchased limit package with its own billing date

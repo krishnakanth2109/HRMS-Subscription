@@ -18,9 +18,7 @@ const FALLBACK_FEATURES = [
   { label: "Attendance Adjustment", route: "/admin/late-requests", description: "Handle late login and attendance correction requests" },
   { label: "Overtime Requests", route: "/admin/admin-overtime", description: "Review and manage employee overtime requests" },
   { label: "Live Tracking", route: "/admin/live-tracking", description: "Monitor employee idle time in real-time" },
-
-
-
+  { label: "Expense Management", route: "/admin/expense", description: "Handle and review employee expense requests" },
   // ✅ Owner-exclusive features — visible in fallback but only assigned to Owner plan via seed
   { label: "Master Dashboard", route: "/master/dashboard", description: "Owner-only: Platform-wide overview & stats" },
   { label: "Admin Management", route: "/master/admins", description: "Owner-only: View & manage all registered companies" },
@@ -74,6 +72,8 @@ const PlanSettings = () => {
   const [maxUsers, setMaxUsers] = useState(30);
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [editingPlanId, setEditingPlanId] = useState(null);
+  const [allAdmins, setAllAdmins] = useState([]);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState(["none"]);
 
   const [loading, setLoading] = useState(false);
   const [existingPlans, setExistingPlans] = useState([]);
@@ -85,11 +85,16 @@ const PlanSettings = () => {
   const dropdownRef = useRef(null);
 
   const [expandedPlans, setExpandedPlans] = useState({});
+  const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+  const companyDropdownRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (companyDropdownRef.current && !companyDropdownRef.current.contains(event.target)) {
+        setIsCompanyDropdownOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -97,20 +102,9 @@ const PlanSettings = () => {
   }, []);
 
   const fetchAllFeatures = async () => {
-    try {
-      setFeaturesLoading(true);
-      const res = await api.get("/api/admin/all-features");
-      if (res.data && res.data.length > 0) {
-        const filtered = getAdminFeatures(res.data);
-        setAllFeatures(filtered);
-      } else {
-        setAllFeatures(getAdminFeatures(FALLBACK_FEATURES));
-      }
-    } catch {
-      setAllFeatures(getAdminFeatures(FALLBACK_FEATURES));
-    } finally {
-      setFeaturesLoading(false);
-    }
+    setFeaturesLoading(true);
+    setAllFeatures(getAdminFeatures(FALLBACK_FEATURES));
+    setFeaturesLoading(false);
   };
 
   const fetchPlans = async () => {
@@ -122,9 +116,19 @@ const PlanSettings = () => {
     }
   };
 
+  const fetchAllAdmins = async () => {
+    try {
+      const res = await api.get("/api/admin/all-admins");
+      setAllAdmins(res.data || []);
+    } catch (err) {
+      console.log("Could not fetch admins", err);
+    }
+  };
+
   useEffect(() => {
     fetchAllFeatures();
     fetchPlans();
+    fetchAllAdmins();
   }, []);
 
   const toggleFeature = (route) => {
@@ -135,6 +139,41 @@ const PlanSettings = () => {
 
   const handleBillingCycleChange = (value) => {
     setBillingCycle(value);
+  };
+
+  const toggleCompanySelection = (adminId) => {
+    if (adminId === "all") {
+      setSelectedCompanyIds(["all"]);
+      const matchedPlan = existingPlans.find((p) => p._id === editingPlanId);
+      setPrice(matchedPlan ? (matchedPlan.price ?? "") : "");
+    } else if (adminId === "none") {
+      setSelectedCompanyIds(["none"]);
+      const matchedPlan = existingPlans.find((p) => p._id === editingPlanId);
+      setPrice(matchedPlan ? (matchedPlan.price ?? "") : "");
+    } else {
+      setSelectedCompanyIds((prev) => {
+        const filtered = prev.filter((id) => id !== "all" && id !== "none");
+        const next = filtered.includes(adminId)
+          ? filtered.filter((id) => id !== adminId)
+          : [...filtered, adminId];
+
+        if (next.length === 0) {
+          const matchedPlan = existingPlans.find((p) => p._id === editingPlanId);
+          setPrice(matchedPlan ? (matchedPlan.price ?? "") : "");
+          return ["none"];
+        }
+
+        if (next.length === 1) {
+          const selectedAdmin = allAdmins.find((a) => a._id === next[0]);
+          if (selectedAdmin) {
+            const matchedPlan = existingPlans.find((p) => p._id === editingPlanId);
+            const planPrice = matchedPlan ? matchedPlan.price : "";
+            setPrice(selectedAdmin.planDetails?.price !== undefined ? selectedAdmin.planDetails.price : planPrice);
+          }
+        }
+        return next;
+      });
+    }
   };
 
   const handleUpdate = async (e) => {
@@ -160,7 +199,7 @@ const PlanSettings = () => {
     setLoading(true);
 
     try {
-      const includedFeatures = allFeatures.map((feature) => feature.route);
+      const includedFeatures = selectedFeatures;
 
       await api.patch("/api/admin/plan-settings", {
         planId: editingPlanId,
@@ -170,6 +209,7 @@ const PlanSettings = () => {
         durationDays,
         maxUsers: null,
         features: includedFeatures,
+        targetAdminIds: selectedCompanyIds,
       });
 
       Swal.fire({
@@ -188,7 +228,9 @@ const PlanSettings = () => {
       setSelectedFeatures([]);
       setIsDropdownOpen(false);
       setEditingPlanId(null);
+      setSelectedCompanyIds(["none"]);
       fetchPlans();
+      fetchAllAdmins();
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -215,7 +257,8 @@ const PlanSettings = () => {
     setBillingCycle(plan.billingCycle || "monthly");
     setDurationDays(plan.durationDays || "");
     setMaxUsers(plan.maxUsers === null ? "" : plan.maxUsers);
-    setSelectedFeatures([]);
+    setSelectedFeatures(plan.features || []);
+    setSelectedCompanyIds(["none"]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -297,6 +340,7 @@ const PlanSettings = () => {
     setSelectedFeatures([]);
     setIsDropdownOpen(false);
     setEditingPlanId(null);
+    setSelectedCompanyIds(["none"]);
   };
 
   return (
@@ -326,6 +370,118 @@ const PlanSettings = () => {
                 placeholder="e.g. Premium"
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none font-semibold"
               />
+              {editingPlanId && (
+              <div className="relative" ref={companyDropdownRef}>
+                <div className="flex justify-between items-center mb-1 ml-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Select Company</label>
+                  <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
+                    {selectedCompanyIds.includes("all") ? "All" : selectedCompanyIds.length} Selected
+                  </span>
+                </div>
+
+                <div
+                  className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl cursor-pointer flex justify-between items-center transition-all hover:bg-gray-100"
+                  onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
+                >
+                  <span className="font-semibold text-gray-800">
+                    {selectedCompanyIds.includes("none")
+                      ? "None"
+                      : selectedCompanyIds.includes("all")
+                      ? "All Companies"
+                      : `${selectedCompanyIds.length} Companies Selected`}
+                  </span>
+                  {isCompanyDropdownOpen ? <FaChevronUp className="text-gray-500 text-sm" /> : <FaChevronDown className="text-gray-500 text-sm" />}
+                </div>
+
+                {isCompanyDropdownOpen && (
+                  <div className="absolute z-20 w-full mt-2 bg-white border border-gray-100 shadow-2xl rounded-xl overflow-hidden">
+                    <div className="max-h-60 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                      {/* Option for None */}
+                      <div
+                        onClick={() => toggleCompanySelection("none")}
+                        className={`flex items-center gap-3 p-3 rounded-lg border border-transparent cursor-pointer transition-all select-none ${
+                          selectedCompanyIds.includes("none") ? "bg-purple-50 border-purple-100" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                            selectedCompanyIds.includes("none") ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
+                          }`}
+                        >
+                          {selectedCompanyIds.includes("none") && <FaCheck size={10} className="text-white" />}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-sm font-semibold truncate ${selectedCompanyIds.includes("none") ? "text-purple-800" : "text-gray-700"}`}>
+                            None 
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Option for All Companies */}
+                      <div
+                        onClick={() => toggleCompanySelection("all")}
+                        className={`flex items-center gap-3 p-3 rounded-lg border border-transparent cursor-pointer transition-all select-none ${
+                          selectedCompanyIds.includes("all") ? "bg-purple-50 border-purple-100" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                            selectedCompanyIds.includes("all") ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
+                          }`}
+                        >
+                          {selectedCompanyIds.includes("all") && <FaCheck size={10} className="text-white" />}
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className={`text-sm font-semibold truncate ${selectedCompanyIds.includes("all") ? "text-purple-800" : "text-gray-700"}`}>
+                            All Companies
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Options for Enrolled Companies */}
+                      {allAdmins
+                        .filter((admin) => {
+                          if (!editingPlanId) return true; // Show all companies when creating a new plan
+                          const adminPlan = admin.planDetails?.planName || admin.plan || "";
+                          return adminPlan.toLowerCase() === planName.toLowerCase();
+                        })
+                        .map((admin) => {
+                          const isSelected = selectedCompanyIds.includes(admin._id);
+                          const matchedPlan = existingPlans.find((p) => p._id === editingPlanId);
+                          const planPrice = matchedPlan ? matchedPlan.price : 0;
+                          const currentPrice = admin.planDetails?.price !== undefined ? admin.planDetails.price : planPrice;
+
+                          return (
+                            <div
+                              key={admin._id}
+                              onClick={() => toggleCompanySelection(admin._id)}
+                              className={`flex items-center gap-3 p-3 rounded-lg border border-transparent cursor-pointer transition-all select-none ${
+                                isSelected ? "bg-purple-50 border-purple-100" : "hover:bg-gray-50"
+                              }`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                                  isSelected ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
+                                }`}
+                              >
+                                {isSelected && <FaCheck size={10} className="text-white" />}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className={`text-sm font-semibold truncate ${isSelected ? "text-purple-800" : "text-gray-700"}`}>
+                                  {admin.name}
+                                </span>
+                                <span className="text-[11px] text-gray-400 truncate">
+                                  {admin.email} — Current Price: ₹{currentPrice}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -374,8 +530,7 @@ const PlanSettings = () => {
 
 
 
-            {/* Plan features dropdown is commented out because every admin feature is included automatically. */}
-            {false && (
+            {/* Plan features dropdown to assign features into the plan */}
             <div className="relative" ref={dropdownRef}>
               <div className="flex justify-between items-center mb-1 ml-1">
                 <label className="text-xs font-bold text-gray-500 uppercase">Plan Features</label>
@@ -435,39 +590,50 @@ const PlanSettings = () => {
                               }`}
                           >
                             <div
-                              className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
-                                }`}
-                            >
-                              {isSelected && <FaCheck size={10} className="text-white" />}
+                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? "bg-purple-600 border-purple-600" : "border-gray-300 bg-white"
+                                  }`}
+                              >
+                                {isSelected && <FaCheck size={10} className="text-white" />}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className={`text-sm font-semibold truncate ${isSelected ? "text-purple-800" : "text-gray-700"}`}>
+                                  {feature.label}
+                                </span>
+                                {feature.description && (
+                                  <span className="text-[11px] text-gray-400 truncate">{feature.description}</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className={`text-sm font-semibold truncate ${isSelected ? "text-purple-800" : "text-gray-700"}`}>
-                                {feature.label}
-                              </span>
-                              {feature.description && (
-                                <span className="text-[11px] text-gray-400 truncate">{feature.description}</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            )}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className={`w-full py-4 mt-4 rounded-xl text-white font-bold text-sm uppercase tracking-widest shadow-lg transition-all ${loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-purple-500/30"
+            <div className="flex gap-4 mt-4">
+              {editingPlanId && (
+                <button
+                  type="button"
+                  onClick={handleCreateNewPlan}
+                  className="flex-1 py-4 border border-gray-200 hover:bg-gray-50 text-gray-600 font-bold text-sm uppercase tracking-widest rounded-xl transition-all shadow-sm hover:shadow-md"
+                >
+                  Cancel Edit
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className={`flex-1 py-4 rounded-xl text-white font-bold text-sm uppercase tracking-widest shadow-lg transition-all ${
+                  loading
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-purple-500/30"
                 }`}
-            >
-              {loading ? "Saving..." : "Save Plan Configuration"}
-            </button>
+              >
+                {loading ? "Saving..." : editingPlanId ? "Save Changes" : "Create New Plan"}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -499,7 +665,7 @@ const PlanSettings = () => {
             <div className="space-y-4">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Included Features</p>
               <ul className="space-y-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar-dark">
-                {allFeatures.map((feature, i) => (
+                {allFeatures.filter(feat => selectedFeatures.includes(feat.route)).map((feature, i) => (
                   <li key={`${feature.route}-${i}`} className="flex items-center gap-3 text-sm text-slate-200">
                     <div className="w-5 h-5 bg-indigo-500/20 rounded-full flex items-center justify-center shrink-0">
                       <FaCheck size={8} className="text-indigo-400" />
@@ -507,6 +673,9 @@ const PlanSettings = () => {
                     {feature.label}
                   </li>
                 ))}
+                {selectedFeatures.length === 0 && (
+                  <li className="text-xs text-slate-400 italic">No features selected yet</li>
+                )}
               </ul>
             </div>
           </div>
@@ -522,7 +691,7 @@ const PlanSettings = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {existingPlans.map((plan) => {
               const isExpanded = expandedPlans[plan._id];
-              const featureRoutes = allFeatures.map((feature) => feature.route);
+              const featureRoutes = plan.features || [];
               const displayedFeatures = isExpanded ? featureRoutes : featureRoutes.slice(0, 3);
               const extraCount = featureRoutes.length - 3;
               const isOwner = isOwnerPlan(plan);

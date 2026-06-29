@@ -21,14 +21,17 @@
 
 
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import SidebarEmployee from "./SidebarEmployee";
 import NavbarEmployee from "./NavbarEmployee";
 import { Outlet } from "react-router-dom";
+import { AuthContext } from "../../context/AuthContext";
 
 const LayoutEmployee = () => {
+  const { user } = useContext(AuthContext);
   const [theme, setTheme] = useState(sessionStorage.getItem("employeeTheme") || "bubbles");
   const [bubbles, setBubbles] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   const themeBgImage = "https://image2url.com/r2/default/images/1772457362735-3b1e508e-e9da-4614-8ffd-86efe3e119ba.png"; 
 
@@ -41,6 +44,14 @@ const LayoutEmployee = () => {
       document.documentElement.classList.remove("dark");
     }
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (theme === "dark") {
@@ -85,12 +96,15 @@ const LayoutEmployee = () => {
   };
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navTemplate = user?.navTemplate || "sidebar";
 
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${getMainClassNames()}`}>
       
       {/* SIDEBAR */}
-      <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      {(navTemplate === "sidebar" || isMobile) && (
+        <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      )}
 
       <div className="flex flex-col flex-1 min-w-0">
         

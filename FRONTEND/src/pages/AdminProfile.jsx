@@ -99,6 +99,7 @@ const AdminProfile = () => {
     "/admin/admin-overtime": "Overtime Requests",
     "/admin/live-tracking": "Employee Idle Tracking",
     "/admin/induction": "Induction",
+    "/admin/expense": "Expense Management",
   };
 
   // Form State
@@ -814,6 +815,10 @@ const AdminProfile = () => {
 
   const isSpecificBillPayable = (bill) => {
     if (!bill || !bill.nextBillingDate) return false;
+    // Free plans/trials are not payable
+    if (bill.amount <= 0 || bill.pricePerPerson <= 0 || bill.planName?.toLowerCase()?.includes("free")) {
+      return false;
+    }
     const expiry = new Date(bill.nextBillingDate);
     if (new Date() >= expiry) return true;
     if (bill.type === "main") {
@@ -834,7 +839,6 @@ const AdminProfile = () => {
   const planExpiry = profile?.planExpiresAt ? new Date(profile.planExpiresAt) : null;
   const isOwnerPlan = profile?.plan ? profile.plan.toLowerCase() === "owner" : false;
   const isFreePlan = profile?.plan ? profile.plan.toLowerCase().includes("free") : true;
-  const isBillPayable = !isFreePlan && !isOwnerPlan && planExpiry ? new Date() >= planExpiry : false;
 
   const isGracePeriod = !isFreePlan && !isOwnerPlan && planExpiry && new Date() > planExpiry && new Date() <= new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000);
   const daysLeftInGrace = planExpiry ? Math.ceil((new Date(planExpiry.getTime() + 7 * 24 * 60 * 60 * 1000) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
@@ -1207,19 +1211,7 @@ const AdminProfile = () => {
         </div>
 
         {/* PLANS SECTION — last */}
-        {!isBillPayable && (
-          <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-xl shadow-sm flex items-center gap-3 mb-4">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <p className="text-rose-800 text-sm font-black uppercase tracking-wider">Available Plans &amp; Upgrade Locked</p>
-              <p className="text-rose-700 text-xs font-semibold mt-0.5">
-                Upgrading or switching plans is only permitted <strong>on or after your next billing date: {formatDate(profile?.planExpiresAt)}</strong>. If you require immediate plan changes, please contact support at <a href="mailto:ops@arahinfotech.com" className="text-rose-800 underline font-bold">ops@arahinfotech.com</a>.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div id="plans" className={`bg-white rounded-[0.5rem] p-8 shadow-sm border border-gray-100 transition-all ${!isBillPayable ? "opacity-75" : ""}`}>
+        <div id="plans" className="bg-white rounded-[0.5rem] p-8 shadow-sm border border-gray-100 transition-all">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-gray-900 font-bold flex items-center gap-2">
               <FaCrown className="text-purple-500 text-sm" /> Available Plans &amp; Upgrade
@@ -1265,10 +1257,10 @@ const AdminProfile = () => {
                   </ul>
                   <button
                     onClick={() => handleUpgrade(plan)}
-                    disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) || Number(plan.price) === 0 || !isBillPayable}
-                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${isCurrentPlan ? "bg-emerald-100 text-emerald-600 cursor-default" : Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : !isBillPayable ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"}`}
+                    disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) || Number(plan.price) === 0}
+                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${isCurrentPlan ? "bg-emerald-100 text-emerald-600 cursor-default" : Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"}`}
                   >
-                    {isCurrentPlan ? "Active Now" : upgradingPlanId === plan._id ? "Processing..." : Number(plan.price) === 0 ? "Default Plan" : !isBillPayable ? "Upgrade Locked" : "Upgrade Plan"}
+                    {isCurrentPlan ? "Active Now" : upgradingPlanId === plan._id ? "Processing..." : Number(plan.price) === 0 ? "Default Plan" : "Upgrade Plan"}
                   </button>
                 </div>
               );
@@ -1661,16 +1653,18 @@ const AdminProfile = () => {
             Failed to load billing details. Please try again.
           </div>
         ) : (() => {
-          const billsToRender = nextBillInfo.bills || [{
-            id: "main",
-            type: "main",
-            planName: nextBillInfo.planName,
-            pricePerPerson: nextBillInfo.pricePerPerson,
-            employeeCount: nextBillInfo.employeeCount,
-            amount: nextBillInfo.amount,
-            nextBillingDate: nextBillInfo.nextBillingDate,
-            planInfo: nextBillInfo.planInfo,
-          }];
+          const billsToRender = (nextBillInfo.bills && nextBillInfo.bills.length > 0)
+            ? nextBillInfo.bills
+            : [{
+                id: "main",
+                type: "main",
+                planName: nextBillInfo.planName,
+                pricePerPerson: nextBillInfo.pricePerPerson,
+                employeeCount: nextBillInfo.employeeCount,
+                amount: nextBillInfo.amount,
+                nextBillingDate: nextBillInfo.nextBillingDate,
+                planInfo: nextBillInfo.planInfo,
+              }];
 
           return (
             <div className="space-y-6 overflow-y-auto pr-2 max-h-[60vh]">
@@ -1720,7 +1714,12 @@ const AdminProfile = () => {
                           </p>
                         </div>
                         <div className="col-span-2 sm:col-span-1 flex items-center justify-end sm:justify-start">
-                          {isPayable ? (
+                          {bill.amount <= 0 || bill.planName?.toLowerCase()?.includes("free") ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-50 text-sky-700 border border-sky-100">
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span>
+                              No Payment Required
+                            </span>
+                          ) : isPayable ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-100">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                               Ready to Pay
@@ -1766,6 +1765,10 @@ const AdminProfile = () => {
                             <>
                               <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
                               Processing...
+                            </>
+                          ) : bill.amount <= 0 || bill.planName?.toLowerCase()?.includes("free") ? (
+                            <>
+                              Free Plan
                             </>
                           ) : (
                             <>

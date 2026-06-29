@@ -644,14 +644,16 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
       >
         <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "flex-col justify-center gap-1 py-2" : "justify-between"}`}>
           {!collapsed || isMobile ? (
-            <>
-              <Link to="/admin/dashboard" className="flex items-center gap-3 overflow-hidden">
-                <img
-                  src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"
-                  alt="Logo"
-                  className="h-[68px] w-auto object-contain"
-                />
-              </Link>
+          <>
+              <div className="flex items-center justify-center flex-1 overflow-hidden">
+                <Link to="/admin/dashboard" className="flex items-center justify-center">
+                  <img
+                    src={currentUser?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
+                    alt="Logo"
+                    className="h-[68px] w-auto object-contain"
+                  />
+                </Link>
+              </div>
               {!isMobile && (
                 <button
                   onClick={(e) => {

@@ -4,6 +4,8 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { NotificationContext } from "../../context/NotificationContext";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
+import NavbarAdminNav from "./NavbarAdminNav";
+import NavbarSupportAdminNav from "../../pages/support-admin/NavbarSupportAdminNav";
 import {
   Bell,
   UserCircle,
@@ -134,7 +136,18 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
             <Menu size={20} />
           </button>
 
-          {/* <div className="hidden sm:flex items-center gap-2 text-sm text-white/80">
+          {user?.navTemplate === "navbar" && (
+            <Link to="/admin/dashboard" className="hidden md:flex items-center">
+              <img
+                src={user?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
+                alt="Logo"
+                className="h-10 w-auto object-contain bg-white/10 rounded px-2 py-0.5"
+              />
+            </Link>
+          )}
+        </div>
+
+        {/* <div className="hidden sm:flex items-center gap-2 text-sm text-white/80">
             <Link to="/admin/dashboard" className="hover:text-white transition-colors font-medium">Home</Link>
             {breadcrumbs.length > 0 && <ChevronRight size={14} className="text-white/40" />}
             {breadcrumbs.map((crumb, idx) => (
@@ -150,7 +163,17 @@ const Navbar = ({ currentTheme, onThemeChange, setMobileOpen }) => {
               </div>
             ))}
           </div> */}
-        </div>
+
+        {/* Navigation Links in Center on Desktop when layout is Navbar */}
+        {user?.navTemplate === "navbar" && (
+          <div className="hidden md:flex flex-1 items-center justify-center">
+            {user?.role === "support-admin" ? (
+              <NavbarSupportAdminNav theme={currentTheme} inline={true} />
+            ) : (
+              <NavbarAdminNav theme={currentTheme} inline={true} />
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-2 md:gap-4">
           <div className="relative" ref={themeRef}>

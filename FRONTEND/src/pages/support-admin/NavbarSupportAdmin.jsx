@@ -1,9 +1,10 @@
 import { useContext, useState, useRef, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { NotificationContext } from "../../context/NotificationContext";
 import { useTheme } from "../../context/ThemeContext";
 import { io } from "socket.io-client";
+import NavbarSupportAdminNav from "./NavbarSupportAdminNav";
 import {
   Bell,
   ChevronDown,
@@ -111,7 +112,24 @@ const NavbarSupportAdmin = ({ currentTheme, onThemeChange, setMobileOpen }) => {
           >
             <Menu size={20} />
           </button>
+
+          {user?.navTemplate === "navbar" && (
+            <Link to="/support-admin/dashboard" className="hidden md:flex items-center">
+              <img
+                src={user?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
+                alt="Logo"
+                className="h-10 w-auto object-contain bg-white/10 rounded px-2 py-0.5"
+              />
+            </Link>
+          )}
         </div>
+
+        {/* Navigation Links in Center on Desktop when layout is Navbar */}
+        {user?.navTemplate === "navbar" && (
+          <div className="hidden md:flex flex-1 items-center justify-center">
+            <NavbarSupportAdminNav theme={currentTheme} inline={true} />
+          </div>
+        )}
 
         <div className="flex items-center gap-2 md:gap-4">
           {/* THEME SELECTOR */}

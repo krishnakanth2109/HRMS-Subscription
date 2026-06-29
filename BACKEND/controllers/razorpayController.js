@@ -61,10 +61,14 @@ const mergeSameDateAddonsIntoMain = (admin, oldPlanExpiresAt) => {
   return mergedSeats;
 };
 
-const isAddonAlreadyMainBilled = (addon, admin) =>
-  addon.mergedIntoMainPlan ||
-  (addon.razorpayPaymentId && admin.razorpayPaymentId && addon.razorpayPaymentId === admin.razorpayPaymentId) ||
-  (addon.razorpayOrderId && admin.razorpayOrderId && addon.razorpayOrderId === admin.razorpayOrderId);
+const isAddonAlreadyMainBilled = (addon, admin) => {
+  const currentRazorpayPaymentId = admin.planDetails?.razorpayPaymentId || admin.razorpayPaymentId;
+  const currentRazorpayOrderId = admin.planDetails?.razorpayOrderId || admin.razorpayOrderId;
+
+  return addon.mergedIntoMainPlan ||
+    (addon.razorpayPaymentId && currentRazorpayPaymentId && addon.razorpayPaymentId === currentRazorpayPaymentId) ||
+    (addon.razorpayOrderId && currentRazorpayOrderId && addon.razorpayOrderId === currentRazorpayOrderId);
+};
 
 /* ─────────────────────────────────────────────
    1.  CREATE ORDER
@@ -213,21 +217,32 @@ export const verifyPayment = async (req, res) => {
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
 
+    const planInfo = await PlanSetting.findOne({ planName: planName }) || {};
+
     if (existing) {
-      const oldPlanExpiresAt = existing.planExpiresAt;
+      const oldPlanExpiresAt = existing.planDetails?.expiresAt || existing.planExpiresAt;
       const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
       const requestedUserLimit = Number(userLimit) || 30;
-      const renewedUserLimit = Math.max(requestedUserLimit, (existing.userLimit || 30) + mergedAddonSeats);
+      const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 30;
+      const renewedUserLimit = Math.max(requestedUserLimit, currentBaseLimit + mergedAddonSeats);
 
-      existing.plan = planName;
-      existing.userLimit = renewedUserLimit;
-      existing.isPaid = true;
-      existing.razorpayOrderId = razorpay_order_id;
-      existing.razorpayPaymentId = razorpay_payment_id;
-      existing.planActivatedAt = activatedAt;
-      existing.planExpiresAt = expiresAt;
-      existing.lastPaymentAt = new Date();
-      existing.lastPaymentAmount = Number(notes.amount) || 0;
+      existing.planDetails = {
+        planName: planName,
+        price: planInfo.price || 0,
+        billingCycle: planInfo.billingCycle || billingCycle || "monthly",
+        durationDays: planInfo.durationDays || (durationDays ? Number(durationDays) : 30),
+        maxUsers: renewedUserLimit,
+        features: planInfo.features ? [...planInfo.features] : [],
+        isUnlimited: planInfo.isUnlimited || false,
+        isPaid: true,
+        activatedAt: activatedAt,
+        expiresAt: expiresAt,
+        razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
+        lastPaymentAmount: Number(notes.amount) || 0,
+        lastPaymentAt: new Date(),
+        sourcePlanId: planInfo._id || null,
+      };
       await existing.save();
       console.log("✅ Admin plan upgraded:", email);
     } else {
@@ -238,15 +253,23 @@ export const verifyPayment = async (req, res) => {
         phone: phone || "",
         department: department || "Administration",
         role: role || "admin",
-        plan: planName,
-        userLimit: Number(userLimit) || 30,
-        isPaid: true,
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id,
-        planActivatedAt: activatedAt,
-        planExpiresAt: expiresAt,
-        lastPaymentAt: new Date(),
-        lastPaymentAmount: Number(notes.amount) || 0,
+        planDetails: {
+          planName: planName,
+          price: planInfo.price || 0,
+          billingCycle: planInfo.billingCycle || billingCycle || "monthly",
+          durationDays: planInfo.durationDays || (durationDays ? Number(durationDays) : 30),
+          maxUsers: Number(userLimit) || 30,
+          features: planInfo.features ? [...planInfo.features] : [],
+          isUnlimited: planInfo.isUnlimited || false,
+          isPaid: true,
+          activatedAt: activatedAt,
+          expiresAt: expiresAt,
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          lastPaymentAmount: Number(notes.amount) || 0,
+          lastPaymentAt: new Date(),
+          sourcePlanId: planInfo._id || null,
+        }
       });
       console.log("✅ Paid admin created:", email);
     }
@@ -351,21 +374,33 @@ export const razorpayWebhookHandler = async (req, res) => {
       expiresAt.setDate(expiresAt.getDate() + 30);
     }
 
+    const planInfo = await PlanSetting.findOne({ planName: planName }) || {};
+
     if (existing) {
-      const oldPlanExpiresAt = existing.planExpiresAt;
+      const oldPlanExpiresAt = existing.planDetails?.expiresAt || existing.planExpiresAt;
       const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
       const requestedUserLimit = Number(userLimit) || 30;
-      const renewedUserLimit = Math.max(requestedUserLimit, (existing.userLimit || 30) + mergedAddonSeats);
+      const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 30;
+      const renewedUserLimit = Math.max(requestedUserLimit, currentBaseLimit + mergedAddonSeats);
 
-      existing.plan = planName;
-      existing.userLimit = renewedUserLimit;
-      existing.isPaid = true;
-      existing.razorpayOrderId = orderId;
-      existing.razorpayPaymentId = paymentId;
-      existing.planActivatedAt = activatedAt;
-      existing.planExpiresAt = expiresAt;
-      existing.lastPaymentAt = payment.created_at ? new Date(payment.created_at * 1000) : new Date();
-      existing.lastPaymentAmount = payment.amount ? payment.amount / 100 : 0;
+      existing.planDetails = {
+        planName: planName,
+        price: planInfo.price || 0,
+        billingCycle: planInfo.billingCycle || billingCycle || "monthly",
+        durationDays: planInfo.durationDays || (durationDays ? Number(durationDays) : 30),
+        maxUsers: renewedUserLimit,
+        features: planInfo.features ? [...planInfo.features] : [],
+        isUnlimited: planInfo.isUnlimited || false,
+        isPaid: true,
+        activatedAt: activatedAt,
+        expiresAt: expiresAt,
+        razorpayOrderId: orderId,
+        razorpayPaymentId: paymentId,
+        lastPaymentAmount: payment.amount ? payment.amount / 100 : 0,
+        lastPaymentAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
+        sourcePlanId: planInfo._id || null,
+      };
+
       await existing.save();
       console.log("✅ Webhook: admin plan upgraded:", email);
     } else {
@@ -376,15 +411,23 @@ export const razorpayWebhookHandler = async (req, res) => {
         phone: phone || "",
         department: department || "Administration",
         role: role || "admin",
-        plan: planName,
-        userLimit: Number(userLimit) || 30,
-        isPaid: true,
-        razorpayOrderId: orderId,
-        razorpayPaymentId: paymentId,
-        planActivatedAt: activatedAt,
-        planExpiresAt: expiresAt,
-        lastPaymentAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
-        lastPaymentAmount: payment.amount ? payment.amount / 100 : 0,
+        planDetails: {
+          planName: planName,
+          price: planInfo.price || 0,
+          billingCycle: planInfo.billingCycle || billingCycle || "monthly",
+          durationDays: planInfo.durationDays || (durationDays ? Number(durationDays) : 30),
+          maxUsers: Number(userLimit) || 30,
+          features: planInfo.features ? [...planInfo.features] : [],
+          isUnlimited: planInfo.isUnlimited || false,
+          isPaid: true,
+          activatedAt: activatedAt,
+          expiresAt: expiresAt,
+          razorpayOrderId: orderId,
+          razorpayPaymentId: paymentId,
+          lastPaymentAmount: payment.amount ? payment.amount / 100 : 0,
+          lastPaymentAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
+          sourcePlanId: planInfo._id || null,
+        }
       });
       console.log("✅ Webhook: paid admin created:", email);
     }
@@ -403,14 +446,32 @@ export const razorpayWebhookHandler = async (req, res) => {
 export const getBillingHistory = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase().trim();
+    const admin = await Admin.findById(req.user._id);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    const adminCreatedTime = admin.createdAt ? new Date(admin.createdAt).getTime() : 0;
 
     // Fetch last 100 payments from Razorpay
     const paymentsResponse = await razorpay.payments.all({ count: 100 });
     const payments = paymentsResponse.items || [];
 
-    // Filter payments for this admin email and only return captured/successful payments
+    // Filter payments for this admin email and only return captured/successful payments made after admin creation
     const history = payments
-      .filter((p) => p.status === "captured" && p.notes && p.notes.email && p.notes.email.toLowerCase().trim() === adminEmail)
+      .filter((p) => {
+        const isSuccessful = p.status === "captured";
+        const matchesEmail = p.notes && p.notes.email && p.notes.email.toLowerCase().trim() === adminEmail;
+
+        const matchesPaymentId = 
+          admin.planDetails?.razorpayPaymentId === p.id ||
+          admin.planDetails?.razorpayOrderId === p.order_id ||
+          (admin.limitAddons || []).some(addon => addon.razorpayPaymentId === p.id || addon.razorpayOrderId === p.order_id);
+
+        const isAfterAdminCreated = (p.created_at * 1000) >= (adminCreatedTime - 15 * 60 * 1000); // 15-minute buffer
+
+        return isSuccessful && matchesEmail && (matchesPaymentId || isAfterAdminCreated);
+      })
       .map((p) => {
         const isAddon = p.notes.isAddon === "true";
         return {
@@ -450,19 +511,38 @@ export const getNextBillInfo = async (req, res) => {
       return res.status(404).json({ message: "Admin profile not found" });
     }
 
-    const planInfo = await PlanSetting.findOne({ planName: admin.plan });
-    if (!planInfo) {
-      return res.status(404).json({ message: "Plan settings not found" });
+    let planName = "Free";
+    let baseLimit = 30;
+    let planPrice = 0;
+    let billingCycle = "free";
+    let planExpiresAt = null;
+
+    if (admin.planDetails && admin.planDetails.planName) {
+      planName = admin.planDetails.planName;
+      baseLimit = admin.planDetails.maxUsers;
+      planPrice = admin.planDetails.price;
+      billingCycle = admin.planDetails.billingCycle;
+      planExpiresAt = admin.planDetails.expiresAt;
+    } else {
+      // Fallback for pre-migration documents
+      const planInfo = await PlanSetting.findOne({ planName: admin.plan || "Free" });
+      if (!planInfo) {
+        return res.status(404).json({ message: "Plan settings not found" });
+      }
+      planName = admin.plan || "Free";
+      baseLimit = admin.userLimit || 30;
+      planPrice = planInfo.price;
+      billingCycle = planInfo.billingCycle;
+      planExpiresAt = admin.planExpiresAt;
     }
 
-    const baseLimit = admin.userLimit || 30;
     let mergedAddonSeats = 0;
     const separateAddons = [];
 
     if (admin.limitAddons && admin.limitAddons.length > 0) {
       admin.limitAddons.forEach((addon) => {
         if (!addon.isPaid || isAddonAlreadyMainBilled(addon, admin) || !addon.expiresAt) return;
-        if (isSameBillingDay(addon.expiresAt, admin.planExpiresAt)) {
+        if (isSameBillingDay(addon.expiresAt, planExpiresAt)) {
           mergedAddonSeats += addon.addonLimit || 0;
         } else {
           separateAddons.push(addon);
@@ -470,51 +550,51 @@ export const getNextBillInfo = async (req, res) => {
       });
     }
 
-    const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
+    const multiplier = getBillingCycleMultiplier(billingCycle, planName);
     const mainBillSeats = baseLimit + mergedAddonSeats;
-    const mainBillAmount = planInfo.price * mainBillSeats * multiplier;
+    const mainBillAmount = planPrice * mainBillSeats * multiplier;
 
     const bills = [];
-    const isFreePlan = admin.plan?.toLowerCase()?.includes("free");
+    const isFreePlan = planName?.toLowerCase()?.includes("free");
     if (!isFreePlan) {
       bills.push({
         id: "main",
         type: "main",
-        planName: admin.plan,
-        pricePerPerson: planInfo.price,
+        planName: planName,
+        pricePerPerson: planPrice,
         employeeCount: mainBillSeats,
         userLimit: baseLimit,
         addonLimit: mergedAddonSeats,
         amount: mainBillAmount,
-        nextBillingDate: admin.planExpiresAt,
-        planInfo,
+        nextBillingDate: planExpiresAt,
+        planInfo: admin.planDetails || { planName, price: planPrice, billingCycle, maxUsers: baseLimit },
       });
     }
 
     separateAddons.forEach((addon) => {
       const addonSeats = addon.addonLimit || 10;
-      const addonMultiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
-      const addonAmount = planInfo.price * addonSeats * addonMultiplier;
+      const addonMultiplier = getBillingCycleMultiplier(billingCycle, planName);
+      const addonAmount = planPrice * addonSeats * addonMultiplier;
       bills.push({
         id: addon._id.toString(),
         type: "addon",
         addonId: addon._id.toString(),
-        planName: `${admin.plan} - Add-on`,
-        pricePerPerson: planInfo.price,
+        planName: `${planName} - Add-on`,
+        pricePerPerson: planPrice,
         employeeCount: addonSeats,
         amount: addonAmount,
         nextBillingDate: addon.expiresAt,
-        planInfo,
+        planInfo: admin.planDetails || { planName, price: planPrice, billingCycle, maxUsers: baseLimit },
       });
     });
 
     const defaultBill = bills.find(b => b.type === "main") || bills[0] || {
-      planName: admin.plan,
-      pricePerPerson: planInfo.price,
+      planName: planName,
+      pricePerPerson: planPrice,
       employeeCount: baseLimit,
-      amount: planInfo.price * baseLimit * multiplier,
-      nextBillingDate: admin.planExpiresAt,
-      planInfo,
+      amount: planPrice * baseLimit * multiplier,
+      nextBillingDate: planExpiresAt,
+      planInfo: admin.planDetails || { planName, price: planPrice, billingCycle, maxUsers: baseLimit },
     };
 
     return res.status(200).json({

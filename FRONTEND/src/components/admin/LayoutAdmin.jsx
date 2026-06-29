@@ -10,6 +10,7 @@ const LayoutAdmin = () => {
   const { user } = useContext(AuthContext);
   const[theme, setTheme] = useState(sessionStorage.getItem("adminTheme") || "white");
   const[bubbles, setBubbles] = useState([]);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   const themeBgImage = "../../../public/image.png"; 
 
@@ -22,6 +23,14 @@ const LayoutAdmin = () => {
       document.documentElement.classList.remove("dark");
     }
   };
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (theme === "dark") {
@@ -48,15 +57,18 @@ const LayoutAdmin = () => {
   }, [theme]);
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navTemplate = user?.navTemplate || "sidebar";
 
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-gray-900' : theme === 'white' ? 'bg-white' : 'bg-[#F8FAFF]'}`}>
       
       {/* SIDEBAR */}
-      {user?.role === "support-admin" ? (
-        <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      ) : (
-        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+      {(navTemplate === "sidebar" || isMobile) && (
+        user?.role === "support-admin" ? (
+          <SidebarSupportAdmin mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        ) : (
+          <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        )
       )}
 
       <div className="flex flex-col flex-1 min-w-0">

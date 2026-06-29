@@ -26,6 +26,7 @@ const REGULAR_FEATURES = [
   "/admin/late-requests",
   "/admin/admin-overtime",
   "/admin/live-tracking",
+  "/admin/expense",
 ];
 
 // ─── Owner-exclusive features (not available in any paid plan) ────────────────

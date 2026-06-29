@@ -164,6 +164,7 @@ const DynamicHRMSLandingPage = () => {
         "/admin/overtime": "Overtime Requests",
         "/admin/live-tracking": "Employee Idle Tracking",
         "/admin/induction": "Induction",
+        "/admin/expense": "Expense Management",
     };
 
     /* ─── RAZORPAY ─── */

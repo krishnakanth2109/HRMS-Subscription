@@ -17,10 +17,11 @@ import {
 import { CurrentEmployeeNotificationContext } from "../../EmployeeContext/CurrentEmployeeNotificationContext";
 import WelcomeKitPopup from "./WelcomeKitPopup"; // ✅ Import the popup
 import api from "../../api"; // ✅ Import api for status check
+import NavbarEmployeeNav from "./NavbarEmployeeNav";
 
 
 const NavbarEmployee = ({ currentTheme, onThemeChange, setMobileOpen }) => {
-  const { logout } = useContext(AuthContext);
+  const { logout, user: authUser } = useContext(AuthContext);
   const { unreadNotifications } = useContext(CurrentEmployeeNotificationContext);
 
   const navigate = useNavigate();
@@ -112,13 +113,38 @@ const NavbarEmployee = ({ currentTheme, onThemeChange, setMobileOpen }) => {
             <FaBars />
           </button>
 
-          <h1
-            className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow cursor-pointer"
-            onClick={() => navigate("/employee/dashboard")}
-          >
-            HRMS
-          </h1>
+          {authUser?.navTemplate === "navbar" ? (
+            <div className="hidden md:flex items-center cursor-pointer" onClick={() => navigate("/employee/dashboard")}>
+              <img
+                src={authUser?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
+                alt="Logo"
+                className="h-10 w-auto object-contain bg-white/10 rounded px-2 py-0.5"
+              />
+            </div>
+          ) : (
+            <h1
+              className="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow cursor-pointer"
+              onClick={() => navigate("/employee/dashboard")}
+            >
+              HRMS
+            </h1>
+          )}
+          {authUser?.navTemplate === "navbar" && (
+            <h1
+              className="md:hidden text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow cursor-pointer"
+              onClick={() => navigate("/employee/dashboard")}
+            >
+              HRMS
+            </h1>
+          )}
         </div>
+
+        {/* Navigation Links in Center on Desktop when layout is Navbar */}
+        {authUser?.navTemplate === "navbar" && (
+          <div className="hidden md:flex flex-1 items-center justify-center">
+            <NavbarEmployeeNav theme={currentTheme} inline={true} />
+          </div>
+        )}
 
         {/* Right Section */}
         <div className="flex items-center gap-6">

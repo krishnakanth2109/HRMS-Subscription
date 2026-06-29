@@ -151,6 +151,27 @@ export const login = async (req, res) => {
       userObj.plan = rootAdmin.plan;
     }
 
+    // ── 7. Resolve companyLogo ──────────────────────────────────────────
+    if (role === "admin") {
+      userObj.companyLogo = user.companyLogo || null;
+    } else if ((role === "support-admin" || role === "employee") && user.adminId) {
+      // Derive from parent admin — do not leak across tenants
+      const parentAdmin = await Admin.findById(user.adminId).select("companyLogo");
+      userObj.companyLogo = parentAdmin?.companyLogo || null;
+    } else {
+      userObj.companyLogo = null;
+    }
+
+    // ── 8. Resolve navTemplate ──────────────────────────────────────────
+    if (role === "admin") {
+      userObj.navTemplate = user.navTemplate || "sidebar";
+    } else if ((role === "support-admin" || role === "employee") && user.adminId) {
+      const parentAdmin = await Admin.findById(user.adminId).select("navTemplate");
+      userObj.navTemplate = parentAdmin?.navTemplate || "sidebar";
+    } else {
+      userObj.navTemplate = "sidebar";
+    }
+
     return res.status(200).json({
       message: "Login successful",
       token,
