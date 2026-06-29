@@ -37,6 +37,12 @@ const CustomizingAdmin = () => {
   const [logoRemoving, setLogoRemoving] = useState(false);
   const logoInputRef = useRef(null);
 
+  // Favicon Branding
+  const [companyFavicon, setCompanyFavicon] = useState("");
+  const [faviconUploading, setFaviconUploading] = useState(false);
+  const [faviconRemoving, setFaviconRemoving] = useState(false);
+  const faviconInputRef = useRef(null);
+
   // Plan Settings states
   const [price, setPrice] = useState(0);
   const [maxUsers, setMaxUsers] = useState(30);
@@ -49,12 +55,13 @@ const CustomizingAdmin = () => {
     try {
       setLoading(true);
       const res = await api.get(`/api/master/customize-plan/${id}`);
-      const { adminName, email, planDetails, companyLogo: logo, navTemplate: dbNavTemplate } = res.data;
+      const { adminName, email, planDetails, companyLogo: logo, favicon: fav, navTemplate: dbNavTemplate } = res.data;
 
       setAdminName(adminName || "Admin");
       setAdminEmail(email || "");
       setLegacyPlan(planDetails.planName || "Free");
       setCompanyLogo(logo || "");
+      setCompanyFavicon(fav || "");
       setNavTemplate(dbNavTemplate || "sidebar");
 
       setPrice(planDetails.price ?? 0);
@@ -138,6 +145,52 @@ const CustomizingAdmin = () => {
       Swal.fire({ icon: "error", title: "Failed", text: err.response?.data?.message || "Could not remove logo." });
     } finally {
       setLogoRemoving(false);
+    }
+  };
+
+  // Upload company favicon
+  const handleFaviconUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("favicon", file);
+    try {
+      setFaviconUploading(true);
+      const res = await api.patch(`/api/master/admins/${id}/upload-favicon`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setCompanyFavicon(res.data.favicon);
+      Swal.fire({ icon: "success", title: "Favicon Updated", text: "Company favicon has been changed.", timer: 2000, showConfirmButton: false });
+    } catch (err) {
+      console.error("Favicon upload error:", err);
+      Swal.fire({ icon: "error", title: "Upload Failed", text: err.response?.data?.message || "Could not upload favicon." });
+    } finally {
+      setFaviconUploading(false);
+      if (faviconInputRef.current) faviconInputRef.current.value = "";
+    }
+  };
+
+  // Remove company favicon
+  const handleFaviconRemove = async () => {
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "Remove Favicon?",
+      text: "This will reset the favicon to the default.",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      confirmButtonText: "Yes, remove it",
+    });
+    if (!confirm.isConfirmed) return;
+    try {
+      setFaviconRemoving(true);
+      const res = await api.delete(`/api/master/admins/${id}/favicon`);
+      setCompanyFavicon(res.data.favicon);
+      Swal.fire({ icon: "success", title: "Favicon Removed", text: "Reverted to default favicon.", timer: 2000, showConfirmButton: false });
+    } catch (err) {
+      console.error("Favicon remove error:", err);
+      Swal.fire({ icon: "error", title: "Failed", text: err.response?.data?.message || "Could not remove favicon." });
+    } finally {
+      setFaviconRemoving(false);
     }
   };
 
@@ -352,6 +405,57 @@ const CustomizingAdmin = () => {
                   >
                     {logoRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     {logoRemoving ? "Removing..." : "Remove Logo"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Company Favicon */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <ImageIcon className="w-5 h-5 text-indigo-500" />
+              <h3 className="font-bold text-slate-800 text-lg">Company Favicon</h3>
+            </div>
+            {/* Favicon Preview */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
+                {companyFavicon ? (
+                  <img
+                    src={companyFavicon.includes("res.cloudinary.com") ? companyFavicon.replace("/upload/", "/upload/e_trim/") : companyFavicon}
+                    alt="Company Favicon"
+                    className="w-full h-full object-contain p-1"
+                  />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-slate-300" />
+                )}
+              </div>
+              <input
+                ref={faviconInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/x-icon"
+                className="hidden"
+                onChange={handleFaviconUpload}
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={faviconUploading || faviconRemoving}
+                  onClick={() => faviconInputRef.current?.click()}
+                  className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl border border-indigo-200 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {faviconUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {faviconUploading ? "Uploading..." : "Change Favicon"}
+                </button>
+                {companyFavicon && (
+                  <button
+                    type="button"
+                    disabled={faviconUploading || faviconRemoving}
+                    onClick={handleFaviconRemove}
+                    className="flex items-center gap-2 text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl border border-red-200 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {faviconRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    {faviconRemoving ? "Removing..." : "Remove Favicon"}
                   </button>
                 )}
               </div>

@@ -184,6 +184,7 @@ export const loginAdmin = async (req, res) => {
         plan: admin.plan,
         isOwner: isUnlimitedPlan || false, // ✅ frontend can use this flag
         companyLogo: admin.companyLogo || null,
+        favicon: admin.favicon || null,
         navTemplate: admin.navTemplate || "sidebar",
       },
     });
@@ -552,12 +553,14 @@ export const getAdminProfile = async (req, res) => {
     adminObj.effectiveUserLimit = isOwner ? null : (baseLimit + activeAddonTotal);
 
     if (req.user.role === "support-admin") {
-      const parentAdmin = await Admin.findById(rootAdminId).select("companyLogo navTemplate");
+      const parentAdmin = await Admin.findById(rootAdminId).select("companyLogo favicon navTemplate");
       adminObj.companyLogo = parentAdmin?.companyLogo || null;
+      adminObj.favicon = parentAdmin?.favicon || null;
       adminObj.navTemplate = parentAdmin?.navTemplate || "sidebar";
     } else {
-      const fullAdmin = await Admin.findById(rootAdminId).select("companyLogo navTemplate");
+      const fullAdmin = await Admin.findById(rootAdminId).select("companyLogo favicon navTemplate");
       adminObj.companyLogo = fullAdmin?.companyLogo || null;
+      adminObj.favicon = fullAdmin?.favicon || null;
       adminObj.navTemplate = fullAdmin?.navTemplate || "sidebar";
     }
 

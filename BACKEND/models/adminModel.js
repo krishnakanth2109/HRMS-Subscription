@@ -42,6 +42,10 @@ const adminSchema = new mongoose.Schema(
       type: String,
       default: "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png",
     },
+    favicon: {
+      type: String,
+      default: "",
+    },
     navTemplate: {
       type: String,
       enum: ["sidebar", "navbar"],

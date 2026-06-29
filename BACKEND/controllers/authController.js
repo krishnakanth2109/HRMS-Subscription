@@ -151,15 +151,18 @@ export const login = async (req, res) => {
       userObj.plan = rootAdmin.plan;
     }
 
-    // ── 7. Resolve companyLogo ──────────────────────────────────────────
+    // ── 7. Resolve companyLogo & favicon ──────────────────────────────────────────
     if (role === "admin") {
       userObj.companyLogo = user.companyLogo || null;
+      userObj.favicon = user.favicon || null;
     } else if ((role === "support-admin" || role === "employee") && user.adminId) {
       // Derive from parent admin — do not leak across tenants
-      const parentAdmin = await Admin.findById(user.adminId).select("companyLogo");
+      const parentAdmin = await Admin.findById(user.adminId).select("companyLogo favicon");
       userObj.companyLogo = parentAdmin?.companyLogo || null;
+      userObj.favicon = parentAdmin?.favicon || null;
     } else {
       userObj.companyLogo = null;
+      userObj.favicon = null;
     }
 
     // ── 8. Resolve navTemplate ──────────────────────────────────────────

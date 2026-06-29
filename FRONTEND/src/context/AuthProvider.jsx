@@ -34,6 +34,32 @@ export const AuthProvider = ({ children }) => {
 
     setLoading(false);
   }, []);
+  
+  /* ================= DYNAMIC FAVICON UPDATE ================= */
+  useEffect(() => {
+    if (user?.favicon) {
+      let favUrl = user.favicon;
+      if (favUrl.includes("res.cloudinary.com")) {
+        favUrl = favUrl.replace("/upload/", "/upload/e_trim/");
+      }
+      const link = document.querySelector("link[rel~='icon']");
+      if (link) {
+        link.href = favUrl;
+      } else {
+        const newLink = document.createElement("link");
+        newLink.rel = "icon";
+        newLink.type = "image/png";
+        newLink.href = favUrl;
+        document.head.appendChild(newLink);
+      }
+    } else {
+      // Revert to default favicon if none exists for this tenant
+      const link = document.querySelector("link[rel~='icon']");
+      if (link) {
+        link.href = "/favicon.png";
+      }
+    }
+  }, [user]);
 
   /* ==================== LOGIN (ADMIN FIRST → EMPLOYEE FALLBACK) ==================== */
   const login = async (email, password) => {

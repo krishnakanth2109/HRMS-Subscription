@@ -174,7 +174,7 @@ export const assignPlan = async (req, res) => {
 export const getAdminPlanDetails = async (req, res) => {
   try {
     const { adminId } = req.params;
-    const admin = await Admin.findById(adminId).select("name email plan planDetails userLimit isPaid planActivatedAt planExpiresAt companyLogo navTemplate");
+    const admin = await Admin.findById(adminId).select("name email plan planDetails userLimit isPaid planActivatedAt planExpiresAt companyLogo favicon navTemplate");
     if (!admin) {
       return res.status(404).json({ message: "Admin not found." });
     }
@@ -197,6 +197,7 @@ export const getAdminPlanDetails = async (req, res) => {
       adminName: admin.name,
       email: admin.email,
       companyLogo: admin.companyLogo || null,
+      favicon: admin.favicon || null,
       navTemplate: admin.navTemplate || "sidebar",
       planDetails: details,
     });
@@ -324,4 +325,75 @@ export const removeLogo = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Upload / replace favicon for a specific admin
+// @route   PATCH /api/master/admins/:adminId/upload-favicon
+// @access  Private (Master Only)
+export const uploadFavicon = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded." });
+    }
+
+    const { adminId } = req.params;
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found." });
+    }
+
+    // Delete the old favicon from Cloudinary if it exists
+    if (admin.favicon) {
+      try {
+        const parts = admin.favicon.split("/");
+        const fileWithExt = parts[parts.length - 1];
+        const folder = parts[parts.length - 2];
+        const publicId = `${folder}/${fileWithExt.split(".")[0]}`;
+        await cloudinary.uploader.destroy(publicId);
+      } catch (deleteErr) {
+        console.warn("⚠️ Could not delete old favicon from Cloudinary:", deleteErr.message);
+      }
+    }
+
+    admin.favicon = req.file.path;
+    await admin.save();
+
+    res.status(200).json({ success: true, favicon: admin.favicon });
+  } catch (error) {
+    console.error("❌ UPLOAD FAVICON ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Remove favicon for a specific admin
+// @route   DELETE /api/master/admins/:adminId/favicon
+// @access  Private (Master Only)
+export const removeFavicon = async (req, res) => {
+  try {
+    const { adminId } = req.params;
+    const admin = await Admin.findById(adminId);
+    if (!admin) return res.status(404).json({ message: "Admin not found." });
+
+    // Delete from Cloudinary if it is a custom favicon
+    if (admin.favicon) {
+      try {
+        const parts = admin.favicon.split("/");
+        const fileWithExt = parts[parts.length - 1];
+        const folder = parts[parts.length - 2];
+        const publicId = `${folder}/${fileWithExt.split(".")[0]}`;
+        await cloudinary.uploader.destroy(publicId);
+      } catch (deleteErr) {
+        console.warn("⚠️ Could not delete favicon from Cloudinary:", deleteErr.message);
+      }
+    }
+
+    admin.favicon = "";
+    await admin.save();
+
+    res.status(200).json({ success: true, favicon: admin.favicon });
+  } catch (error) {
+    console.error("❌ REMOVE FAVICON ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // --- END OF FILE controllers/masterController.js ---
