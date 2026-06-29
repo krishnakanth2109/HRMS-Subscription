@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }) => {
 
     setLoading(false);
   }, []);
-  
+
   /* ================= DYNAMIC FAVICON UPDATE ================= */
   useEffect(() => {
     if (user?.favicon) {

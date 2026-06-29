@@ -1007,26 +1007,23 @@ const AdminProfile = () => {
                   type="button"
                   onClick={handleMobileAccessToggle}
                   disabled={mobileAccessLoading}
-                  className={`relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border transition-all duration-300 ${
-                    mobileAccessEnabled
-                      ? "bg-emerald-500 border-emerald-500 shadow-emerald-100"
-                      : "bg-gray-200 border-gray-300"
-                  } ${mobileAccessLoading ? "opacity-70 cursor-wait" : "cursor-pointer"}`}
+                  className={`relative inline-flex h-8 w-16 shrink-0 items-center rounded-full border transition-all duration-300 ${mobileAccessEnabled
+                    ? "bg-emerald-500 border-emerald-500 shadow-emerald-100"
+                    : "bg-gray-200 border-gray-300"
+                    } ${mobileAccessLoading ? "opacity-70 cursor-wait" : "cursor-pointer"}`}
                   aria-label="Toggle mobile access"
                 >
                   <span
-                    className={`inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-300 ${
-                      mobileAccessEnabled ? "translate-x-9" : "translate-x-1"
-                    }`}
+                    className={`inline-block h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-300 ${mobileAccessEnabled ? "translate-x-9" : "translate-x-1"
+                      }`}
                   />
                 </button>
               </div>
 
-              <div className={`mt-5 rounded-xl border px-4 py-3 ${
-                mobileAccessEnabled
-                  ? "bg-emerald-50 border-emerald-100 text-emerald-700"
-                  : "bg-rose-50 border-rose-100 text-rose-700"
-              }`}>
+              <div className={`mt-5 rounded-xl border px-4 py-3 ${mobileAccessEnabled
+                ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                : "bg-rose-50 border-rose-100 text-rose-700"
+                }`}>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em]">
                   {mobileAccessEnabled ? "Mobile Punch Enabled" : "Mobile Punch Disabled"}
                 </p>
@@ -1097,11 +1094,10 @@ const AdminProfile = () => {
                           Unlimited
                         </span>
                       ) : (
-                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${
-                          (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
-                            ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
-                            : "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${(profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
+                          ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
+                          : "bg-emerald-50 text-emerald-600 border border-emerald-100"
+                          }`}>
                           {Math.max(0, (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
                         </span>
                       )}
@@ -1338,10 +1334,10 @@ const AdminProfile = () => {
               <div>
                 <p className="text-indigo-200 text-xs font-bold uppercase tracking-wider">Total Add-on Cost</p>
                 <p className="text-white text-2xl font-black">
-                  ₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)).toLocaleString('en-IN')}
+                  ₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName) * 1.18).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-indigo-200 text-[10px] font-medium mt-0.5">
-                  {Math.max(10, Number(addonSeats) || 10)} seats × ₹{addonPlanInfo.pricePerPerson}/seat × {getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)} months
+                  Base: ₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)).toLocaleString('en-IN')} + 18% GST (₹{(addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName) * 0.18).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
                 </p>
               </div>
               <div className="text-right">
@@ -1366,7 +1362,7 @@ const AdminProfile = () => {
           disabled={isProcessingAddon || !addonPlanInfo}
           className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-black rounded-xl transition-all shadow-lg shadow-indigo-100 text-sm uppercase tracking-wide"
         >
-          {isProcessingAddon ? "Processing..." : `Pay ₹${addonPlanInfo ? (addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName)).toLocaleString('en-IN') : "..."} & Activate`}
+          {isProcessingAddon ? "Processing..." : `Pay ₹${addonPlanInfo ? (addonPlanInfo.pricePerPerson * Math.max(10, Number(addonSeats) || 10) * getBillingCycleMultiplier(addonPlanInfo.planInfo?.billingCycle, addonPlanInfo.planInfo?.planName) * 1.18).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "..."} & Activate`}
         </button>
       </ModalWrapper>
 
@@ -1528,7 +1524,6 @@ const AdminProfile = () => {
         >
           <FaTimes size={16} />
         </button>
-        
         <div className="mb-8 flex justify-between items-center">
           <div>
             <h3 className="text-2xl font-black text-gray-900 flex items-center gap-2">
@@ -1656,15 +1651,15 @@ const AdminProfile = () => {
           const billsToRender = (nextBillInfo.bills && nextBillInfo.bills.length > 0)
             ? nextBillInfo.bills
             : [{
-                id: "main",
-                type: "main",
-                planName: nextBillInfo.planName,
-                pricePerPerson: nextBillInfo.pricePerPerson,
-                employeeCount: nextBillInfo.employeeCount,
-                amount: nextBillInfo.amount,
-                nextBillingDate: nextBillInfo.nextBillingDate,
-                planInfo: nextBillInfo.planInfo,
-              }];
+              id: "main",
+              type: "main",
+              planName: nextBillInfo.planName,
+              pricePerPerson: nextBillInfo.pricePerPerson,
+              employeeCount: nextBillInfo.employeeCount,
+              amount: nextBillInfo.amount,
+              nextBillingDate: nextBillInfo.nextBillingDate,
+              planInfo: nextBillInfo.planInfo,
+            }];
 
           return (
             <div className="space-y-6 overflow-y-auto pr-2 max-h-[60vh]">
@@ -1675,7 +1670,6 @@ const AdminProfile = () => {
                 return (
                   <div key={bill.id || index} className="bg-gray-50 rounded-2xl p-6 border border-gray-200 shadow-sm relative overflow-hidden transition-all hover:shadow-md">
                     <div className={`absolute top-0 left-0 bottom-0 w-2 ${isMain ? "bg-indigo-600" : "bg-purple-600"}`}></div>
-                    
                     <div className="pl-2 space-y-4">
                       <div className="flex justify-between items-start">
                         <div>
@@ -1753,13 +1747,12 @@ const AdminProfile = () => {
                             }
                           }}
                           disabled={isPayingBill || isProcessingAddon || !isPayable}
-                          className={`ml-auto font-bold px-5 py-2.5 rounded-xl uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-1.5 ${
-                            isPayingBill || isProcessingAddon || !isPayable
-                              ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none"
-                              : isMain
-                                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100 cursor-pointer"
-                                : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-100 cursor-pointer"
-                          }`}
+                          className={`ml-auto font-bold px-5 py-2.5 rounded-xl uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-1.5 ${isPayingBill || isProcessingAddon || !isPayable
+                            ? "bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed shadow-none"
+                            : isMain
+                              ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100 cursor-pointer"
+                              : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-100 cursor-pointer"
+                            }`}
                         >
                           {isPayingBill || isProcessingAddon ? (
                             <>

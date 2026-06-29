@@ -32,8 +32,8 @@ const LayoutEmployee = () => {
   const [theme, setTheme] = useState(sessionStorage.getItem("employeeTheme") || "bubbles");
   const [bubbles, setBubbles] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  
-  const themeBgImage = "https://image2url.com/r2/default/images/1772457362735-3b1e508e-e9da-4614-8ffd-86efe3e119ba.png"; 
+
+  const themeBgImage = "https://image2url.com/r2/default/images/1772457362735-3b1e508e-e9da-4614-8ffd-86efe3e119ba.png";
 
   const toggleTheme = (selectedTheme) => {
     setTheme(selectedTheme);
@@ -100,19 +100,19 @@ const LayoutEmployee = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${getMainClassNames()}`}>
-      
+
       {/* SIDEBAR */}
       {(navTemplate === "sidebar" || isMobile) && (
         <SidebarEmployee mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
       )}
 
       <div className="flex flex-col flex-1 min-w-0">
-        
+
         {/* NAVBAR */}
         <div className={`z-20 flex-shrink-0 transition-colors duration-500`}>
-          <NavbarEmployee 
-            currentTheme={theme} 
-            onThemeChange={toggleTheme} 
+          <NavbarEmployee
+            currentTheme={theme}
+            onThemeChange={toggleTheme}
             mobileOpen={mobileOpen}
             setMobileOpen={setMobileOpen}
           />

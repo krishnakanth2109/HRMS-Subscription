@@ -101,8 +101,8 @@ export const createOrder = async (req, res) => {
     const limit = Math.max(30, Number(userLimit) || 30);
     const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
 
-    // Razorpay expects amount in paise (1 INR = 100 paise)
-    const amountInPaise = Math.round(planInfo.price * limit * multiplier * 100);
+    // Razorpay expects amount in paise (1 INR = 100 paise) and includes 18% GST
+    const amountInPaise = Math.round(planInfo.price * limit * multiplier * 1.18 * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
@@ -657,7 +657,7 @@ export const createAddonOrder = async (req, res) => {
     }
 
     const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
-    const amountInPaise = Math.round(planInfo.price * seats * multiplier * 100);
+    const amountInPaise = Math.round(planInfo.price * seats * multiplier * 1.18 * 100);
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,

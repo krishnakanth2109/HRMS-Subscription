@@ -5,9 +5,13 @@ import { getAttendanceForEmployee, getOvertimeForEmployee } from "../api";
 
 const CurrentEmployeeAttendanceProvider = ({ children }) => {
   // ✅ Logged user
-  const loggedUser = JSON.parse(
-    sessionStorage.getItem("hrmsUser") || sessionStorage.getItem("hrmsUser") || "null"
-  );
+  let loggedUser = null;
+  try {
+    const raw = sessionStorage.getItem("hrmsUser");
+    if (raw) loggedUser = JSON.parse(raw);
+  } catch (e) {
+    console.error("Error parsing hrmsUser:", e);
+  }
   const employeeId = loggedUser?.employeeId; // ✅ Use exact value (EMP101)
 
   // ✅ Manual (dummy) attendance for fallback

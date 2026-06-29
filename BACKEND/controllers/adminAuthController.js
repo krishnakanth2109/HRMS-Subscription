@@ -200,9 +200,10 @@ export const updatePlanSettings = async (req, res) => {
     const { planId, planName, durationDays, price, billingCycle = "monthly", maxUsers, features, targetAdminIds } = req.body;
 
     // 1️⃣ Customize specifically for selected admins only
-    if (targetAdminIds && targetAdminIds.length > 0 && !targetAdminIds.includes("all")) {
+    if (targetAdminIds && targetAdminIds.length > 0 && !targetAdminIds.includes("all") && !targetAdminIds.includes("none")) {
       const updatedAdmins = [];
       for (const adminId of targetAdminIds) {
+        if (!mongoose.Types.ObjectId.isValid(adminId)) continue;
         const admin = await Admin.findById(adminId);
         if (admin) {
           if (!admin.planDetails) {
@@ -228,7 +229,7 @@ export const updatePlanSettings = async (req, res) => {
     // 2️⃣ Update Master Plan and propagate to all enrolled admins
     // ✅ Protect owner plan from being modified via API
     let existing;
-    if (planId) {
+    if (planId && mongoose.Types.ObjectId.isValid(planId)) {
       existing = await PlanSetting.findById(planId);
     } else {
       existing = await PlanSetting.findOne({ planName });
@@ -251,11 +252,11 @@ export const updatePlanSettings = async (req, res) => {
       // ✅ Update features and price of all current admins enrolled in this plan
       await Admin.updateMany(
         { "planDetails.planName": planName },
-        { 
-          $set: { 
+        {
+          $set: {
             "planDetails.features": features,
             "planDetails.price": Number(price)
-          } 
+          }
         }
       );
     } else {
@@ -294,7 +295,7 @@ export const getAllPlanSettings = async (req, res) => {
 export const getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find({}).sort({ createdAt: -1 });
-    
+
     // Map nested planDetails to top-level properties for frontend compatibility
     const mappedAdmins = admins.map((admin) => {
       const adminObj = admin.toObject();
@@ -792,12 +793,12 @@ export const deleteAdmin = async (req, res) => {
       if (modelName === "Admin") continue;
 
       const Model = mongoose.model(modelName);
-      
+
       // A. If the schema has an adminId path
       if (Model.schema.paths.adminId) {
         await Model.deleteMany({ adminId });
       }
-      
+
       // B. If the schema has an employeeId path
       if (Model.schema.paths.employeeId) {
         await Model.deleteMany({

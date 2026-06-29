@@ -1218,12 +1218,7 @@ const DynamicHRMSLandingPage = () => {
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                             </div>
                         ) : (
-                            <div className={`grid gap-4 max-w-7xl mx-auto items-stretch grid-cols-1 sm:grid-cols-2 ${filteredPlans.length === 1 ? 'lg:grid-cols-1 max-w-sm' :
-                                filteredPlans.length === 2 ? 'lg:grid-cols-2 max-w-3xl' :
-                                    filteredPlans.length === 3 ? 'lg:grid-cols-3 max-w-5xl' :
-                                        filteredPlans.length === 4 ? 'lg:grid-cols-4 max-w-6xl' :
-                                            'lg:grid-cols-5'
-                                }`}>
+                            <div className="plans-scroll flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth">
                                 {filteredPlans.map((plan, index) => {
                                     const isPopular = index === mostPopularIdx;
                                     const isFree = Number(plan.price) === 0;
@@ -1236,7 +1231,7 @@ const DynamicHRMSLandingPage = () => {
                                             whileInView={{ opacity: 1, y: 0 }}
                                             viewport={{ once: true, margin: "-50px" }}
                                             transition={{ duration: 0.8, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                                            className={`relative rounded-3xl p-8 flex flex-col border transition-all duration-500 ${isPopular
+                                            className={`relative rounded-3xl p-8 flex flex-col border transition-all duration-500 flex-shrink-0 snap-start ${isPopular
                                                 ? 'bg-gradient-to-b from-blue-600 to-indigo-700 text-white shadow-premium-lg scale-[1.03] border-blue-500 plan-popular-glow'
                                                 : isHovered
                                                     ? (isFree
@@ -1246,7 +1241,7 @@ const DynamicHRMSLandingPage = () => {
                                                 }`}
                                             onMouseEnter={() => setHoveredPlan(index)}
                                             onMouseLeave={() => setHoveredPlan(null)}
-                                            style={{ cursor: 'default' }}
+                                            style={{ cursor: 'default', minWidth: '300px', width: '300px' }}
                                         >
                                             {isPopular && (
                                                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
@@ -1266,15 +1261,22 @@ const DynamicHRMSLandingPage = () => {
                                                     {plan.planName}
                                                 </h3>
 
-                                                <div className="mb-6 flex items-baseline gap-1">
-                                                    {isFree ? (
-                                                        <span className="text-4xl font-extrabold">Free</span>
-                                                    ) : (
-                                                        <>
-                                                            <span className={`text-sm font-bold opacity-80`}>₹</span>
-                                                            <span className="text-4xl font-extrabold">{plan.price}</span>
-                                                            <span className={`text-xs opacity-70 ml-1`}>/User</span>
-                                                        </>
+                                                <div className="mb-6 flex flex-col gap-1">
+                                                    <div className="flex items-baseline gap-1">
+                                                        {isFree ? (
+                                                            <span className="text-4xl font-extrabold">Free</span>
+                                                        ) : (
+                                                            <>
+                                                                <span className={`text-sm font-bold opacity-80`}>₹</span>
+                                                                <span className="text-4xl font-extrabold">{plan.price}</span>
+                                                                <span className={`text-xs opacity-70 ml-1`}>/User</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {!isFree && (
+                                                        <span className={`text-[10px] font-bold tracking-tight ${isPopular || isHovered ? 'text-blue-100/90' : 'text-slate-500 dark:text-zinc-400'}`}>
+                                                            + 18% GST (Total: ₹{(plan.price * 1.18).toFixed(2)})
+                                                        </span>
                                                     )}
                                                 </div>
 
@@ -1795,8 +1797,15 @@ const DynamicHRMSLandingPage = () => {
                                                                 </div>
                                                                 <p className={`text-[10px] mt-0.5 uppercase tracking-wider font-bold ${textMuted}`}>{plan.durationDays} days access</p>
                                                             </div>
-                                                            <div className="text-blue-600 dark:text-blue-400 font-bold text-base">
-                                                                {Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}
+                                                            <div className="text-right">
+                                                                <div className="text-blue-600 dark:text-blue-400 font-bold text-base">
+                                                                    {Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}
+                                                                </div>
+                                                                {Number(plan.price) > 0 && (
+                                                                    <div className={`text-[9px] font-bold ${textMuted} mt-0.5`}>
+                                                                        + 18% GST (Total: ₹{(plan.price * 1.18).toFixed(2)})
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </button>
@@ -1899,14 +1908,28 @@ const DynamicHRMSLandingPage = () => {
                                             </div>
 
                                             {selectedPlan && (
-                                                <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl px-4 py-3 flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-[9px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-extrabold">Selected Plan</p>
-                                                        <p className={`font-bold text-xs capitalize ${text}`}>{selectedPlan.planName}</p>
+                                                <div className="bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-xl px-4 py-3 flex flex-col gap-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <p className="text-[9px] uppercase tracking-widest text-blue-600 dark:text-blue-400 font-extrabold">Selected Plan</p>
+                                                            <p className={`font-bold text-xs capitalize ${text}`}>{selectedPlan.planName}</p>
+                                                        </div>
+                                                        <div className={`font-bold text-xs ${text}`}>
+                                                            {Number(selectedPlan.price) === 0 ? "Free" : `₹${(selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan)).toFixed(2)}`}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-blue-600 dark:text-blue-400 font-bold text-lg">
-                                                        {Number(selectedPlan.price) === 0 ? "Free" : `₹${selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan)}`}
-                                                    </div>
+                                                    {Number(selectedPlan.price) > 0 && (
+                                                        <>
+                                                            <div className="flex items-center justify-between text-[10px] text-zinc-500 font-medium">
+                                                                <span>GST (18%)</span>
+                                                                <span>+ ₹{(selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan) * 0.18).toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200/50 dark:border-zinc-800/50 font-bold text-xs text-blue-600 dark:text-blue-400">
+                                                                <span>Total Bill (incl. GST)</span>
+                                                                <span>₹{(selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan) * 1.18).toFixed(2)}</span>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
 
@@ -1915,7 +1938,7 @@ const DynamicHRMSLandingPage = () => {
                                                 disabled={signupLoading || !selectedPlan || !!signupSuccess}
                                                 className="w-full mt-1 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-premium-md transform active:scale-98 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
-                                                {signupLoading ? "Processing..." : !selectedPlan ? "Select a Plan" : Number(selectedPlan.price) === 0 ? "Create Free Account" : `Pay ₹${selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan)} & Activate`}
+                                                {signupLoading ? "Processing..." : !selectedPlan ? "Select a Plan" : Number(selectedPlan.price) === 0 ? "Create Free Account" : `Pay ₹${(selectedPlan.price * userLimit * getBillingCycleMultiplier(selectedPlan) * 1.18).toFixed(2)} & Activate`}
                                             </button>
 
                                             <p className={`text-center text-[9px] ${textMuted} uppercase tracking-wider pt-1 font-bold`}>

@@ -8,11 +8,11 @@ import { AuthContext } from "../../context/AuthContext";
 
 const LayoutAdmin = () => {
   const { user } = useContext(AuthContext);
-  const[theme, setTheme] = useState(sessionStorage.getItem("adminTheme") || "white");
-  const[bubbles, setBubbles] = useState([]);
+  const [theme, setTheme] = useState(sessionStorage.getItem("adminTheme") || "white");
+  const [bubbles, setBubbles] = useState([]);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  
-  const themeBgImage = "../../../public/image.png"; 
+
+  const themeBgImage = "../../../public/image.png";
 
   const toggleTheme = (selectedTheme) => {
     setTheme(selectedTheme);
@@ -61,7 +61,7 @@ const LayoutAdmin = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden transition-colors duration-500 ${theme === 'dark' ? 'bg-gray-900' : theme === 'white' ? 'bg-white' : 'bg-[#F8FAFF]'}`}>
-      
+
       {/* SIDEBAR */}
       {(navTemplate === "sidebar" || isMobile) && (
         user?.role === "support-admin" ? (
@@ -72,21 +72,21 @@ const LayoutAdmin = () => {
       )}
 
       <div className="flex flex-col flex-1 min-w-0">
-        
+
         {/* NAVBAR */}
         {/* Given z-20 so it sits above the background, but below popups (z-50) */}
         <div className="z-20">
           {user?.role === "support-admin" ? (
-            <NavbarSupportAdmin 
-              currentTheme={theme} 
-              onThemeChange={toggleTheme} 
+            <NavbarSupportAdmin
+              currentTheme={theme}
+              onThemeChange={toggleTheme}
               mobileOpen={mobileOpen}
               setMobileOpen={setMobileOpen}
             />
           ) : (
-            <Navbar 
-              currentTheme={theme} 
-              onThemeChange={toggleTheme} 
+            <Navbar
+              currentTheme={theme}
+              onThemeChange={toggleTheme}
               mobileOpen={mobileOpen}
               setMobileOpen={setMobileOpen}
             />

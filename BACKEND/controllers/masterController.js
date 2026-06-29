@@ -1,6 +1,6 @@
 // --- START OF FILE controllers/masterController.js ---
 import MasterAdmin from "../models/MasterAdmin.js";
-import Admin from "../models/adminModel.js"; 
+import Admin from "../models/adminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
 import jwt from "jsonwebtoken";
 import { cloudinary } from "../config/cloudinary.js";
@@ -78,7 +78,7 @@ export const getAllAdmins = async (req, res) => {
         adminObj.planActivatedAt = adminObj.planDetails.activatedAt || adminObj.planActivatedAt;
         adminObj.planExpiresAt = adminObj.planDetails.expiresAt || adminObj.planExpiresAt;
         adminObj.userLimit = adminObj.planDetails.maxUsers !== undefined ? adminObj.planDetails.maxUsers : adminObj.userLimit;
-        
+
         // Compute active subscriptionStatus dynamically
         const isActive = adminObj.planDetails.expiresAt && new Date(adminObj.planDetails.expiresAt) > new Date();
         adminObj.subscriptionStatus = isActive ? 'active' : 'inactive';
@@ -89,7 +89,7 @@ export const getAllAdmins = async (req, res) => {
     // Calculate basic stats
     const totalAdmins = mappedAdmins.length;
     const activeSubs = mappedAdmins.filter(a => a.subscriptionStatus === 'active').length;
-    
+
     const totalRevenueGenerated = mappedAdmins.reduce((acc, curr) => acc + getAdminRevenueTotal(curr), 0);
 
     res.json({
@@ -109,17 +109,17 @@ export const getAllAdmins = async (req, res) => {
 // @route   PUT /api/master/settings
 // @access  Private (Master Only)
 export const updateMasterSettings = async (req, res) => {
-    try {
-        // Implement logic if you have a Settings model. 
-        // For now, return a success message to satisfy the route.
-        // Example: const settings = await MasterSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
-        
-        console.log("Master Settings Update Requested:", req.body);
-        
-        res.json({ message: "Global settings updated successfully (Stub)" });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    // Implement logic if you have a Settings model. 
+    // For now, return a success message to satisfy the route.
+    // Example: const settings = await MasterSettings.findOneAndUpdate({}, req.body, { upsert: true, new: true });
+
+    console.log("Master Settings Update Requested:", req.body);
+
+    res.json({ message: "Global settings updated successfully (Stub)" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // @desc    Assign a master plan snapshot to an admin
@@ -154,8 +154,8 @@ export const assignPlan = async (req, res) => {
       isUnlimited: masterPlan.isUnlimited,
       isPaid: masterPlan.price > 0,
       activatedAt: new Date(),
-      expiresAt: masterPlan.isUnlimited 
-        ? null 
+      expiresAt: masterPlan.isUnlimited
+        ? null
         : new Date(Date.now() + masterPlan.durationDays * 86400000),
       sourcePlanId: masterPlan._id,
     };
@@ -178,7 +178,7 @@ export const getAdminPlanDetails = async (req, res) => {
     if (!admin) {
       return res.status(404).json({ message: "Admin not found." });
     }
-    
+
     // Return planDetails, fallback to old fields if not migrated
     const details = admin.planDetails && admin.planDetails.planName ? admin.planDetails : {
       planName: admin.plan || "Free",
@@ -192,7 +192,7 @@ export const getAdminPlanDetails = async (req, res) => {
       activatedAt: admin.planActivatedAt,
       expiresAt: admin.planExpiresAt,
     };
-    
+
     res.status(200).json({
       adminName: admin.name,
       email: admin.email,
@@ -239,7 +239,7 @@ export const customizePlan = async (req, res) => {
     admin.planDetails.features = features ?? admin.planDetails.features;
     admin.planDetails.maxUsers = maxUsers ?? admin.planDetails.maxUsers;
     admin.planDetails.billingCycle = billingCycle ?? admin.planDetails.billingCycle;
-    
+
     if (navTemplate) {
       admin.navTemplate = navTemplate;
     }

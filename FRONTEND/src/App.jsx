@@ -165,7 +165,7 @@ const PublicRoute = ({ children }) => {
 // Existing Master Protection
 // ----------------------------------------------------------------------
 const ProtectedMasterRoute = ({ children }) => {
-  const isMaster = sessionStorage.getItem("masterToken"); 
+  const isMaster = sessionStorage.getItem("masterToken");
   return isMaster ? children : <MasterLogin />;
 };
 
@@ -176,33 +176,33 @@ function App() {
          ✅ 2. WRAP PUBLIC ROUTES 
          If user is logged in, these will auto-redirect to dashboard 
       */}
-      <Route 
-        path="/" 
+      <Route
+        path="/"
         element={
           <PublicRoute>
             <SubsHome />
           </PublicRoute>
-        } 
+        }
       />
 
-      <Route 
-        path="/request-demo" 
+      <Route
+        path="/request-demo"
         element={
           <PublicRoute>
             <RequestDemo />
           </PublicRoute>
-        } 
+        }
 
       />
-      <Route 
-        path="/login" 
+      <Route
+        path="/login"
         element={
           <PublicRoute>
             <Login />
           </PublicRoute>
-        } 
+        }
       />
-      
+
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />
@@ -214,17 +214,17 @@ function App() {
          but we handle the redirect inside the login logic mostly. 
          However, wrapping it prevents double login.
       */}
-      <Route 
-        path="/master" 
+      <Route
+        path="/master"
         element={
-           <PublicRoute>
-             <MasterLogin />
-           </PublicRoute>
-        } 
+          <PublicRoute>
+            <MasterLogin />
+          </PublicRoute>
+        }
       />
-      
-      <Route 
-        path="/master" 
+
+      <Route
+        path="/master"
         element={
           <ProtectedMasterRoute>
             <LayoutMaster />
@@ -237,9 +237,9 @@ function App() {
         <Route path="manage-logins" element={<ManageLogins />} />
         <Route path="customize" element={<Customize />} />
         <Route path="customizing-admin/:id" element={<CustomizingAdmin />} />
-         <Route path="manage-issues" element={<SuperAdminIssues/>} />
-         <Route path="manage-demo-requests" element={<AdminDemoRequests />}/>
-         <Route path="domain-settings" element={<DomainSettings/>} />
+        <Route path="manage-issues" element={<SuperAdminIssues />} />
+        <Route path="manage-demo-requests" element={<AdminDemoRequests />} />
+        <Route path="domain-settings" element={<DomainSettings />} />
 
       </Route>
 
@@ -248,7 +248,7 @@ function App() {
       <Route
         element={
           <ProtectedRoute allow={["admin", "support-admin"]}>
-            <EmployeeProvider> 
+            <EmployeeProvider>
               <LayoutAdmin />
             </EmployeeProvider>
           </ProtectedRoute>
@@ -267,7 +267,7 @@ function App() {
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
         <Route path="/attendance" element={<AdminViewAttendance />} />
-            <Route path="/admin/expense" element={<AdminExpenseDashboard />} />
+        <Route path="/admin/expense" element={<AdminExpenseDashboard />} />
 
 
         <Route
@@ -319,23 +319,23 @@ function App() {
         <Route path="/admin/meeting" element={<MeetingGenerator />} />
         <Route path="/admin/today-overview" element={<TodayOverview />} />
         <Route path="/admin/rules" element={<AdminRulesPost />} />
-        <Route path="/admin/issues" element={<AdminIssues/>} />
+        <Route path="/admin/issues" element={<AdminIssues />} />
         <Route path="/admin/live-tracking" element={<AdminLiveTracking />} />
         <Route path="/admin/work-reports" element={<AdminWorkReports />} />
         <Route path="/admin/idletime-tracking" element={<AdminLiveTracking />} />
         <Route path="/admin/setup-face" element={<CurrentEmployeeFaceSetup />} />
         <Route path="/admin/induction" element={<Induction />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
-          <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
+        <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
         <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
         <Route path="/admin/edit-email-template" element={<EditEmailTemplate />} />
-          <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
-          <Route path="/admin/resignation" element={<AdminResignation />} />
-          <Route path="/admin/hr-checklist" element={<HRChecklist />} />
-            <Route path="/admin/welcome-kits-management" element={<AdminWelcomeKits />} />
-            <Route path="/admin/whats-new" element={<WhatsNew /> }/>
-            <Route path="/support-admin/whats-new" element={<WhatsNew /> }/>
-         
+        <Route path="/admin/doc-verify-portal" element={<DocVerifyAdmin />} />
+        <Route path="/admin/resignation" element={<AdminResignation />} />
+        <Route path="/admin/hr-checklist" element={<HRChecklist />} />
+        <Route path="/admin/welcome-kits-management" element={<AdminWelcomeKits />} />
+        <Route path="/admin/whats-new" element={<WhatsNew />} />
+        <Route path="/support-admin/whats-new" element={<WhatsNew />} />
+
       </Route>
 
       {/* ------------------ EMPLOYEE ROUTES ------------------ */}

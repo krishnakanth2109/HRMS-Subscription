@@ -653,9 +653,14 @@ const PlanSettings = () => {
               <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-blue-300">
                 {getBillingCycleDetails(billingCycle).eyebrow} ({durationDays || 0} Days)
               </p>
-              <div className="mt-4 flex items-end gap-1">
-                <span className="text-5xl font-black">₹{price || 0}</span>
-                <span className="pb-2 text-xs font-bold text-slate-400">/employee/month</span>
+              <div className="mt-4 flex flex-col gap-1">
+                <div className="flex items-end gap-1">
+                  <span className="text-5xl font-black">₹{price || 0}</span>
+                  <span className="pb-2 text-xs font-bold text-slate-400">/employee/month</span>
+                </div>
+                {Number(price) > 0 && (
+                  <span className="text-[11px] font-semibold text-slate-400 block mt-1">+ 18% GST (Total: ₹{((price || 0) * 1.18).toFixed(2)})</span>
+                )}
               </div>
             </div>
 
@@ -767,6 +772,9 @@ const PlanSettings = () => {
 
                   <div className="text-3xl font-black text-gray-800 mb-4">
                     ₹{plan.price}<span className="text-sm font-bold text-gray-400 uppercase"> / Person</span>
+                    {plan.price > 0 && (
+                      <span className="text-xs font-semibold text-slate-500 block mt-1">+ 18% GST (Total: ₹{(plan.price * 1.18).toFixed(2)})</span>
+                    )}
                   </div>
 
                   <div className="mb-4 rounded-xl border border-white bg-white/70 p-3 shadow-sm">

@@ -644,7 +644,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
       >
         <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "flex-col justify-center gap-1 py-2" : "justify-between"}`}>
           {!collapsed || isMobile ? (
-          <>
+            <>
               <div className="flex items-center justify-center flex-1 overflow-hidden">
                 <Link to="/admin/dashboard" className="flex items-center justify-center">
                   <img
