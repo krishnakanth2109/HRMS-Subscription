@@ -482,6 +482,8 @@ const DynamicHRMSLandingPage = () => {
         "/admin/admin-Leavemanage": "Leave Requests",
         "/admin/late-requests": "Attendance Adjustment",
         "/admin/overtime": "Overtime Requests",
+        "/admin/admin-overtime": "Overtime Requests",
+        "/admin/expense": "Expense Management",
         "/admin/live-tracking": "Employee Idle Tracking",
         "/admin/induction": "Induction",
     };
