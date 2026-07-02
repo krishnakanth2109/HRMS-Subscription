@@ -1,6 +1,8 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { EmployeeContext } from '../context/EmployeeContext';
+import { QrCode } from 'lucide-react';
+import EmployeeQRCodeModal from '../components/employee/EmployeeQRCodeModal';
 import api from '../api';
 
 // Helper to ensure URLs are always HTTPS
@@ -18,6 +20,7 @@ const EmployeeProfile = () => {
   const { employees } = useContext(EmployeeContext);
   
   const [activeTab, setActiveTab] = React.useState('personal');
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [loadingImage, setLoadingImage] = useState(true);
   
@@ -393,7 +396,16 @@ const EmployeeProfile = () => {
                   <img src={getSecureUrl(profileImage)} alt={employee.name} className="w-full h-full object-cover" />
                 ) : initials }
               </div>
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-3">{safe(employee.name)}</h1>
+              <div className="flex items-center gap-3 mb-3 justify-center">
+                <h1 className="text-3xl sm:text-4xl font-bold text-white">{safe(employee.name)}</h1>
+                <button 
+                  onClick={() => setIsQrModalOpen(true)}
+                  className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-sm transition-colors cursor-pointer"
+                  title="Show QR Code"
+                >
+                  <QrCode size={20} />
+                </button>
+              </div>
               
               <div className="flex flex-wrap items-center justify-center gap-3">
                 <span className="px-4 py-1.5 rounded-full bg-blue-700/50 backdrop-blur-md text-white border border-blue-400/30 text-xs font-bold uppercase tracking-wider">ID: {safe(employee.employeeId)}</span>
@@ -425,6 +437,14 @@ const EmployeeProfile = () => {
           </div>
         </div>
       </div>
+      
+      <EmployeeQRCodeModal 
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        qrCodeUrl={employee.qrCodeUrl}
+        portfolioUrl={employee.portfolioUrl}
+        employeeName={employee.name}
+      />
     </div>
   );
 };

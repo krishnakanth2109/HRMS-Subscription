@@ -199,6 +199,8 @@ export const updateEmployeeById = async (id, data) =>
   (await api.put(`/api/employees/${id}`, data)).data;
 export const deactivateEmployeeById = async (id, data) =>
   (await api.patch(`/api/employees/${id}/deactivate`, data)).data;
+export const deleteEmployeeById = async (id) =>
+  (await api.delete(`/api/employees/${id}`)).data;
 
 // ✅ FIXED: Added 'data' parameter so date/reason are sent to the backend
 export const activateEmployeeById = async (id, data) =>

@@ -525,7 +525,8 @@ router.get("/", protect, async (req, res) => {
 router.get("/portfolio/:id", async (req, res) => {
   try {
     const employee = await Employee.findOne({ employeeId: req.params.id })
-      .select("employeeId name role companyName profileImageUrl bio socialLinks isActive status")
+      .select("employeeId name email role currentRole experienceDetails companyName profileImageUrl bio socialLinks isActive status adminId")
+      .populate("adminId", "companyLogo")
       .lean();
 
     if (!employee) {
@@ -536,7 +537,21 @@ router.get("/portfolio/:id", async (req, res) => {
       return res.status(404).json({ message: "Employee portfolio unavailable" });
     }
 
-    // Only return the necessary public fields
+    // Determine the best job role to display
+    let jobRole = employee.currentRole;
+    if (!jobRole && employee.experienceDetails?.length > 0) {
+      const currExp = employee.experienceDetails.find(e => e.lastWorkingDate === "Present" || !e.lastWorkingDate);
+      jobRole = currExp?.role || employee.experienceDetails[employee.experienceDetails.length - 1].role;
+    }
+    
+    employee.role = jobRole || employee.role || "Professional";
+    employee.companyLogo = employee.adminId?.companyLogo || null;
+    
+    // Clean up internal fields
+    delete employee.adminId;
+    delete employee.experienceDetails;
+    delete employee.currentRole;
+
     res.status(200).json(employee);
   } catch (err) {
     console.error("❌ Fetch portfolio error:", err);

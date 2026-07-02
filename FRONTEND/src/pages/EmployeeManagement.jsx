@@ -22,10 +22,12 @@ import {
   FaChevronDown, FaEnvelope, FaSearch, FaUserPlus, FaConnectdevelop, FaFileSignature, FaGift, FaClipboardCheck, FaInfoCircle
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
+import Swal from "sweetalert2";
 import { saveAs } from "file-saver";
 import api, {
   getEmployees,
   deactivateEmployeeById,
+  deleteEmployeeById,
   activateEmployeeById,
   getAttendanceByDateRange,
   getAllShifts,
@@ -242,6 +244,7 @@ const EmployeeRow = ({
   emp,
   navigate,
   onDeactivateClick,
+  onDeleteClick,
   onOverviewClick,
   profilePic,
   onImageClick,
@@ -358,8 +361,11 @@ const EmployeeRow = ({
                   <FaEdit className="text-green-500" /> Edit
                 </button>
                 <button onClick={() => { onDeactivateClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-orange-50 hover:text-orange-700">
-                  <FaTrash className="text-orange-500" /> Deactivate
+                  <FaSignOutAlt className="text-orange-500" /> Deactivate
                 </button>
+                {/* <button onClick={() => { onDeleteClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700">
+                  <FaTrash className="text-red-500" /> Delete
+                </button> */}
               </div>
             </div>,
             document.body,
@@ -375,6 +381,7 @@ const InactiveEmployeeRow = ({
   emp,
   navigate,
   onReactivateClick,
+  onDeleteClick,
   onViewDetailsClick,
   onOverviewClick,
   profilePic,
@@ -456,6 +463,7 @@ const InactiveEmployeeRow = ({
                 <button onClick={() => { onOverviewClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-teal-50 hover:text-teal-700"><FaClipboardList className="text-teal-500" /> Overview</button>
                 <button onClick={() => { onViewDetailsClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-indigo-50 hover:text-indigo-700"><FaEye className="text-indigo-500" /> Deactivation Details</button>
                 <button onClick={() => { onReactivateClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-green-700 transition-colors hover:bg-green-50"><FaRedo className="text-green-500" /> Reactivate</button>
+                {/* <button onClick={() => { onDeleteClick(emp); setIsMenuOpen(false); }} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700"><FaTrash className="text-red-500" /> Delete</button> */}
               </div>
             </div>,
             document.body,
@@ -1044,6 +1052,29 @@ const EmployeeManagement = () => {
     fetchImages();
   }, [employees]);
 
+  const handleDeleteClick = (emp) => {
+    Swal.fire({
+      title: "Are you sure?",
+      text: `You are about to permanently delete ${emp.name}. This action cannot be undone.`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes, delete it!"
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await deleteEmployeeById(emp.employeeId);
+          Swal.fire("Deleted!", `${emp.name} has been deleted.`, "success");
+          fetchAllData();
+        } catch (error) {
+          console.error("Error deleting employee:", error);
+          Swal.fire("Error!", "Could not delete the employee.", "error");
+        }
+      }
+    });
+  };
+
   const handleDeactivateSubmit = async ({ endDate, reason }) => {
     try {
       await deactivateEmployeeById(selectedEmployee.employeeId, { endDate, reason });
@@ -1376,6 +1407,7 @@ const EmployeeManagement = () => {
                             idx={idx}
                             navigate={navigate}
                             onDeactivateClick={openDeactivateModal}
+                            onDeleteClick={handleDeleteClick}
                             onOverviewClick={openOverviewModal}
                             profilePic={employeeImages[emp.employeeId]}
                             onImageClick={setPreviewImage}
@@ -1386,6 +1418,7 @@ const EmployeeManagement = () => {
                             emp={emp}
                             navigate={navigate}
                             onReactivateClick={openReactivateModal}
+                            onDeleteClick={handleDeleteClick}
                             onViewDetailsClick={openViewDetailsModal}
                             onOverviewClick={openOverviewModal}
                             profilePic={employeeImages[emp.employeeId]}
