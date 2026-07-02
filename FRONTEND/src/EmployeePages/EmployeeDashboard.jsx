@@ -49,6 +49,7 @@ import {
   FaSignInAlt,
   FaSignOutAlt,
   FaPlay,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
 import Swal from "sweetalert2";
 
@@ -66,6 +67,7 @@ import api, {
 } from "../api";
 import { useNavigate, Link } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
+import EmployeeQRCodeModal from "../components/employee/EmployeeQRCodeModal";
 
 // ✅ Registering Chart Components
 ChartJS.register(
@@ -116,6 +118,7 @@ const EmployeeDashboard = () => {
   // ✅ OPTIMIZATION: Split loading state
   const [loading, setLoading] = useState(true);
   const [loadingTeamData, setLoadingTeamData] = useState(true);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   const [attendance, setAttendance] = useState([]);
   const [todayLog, setTodayLog] = useState(null);
@@ -1435,6 +1438,15 @@ const EmployeeDashboard = () => {
                 <div className="flex items-center justify-between md:justify-start md:gap-2">
                   <b className="text-gray-800">Role:</b> <span>{role}</span>
                 </div>
+                <div className="flex items-center justify-between md:justify-start md:gap-2 col-span-1 sm:col-span-2 mt-2">
+                  <button
+                    onClick={() => setShowQRModal(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors text-xs font-bold w-full md:w-auto justify-center shadow-sm"
+                  >
+                    <FaExternalLinkAlt className="w-3 h-3" />
+                    View Public Portfolio
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2153,6 +2165,14 @@ const EmployeeDashboard = () => {
       )}
 
       {showCropModal && imageToCrop && (<ImageCropModal imageSrc={imageToCrop} onCropComplete={handleCropComplete} onCancel={() => { setShowCropModal(false); setImageToCrop(null); }} isUploading={uploadingImage} />)}
+      
+      <EmployeeQRCodeModal 
+        isOpen={showQRModal} 
+        onClose={() => setShowQRModal(false)} 
+        qrCodeUrl={displayUser?.qrCodeUrl} 
+        portfolioUrl={`${window.location.origin}/portfolio/${employeeId}`}
+        employeeName={displayUser?.name}
+      />
     </div>
   );
 };

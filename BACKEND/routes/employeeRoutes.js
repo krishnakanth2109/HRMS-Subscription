@@ -8,6 +8,7 @@ import Company from "../models/CompanyModel.js";
 import Notification from "../models/notificationModel.js";
 import InvitedEmployee from "../models/Invitedemployee.js";
 import { upload } from "../config/cloudinary.js";
+import { generateAndUploadQRCode } from "../utils/qrCodeHelper.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import Admin from "../models/adminModel.js";
@@ -387,6 +388,17 @@ router.post(
       const employee = new Employee(newEmployeeData);
       const result = await employee.save();
 
+      // ── Generate QR Code ──────────────────────────────────────────
+      try {
+        const qrUrl = await generateAndUploadQRCode(result, result.company);
+        if (qrUrl) {
+          result.qrCodeUrl = qrUrl;
+          await result.save();
+        }
+      } catch (qrErr) {
+        console.error("❌ QR Code generation failed during onboarding:", qrErr);
+      }
+
       // ── 12. Sync company employee count ──────────────────────────
       company.employeeCount = await Employee.countDocuments({ company: data.company });
       await company.save();
@@ -459,6 +471,18 @@ router.post("/", protect, onlyAdmin, async (req, res) => {
 
     const employee = new Employee(req.body);
     const result = await employee.save();
+
+    // ── Generate QR Code ──────────────────────────────────────────
+    try {
+      const qrUrl = await generateAndUploadQRCode(result, result.company);
+      if (qrUrl) {
+        result.qrCodeUrl = qrUrl;
+        await result.save();
+      }
+    } catch (qrErr) {
+      console.error("❌ QR Code generation failed during employee creation:", qrErr);
+    }
+
     res.status(201).json(result);
   } catch (err) {
     console.error("❌ Employee creation error:", err);
@@ -492,6 +516,31 @@ router.get("/", protect, async (req, res) => {
     res.status(200).json(employees);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/* ==============================================================
+ 🌐 PUBLIC PORTFOLIO DATA (No Auth Required)
+ ============================================================== */
+router.get("/portfolio/:id", async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ employeeId: req.params.id })
+      .select("employeeId name role companyName profileImageUrl bio socialLinks isActive status")
+      .lean();
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    if (!employee.isActive || employee.status !== "Active") {
+      return res.status(404).json({ message: "Employee portfolio unavailable" });
+    }
+
+    // Only return the necessary public fields
+    res.status(200).json(employee);
+  } catch (err) {
+    console.error("❌ Fetch portfolio error:", err);
+    res.status(500).json({ error: "Failed to fetch portfolio data" });
   }
 });
 

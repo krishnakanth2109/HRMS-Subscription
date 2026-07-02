@@ -34,7 +34,7 @@ const CurrentEmployeeProfile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [uploading, setUploading] = useState({ pan: false, aadhaar: false, exp: false });
+  const [uploading, setUploading] = useState({ pan: false, aadhaar: false, exp: false, profile: false });
 
   // Load Employee from sessionStorage
   useEffect(() => {
@@ -196,6 +196,8 @@ const CurrentEmployeeProfile = () => {
         handleNestedChange("personalDetails", "panFileUrl", url);
       } else if (type === "aadhaar") {
         handleNestedChange("personalDetails", "aadhaarFileUrl", url);
+      } else if (type === "profile") {
+        handleBasicChange("profileImageUrl", url);
       } else if (type === "exp" && index !== null) {
         updateExp(index, "experienceLetterUrl", url);
       }
@@ -271,7 +273,7 @@ const CurrentEmployeeProfile = () => {
 
   const {
     employeeId, name, email, phone, address, emergency, emergencyPhone,
-    personalDetails = {}, bankDetails = {}, experienceDetails = [],
+    personalDetails = {}, bankDetails = {}, experienceDetails = [], socialLinks = {},
   } = employee;
 
   const currentJob = experienceDetails.length > 0
@@ -445,6 +447,34 @@ const CurrentEmployeeProfile = () => {
               </div>
             ))}
             {experienceDetails.length <= 1 && <p className="text-slate-400 italic">No previous experience recorded.</p>}
+          </Section>
+
+          <Section title="Public Portfolio">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Input label="Bio / Short Intro" value={employee.bio} onChange={(v) => handleBasicChange("bio", v)} editable={isEditing} />
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Profile Picture</label>
+                {isEditing ? (
+                  <FileUpload label="Upload Profile Picture" onChange={(e) => handleFileUpload(e, 'profile')} uploading={uploading.profile} fileUrl={employee.profileImageUrl} />
+                ) : (
+                  <div className="p-2 border-b border-slate-100 flex items-center gap-4">
+                    {employee.profileImageUrl ? (
+                      <img src={getSecureUrl(employee.profileImageUrl)} alt="Profile" className="w-16 h-16 rounded-full object-cover shadow-sm border border-slate-200" />
+                    ) : (
+                      <span className="text-slate-800">No Image Uploaded</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <Input label="LinkedIn Profile" value={socialLinks.linkedin} onChange={(v) => handleNestedChange("socialLinks", "linkedin", v)} editable={isEditing} />
+              <Input label="GitHub Profile" value={socialLinks.github} onChange={(v) => handleNestedChange("socialLinks", "github", v)} editable={isEditing} />
+              <Input label="Instagram Profile" value={socialLinks.instagram} onChange={(v) => handleNestedChange("socialLinks", "instagram", v)} editable={isEditing} />
+              <Input label="Personal Website" value={socialLinks.website} onChange={(v) => handleNestedChange("socialLinks", "website", v)} editable={isEditing} />
+            </div>
           </Section>
 
         </div>

@@ -97,6 +97,17 @@ const EmployeeSchema = new mongoose.Schema({
   // ✅ FIXED: Company documents submitted by employee during onboarding
   companyDocuments: [companyDocumentSchema],
 
+  // PUBLIC PORTFOLIO FIELDS
+  profileImageUrl: { type: String, default: null },
+  qrCodeUrl: { type: String, default: null },
+  bio: { type: String, default: null },
+  socialLinks: {
+    linkedin: { type: String, default: null },
+    github: { type: String, default: null },
+    instagram: { type: String, default: null },
+    website: { type: String, default: null },
+  },
+
   // ROLES
   role: { type: String, enum: ["employee", "manager"], default: "employee" },
   isAdmin: { type: Boolean, default: false }, // Internal flag (e.g., Company HR), not the SaaS Admin

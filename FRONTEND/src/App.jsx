@@ -121,7 +121,7 @@ import EmployeeFieldWork from "./pages/tracker/EmployeeFieldWork";
 import AdminWorkReports from "./pages/AdminWorkReports";
 import AdminExpenseDashboard from "./pages/AdminExpense";
 import AddExpense from "./EmployeePages/AddExpense";
-
+import PortfolioPage from "./pages/PortfolioPage";
 
 // ----------------------------------------------------------------------
 // ✅ 1. NEW COMPONENT: Redirects logged-in users away from Public Pages
@@ -207,6 +207,7 @@ function App() {
       <Route path="/payment-success" element={<PaymentSuccess />} />
       <Route path="/employee-onboarding" element={<EmployeeOnboarding />} />
       <Route path="/document-verification" element={<DocumentVerificationForm />} />
+      <Route path="/portfolio/:employeeId" element={<PortfolioPage />} />
 
       {/* ------------------ MASTER ROUTES ------------------ */}
       {/* 
