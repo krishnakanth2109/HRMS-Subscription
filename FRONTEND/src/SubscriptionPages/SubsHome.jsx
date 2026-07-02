@@ -1779,8 +1779,7 @@ const DynamicHRMSLandingPage = () => {
                                         </div>
 
                                         <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                                            {plans
-                                                .filter(p => p.planName.toLowerCase() !== "owner")
+                                            {filteredPlans
                                                 .map(plan => (
                                                     <button
                                                         key={plan._id}
