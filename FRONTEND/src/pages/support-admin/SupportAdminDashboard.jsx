@@ -381,16 +381,23 @@ const SupportAdminDashboard = () => {
     try {
       const location = await getCurrentLocation();
       setPunchStatus("PUNCHING");
-      await api.post('/api/attendance/punch-break', {
-        employeeId: targetEmployeeId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-      });
-      const name = adminProfile?.name || user?.name || "Support Admin";
       if (todayLog?.isOnBreak) {
+        await api.post('/api/attendance/punch-in', {
+          employeeId: targetEmployeeId,
+          employeeName: adminProfile?.name || user?.name || "Support Admin",
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+        const name = adminProfile?.name || user?.name || "Support Admin";
         speak(`${name}, break ended`);
         Swal.fire({ icon: 'success', title: 'Welcome Back!', text: 'Break ended. Work session resumed.' });
       } else {
+        await api.post('/api/attendance/punch-break', {
+          employeeId: targetEmployeeId,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+        const name = adminProfile?.name || user?.name || "Support Admin";
         speak(`${name}, break started`);
         Swal.fire({ icon: 'info', title: 'Break Started! ☕', text: 'Your session is paused. Click Continue to resume work.' });
       }
