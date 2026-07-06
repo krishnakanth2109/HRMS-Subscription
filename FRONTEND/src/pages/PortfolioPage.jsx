@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Linkedin, Github, Instagram, Globe, AlertCircle, ArrowLeft, Briefcase, Mail } from 'lucide-react';
+import { Linkedin, Github, Instagram, Globe, AlertCircle, ArrowLeft, Briefcase, Mail, Link as LinkIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 
@@ -214,57 +214,91 @@ const PortfolioPage = () => {
           )}
         </motion.div>
 
-        {/* Social Links */}
-        {employee.socialLinks && (employee.socialLinks.linkedin || employee.socialLinks.github || employee.socialLinks.instagram || employee.socialLinks.website) && (
+        {/* Custom Fields (Text) */}
+        {employee.customPortfolioFields && employee.customPortfolioFields.some(f => !f.value?.startsWith('http')) && (
+          <motion.div variants={itemVariants} className="w-full flex flex-col gap-4 mb-10 px-2 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md mx-auto">
+              {employee.customPortfolioFields.filter(f => !f.value?.startsWith('http')).map((field, idx) => (
+                <div key={idx} className="bg-white p-4 rounded-xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-gray-100 flex flex-col justify-center text-center">
+                  <span className="text-[11px] font-bold text-[#C4A47C] uppercase tracking-wider mb-1">{field.label}</span>
+                  <span className="text-[15px] font-semibold text-[#0B1320] break-all">{field.value}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Social Links & Custom Link Fields */}
+        {((employee.socialLinks && (employee.socialLinks.linkedin || employee.socialLinks.github || employee.socialLinks.instagram || employee.socialLinks.website)) ||
+          (employee.customPortfolioFields && employee.customPortfolioFields.some(f => f.value?.startsWith('http')))) && (
           <motion.div variants={itemVariants} className="flex justify-center gap-2.5">
-            {employee.socialLinks.linkedin && (
+            {employee.socialLinks?.linkedin && (
               <motion.a 
                 whileHover={{ y: -3 }}
                 whileTap={{ scale: 0.95 }}
                 href={employee.socialLinks.linkedin} 
                 target="_blank" 
                 rel="noopener noreferrer"
+                title="LinkedIn"
                 className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
               >
                 <Linkedin className="w-[18px] h-[18px] fill-current" />
               </motion.a>
             )}
-            {employee.socialLinks.instagram && (
+            {employee.socialLinks?.instagram && (
               <motion.a 
                 whileHover={{ y: -3 }}
                 whileTap={{ scale: 0.95 }}
                 href={employee.socialLinks.instagram} 
                 target="_blank" 
                 rel="noopener noreferrer"
+                title="Instagram"
                 className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
               >
                 <Instagram className="w-[18px] h-[18px]" />
               </motion.a>
             )}
-            {employee.socialLinks.github && (
+            {employee.socialLinks?.github && (
               <motion.a 
                 whileHover={{ y: -3 }}
                 whileTap={{ scale: 0.95 }}
                 href={employee.socialLinks.github} 
                 target="_blank" 
                 rel="noopener noreferrer"
+                title="GitHub"
                 className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
               >
                 <Github className="w-[18px] h-[18px] fill-current" />
               </motion.a>
             )}
-            {employee.socialLinks.website && (
+            {employee.socialLinks?.website && (
               <motion.a 
                 whileHover={{ y: -3 }}
                 whileTap={{ scale: 0.95 }}
                 href={employee.socialLinks.website} 
                 target="_blank" 
                 rel="noopener noreferrer"
+                title="Personal Website"
                 className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
               >
                 <Globe className="w-[18px] h-[18px]" />
               </motion.a>
             )}
+            
+            {employee.customPortfolioFields && employee.customPortfolioFields.filter(f => f.value?.startsWith('http')).map((field, idx) => (
+              <motion.a 
+                key={`custom-link-${idx}`}
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.95 }}
+                href={field.value} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                title={field.label}
+                className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md relative group"
+              >
+                <LinkIcon className="w-[18px] h-[18px]" />
+              </motion.a>
+            ))}
           </motion.div>
         )}
 

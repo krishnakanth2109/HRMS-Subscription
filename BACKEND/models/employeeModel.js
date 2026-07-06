@@ -27,6 +27,11 @@ const personalSchema = new mongoose.Schema({
   panFileUrl: String,
 });
 
+const customFieldSchema = new mongoose.Schema({
+  label: String,
+  value: String,
+});
+
 const bankSchema = new mongoose.Schema({
   accountNumber: String,
   bankName: String,
@@ -102,6 +107,7 @@ const EmployeeSchema = new mongoose.Schema({
   portfolioBackgroundImageUrl: { type: String, default: null },
   qrCodeUrl: { type: String, default: null },
   bio: { type: String, default: null },
+  customPortfolioFields: [customFieldSchema],
   socialLinks: {
     linkedin: { type: String, default: null },
     github: { type: String, default: null },

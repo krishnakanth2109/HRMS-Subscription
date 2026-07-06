@@ -169,6 +169,32 @@ const CurrentEmployeeProfile = () => {
     });
   };
 
+  const addCustomField = () => {
+    setEmployee((p) => ({
+      ...p,
+      customPortfolioFields: [
+        ...(p.customPortfolioFields || []),
+        { label: "", value: "" },
+      ],
+    }));
+  };
+
+  const removeCustomField = (i) => {
+    setEmployee((p) => {
+      const list = [...(p.customPortfolioFields || [])];
+      list.splice(i, 1);
+      return { ...p, customPortfolioFields: list };
+    });
+  };
+
+  const updateCustomField = (i, key, val) => {
+    setEmployee((p) => {
+      const list = [...(p.customPortfolioFields || [])];
+      list[i] = { ...list[i], [key]: val };
+      return { ...p, customPortfolioFields: list };
+    });
+  };
+
   // ---------------- FILE UPLOAD (UPDATED) ----------------
 
   const handleFileUpload = async (e, type, index = null) => {
@@ -482,6 +508,38 @@ const CurrentEmployeeProfile = () => {
                       <span className="text-slate-800">No Image Uploaded</span>
                     )}
                   </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-8 border-t border-slate-200 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-700">Custom Fields</h3>
+                {isEditing && (
+                  <button onClick={addCustomField} className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-xs font-bold transition-colors">
+                    + Add Field
+                  </button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4">
+                {(employee.customPortfolioFields || []).map((field, i) => (
+                  <div key={i} className="flex gap-4 items-start">
+                    <div className="flex-1">
+                      <Input label="Label (e.g., Languages)" value={field.label} onChange={(v) => updateCustomField(i, "label", v)} editable={isEditing} />
+                    </div>
+                    <div className="flex-[2]">
+                      <Input label="Value" value={field.value} onChange={(v) => updateCustomField(i, "value", v)} editable={isEditing} />
+                    </div>
+                    {isEditing && (
+                      <button onClick={() => removeCustomField(i)} className="mt-7 text-red-500 hover:text-red-700 p-2">
+                        <FaTrash />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {!(employee.customPortfolioFields?.length) && !isEditing && (
+                  <p className="text-slate-400 italic text-sm">No custom fields added.</p>
                 )}
               </div>
             </div>
