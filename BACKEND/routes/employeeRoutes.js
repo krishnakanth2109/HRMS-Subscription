@@ -3,6 +3,8 @@
 import express from "express";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
+import PDFDocument from "pdfkit";
+import axios from "axios";
 import Employee from "../models/employeeModel.js";
 import Company from "../models/CompanyModel.js";
 import Notification from "../models/notificationModel.js";
@@ -845,6 +847,131 @@ router.post("/idle-activity", protect, async (req, res) => {
   } catch (error) {
     console.error("❌ Idle Activity Error:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+/* ==============================================================
+ 🔥 ADMIN BULK QR CODE PDF DOWNLOAD
+============================================================== */
+router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
+  try {
+    const adminId = req.user.role === "admin" ? req.user._id : req.user.adminId;
+    
+    // Fetch all active employees for this tenant that have a qrCodeUrl
+    const employees = await Employee.find({ 
+      adminId, 
+      isActive: true,
+      qrCodeUrl: { $exists: true, $ne: "" }
+    }).select("name employeeId currentDepartment currentRole experienceDetails qrCodeUrl").lean();
+
+    if (!employees || employees.length === 0) {
+      return res.status(404).json({ message: "No active employees with QR codes found." });
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", "attachment; filename=employee-qr-codes.pdf");
+
+    // Initialize PDF document (A4 size)
+    const doc = new PDFDocument({ margin: 30, size: 'A4' });
+    doc.pipe(res);
+
+    // Layout settings for 3x4 grid
+    const columns = 3;
+    const rows = 4;
+    const cardsPerPage = columns * rows;
+    const startX = 30;
+    const startY = 30;
+    const cardWidth = (doc.page.width - 60) / columns;
+    const cardHeight = (doc.page.height - 60) / rows;
+    const imgSize = 100; // Size of the QR code image
+
+    let currentCardCount = 0;
+
+    // Helper function to fetch image buffer
+    const fetchImage = async (url) => {
+      try {
+        const secureUrl = url.replace("http:", "https:");
+        const response = await axios.get(secureUrl, { responseType: 'arraybuffer', timeout: 8000 });
+        return Buffer.from(response.data, 'binary');
+      } catch (error) {
+        console.error(`Failed to fetch image: ${url}`);
+        return null;
+      }
+    };
+
+    // Process in batches of 10 to respect Netlify's 10s timeout while avoiding memory exhaustion
+    const batchSize = 10;
+    
+    for (let i = 0; i < employees.length; i += batchSize) {
+      const batch = employees.slice(i, i + batchSize);
+      
+      // Fetch images for the current batch concurrently
+      const imageBuffers = await Promise.all(batch.map(emp => fetchImage(emp.qrCodeUrl)));
+
+      for (let j = 0; j < batch.length; j++) {
+        const employee = batch[j];
+        const imageBuffer = imageBuffers[j];
+        
+        if (!imageBuffer) continue; // Skip if image failed to load
+
+        if (currentCardCount > 0 && currentCardCount % cardsPerPage === 0) {
+          doc.addPage();
+        }
+
+        const colIndex = currentCardCount % columns;
+        const rowIndex = Math.floor((currentCardCount % cardsPerPage) / columns);
+
+        const x = startX + (colIndex * cardWidth);
+        const y = startY + (rowIndex * cardHeight);
+
+        // Draw card border
+        doc.rect(x + 5, y + 5, cardWidth - 10, cardHeight - 10).stroke("#cccccc");
+
+        // Calculate center for image
+        const imgX = x + (cardWidth - imgSize) / 2;
+        const imgY = y + 15;
+
+        // Add QR code image
+        try {
+          doc.image(imageBuffer, imgX, imgY, { width: imgSize, height: imgSize });
+        } catch (e) {
+          console.error("Error drawing image in PDF", e);
+        }
+
+        // Add text below image
+        let textY = imgY + imgSize + 15;
+        
+        // Name
+        doc.font('Helvetica-Bold').fontSize(12).fillColor('#333333');
+        doc.text(employee.name, x, textY, { width: cardWidth, align: 'center' });
+        
+        // Employee ID
+        textY += 15;
+        doc.font('Helvetica').fontSize(10).fillColor('#666666');
+        doc.text(`ID: ${employee.employeeId}`, x, textY, { width: cardWidth, align: 'center' });
+        
+        // Department
+        let dept = employee.currentDepartment;
+        if (!dept && employee.experienceDetails && employee.experienceDetails.length > 0) {
+          const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present");
+          dept = currentExp?.department;
+        }
+        
+        textY += 12;
+        doc.font('Helvetica').fontSize(10).fillColor('#666666');
+        doc.text(dept || "N/A", x, textY, { width: cardWidth, align: 'center' });
+
+        currentCardCount++;
+      }
+    }
+
+    doc.end();
+
+  } catch (err) {
+    console.error("Error generating QR Codes PDF:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate PDF" });
+    }
   }
 });
 

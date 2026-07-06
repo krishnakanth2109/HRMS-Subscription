@@ -907,6 +907,7 @@ const EmployeeManagement = () => {
   const [allResignations, setAllResignations] = useState([]);
   // const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [socket, setSocket] = useState(null);
 
   // Socket URL
@@ -1094,6 +1095,42 @@ const EmployeeManagement = () => {
   const openViewDetailsModal = (emp) => { setSelectedEmployee(emp); setViewDetailsModalOpen(true); };
   const openOverviewModal = (emp) => { setSelectedEmployee(emp); setOverviewModalOpen(true); };
 
+  const handleDownloadQRCodes = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      const response = await api.get('/api/employees/admin/qr-codes/pdf', {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `employee-qr-codes-${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'QR Codes PDF generated successfully.',
+        timer: 3000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error("Error generating QR codes PDF:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: 'Could not generate the QR Codes PDF. Ensure there are active employees with QR codes.',
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   const handleDownloadActive = () => {
     const data = activeEmployees.map((emp) => ({ ID: emp.employeeId, Name: emp.name, Role: getCurrentRole(emp), Department: getCurrentDepartment(emp), Email: emp.email, "Phone Number": getCurrentPhone(emp) }));
     downloadExcelReport(data, "Active_Employees.xlsx");
@@ -1167,6 +1204,22 @@ const EmployeeManagement = () => {
               </button>
               <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
                 <FaDownload /> <span className="hidden xs:inline">Inactive</span> Inactive List
+              </button>
+              <button 
+                onClick={handleDownloadQRCodes} 
+                disabled={isGeneratingPDF}
+                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-70 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2"
+              >
+                {isGeneratingPDF ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FaDownload /> <span className="hidden xs:inline">QR</span> QR PDF
+                  </>
+                )}
               </button>
             </div>
           </div>
