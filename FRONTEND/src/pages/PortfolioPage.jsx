@@ -108,7 +108,7 @@ const PortfolioPage = () => {
         initial={{ y: "-100%" }}
         animate={{ y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full h-[35vh] sm:h-[40vh] relative z-0 flex items-start justify-between p-6"
+        className="w-full h-[calc(35vh+60px)] sm:h-[calc(40vh+100px)] relative z-0 flex items-start justify-between p-6"
         style={{
           backgroundColor: '#0B1320',
           backgroundImage: employee.portfolioBackgroundImageUrl ? `url(${getSecureUrl(employee.portfolioBackgroundImageUrl)})` : 'none',
@@ -146,10 +146,10 @@ const PortfolioPage = () => {
           </motion.div>
         )}
 
-        {/* The Curve SVG */}
-        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none translate-y-[99%]">
+        {/* The Curve SVG Cutout */}
+        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none pointer-events-none">
           <svg className="relative block w-full h-[60px] sm:h-[100px]" viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path d="M0,0 C600,120 1200,0 1200,0 L1200,0 L0,0 Z" fill="#0B1320"></path>
+            <path d="M0,120 L1200,120 L1200,0 Q600,120 0,0 Z" fill="#F8F7F4"></path>
           </svg>
         </div>
       </motion.div>
@@ -159,7 +159,7 @@ const PortfolioPage = () => {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="w-full max-w-lg px-6 flex flex-col items-center relative z-10 -mt-24 sm:-mt-32 pb-24"
+        className="w-full max-w-lg px-6 flex flex-col items-center relative z-10 -mt-[156px] sm:-mt-[228px] pb-24"
       >
         
         {/* Profile Avatar */}
