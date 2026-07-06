@@ -198,6 +198,8 @@ const CurrentEmployeeProfile = () => {
         handleNestedChange("personalDetails", "aadhaarFileUrl", url);
       } else if (type === "profile") {
         handleBasicChange("profileImageUrl", url);
+      } else if (type === "portfolioBg") {
+        handleBasicChange("portfolioBackgroundImageUrl", url);
       } else if (type === "exp" && index !== null) {
         updateExp(index, "experienceLetterUrl", url);
       }
@@ -461,6 +463,21 @@ const CurrentEmployeeProfile = () => {
                   <div className="p-2 border-b border-slate-100 flex items-center gap-4">
                     {employee.profileImageUrl ? (
                       <img src={getSecureUrl(employee.profileImageUrl)} alt="Profile" className="w-16 h-16 rounded-full object-cover shadow-sm border border-slate-200" />
+                    ) : (
+                      <span className="text-slate-800">No Image Uploaded</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Background Image</label>
+                {isEditing ? (
+                  <FileUpload label="Upload Background Image" onChange={(e) => handleFileUpload(e, 'portfolioBg')} uploading={uploading.portfolioBg} fileUrl={employee.portfolioBackgroundImageUrl} />
+                ) : (
+                  <div className="p-2 border-b border-slate-100 flex items-center gap-4">
+                    {employee.portfolioBackgroundImageUrl ? (
+                      <img src={getSecureUrl(employee.portfolioBackgroundImageUrl)} alt="Background" className="w-24 h-12 rounded object-cover shadow-sm border border-slate-200" />
                     ) : (
                       <span className="text-slate-800">No Image Uploaded</span>
                     )}

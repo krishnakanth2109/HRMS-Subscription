@@ -442,7 +442,7 @@ const EmployeeProfile = () => {
         isOpen={isQrModalOpen}
         onClose={() => setIsQrModalOpen(false)}
         qrCodeUrl={employee.qrCodeUrl}
-        portfolioUrl={employee.portfolioUrl}
+        portfolioUrl={`https://vwsync.com/portfolio/${employee.employeeId}`}
         employeeName={employee.name}
       />
     </div>

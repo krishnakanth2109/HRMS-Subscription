@@ -108,8 +108,19 @@ const PortfolioPage = () => {
         initial={{ y: "-100%" }}
         animate={{ y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full bg-[#0B1320] h-[35vh] sm:h-[40vh] relative z-0 flex items-start justify-between p-6"
+        className="w-full h-[35vh] sm:h-[40vh] relative z-0 flex items-start justify-between p-6"
+        style={{
+          backgroundColor: '#0B1320',
+          backgroundImage: employee.portfolioBackgroundImageUrl ? `url(${getSecureUrl(employee.portfolioBackgroundImageUrl)})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
       >
+        {/* Overlay to ensure text readability and curve contrast if background image exists */}
+        {employee.portfolioBackgroundImageUrl && (
+          <div className="absolute inset-0 bg-[#0B1320]/60 z-0"></div>
+        )}
          {/* Simple back button */}
          <button 
           onClick={() => navigate(-1)} 

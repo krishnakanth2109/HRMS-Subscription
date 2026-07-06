@@ -606,6 +606,9 @@ router.put("/:id", protect, async (req, res) => {
     delete updateData.employeeId;
     delete updateData.adminId;
     delete updateData.company;
+    
+    // Prevent accidental overwrite of generated fields from stale frontend state
+    delete updateData.qrCodeUrl;
 
     // If email is provided and it differs from the current one, save the old email
     if (updateData.email && updateData.email.toLowerCase() !== existingEmployee.email.toLowerCase()) {

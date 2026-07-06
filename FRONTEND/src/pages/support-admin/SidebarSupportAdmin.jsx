@@ -149,7 +149,6 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           route: "/employees",
           label: "Employee Management",
           icon: Users,
-          isPunchOutRequests: true,
         },
         {
           to: "/attendance",

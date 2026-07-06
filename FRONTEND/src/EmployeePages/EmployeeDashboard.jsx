@@ -2170,7 +2170,7 @@ const EmployeeDashboard = () => {
         isOpen={showQRModal} 
         onClose={() => setShowQRModal(false)} 
         qrCodeUrl={displayUser?.qrCodeUrl} 
-        portfolioUrl={`${window.location.origin}/portfolio/${employeeId}`}
+        portfolioUrl={`https://vwsync.com/portfolio/${employeeId}`}
         employeeName={displayUser?.name}
       />
     </div>

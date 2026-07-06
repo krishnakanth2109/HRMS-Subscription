@@ -99,6 +99,7 @@ const EmployeeSchema = new mongoose.Schema({
 
   // PUBLIC PORTFOLIO FIELDS
   profileImageUrl: { type: String, default: null },
+  portfolioBackgroundImageUrl: { type: String, default: null },
   qrCodeUrl: { type: String, default: null },
   bio: { type: String, default: null },
   socialLinks: {

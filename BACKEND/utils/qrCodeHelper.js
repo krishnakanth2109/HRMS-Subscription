@@ -24,8 +24,8 @@ export const generateAndUploadQRCode = async (employee, tenantId) => {
     }
 
     // Construct the stable portfolio URL
-    // Using employee.employeeId (e.g. PRE-001) as per frontend route logic
-    const baseUrl = process.env.CLIENT_URL || "https://vwsync.com" ;
+    // Always use vwsync.com as requested by the user
+    const baseUrl = "https://vwsync.com";
     const portfolioUrl = `${baseUrl}/portfolio/${employee.employeeId}`;
 
     // Generate QR Code as Base64 Data URI (High Error Correction Level)
