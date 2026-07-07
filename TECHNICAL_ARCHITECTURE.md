@@ -727,11 +727,3 @@ flowchart TD
 | Large request body limit globally | Higher memory pressure and larger attack surface | Apply large limits only to file/document routes |
 | Nested attendance array | Query/update cost grows with employee tenure | Model attendance by day/month |
 | Inconsistent route naming between frontend/backend | Runtime 404s or dead UI actions | Generate typed API client or route manifest |
-
-## 17. Suggested Next Steps
-
-1. Harden route guards for all public/unspecified admin, payroll candidate, AI, meeting, rule, and tracker endpoints.
-2. Add tenant-scoped indexes and review globally unique fields.
-3. Consolidate authentication middleware and make `req.user` shape explicit.
-4. Add API contract tests for the route inventory above.
-5. Add a generated OpenAPI spec from Express routes and keep this architecture doc as the human-readable overview.
