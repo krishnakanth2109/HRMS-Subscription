@@ -182,6 +182,8 @@ const formatWorkEntryResponse = (entry, images = []) => ({
   daily_work_percentage: entry.daily_work_percentage,
   percentage_generated_at: entry.percentage_generated_at,
   percentage_mode: entry.percentage_mode,
+  admin_comment: entry.admin_comment,
+  admin_images: entry.admin_images,
   createdAt: entry.createdAt,
   updatedAt: entry.updatedAt,
   images,
@@ -1019,6 +1021,101 @@ adminWorkRoutes.patch("/work/:id/update-status", async (req, res) => {
   }
 
   return updateWorkStatus(req, res, status);
+});
+
+adminWorkRoutes.patch("/work/:id/review", uploadWorkImages.array("admin_images", 5), async (req, res) => {
+  try {
+    const { status, daily_work_percentage, admin_comment } = req.body;
+
+    if (!["pending", "approved", "rejected"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status supplied.",
+      });
+    }
+
+    const entry = await DailyWorkEntry.findById(req.params.id).populate(
+      "employeeId",
+      "name employeeId email adminId"
+    );
+
+    if (!entry) {
+      return res.status(404).json({
+        success: false,
+        message: "Work entry not found.",
+      });
+    }
+
+    if (!entry.employeeId || entry.employeeId.adminId?.toString() !== req.user._id?.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized action.",
+      });
+    }
+
+    if (!entry.evening_time) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin review is available only after the employee submits the evening update.",
+      });
+    }
+
+    entry.admin_comment = admin_comment?.trim() || "";
+
+    if (req.files && req.files.length > 0) {
+      const uploadedImageUrls = await uploadImagesToCloudinary(req.files);
+      if (!entry.admin_images) {
+        entry.admin_images = [];
+      }
+      entry.admin_images.push(...uploadedImageUrls);
+    }
+
+    if (status === "approved") {
+      entry.status = status;
+
+      const settings = await getWorkPercentageSettings();
+      const requestedPercentage =
+        daily_work_percentage !== undefined && daily_work_percentage !== ""
+          ? normalizeWorkPercentage(daily_work_percentage)
+          : null;
+      const useAutoSetting =
+        requestedPercentage === null ? settings.auto_generate_percentage : false;
+      const percentageResult = await applyWorkPercentageToEntry(entry, settings, {
+        requestedPercentage,
+        useAutoSetting,
+      });
+
+      if (!percentageResult.success) {
+        return res.status(400).json({
+          success: false,
+          message: percentageResult.message,
+        });
+      }
+    } else {
+      entry.status = status;
+
+      if (status !== "approved") {
+        entry.daily_work_percentage = 0;
+        entry.percentage_generated_at = null;
+        entry.percentage_mode = "none";
+      }
+
+      await entry.save();
+    }
+
+    const [record] = await attachImagesToEntries([entry]);
+
+    return res.status(200).json({
+      success: true,
+      message: `Work entry marked as ${status}.`,
+      data: record,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 });
 
 adminWorkRoutes.delete("/work/:id", async (req, res) => {

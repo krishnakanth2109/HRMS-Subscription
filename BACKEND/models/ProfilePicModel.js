@@ -5,7 +5,7 @@ const profilePicSchema = new mongoose.Schema(
   {
     // HIERARCHY LINKS
     adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
-    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: true },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", required: false },
 
     employeeId: {
       type: String,

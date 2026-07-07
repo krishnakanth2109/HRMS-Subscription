@@ -527,7 +527,7 @@ router.get("/", protect, async (req, res) => {
 router.get("/portfolio/:id", async (req, res) => {
   try {
     const employee = await Employee.findOne({ employeeId: req.params.id })
-      .select("employeeId name email role currentRole experienceDetails companyName profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
+      .select("employeeId name email phone phoneNumber personalDetails role currentRole experienceDetails companyName profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
       .populate("adminId", "companyLogo")
       .lean();
 

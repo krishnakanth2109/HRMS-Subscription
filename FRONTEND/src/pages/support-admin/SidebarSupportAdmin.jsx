@@ -25,6 +25,7 @@ import {
   IndianRupee,
   CalendarPlus,
   Receipt,
+  LocateFixed,
 } from "lucide-react";
 
 import { io } from "socket.io-client";
@@ -166,6 +167,20 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           route: "/admin/settings",
           label: "Shift Management",
           icon: UserPlus,
+        },
+        {
+          to: "/admin/field-tracking",
+          route: "/admin/field-tracking",
+          label: "Live Tracking",
+          icon: LocateFixed,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/admin/work-reports",
+          route: "/admin/work-reports",
+          label: "Performance Management",
+          icon: ClipboardCheck,
+          alwaysAllowed: true,
         },
         {
           to: "/admin/shifttype",

@@ -17,7 +17,7 @@ import {
 } from "react-icons/fa";
 
 import {
-  approveWorkEntry,
+  reviewWorkEntry,
   bulkGenerateWorkEntryPercentage,
   deleteWorkEntry,
   generateWorkEntryPercentage,
@@ -25,8 +25,6 @@ import {
   getAdminWorkRecords,
   getWorkPercentageSettings,
   getShiftByEmployeeId,
-  rejectWorkEntry,
-  updateWorkEntryStatus,
 } from "../api";
 import WorkRecordsCalendar, {
   getMonthRangeFromValue,
@@ -143,6 +141,8 @@ const AdminWorkReports = () => {
     default_daily_target_percentage: 70,
   });
   const [percentageInputs, setPercentageInputs] = useState({});
+  const [adminComments, setAdminComments] = useState({});
+  const [adminMedia, setAdminMedia] = useState({});
   const [selectedEntryIds, setSelectedEntryIds] = useState([]);
   const [selectedEmployeeShift, setSelectedEmployeeShift] = useState(null);
   const [shiftLoading, setShiftLoading] = useState(false);
@@ -508,18 +508,23 @@ const AdminWorkReports = () => {
         manualValue === "" || manualValue === undefined || manualValue === null
           ? undefined
           : Number(manualValue);
-      
-      let response;
-      if (action === "approved") {
-        response = await approveWorkEntry(
-          id,
-          Number.isNaN(normalizedManualValue) ? undefined : normalizedManualValue
-        );
-      } else if (action === "rejected") {
-        response = await rejectWorkEntry(id);
-      } else if (action === "pending") {
-        response = await updateWorkEntryStatus(id, "pending");
+      const formData = new FormData();
+      formData.append("status", action);
+
+      if (action === "approved" && normalizedManualValue !== undefined && !Number.isNaN(normalizedManualValue)) {
+        formData.append("daily_work_percentage", normalizedManualValue);
       }
+
+      if (adminComments[id]) {
+        formData.append("admin_comment", adminComments[id]);
+      }
+
+      const files = adminMedia[id] || [];
+      for (let i = 0; i < files.length; i++) {
+        formData.append("admin_images", files[i]);
+      }
+
+      const response = await reviewWorkEntry(id, formData);
       
       if (response?.success) {
         Swal.fire("Updated", response.message, "success");
@@ -1153,10 +1158,14 @@ const AdminWorkReports = () => {
                 </div>
               </div>
 
-              {/* Main Grid - 3 Columns */}
-              <div className="grid gap-6 lg:grid-cols-3">
-                {/* Morning Update Card */}
-                <div className="group rounded-2xl bg-white p-5 shadow-md border border-gray-100 transition-all hover:shadow-lg hover:border-amber-200">
+              {/* Main Layout - 12 Columns */}
+              <div className="grid gap-6 lg:grid-cols-12 items-start">
+                {/* Left Column: Updates & Performance Overview */}
+                <div className="lg:col-span-7 flex flex-col gap-6">
+                  {/* Updates Grid */}
+                  <div className="grid gap-6 sm:grid-cols-2">
+                    {/* Morning Update Card */}
+                    <div className="group rounded-2xl bg-white p-5 shadow-md border border-gray-100 transition-all hover:shadow-lg hover:border-amber-200 flex flex-col">
                   <div className="mb-3 flex items-center gap-2">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 shadow-md">
                       <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1181,7 +1190,7 @@ const AdminWorkReports = () => {
                 </div>
 
                 {/* Evening Update Card */}
-                <div className="group rounded-2xl bg-white p-5 shadow-md border border-gray-100 transition-all hover:shadow-lg hover:border-indigo-200">
+                <div className="group rounded-2xl bg-white p-5 shadow-md border border-gray-100 transition-all hover:shadow-lg hover:border-indigo-200 flex flex-col">
                   <div className="mb-3 flex items-center gap-2">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-600 shadow-md">
                       <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1258,10 +1267,15 @@ const AdminWorkReports = () => {
                     )}
                   </div>
                 </div>
+              </div>
 
-                {/* Performance & Admin Card */}
-                <div className="rounded-2xl bg-white p-5 shadow-md border border-gray-100">
-                  {/* Month Selector */}
+              {/* Performance Overview Card */}
+              <div className="rounded-2xl bg-white p-5 shadow-md border border-gray-100">
+                <h3 className="mb-4 text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="h-4 w-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  Performance Overview
+                </h3>
+                {/* Month Selector */}
                   <div className="mb-4">
                     <label className="block">
                       <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -1324,20 +1338,19 @@ const AdminWorkReports = () => {
                     </div>
                   </div>
 
-                  {/* Admin Actions */}
-                  {selectedRecord.evening_time ? (
-                    <div className="mt-4 space-y-3">
-                      {/* Divider */}
-                      <div className="relative my-3">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t border-gray-200"></div>
-                        </div>
-                        <div className="relative flex justify-center">
-                          <span className="bg-white px-3 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Admin Actions</span>
-                        </div>
-                      </div>
+              </div>
+            </div>
 
-                      {/* Percentage Input with Save Button */}
+            {/* Right Column: Admin Actions */}
+            <div className="lg:col-span-5">
+              <div className="rounded-2xl bg-white p-5 shadow-md border border-gray-100 sticky top-6">
+                <h3 className="mb-4 text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <svg className="h-4 w-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Admin Review
+                </h3>
+                {selectedRecord.evening_time ? (
+                  <div className="space-y-4">
+                    {/* Percentage Input with Save Button */}
                       <div>
                         <label className="block text-xs font-semibold text-gray-600 mb-1.5">
                           Set Approval Percentage
@@ -1395,6 +1408,52 @@ const AdminWorkReports = () => {
                             </span>
                           )}
                         </p>
+                      </div>
+
+                      {/* Admin Comments & Media */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                          Admin Comment
+                        </label>
+                        <textarea
+                          value={adminComments[selectedRecord._id] ?? (selectedRecord.admin_comment || "")}
+                          onChange={(e) => setAdminComments((prev) => ({ ...prev, [selectedRecord._id]: e.target.value }))}
+                          placeholder="Leave a comment about this work report..."
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 min-h-[80px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                          Upload Media (Images)
+                        </label>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => setAdminMedia((prev) => ({ ...prev, [selectedRecord._id]: e.target.files }))}
+                          className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                        />
+                        {selectedRecord.admin_images?.length > 0 && (
+                          <div className="mt-3">
+                            <p className="mb-2 text-xs font-semibold text-gray-500">Previously Uploaded Admin Images:</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {selectedRecord.admin_images.map((img, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setPreviewImage(img.image_url)}
+                                  className="group relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50 transition-all hover:shadow-md"
+                                >
+                                  <img
+                                    src={img.image_url}
+                                    alt={`Admin evidence ${idx + 1}`}
+                                    className="h-20 w-full object-cover transition-transform group-hover:scale-105"
+                                  />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Quick Actions */}
@@ -1520,8 +1579,9 @@ const AdminWorkReports = () => {
                   )}
                 </div>
               </div>
+            </div>
 
-              {/* Calendar and Day Details Section */}
+            {/* Calendar and Day Details Section */}
               <div className="mt-6 grid gap-6 lg:grid-cols-2">
                 <div className="rounded-2xl bg-white p-4 shadow-md border border-gray-100">
                   <WorkRecordsCalendar

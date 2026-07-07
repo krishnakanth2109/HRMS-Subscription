@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Linkedin, Github, Instagram, Globe, AlertCircle, ArrowLeft, Briefcase, Mail, Link as LinkIcon } from 'lucide-react';
+import { Linkedin, Github, Instagram, Globe, AlertCircle, ArrowLeft, Briefcase, Mail, Link as LinkIcon, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../api';
 
@@ -180,20 +180,34 @@ const PortfolioPage = () => {
           </div>
         </motion.div>
 
-        {/* Name & Role */}
+        {/* Name & Role & ID */}
         <motion.div variants={itemVariants} className="text-center w-full mb-5">
           <h1 className="text-4xl sm:text-5xl font-bold text-[#0B1320] mb-3 tracking-tight">
             {employee.name}
           </h1>
-          <h2 className="text-[15px] sm:text-[17px] font-semibold text-[#C4A47C] uppercase tracking-[0.2em] mb-3">
-            {employee.role || 'Professional'}
-          </h2>
-          {employee.email && (
-            <div className="flex items-center justify-center gap-2 text-gray-500 font-medium text-sm">
-              <Mail className="w-4 h-4" />
-              <span>{employee.email}</span>
-            </div>
-          )}
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <h2 className="text-[15px] sm:text-[17px] font-semibold text-[#C4A47C] uppercase tracking-[0.2em] m-0">
+              {employee.role || 'Professional'}
+            </h2>
+            <span className="px-2 py-0.5 bg-[#0B1320] text-[#C4A47C] text-xs font-bold rounded uppercase tracking-widest">
+              {employee.employeeId}
+            </span>
+          </div>
+          
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-gray-500 font-medium text-sm">
+            {employee.email && (
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                <span>{employee.email}</span>
+              </div>
+            )}
+            {(employee.phone || employee.phoneNumber || employee.personalDetails?.phone) && (
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                <span>{employee.phone || employee.phoneNumber || employee.personalDetails?.phone}</span>
+              </div>
+            )}
+          </div>
         </motion.div>
 
         {/* Small Divider */}

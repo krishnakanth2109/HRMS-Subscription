@@ -1246,6 +1246,19 @@ export const updateWorkEntryStatus = async (
     })
   ).data;
 
+export const reviewWorkEntry = async (id, formData) => {
+  try {
+    const response = await api.patch(`/api/work/admin/work/${id}/review`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Review work entry failed:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+
 export const generateWorkEntryPercentage = async (id, daily_work_percentage) =>
   (
     await api.post(`/api/work/admin/work/${id}/generate-percentage`, {

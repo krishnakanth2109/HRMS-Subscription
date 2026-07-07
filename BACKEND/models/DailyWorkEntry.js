@@ -68,6 +68,17 @@ const DailyWorkEntrySchema = new mongoose.Schema(
       enum: ["auto", "manual", "none"],
       default: "none",
     },
+    admin_comment: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    admin_images: [
+      {
+        image_url: String,
+        image_public_id: String,
+      },
+    ],
   },
   { timestamps: true }
 );
