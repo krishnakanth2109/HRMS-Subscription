@@ -518,6 +518,92 @@ employeeWorkRoutes.post("/evening", (req, res) => {
   });
 });
 
+employeeWorkRoutes.put("/evening/:id", (req, res) => {
+  uploadWorkImages.array("images", 5)(req, res, async (uploadError) => {
+    if (uploadError instanceof multer.MulterError) {
+      return res.status(400).json({ success: false, message: uploadError.message });
+    }
+    if (uploadError) {
+      return res.status(400).json({ success: false, message: uploadError.message });
+    }
+
+    try {
+      const { description, employee_submitted_percentage, imagesToDelete } = req.body;
+      const normalizedEmployeePercentage = Number(employee_submitted_percentage);
+
+      if (!description?.trim()) {
+        return res.status(400).json({ success: false, message: "Evening description is required." });
+      }
+
+      if (
+        employee_submitted_percentage === undefined ||
+        employee_submitted_percentage === null ||
+        employee_submitted_percentage === "" ||
+        Number.isNaN(normalizedEmployeePercentage) ||
+        normalizedEmployeePercentage < 0 ||
+        normalizedEmployeePercentage > 100
+      ) {
+        return res.status(400).json({ success: false, message: "Please enter your work percentage between 0 and 100." });
+      }
+
+      const entry = await DailyWorkEntry.findOne({
+        _id: req.params.id,
+        employeeId: req.user._id,
+      });
+
+      if (!entry) {
+        return res.status(404).json({ success: false, message: "Work entry not found." });
+      }
+
+      if (entry.status !== "pending") {
+        return res.status(400).json({ success: false, message: "Cannot edit a work entry that has already been reviewed." });
+      }
+
+      entry.evening_description = description.trim();
+      entry.employee_submitted_percentage = normalizedEmployeePercentage;
+      await entry.save();
+
+      // Handle image deletions
+      if (imagesToDelete) {
+        const idsToDelete = Array.isArray(imagesToDelete) ? imagesToDelete : [imagesToDelete];
+        for (const imageId of idsToDelete) {
+           const imageDoc = await WorkImage.findOne({ _id: imageId, workEntryId: entry._id });
+           if (imageDoc) {
+             if (imageDoc.image_public_id) {
+               await cloudinary.uploader.destroy(imageDoc.image_public_id, { invalidate: true }).catch(() => {});
+             }
+             await WorkImage.findByIdAndDelete(imageId);
+           }
+        }
+      }
+
+      // Handle new image uploads
+      if (req.files && req.files.length > 0) {
+        const uploadedImageUrls = await uploadImagesToCloudinary(req.files);
+        await WorkImage.insertMany(
+          uploadedImageUrls.map((image) => ({
+            workEntryId: entry._id,
+            image_url: image.image_url,
+            image_public_id: image.image_public_id,
+          }))
+        );
+      }
+
+      const updatedImages = await WorkImage.find({ workEntryId: entry._id });
+
+      return res.status(200).json({
+        success: true,
+        message: "Work entry updated successfully.",
+        data: formatWorkEntryResponse(entry, updatedImages),
+      });
+
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+});
+
+
 employeeWorkRoutes.get("/my-records", async (req, res) => {
   try {
     const { month, year } = getMonthYearFromQuery(req.query);

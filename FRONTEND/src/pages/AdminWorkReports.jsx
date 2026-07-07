@@ -14,7 +14,11 @@ import {
   FaTrash,
   FaUserTie,
   FaCalendar,
+  FaEdit,
+  FaUndo,
+  FaDownload,
 } from "react-icons/fa";
+import ImageEditorModal from "../components/ImageEditor/ImageEditorModal";
 
 import {
   reviewWorkEntry,
@@ -110,6 +114,24 @@ const calculateTodayScore = (adminPercentage, perDaySlotPercentage) => {
   return score.toFixed(2);
 };
 
+const handleDownloadImage = async (url, filename) => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Network response was not ok");
+    const blob = await response.blob();
+    const link = document.createElement("a");
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename || "download.jpg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+  } catch (error) {
+    console.error("Download failed:", error);
+    window.open(url, "_blank");
+  }
+};
+
 const AdminWorkReports = () => {
   const [filters, setFilters] = useState({
     employee_query: "",
@@ -143,6 +165,7 @@ const AdminWorkReports = () => {
   const [percentageInputs, setPercentageInputs] = useState({});
   const [adminComments, setAdminComments] = useState({});
   const [adminMedia, setAdminMedia] = useState({});
+  const [editingImage, setEditingImage] = useState(null);
   const [selectedEntryIds, setSelectedEntryIds] = useState([]);
   const [selectedEmployeeShift, setSelectedEmployeeShift] = useState(null);
   const [shiftLoading, setShiftLoading] = useState(false);
@@ -521,7 +544,11 @@ const AdminWorkReports = () => {
 
       const files = adminMedia[id] || [];
       for (let i = 0; i < files.length; i++) {
-        formData.append("admin_images", files[i]);
+        if (files[i] && files[i].originalFile) {
+          formData.append("admin_images", files[i].editedFile ?? files[i].originalFile);
+        } else {
+          formData.append("admin_images", files[i]);
+        }
       }
 
       const response = await reviewWorkEntry(id, formData);
@@ -1236,23 +1263,35 @@ const AdminWorkReports = () => {
                     {selectedRecord.images?.length ? (
                       <div className="grid grid-cols-3 gap-2">
                         {selectedRecord.images.slice(0, 3).map((image, idx) => (
-                          <button
+                          <div
                             key={image._id}
-                            type="button"
-                            onClick={() => setPreviewImage(image.image_url)}
                             className="group relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50 transition-all hover:shadow-md"
                           >
                             <img
                               src={image.image_url}
                               alt={`Work evidence ${idx + 1}`}
-                              className="h-20 w-full object-cover transition-transform group-hover:scale-105"
+                              className="h-20 w-full object-cover transition-transform group-hover:scale-105 cursor-pointer"
+                              onClick={() => setPreviewImage(image.image_url)}
                             />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/20">
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/20">
                               <svg className="h-6 w-6 text-white opacity-0 transition-opacity group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                               </svg>
                             </div>
-                          </button>
+                            <div className="absolute top-1 right-1 flex gap-1 bg-white/80 p-1 rounded backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadImage(image.image_url, `work-evidence-${idx + 1}.jpg`);
+                                }}
+                                className="text-indigo-600 hover:text-indigo-800 p-1"
+                                title="Download image"
+                              >
+                                <FaDownload size={12} />
+                              </button>
+                            </div>
+                          </div>
                         ))}
                         {selectedRecord.images.length > 3 && (
                           <div className="flex h-20 items-center justify-center rounded-xl bg-gray-100 text-xs font-semibold text-gray-500">
@@ -1430,9 +1469,61 @@ const AdminWorkReports = () => {
                           type="file"
                           multiple
                           accept="image/*"
-                          onChange={(e) => setAdminMedia((prev) => ({ ...prev, [selectedRecord._id]: e.target.files }))}
+                          onChange={(e) => {
+                            const newFiles = Array.from(e.target.files).map(f => ({
+                              id: crypto.randomUUID(),
+                              originalFile: f,
+                              editedFile: null,
+                              previewUrl: URL.createObjectURL(f)
+                            }));
+                            setAdminMedia((prev) => ({ ...prev, [selectedRecord._id]: newFiles }));
+                          }}
                           className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-all focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                         />
+                        {adminMedia[selectedRecord._id]?.length > 0 && (
+                          <div className="mt-3">
+                            <p className="mb-2 text-xs font-semibold text-gray-500">Selected Images (To Upload):</p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {adminMedia[selectedRecord._id].map((item) => (
+                                <div key={item.id} className="group relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50 transition-all hover:shadow-md h-20">
+                                  <img
+                                    src={item.previewUrl}
+                                    alt="Upload preview"
+                                    className="h-full w-full object-cover transition-transform group-hover:scale-105 cursor-pointer"
+                                    onClick={() => setPreviewImage(item.previewUrl)}
+                                  />
+                                  <div className="absolute top-1 right-1 flex gap-1 bg-white/80 p-1 rounded backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                      type="button" 
+                                      onClick={() => setEditingImage(item)}
+                                      className="text-indigo-600 hover:text-indigo-800 p-1"
+                                      title="Edit image"
+                                    >
+                                      <FaEdit size={12} />
+                                    </button>
+                                    {item.editedFile && (
+                                      <button 
+                                        type="button" 
+                                        onClick={() => {
+                                          setAdminMedia(prev => ({
+                                            ...prev,
+                                            [selectedRecord._id]: prev[selectedRecord._id].map(f => 
+                                              f.id === item.id ? { ...f, editedFile: null, previewUrl: URL.createObjectURL(f.originalFile) } : f
+                                            )
+                                          }));
+                                        }}
+                                        className="text-amber-600 hover:text-amber-800 p-1"
+                                        title="Revert to original"
+                                      >
+                                        <FaUndo size={12} />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         {selectedRecord.admin_images?.length > 0 && (
                           <div className="mt-3">
                             <p className="mb-2 text-xs font-semibold text-gray-500">Previously Uploaded Admin Images:</p>
@@ -1717,6 +1808,22 @@ const AdminWorkReports = () => {
           </div>
         </div>
       ) : null}
+      {editingImage && (
+        <ImageEditorModal
+          imageSrc={editingImage.previewUrl}
+          fileName={editingImage.originalFile.name}
+          onSave={(editedFile, editedPreviewUrl) => {
+            setAdminMedia(prev => ({
+              ...prev,
+              [selectedRecord._id]: prev[selectedRecord._id].map(f => 
+                f.id === editingImage.id ? { ...f, editedFile, previewUrl: editedPreviewUrl } : f
+              )
+            }));
+            setEditingImage(null);
+          }}
+          onClose={() => setEditingImage(null)}
+        />
+      )}
     </div>
   );
 };

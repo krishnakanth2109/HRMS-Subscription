@@ -189,7 +189,7 @@ const CurrentEmployeeFaceSetup = () => {
               {/* Enhanced Two-Button Area */}
               <div className="flex flex-col items-center justify-center gap-8 md:flex-row md:items-stretch">
                 {/* Documentation Button - Glassmorphism Style */}
-                <a
+                {/* <a
                   href="https://docs.google.com/document/d/111UdyP2es0g0n11HGpvwTF7_4TPvAsGQ/edit?usp=sharing&ouid=100321873313062611617&rtpof=true&sd=true"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -210,7 +210,7 @@ const CurrentEmployeeFaceSetup = () => {
                     </div>
                     <FaBook className="ml-2 text-xl text-purple-400 transition-all duration-300 group-hover:translate-x-1 group-hover:text-purple-600" />
                   </div>
-                </a>
+                </a> */}
 
                 {/* Download Button Area with Description Above - Enhanced */}
                 <div className="flex w-full max-w-md flex-col items-center gap-3 md:w-auto">

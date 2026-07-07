@@ -20,12 +20,16 @@ import {
   FaBriefcase,
   FaCalculator,
   FaDownload,
+  FaEdit,
+  FaTrash,
+  FaSave,
 } from "react-icons/fa";
 
 import {
   getMyDailyWorkRecords,
   submitEveningWork,
   submitMorningWork,
+  editEveningWork,
 } from "../api";
 import WorkRecordsCalendar, {
   getWorkDateKey,
@@ -406,6 +410,15 @@ const EmployeeWorkTracker = () => {
   const [showMonthlyBreakdown, setShowMonthlyBreakdown] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
 
+  // Edit states
+  const [editingRecordId, setEditingRecordId] = useState(null);
+  const [editEveningDescription, setEditEveningDescription] = useState("");
+  const [editEveningPercentage, setEditEveningPercentage] = useState("");
+  const [editEveningImages, setEditEveningImages] = useState([]);
+  const [editExistingImages, setEditExistingImages] = useState([]);
+  const [editImagesToDelete, setEditImagesToDelete] = useState([]);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
   const monthOptions = useMemo(() => buildMonthOptions(), []);
 
   // Calculate fixed slot percentage based on total working days
@@ -626,13 +639,6 @@ const EmployeeWorkTracker = () => {
         setEveningDescription("");
         setEveningPercentage("");
         setEveningImages([]);
-        if (response.data?._id) {
-          setRecords((current) => {
-            const nextRecord = normalizeWorkRecord(response.data);
-            const withoutCurrentDay = current.filter((record) => record._id !== nextRecord._id);
-            return [nextRecord, ...withoutCurrentDay];
-          });
-        }
         const currentMonth = getCurrentMonthValue();
         setSelectedMonth(currentMonth);
         await loadRecords(currentMonth);
@@ -645,6 +651,92 @@ const EmployeeWorkTracker = () => {
       );
     } finally {
       setEveningSubmitting(false);
+    }
+  };
+
+  const openEditForm = (record) => {
+    setEditingRecordId(record._id);
+    setEditEveningDescription(record.evening_description || "");
+    setEditEveningPercentage(record.employee_submitted_percentage || "");
+    setEditExistingImages(record.images || []);
+    setEditEveningImages([]);
+    setEditImagesToDelete([]);
+  };
+
+  const closeEditForm = () => {
+    setEditingRecordId(null);
+  };
+
+  const handleEditFileChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    const validTypes = ["image/jpeg", "image/jpg", "image/png"];
+    const invalidFile = files.find((file) => !validTypes.includes(file.type));
+
+    if (invalidFile) {
+      Swal.fire("Invalid file", "Only JPG and PNG images are allowed.", "warning");
+      event.target.value = "";
+      return;
+    }
+    setEditEveningImages(prev => [...prev, ...files].slice(0, 5));
+  };
+
+  const handleDeleteExistingImage = (imageId) => {
+    setEditExistingImages(prev => prev.filter(img => img._id !== imageId));
+    setEditImagesToDelete(prev => [...prev, imageId]);
+  };
+
+  const handleRemoveNewImage = (indexToRemove) => {
+    setEditEveningImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleEditSubmit = async (event, recordId) => {
+    event.preventDefault();
+    const normalizedPercentage = Number(editEveningPercentage);
+
+    if (!editEveningDescription.trim()) {
+      Swal.fire("Missing details", "Please add the evening description.", "warning");
+      return;
+    }
+
+    if (
+      editEveningPercentage === "" ||
+      Number.isNaN(normalizedPercentage) ||
+      normalizedPercentage < 0 ||
+      normalizedPercentage > 100
+    ) {
+      Swal.fire(
+        "Invalid percentage",
+        "Please enter your work percentage between 0 and 100.",
+        "warning"
+      );
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      const response = await editEveningWork(
+        recordId,
+        editEveningDescription,
+        editEveningImages,
+        editImagesToDelete,
+        normalizedPercentage
+      );
+
+      if (response.success) {
+        Swal.fire("Updated", response.message, "success");
+        closeEditForm();
+        const currentMonth = getCurrentMonthValue();
+        setSelectedMonth(currentMonth);
+        await loadRecords(currentMonth);
+      }
+    } catch (error) {
+      Swal.fire(
+        "Edit failed",
+        error.response?.data?.message || "Please try again.",
+        "error"
+      );
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -844,12 +936,19 @@ const EmployeeWorkTracker = () => {
             {eveningImages.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {eveningImages.map((file) => (
-                  <span
+                  <div
                     key={`${file.name}-${file.size}`}
-                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700"
+                    className="flex items-center gap-2 rounded-lg bg-slate-100 p-2 border border-slate-200"
                   >
-                    {file.name}
-                  </span>
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt="preview"
+                      className="h-10 w-10 rounded-md object-cover"
+                    />
+                    <span className="text-xs font-semibold text-slate-700 max-w-[120px] truncate">
+                      {file.name}
+                    </span>
+                  </div>
                 ))}
               </div>
             )}
@@ -1365,7 +1464,17 @@ const EmployeeWorkTracker = () => {
                             {record.morning_title}
                           </h3>
                         </div>
-                        <div className="shrink-0">
+                        <div className="shrink-0 flex items-center gap-2">
+                          {record.status === "pending" && record.evening_time && editingRecordId !== record._id && (
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(record)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-100 transition"
+                            >
+                              <FaEdit size={12} />
+                              Edit
+                            </button>
+                          )}
                           <span
                             className={`inline-flex items-center rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ${getStatusClasses(
                               record.status
@@ -1376,7 +1485,88 @@ const EmployeeWorkTracker = () => {
                         </div>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      {editingRecordId === record._id ? (
+                        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/30 p-5 mt-4">
+                          <h4 className="mb-4 text-sm font-black text-indigo-900 uppercase tracking-widest">Edit Evening Report</h4>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                                Update Evening Description
+                              </label>
+                              <textarea
+                                value={editEveningDescription}
+                                onChange={(e) => setEditEveningDescription(e.target.value)}
+                                rows={3}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                                Update Percentage
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={editEveningPercentage}
+                                onChange={(e) => setEditEveningPercentage(e.target.value)}
+                                className="w-full max-w-[200px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                                Manage Images
+                              </label>
+                              
+                              {/* Existing Images */}
+                              {editExistingImages.length > 0 && (
+                                <div className="mb-3 flex flex-wrap gap-2">
+                                  {editExistingImages.map(img => (
+                                    <div key={img._id} className="relative group rounded-lg overflow-hidden border border-slate-200">
+                                      <img src={img.image_url} alt="existing" className="w-16 h-16 object-cover" />
+                                      <button type="button" onClick={() => handleDeleteExistingImage(img._id)} className="absolute inset-0 bg-red-500/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <FaTrash className="text-white" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* New Images */}
+                              {editEveningImages.length > 0 && (
+                                <div className="mb-3 flex flex-wrap gap-2">
+                                  {editEveningImages.map((file, idx) => (
+                                    <div key={idx} className="relative group rounded-lg overflow-hidden border border-emerald-200">
+                                      <img src={URL.createObjectURL(file)} alt="new" className="w-16 h-16 object-cover" />
+                                      <button type="button" onClick={() => handleRemoveNewImage(idx)} className="absolute inset-0 bg-red-500/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <FaTrash className="text-white" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {(editExistingImages.length + editEveningImages.length) < 5 && (
+                                <label className="inline-block cursor-pointer rounded-xl border border-dashed border-indigo-300 bg-white px-4 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50">
+                                  <input type="file" multiple accept="image/png,image/jpeg,image/jpg" onChange={handleEditFileChange} className="hidden" />
+                                  + Upload
+                                </label>
+                              )}
+                            </div>
+
+                            <div className="flex justify-end gap-2 pt-4 border-t border-indigo-100">
+                              <button type="button" onClick={closeEditForm} className="rounded-xl px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100">Cancel</button>
+                              <button type="button" disabled={editSubmitting} onClick={(e) => handleEditSubmit(e, record._id)} className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50">
+                                <FaSave size={12} />
+                                {editSubmitting ? "Saving..." : "Save Changes"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid gap-4 md:grid-cols-2">
                         <div className="rounded-2xl bg-white p-4">
                           <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                             Morning
@@ -1457,6 +1647,8 @@ const EmployeeWorkTracker = () => {
                           </div>
                         </div>
                       ) : null}
+                        </>
+                      )}
                     </article>
                   ))}
                 </div>

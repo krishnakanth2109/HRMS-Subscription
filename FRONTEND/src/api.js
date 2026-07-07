@@ -1201,6 +1201,32 @@ export const submitEveningWork = async (
   ).data;
 };
 
+export const editEveningWork = async (
+  id,
+  description,
+  images = [],
+  imagesToDelete = [],
+  employee_submitted_percentage,
+) => {
+  const formData = new FormData();
+  formData.append("description", description);
+  formData.append("employee_submitted_percentage", employee_submitted_percentage);
+  
+  imagesToDelete.forEach((imageId) => {
+    formData.append("imagesToDelete", imageId);
+  });
+
+  images.forEach((image) => {
+    formData.append("images", image);
+  });
+
+  return (
+    await api.put(`/api/work/evening/${id}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+  ).data;
+};
+
 export const getMyDailyWorkRecords = async (month, year) =>
   (
     await api.get("/api/work/my-records", {
