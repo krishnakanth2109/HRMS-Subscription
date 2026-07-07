@@ -224,8 +224,8 @@ const CurrentEmployeeFaceSetup = () => {
 
                   {/* Download Button - Premium Style */}
                   <a
-                    href="/tracker/HRMS_Activity_Tracker_Setup.exe"
-                    download="HRMS_Activity_Tracker_Setup.exe"
+                    href="/tracker/VW_Sync_Tracker_Setup.exe"
+                    download="VW_Sync_Tracker_Setup.exe"
                     className="group relative flex w-full items-center justify-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 p-[2px] shadow-lg transition-all duration-500 hover:shadow-xl hover:-translate-y-1"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-blue-400/20 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />

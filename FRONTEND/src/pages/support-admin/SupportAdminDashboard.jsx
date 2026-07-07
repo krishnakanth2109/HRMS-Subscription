@@ -493,6 +493,9 @@ const SupportAdminDashboard = () => {
 
   const workedStatusBadge = useMemo(() => {
     if (!todayLog?.punchIn) return { label: "--", color: "text-gray-500" };
+     if (todayLog.status === "WORKING" || todayLog.status === "ON_BREAK") {
+      return { label: "Working", color: "bg-indigo-50 text-indigo-600 border-indigo-200" };
+    }
     if (todayLog.workedStatus === "FULL_DAY" || todayLog.workedStatus === "Full Day") {
       return { label: "Full Day", color: "bg-green-50 text-green-600 border-green-200" };
     }
