@@ -12,7 +12,8 @@ import {
     FaSearch,
     FaCamera,
     FaExternalLinkAlt,
-    FaCalendarAlt
+    FaCalendarAlt,
+    FaTrash
 } from "react-icons/fa";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -466,6 +467,24 @@ const AdminLiveTracking = () => {
             setScreenshots([]);
         } finally {
             setScreenshotsLoading(false);
+        }
+    };
+
+    const deleteScreenshot = async (url) => {
+        if (!window.confirm("Are you sure you want to delete this screenshot?")) return;
+        try {
+            const targetDate = selectedDate || new Date().toISOString().split('T')[0];
+            await api.delete("/api/idletime/screenshots", {
+                data: {
+                    employeeId: selectedEmployee.employeeId,
+                    date: targetDate,
+                    screenshotUrl: url
+                }
+            });
+            setScreenshots(prev => prev.filter(s => s.screenshotUrl !== url));
+        } catch (err) {
+            console.error("Error deleting screenshot:", err);
+            alert("Failed to delete screenshot.");
         }
     };
 
@@ -1201,15 +1220,24 @@ const AdminLiveTracking = () => {
                                                                     </>
                                                                 )}
                                                             </div>
-                                                            <a
-                                                                href={ss.screenshotUrl}
-                                                                target="_blank"
-                                                                rel="noreferrer"
-                                                                className="text-slate-400 hover:text-indigo-500 transition-colors"
-                                                                title="Open full size"
-                                                            >
-                                                                <FaExternalLinkAlt className="text-sm" />
-                                                            </a>
+                                                            <div className="flex items-center gap-3">
+                                                                <button
+                                                                    onClick={() => deleteScreenshot(ss.screenshotUrl)}
+                                                                    className="text-slate-400 hover:text-red-500 transition-colors"
+                                                                    title="Delete screenshot"
+                                                                >
+                                                                    <FaTrash className="text-sm" />
+                                                                </button>
+                                                                <a
+                                                                    href={ss.screenshotUrl}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                    className="text-slate-400 hover:text-indigo-500 transition-colors"
+                                                                    title="Open full size"
+                                                                >
+                                                                    <FaExternalLinkAlt className="text-sm" />
+                                                                </a>
+                                                            </div>
                                                         </div>
                                                         {ss.type !== 'WORKING' && (
                                                             <p className="text-xs text-slate-400 mt-1">

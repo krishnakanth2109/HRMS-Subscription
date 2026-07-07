@@ -252,10 +252,62 @@ router.get("/screenshots/:employeeId", async (req, res) => {
 
     // Sort newest first
     screenshots.sort((a, b) => new Date(b.capturedAt) - new Date(a.capturedAt));
+
     return res.json(screenshots);
   } catch (err) {
-    console.error("❌ Get screenshots error:", err);
-    return res.status(500).json({ message: "Server error" });
+    console.error("❌ Fetch screenshots error:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// ------------------------------------------
+// DELETE /screenshots
+// Deletes a screenshot from both idle and working timelines
+// ------------------------------------------
+router.delete("/screenshots", async (req, res) => {
+  try {
+    const { employeeId, date, screenshotUrl } = req.body;
+    
+    if (!employeeId || !date || !screenshotUrl) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const doc = await LiveTracking.findOne({
+      employeeId: { $regex: new RegExp(`^${employeeId}$`, "i") }
+    });
+
+    if (!doc || !doc.dates.has(date)) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+
+    const todayData = doc.dates.get(date);
+    let modified = false;
+
+    // Remove from idleTimeline
+    if (todayData.idleTimeline) {
+      const initialLength = todayData.idleTimeline.length;
+      todayData.idleTimeline = todayData.idleTimeline.filter(seg => seg.screenshotUrl !== screenshotUrl);
+      if (todayData.idleTimeline.length !== initialLength) modified = true;
+    }
+
+    // Remove from workingScreenshots
+    if (todayData.workingScreenshots) {
+      const initialLength = todayData.workingScreenshots.length;
+      todayData.workingScreenshots = todayData.workingScreenshots.filter(seg => seg.screenshotUrl !== screenshotUrl);
+      if (todayData.workingScreenshots.length !== initialLength) modified = true;
+    }
+
+    if (modified) {
+      doc.dates.set(date, todayData);
+      await doc.save();
+      return res.json({ message: "Screenshot deleted successfully" });
+    } else {
+      return res.status(404).json({ message: "Screenshot not found in records" });
+    }
+
+  } catch (err) {
+    console.error("❌ Delete screenshot error:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
