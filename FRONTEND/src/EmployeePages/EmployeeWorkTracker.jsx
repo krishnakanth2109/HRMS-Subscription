@@ -159,8 +159,8 @@ const MonthlyPercentageBreakdown = ({ isOpen, onClose, records, totalWorkingDays
           <button
             onClick={() => setActiveTab("breakdown")}
             className={`px-4 py-3 text-sm font-medium transition relative ${activeTab === "breakdown"
-                ? "text-indigo-600 border-b-2 border-indigo-600"
-                : "text-slate-500 hover:text-slate-700"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-slate-500 hover:text-slate-700"
               }`}
           >
             Day-wise Breakdown
@@ -168,8 +168,8 @@ const MonthlyPercentageBreakdown = ({ isOpen, onClose, records, totalWorkingDays
           <button
             onClick={() => setActiveTab("formula")}
             className={`px-4 py-3 text-sm font-medium transition relative ${activeTab === "formula"
-                ? "text-indigo-600 border-b-2 border-indigo-600"
-                : "text-slate-500 hover:text-slate-700"
+              ? "text-indigo-600 border-b-2 border-indigo-600"
+              : "text-slate-500 hover:text-slate-700"
               }`}
           >
             How it's Calculated
@@ -1518,7 +1518,7 @@ const EmployeeWorkTracker = () => {
                               <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                                 Manage Images
                               </label>
-                              
+
                               {/* Existing Images */}
                               {editExistingImages.length > 0 && (
                                 <div className="mb-3 flex flex-wrap gap-2">
@@ -1567,86 +1567,86 @@ const EmployeeWorkTracker = () => {
                       ) : (
                         <>
                           <div className="grid gap-4 md:grid-cols-2">
-                        <div className="rounded-2xl bg-white p-4">
-                          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                            Morning
-                          </p>
-                          <p className="text-sm text-slate-700">{record.morning_description}</p>
-                          <p className="mt-3 text-xs font-semibold text-slate-500">
-                            Time: {record.morning_time || "-"}
-                          </p>
-                        </div>
+                            <div className="rounded-2xl bg-white p-4">
+                              <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                                Morning
+                              </p>
+                              <p className="text-sm text-slate-700">{record.morning_description}</p>
+                              <p className="mt-3 text-xs font-semibold text-slate-500">
+                                Time: {record.morning_time || "-"}
+                              </p>
+                            </div>
 
-                        <div className="rounded-2xl bg-white p-4">
-                          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                            Evening
-                          </p>
-                          <p className="text-sm text-slate-700">
-                            {record.evening_description || "Evening work not submitted yet."}
-                          </p>
-                          <p className="mt-3 text-xs font-semibold text-slate-500">
-                            Time: {record.evening_time || "-"}
-                          </p>
-                        </div>
-                      </div>
+                            <div className="rounded-2xl bg-white p-4">
+                              <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                                Evening
+                              </p>
+                              <p className="text-sm text-slate-700">
+                                {record.evening_description || "Evening work not submitted yet."}
+                              </p>
+                              <p className="mt-3 text-xs font-semibold text-slate-500">
+                                Time: {record.evening_time || "-"}
+                              </p>
+                            </div>
+                          </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-2xl bg-white p-4 border border-slate-100">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                            Your Submitted %
-                          </p>
-                          <p className="mt-1 text-2xl font-black text-cyan-600">
-                            {record.employee_submitted_percentage ?? "-"}%
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl bg-white p-4 border border-slate-100">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                            <div>
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-2xl bg-white p-4 border border-slate-100">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                Final Approved %
+                                Your Submitted %
                               </p>
-                              <p className="mt-1 text-2xl font-black text-indigo-600">
-                                {record.daily_work_percentage || 0}%
-                              </p>
-                            </div>
-                            <div className="text-left sm:text-right text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                              <p>Mode: {record.percentage_mode || "none"}</p>
-                              <p className="mt-0.5">
-                                {record.percentage_generated_at
-                                  ? new Date(record.percentage_generated_at).toLocaleDateString()
-                                  : "Pending"}
+                              <p className="mt-1 text-2xl font-black text-cyan-600">
+                                {record.employee_submitted_percentage ?? "-"}%
                               </p>
                             </div>
-                          </div>
-                        </div>
-                      </div>
 
-                      {record.images?.length ? (
-                        <div className="mt-4">
-                          <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
-                            <FaCamera />
-                            Uploaded Images
-                          </p>
-                          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                            {record.images.map((image) => (
-                              <a
-                                key={image._id}
-                                href={image.image_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
-                              >
-                                <img
-                                  src={image.image_url}
-                                  alt="Work evidence"
-                                  className="h-28 w-full object-cover"
-                                />
-                              </a>
-                            ))}
+                            <div className="rounded-2xl bg-white p-4 border border-slate-100">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                                    Final Approved %
+                                  </p>
+                                  <p className="mt-1 text-2xl font-black text-indigo-600">
+                                    {record.daily_work_percentage || 0}%
+                                  </p>
+                                </div>
+                                <div className="text-left sm:text-right text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                                  <p>Mode: {record.percentage_mode || "none"}</p>
+                                  <p className="mt-0.5">
+                                    {record.percentage_generated_at
+                                      ? new Date(record.percentage_generated_at).toLocaleDateString()
+                                      : "Pending"}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+
+                          {record.images?.length ? (
+                            <div className="mt-4">
+                              <p className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                                <FaCamera />
+                                Uploaded Images
+                              </p>
+                              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                                {record.images.map((image) => (
+                                  <a
+                                    key={image._id}
+                                    href={image.image_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                                  >
+                                    <img
+                                      src={image.image_url}
+                                      alt="Work evidence"
+                                      className="h-28 w-full object-cover"
+                                    />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
                         </>
                       )}
                     </article>

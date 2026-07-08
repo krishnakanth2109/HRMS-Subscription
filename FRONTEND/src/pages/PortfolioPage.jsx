@@ -15,7 +15,7 @@ const getSecureUrl = (url) => {
 const PortfolioPage = () => {
   const { employeeId } = useParams();
   const navigate = useNavigate();
-  
+
   const [employee, setEmployee] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -51,15 +51,15 @@ const PortfolioPage = () => {
   // --- Error State ---
   if (error || !employee) {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         className="min-h-screen bg-[#F8F7F4] flex flex-col items-center justify-center p-6"
       >
         <AlertCircle className="w-16 h-16 text-[#0B1320] mb-4 opacity-50" />
         <h2 className="text-2xl font-bold text-[#0B1320] mb-2">Not Found</h2>
         <p className="text-gray-500 mb-8">{error}</p>
-        <button 
-          onClick={() => navigate(-1)} 
+        <button
+          onClick={() => navigate(-1)}
           className="px-6 py-2.5 bg-[#0B1320] text-white rounded-lg hover:bg-opacity-90 transition-all font-semibold"
         >
           Go Back
@@ -89,22 +89,22 @@ const PortfolioPage = () => {
 
   const avatarVariants = {
     hidden: { scale: 0.5, opacity: 0, y: 50 },
-    show: { 
-      scale: 1, opacity: 1, y: 0, 
-      transition: { type: "spring", stiffness: 100, damping: 15, delay: 0.1 } 
+    show: {
+      scale: 1, opacity: 1, y: 0,
+      transition: { type: "spring", stiffness: 100, damping: 15, delay: 0.1 }
     }
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
       className="min-h-screen bg-[#F8F7F4] flex flex-col items-center font-sans relative overflow-hidden"
     >
-      
+
       {/* Deep Navy Top Header with Curved Bottom */}
-      <motion.div 
+      <motion.div
         initial={{ y: "-100%" }}
         animate={{ y: 0 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -121,9 +121,9 @@ const PortfolioPage = () => {
         {employee.portfolioBackgroundImageUrl && (
           <div className="absolute inset-0 bg-[#0B1320]/60 z-0"></div>
         )}
-         {/* Simple back button */}
-         <button 
-          onClick={() => navigate(-1)} 
+        {/* Simple back button */}
+        <button
+          onClick={() => navigate(-1)}
           className="text-white/70 hover:text-white transition-colors flex items-center gap-2 mt-4 z-10"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -132,15 +132,15 @@ const PortfolioPage = () => {
 
         {/* Company Logo in Top Right */}
         {employee.companyLogo && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.5, duration: 0.5 }}
             className="z-10 mt-3"
           >
-            <img 
-              src={getSecureUrl(employee.companyLogo)} 
-              alt="Company Logo" 
+            <img
+              src={getSecureUrl(employee.companyLogo)}
+              alt="Company Logo"
               className="h-8 sm:h-10 w-auto object-contain"
             />
           </motion.div>
@@ -155,24 +155,24 @@ const PortfolioPage = () => {
       </motion.div>
 
       {/* Main Content Area */}
-      <motion.div 
+      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="w-full max-w-lg px-6 flex flex-col items-center relative z-10 -mt-[156px] sm:-mt-[228px] pb-24"
       >
-        
+
         {/* Profile Avatar */}
-        <motion.div 
+        <motion.div
           variants={avatarVariants}
           className="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-white p-2 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] mb-8 flex-shrink-0"
         >
           <div className="w-full h-full rounded-full bg-[#0B1320] flex items-center justify-center text-6xl font-bold text-white overflow-hidden border border-gray-50">
             {employee.profileImageUrl ? (
-              <img 
-                src={getSecureUrl(employee.profileImageUrl)} 
-                alt={employee.name} 
-                className="w-full h-full object-cover" 
+              <img
+                src={getSecureUrl(employee.profileImageUrl)}
+                alt={employee.name}
+                className="w-full h-full object-cover"
               />
             ) : (
               initials
@@ -185,15 +185,15 @@ const PortfolioPage = () => {
           <h1 className="text-4xl sm:text-5xl font-bold text-[#0B1320] mb-3 tracking-tight">
             {employee.name}
           </h1>
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <h2 className="text-[15px] sm:text-[17px] font-semibold text-[#C4A47C] uppercase tracking-[0.2em] m-0">
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-4 px-4">
+            <h2 className="text-[14px] sm:text-[16px] font-semibold text-[#C4A47C] uppercase tracking-[0.15em] m-0 text-center leading-snug">
               {employee.role || 'Professional'}
             </h2>
-            <span className="px-2 py-0.5 bg-[#0B1320] text-[#C4A47C] text-xs font-bold rounded uppercase tracking-widest">
+            <span className="px-2 py-0.5 bg-[#0B1320] text-[#C4A47C] text-[11px] sm:text-xs font-bold rounded uppercase tracking-widest whitespace-nowrap">
               {employee.employeeId}
             </span>
           </div>
-          
+
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-gray-500 font-medium text-sm">
             {employee.email && (
               <div className="flex items-center gap-2">
@@ -217,8 +217,8 @@ const PortfolioPage = () => {
         <motion.div variants={itemVariants} className="flex flex-col gap-4 text-[#0B1320] font-medium text-[15px] mb-8 w-full items-center text-center px-2">
           {employee.companyName && (
             <div className="flex items-center gap-2 text-[#0B1320]">
-               <Briefcase className="w-4 h-4 text-[#C4A47C]" />
-               <span className="font-semibold tracking-wide">{employee.companyName}</span>
+              <Briefcase className="w-4 h-4 text-[#C4A47C]" />
+              <span className="font-semibold tracking-wide">{employee.companyName}</span>
             </div>
           )}
           {employee.bio && (
@@ -245,76 +245,76 @@ const PortfolioPage = () => {
         {/* Social Links & Custom Link Fields */}
         {((employee.socialLinks && (employee.socialLinks.linkedin || employee.socialLinks.github || employee.socialLinks.instagram || employee.socialLinks.website)) ||
           (employee.customPortfolioFields && employee.customPortfolioFields.some(f => f.value?.startsWith('http')))) && (
-          <motion.div variants={itemVariants} className="flex justify-center gap-2.5">
-            {employee.socialLinks?.linkedin && (
-              <motion.a 
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                href={employee.socialLinks.linkedin} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                title="LinkedIn"
-                className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
-              >
-                <Linkedin className="w-[18px] h-[18px] fill-current" />
-              </motion.a>
-            )}
-            {employee.socialLinks?.instagram && (
-              <motion.a 
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                href={employee.socialLinks.instagram} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                title="Instagram"
-                className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
-              >
-                <Instagram className="w-[18px] h-[18px]" />
-              </motion.a>
-            )}
-            {employee.socialLinks?.github && (
-              <motion.a 
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                href={employee.socialLinks.github} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                title="GitHub"
-                className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
-              >
-                <Github className="w-[18px] h-[18px] fill-current" />
-              </motion.a>
-            )}
-            {employee.socialLinks?.website && (
-              <motion.a 
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                href={employee.socialLinks.website} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                title="Personal Website"
-                className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
-              >
-                <Globe className="w-[18px] h-[18px]" />
-              </motion.a>
-            )}
-            
-            {employee.customPortfolioFields && employee.customPortfolioFields.filter(f => f.value?.startsWith('http')).map((field, idx) => (
-              <motion.a 
-                key={`custom-link-${idx}`}
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.95 }}
-                href={field.value} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                title={field.label}
-                className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md relative group"
-              >
-                <LinkIcon className="w-[18px] h-[18px]" />
-              </motion.a>
-            ))}
-          </motion.div>
-        )}
+            <motion.div variants={itemVariants} className="flex justify-center gap-2.5">
+              {employee.socialLinks?.linkedin && (
+                <motion.a
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={employee.socialLinks.linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="LinkedIn"
+                  className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
+                >
+                  <Linkedin className="w-[18px] h-[18px] fill-current" />
+                </motion.a>
+              )}
+              {employee.socialLinks?.instagram && (
+                <motion.a
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={employee.socialLinks.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Instagram"
+                  className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
+                >
+                  <Instagram className="w-[18px] h-[18px]" />
+                </motion.a>
+              )}
+              {employee.socialLinks?.github && (
+                <motion.a
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={employee.socialLinks.github}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="GitHub"
+                  className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
+                >
+                  <Github className="w-[18px] h-[18px] fill-current" />
+                </motion.a>
+              )}
+              {employee.socialLinks?.website && (
+                <motion.a
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={employee.socialLinks.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Personal Website"
+                  className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md"
+                >
+                  <Globe className="w-[18px] h-[18px]" />
+                </motion.a>
+              )}
+
+              {employee.customPortfolioFields && employee.customPortfolioFields.filter(f => f.value?.startsWith('http')).map((field, idx) => (
+                <motion.a
+                  key={`custom-link-${idx}`}
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  href={field.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={field.label}
+                  className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md relative group"
+                >
+                  <LinkIcon className="w-[18px] h-[18px]" />
+                </motion.a>
+              ))}
+            </motion.div>
+          )}
 
       </motion.div>
     </motion.div>
