@@ -16,15 +16,19 @@ const fixQRCodes = async () => {
 
     // Get ALL employees to regenerate their QR codes with the new vwsync.com URL
     const employees = await Employee.find({});
+    
+    // Also get ALL SupportAdmins
+    const SupportAdmin = (await import('../models/supportAdminModel.js')).default;
+    const supportAdmins = await SupportAdmin.find({});
 
-    console.log(`Found ${employees.length} employees to update QR codes.`);
+    console.log(`Found ${employees.length} employees and ${supportAdmins.length} support admins to update QR codes.`);
 
     let successCount = 0;
     let failCount = 0;
 
     for (let i = 0; i < employees.length; i++) {
       const employee = employees[i];
-      console.log(`[${i + 1}/${employees.length}] Processing ${employee.employeeId} (${employee.name})...`);
+      console.log(`[Employee ${i + 1}/${employees.length}] Processing ${employee.employeeId} (${employee.name})...`);
 
       if (!employee.company) {
         console.warn(`⚠️ Skipped ${employee.employeeId}: Missing company reference.`);
@@ -46,6 +50,29 @@ const fixQRCodes = async () => {
         }
       } catch (err) {
         console.error(`❌ Error processing ${employee.employeeId}:`, err);
+        failCount++;
+      }
+    }
+    
+    for (let i = 0; i < supportAdmins.length; i++) {
+      const admin = supportAdmins[i];
+      console.log(`[SupportAdmin ${i + 1}/${supportAdmins.length}] Processing ${admin.supportAdminId} (${admin.name})...`);
+
+      try {
+        const mockEmployee = { employeeId: admin.supportAdminId };
+        const qrUrl = await generateAndUploadQRCode(mockEmployee, admin.adminId);
+        
+        if (qrUrl) {
+          admin.qrCodeUrl = qrUrl;
+          await admin.save();
+          console.log(`✅ Success ${admin.supportAdminId}: ${qrUrl}`);
+          successCount++;
+        } else {
+          console.error(`❌ Failed to generate/upload for ${admin.supportAdminId}`);
+          failCount++;
+        }
+      } catch (err) {
+        console.error(`❌ Error processing ${admin.supportAdminId}:`, err);
         failCount++;
       }
     }

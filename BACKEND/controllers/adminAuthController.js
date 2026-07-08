@@ -6,6 +6,7 @@ import Employee from "../models/employeeModel.js";
 import Feature from "../models/featureModel.js";
 import jwt from "jsonwebtoken";
 import { getExpiredSubscriptionPayload } from "../utils/subscriptionAccess.js";
+import { generateAndUploadQRCode } from "../utils/qrCodeHelper.js";
 
 /* ==================== JWT SIGN ==================== */
 const signToken = (id, role) => {
@@ -576,23 +577,31 @@ export const getAdminProfile = async (req, res) => {
 /* ==================== UPDATE ADMIN PROFILE ==================== */
 export const updateAdminProfile = async (req, res) => {
   try {
-    const { name, phone, department } = req.body;
+    const { 
+      name, phone, department, 
+      profileImageUrl, portfolioBackgroundImageUrl, bio, customPortfolioFields, socialLinks
+    } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({ message: "Name and Phone are required" });
     }
 
+    const updateFields = { 
+      name, phone, department,
+      profileImageUrl, portfolioBackgroundImageUrl, bio, customPortfolioFields, socialLinks 
+    };
+
     let updatedAdmin;
     if (req.user.role === "support-admin") {
       updatedAdmin = await SupportAdmin.findByIdAndUpdate(
         req.user.actualId || req.user._id,
-        { name, phone, department },
+        updateFields,
         { new: true, runValidators: true }
       );
     } else {
       updatedAdmin = await Admin.findByIdAndUpdate(
         req.user.actualId || req.user._id,
-        { name, phone, department },
+        updateFields,
         { new: true, runValidators: true }
       );
     }
@@ -903,6 +912,19 @@ export const registerSupportAdmin = async (req, res) => {
       role: "support-admin",
       assignedFeatures: assignedFeatures
     });
+
+    // Generate QR Code
+    try {
+      // For generateAndUploadQRCode to work, it expects an object with employeeId and a company (tenantId)
+      const mockEmployee = { employeeId: supportAdmin.supportAdminId };
+      const qrUrl = await generateAndUploadQRCode(mockEmployee, adminId);
+      if (qrUrl) {
+        supportAdmin.qrCodeUrl = qrUrl;
+        await supportAdmin.save();
+      }
+    } catch (e) {
+      console.error("❌ QR Code generation failed for Support Admin:", e);
+    }
 
     res.status(201).json({ message: "Support Admin registered successfully", manager: supportAdmin });
   } catch (error) {

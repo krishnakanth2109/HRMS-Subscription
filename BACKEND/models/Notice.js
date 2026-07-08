@@ -19,7 +19,7 @@ const noticeSchema = new mongoose.Schema({
   creatorModel: {
     type: String,
     required: true,
-    enum: ['Admin', 'Employee']
+    enum: ['Admin', 'SupportAdmin', 'Employee']
   },
   
   recipients: {

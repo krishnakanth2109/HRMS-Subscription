@@ -526,17 +526,33 @@ router.get("/", protect, async (req, res) => {
  ============================================================== */
 router.get("/portfolio/:id", async (req, res) => {
   try {
-    const employee = await Employee.findOne({ employeeId: req.params.id })
+    let employee = await Employee.findOne({ employeeId: req.params.id })
       .select("employeeId name email phone phoneNumber personalDetails role currentRole experienceDetails companyName profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
       .populate("adminId", "companyLogo")
       .lean();
 
     if (!employee) {
-      return res.status(404).json({ message: "Employee not found" });
+      const supportAdmin = await SupportAdmin.findOne({ supportAdminId: req.params.id })
+        .select("supportAdminId name email phone role department profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
+        .populate("adminId", "companyLogo")
+        .lean();
+        
+      if (supportAdmin) {
+        employee = {
+          ...supportAdmin,
+          employeeId: supportAdmin.supportAdminId,
+          companyName: "Administration", // Default for SupportAdmin
+        };
+      }
     }
 
-    if (!employee.isActive || employee.status !== "Active") {
-      return res.status(404).json({ message: "Employee portfolio unavailable" });
+    if (!employee) {
+      return res.status(404).json({ message: "Employee/SupportAdmin not found" });
+    }
+
+    // Since SupportAdmin schema might not have isActive / status explicitly, we should handle it
+    if (employee.isActive === false || employee.status === "Inactive") {
+      return res.status(404).json({ message: "Portfolio unavailable" });
     }
 
     // Determine the best job role to display

@@ -57,6 +57,8 @@ import api, {
 import { AuthContext } from "../../context/AuthContext";
 import Swal from "sweetalert2";
 import ImageCropModal from "../../EmployeePages/ImageCropModal";
+import { QrCode } from "lucide-react";
+import EmployeeQRCodeModal from "../../components/employee/EmployeeQRCodeModal";
 
 const getDeptRole = (emp) => {
   const exp = Array.isArray(emp.experienceDetails)
@@ -138,6 +140,7 @@ const SupportAdminDashboard = () => {
   const [breakTime, setBreakTime] = useState(0);
 
   const [adminProfile, setAdminProfile] = useState(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   const dropdownRef = useRef(null);
   const breakDropdownRef = useRef(null);
@@ -868,6 +871,13 @@ const SupportAdminDashboard = () => {
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-800 flex flex-col md:flex-row items-center gap-2 justify-center md:justify-start">
                   <FaUserCircle className="text-indigo-500 hidden md:block" />
                   {adminProfile?.name || user?.name || "Support Admin"}
+                  <button 
+                    onClick={() => setIsQrModalOpen(true)}
+                    className="p-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full transition-colors cursor-pointer ml-2"
+                    title="Show QR Code"
+                  >
+                    <QrCode size={20} />
+                  </button>
                 </h3>
                 <div className="mt-3 mb-4 flex flex-col items-center md:items-start gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs uppercase tracking-wider font-bold shadow-sm border bg-indigo-50 text-indigo-700 border-indigo-200">
@@ -1396,6 +1406,14 @@ const SupportAdminDashboard = () => {
           isUploading={uploadingImage}
         />
       )}
+
+      <EmployeeQRCodeModal 
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        qrCodeUrl={adminProfile?.qrCodeUrl}
+        portfolioUrl={`https://vwsync.com/portfolio/${adminProfile?.supportAdminId || adminProfile?._id}`}
+        employeeName={adminProfile?.name || user?.name}
+      />
     </div>
   );
 };

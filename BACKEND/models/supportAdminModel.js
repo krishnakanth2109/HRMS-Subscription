@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const customFieldSchema = new mongoose.Schema({
+  label: String,
+  value: String,
+});
+
 const supportAdminSchema = new mongoose.Schema(
   {
     /* ==================== BASIC INFO ==================== */
@@ -44,6 +49,19 @@ const supportAdminSchema = new mongoose.Schema(
 
     /* ==================== ASSIGNED FEATURES ==================== */
     assignedFeatures: { type: [String], default: undefined },
+
+    /* ==================== PUBLIC PORTFOLIO FIELDS ==================== */
+    profileImageUrl: { type: String, default: null },
+    portfolioBackgroundImageUrl: { type: String, default: null },
+    qrCodeUrl: { type: String, default: null },
+    bio: { type: String, default: null },
+    customPortfolioFields: [customFieldSchema],
+    socialLinks: {
+      linkedin: { type: String, default: null },
+      github: { type: String, default: null },
+      instagram: { type: String, default: null },
+      website: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

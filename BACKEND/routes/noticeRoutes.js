@@ -22,7 +22,7 @@ const upload = multer({ storage });
 router.get("/all", protect, onlyAdmin, async (req, res) => {
   try {
     const allNotices = await Notice.find({ adminId: req.user._id })
-      .populate("createdBy", "name employeeId") 
+      .populate("createdBy", "name employeeId supportAdminId") 
       .populate("readBy.employeeId", "name employeeId")
       .populate("replies.employeeId", "name employeeId")
       .populate("replies.adminId", "name")
@@ -64,7 +64,7 @@ router.get("/", protect, async (req, res) => {
     };
 
     let notices = await Notice.find(query)
-      .populate("createdBy", "name employeeId") 
+      .populate("createdBy", "name employeeId supportAdminId") 
       .populate("recipients", "name employeeId")
       .populate("replies.employeeId", "name employeeId")
       .populate("replies.adminId", "name")
@@ -92,7 +92,10 @@ router.post("/", protect, async (req, res) => {
     const recipientValue = (Array.isArray(recipients) && recipients.length > 0) ? recipients : "ALL";
     
     const isAdmin = req.user.role && (req.user.role.toLowerCase() === "admin" || req.user.role.toLowerCase() === "support-admin");
-    const creatorModel = isAdmin ? "Admin" : "Employee";
+    
+    let creatorModel = "Employee";
+    if (req.user.role?.toLowerCase() === "admin") creatorModel = "Admin";
+    else if (req.user.role?.toLowerCase() === "support-admin") creatorModel = "SupportAdmin";
 
     // Determine Admin and Company IDs
     const assignedAdminId = isAdmin ? req.user._id : req.user.adminId;
@@ -106,7 +109,7 @@ router.post("/", protect, async (req, res) => {
       title,
       description,
       date: new Date(),
-      createdBy: req.user._id,
+      createdBy: req.user.actualId || req.user._id,
       creatorModel: creatorModel,
       recipients: recipientValue
     });
