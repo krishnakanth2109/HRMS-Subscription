@@ -463,7 +463,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
   const isRouteVisible = (link) => {
     if (link.ownerOnly && !isOwnerPlan) return false;
     if (link.children) return link.children.some(isRouteVisible);
-    return true;
+    return isRouteAllowed(link);
   };
 
   const isRouteAllowed = (link) => {

@@ -711,8 +711,13 @@ export const getMyPlanFeatures = async (req, res) => {
       allowedRoutes = planInfo ? planInfo.features : [];
     }
 
+    // If the admin has specifically customized features assigned by Master, 
+    // we want to respect those and NOT bypass them with isOwner in the frontend.
+    const hasCustomizedFeatures = admin.planDetails && admin.planDetails.features && admin.planDetails.features.length > 0;
+
     // ✅ Owner / unlimited plan → return ALL features from all plans (no restriction)
-    if (isOwner) {
+    // ONLY if it hasn't been explicitly customized by master
+    if (isOwner && !hasCustomizedFeatures) {
       // Gather every unique route from all plans + owner-exclusive routes
       const allPlans = await PlanSetting.find({});
       const allRoutes = new Set();
@@ -739,6 +744,7 @@ export const getMyPlanFeatures = async (req, res) => {
 
     res.status(200).json({
       planName,
+      isOwnerPlan: isOwner && !hasCustomizedFeatures,
       allowedRoutes,
     });
   } catch (error) {

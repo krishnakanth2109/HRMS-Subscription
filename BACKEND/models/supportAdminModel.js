@@ -1,9 +1,50 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+// Sub-schemas
+const experienceSchema = new mongoose.Schema({
+  company: String,
+  role: String,
+  department: String,
+  years: Number,
+  joiningDate: String,
+  lastWorkingDate: String,
+  salary: Number,
+  reason: String,
+  experienceLetterUrl: String,
+  employmentType: String,
+});
+
+const personalSchema = new mongoose.Schema({
+  dob: String,
+  gender: { type: String, enum: ["Male", "Female", "Prefer not to say"] },
+  maritalStatus: String,
+  nationality: String,
+  panNumber: String,
+  aadhaarNumber: String,
+  aadhaarFileUrl: String,
+  panFileUrl: String,
+});
+
 const customFieldSchema = new mongoose.Schema({
   label: String,
   value: String,
+});
+
+const bankSchema = new mongoose.Schema({
+  accountNumber: String,
+  bankName: String,
+  ifsc: String,
+  branch: String,
+});
+
+// ✅ NEW: Sub-schema for uploaded company documents (filled by employee during onboarding)
+const companyDocumentSchema = new mongoose.Schema({
+  fileName: { type: String },
+  fileUrl: { type: String },
+  fileType: { type: String },
+  fileSize: { type: Number },
+  uploadedAt: { type: Date, default: Date.now },
 });
 
 const supportAdminSchema = new mongoose.Schema(
@@ -40,7 +81,7 @@ const supportAdminSchema = new mongoose.Schema(
     positionName: { type: String, default: "Administration" },
     phone: { type: String, default: "" },
     department: { type: String, default: "Support Administration" },
-    
+
     // Link to the parent Admin
     adminId: { type: mongoose.Schema.Types.ObjectId, ref: "Admin", required: true },
 
@@ -62,6 +103,13 @@ const supportAdminSchema = new mongoose.Schema(
       instagram: { type: String, default: null },
       website: { type: String, default: null },
     },
+    address: { type: String, default: "" },
+    emergency: { type: String, default: "" },
+    emergencyPhone: { type: String, default: "" },
+
+    bankDetails: bankSchema,
+    personalDetails: personalSchema,
+    experienceDetails: [experienceSchema],
   },
   { timestamps: true }
 );

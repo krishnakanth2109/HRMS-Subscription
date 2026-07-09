@@ -153,6 +153,7 @@ const AdminWorkReports = () => {
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [bulkApplying, setBulkApplying] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showAllImages, setShowAllImages] = useState(false);
 
   const [percentageSaving, setPercentageSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
@@ -501,6 +502,7 @@ const AdminWorkReports = () => {
     setSelectedRecord(record);
     setSelectedPerformanceMonth(getMonthValueFromDate(record.date));
     setSelectedCalendarDateKey(getWorkDateKey(record.date));
+    setShowAllImages(false);
   };
 
   const handleToggleRecordSelection = (recordId) => {
@@ -1262,7 +1264,7 @@ const AdminWorkReports = () => {
                     </p>
                     {selectedRecord.images?.length ? (
                       <div className="grid grid-cols-3 gap-2">
-                        {selectedRecord.images.slice(0, 3).map((image, idx) => (
+                        {selectedRecord.images.slice(0, showAllImages ? undefined : 3).map((image, idx) => (
                           <div
                             key={image._id}
                             className="group relative overflow-hidden rounded-xl border border-gray-100 bg-gray-50 transition-all hover:shadow-md"
@@ -1293,9 +1295,20 @@ const AdminWorkReports = () => {
                             </div>
                           </div>
                         ))}
-                        {selectedRecord.images.length > 3 && (
-                          <div className="flex h-20 items-center justify-center rounded-xl bg-gray-100 text-xs font-semibold text-gray-500">
+                        {selectedRecord.images.length > 3 && !showAllImages && (
+                          <div 
+                            className="flex h-20 items-center justify-center rounded-xl bg-gray-100 text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-200 transition-colors"
+                            onClick={() => setShowAllImages(true)}
+                          >
                             +{selectedRecord.images.length - 3} more
+                          </div>
+                        )}
+                        {selectedRecord.images.length > 3 && showAllImages && (
+                          <div 
+                            className="col-span-3 flex h-10 items-center justify-center rounded-xl bg-gray-100 text-xs font-semibold text-gray-500 cursor-pointer hover:bg-gray-200 transition-colors mt-2"
+                            onClick={() => setShowAllImages(false)}
+                          >
+                            Show Less
                           </div>
                         )}
                       </div>

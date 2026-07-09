@@ -701,7 +701,9 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
             NAV_SECTIONS.map((section, sIdx) => {
               const visibleLinks = section.links.filter(link => {
                 if (link.ownerOnly && !isOwnerPlan) return false;
-                return true;
+                const isAllowed = isOwnerPlan || link.alwaysAllowed || allowedRoutes?.includes(link.route);
+                const isAssigned = isFeatureAssignedToSupportAdmin(link);
+                return isAllowed && isAssigned;
               });
 
               if (visibleLinks.length === 0) return null;

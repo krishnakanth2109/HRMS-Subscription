@@ -2,12 +2,12 @@
 import { useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { NotificationContext } from "../context/NotificationContext";
-import { 
-  FaBell, FaCheckCircle, FaTrash, FaUndo, 
+import {
+  FaBell, FaCheckCircle, FaTrash, FaUndo,
   FaExclamationCircle, FaClock, FaMapMarkerAlt, FaSignOutAlt, FaUserClock,
   FaArrowLeft, FaStarHalfAlt, FaUserMinus, FaInbox, FaCheck, FaFilter
 } from "react-icons/fa";
-import api, { getAllOvertimeRequests } from "../api"; 
+import api, { getAllOvertimeRequests } from "../api";
 
 // Keys for Session Storage
 const HIDDEN_KEY = "admin_hidden_notifications";
@@ -24,7 +24,7 @@ const AdminNotifications = () => {
   } = useContext(NotificationContext);
 
   const [localNotifications, setLocalNotifications] = useState([]);
-  
+
   // Specific States for API Data
   const [overtimeData, setOvertimeData] = useState([]);
   const [punchOutData, setPunchOutData] = useState([]);
@@ -58,7 +58,7 @@ const AdminNotifications = () => {
     let borderAccent = isUnread ? "border-l-4 border-indigo-500" : "border-l-4 border-slate-200";
     let iconBg = isUnread ? "bg-indigo-50 text-indigo-600 shadow-sm" : "bg-slate-100 text-slate-500";
     let cardBg = isUnread ? "bg-indigo-50/10" : "bg-white opacity-85";
-    
+
     if (n.type === "system") {
       if (n._id.includes("sys-ot-")) {
         borderAccent = isUnread ? "border-l-4 border-amber-500" : "border-l-4 border-slate-200";
@@ -80,7 +80,7 @@ const AdminNotifications = () => {
         iconBg = isUnread ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-500";
       }
     }
-    
+
     return { borderAccent, iconBg, cardBg };
   };
 
@@ -109,7 +109,7 @@ const AdminNotifications = () => {
     const allSystemIds = localNotifications
       .filter(n => n.type === 'system')
       .map(n => n._id);
-    
+
     const current = getReadSystemIds();
     // Merge new IDs with existing ones, removing duplicates
     const updated = [...new Set([...current, ...allSystemIds])];
@@ -122,6 +122,25 @@ const AdminNotifications = () => {
       markSystemAsRead(n._id);
     } else {
       markAsRead(n._id); // Call Context function for DB notifications
+    }
+  };
+
+  const handleNotificationClick = (n) => {
+    handleMarkAsReadWrapper(n);
+    if (n.type === "system") {
+      if (n._id.includes("sys-ot-")) navigate("/admin/admin-overtime");
+      else if (n._id.includes("sys-po-")) navigate("/attendance");
+      else if (n._id.includes("sys-late-")) navigate("/admin/late-requests");
+      else if (n._id.includes("sys-wm-")) navigate("/attendance");
+      else if (n._id.includes("sys-fd-")) navigate("/admin/admin-Leavemanage");
+      else if (n._id.includes("sys-res-")) navigate("/admin/resignation");
+    } else if (n.type === "leave") {
+      navigate("/admin/admin-Leavemanage");
+    } else if (n.type === "correction") {
+      navigate("/admin/late-requests");
+    }
+    else if (n.redirectUrl) {
+      navigate(n.redirectUrl);
     }
   };
 
@@ -167,11 +186,11 @@ const AdminNotifications = () => {
         if (empRecord.attendance && Array.isArray(empRecord.attendance)) {
           for (const dayLog of empRecord.attendance) {
             if (dayLog.lateCorrectionRequest?.hasRequest && dayLog.lateCorrectionRequest?.status === "PENDING") {
-               pending.push({
-                 ...dayLog,
-                 empName: empRecord.employeeName || empRecord.name || "Employee",
-                 reqId: dayLog._id || `late-${Math.random()}`
-               });
+              pending.push({
+                ...dayLog,
+                empName: empRecord.employeeName || empRecord.name || "Employee",
+                reqId: dayLog._id || `late-${Math.random()}`
+              });
             }
           }
         }
@@ -184,11 +203,11 @@ const AdminNotifications = () => {
 
   const fetchWorkModeRequests = useCallback(async () => {
     try {
-      const { data } = await api.get("/api/admin/requests"); 
+      const { data } = await api.get("/api/admin/requests");
       const reqs = Array.isArray(data) ? data : [];
       setWorkModeData(reqs.filter(r => r.status === 'Pending'));
-    } catch (err) { 
-      console.error("Error fetching work mode requests:", err); 
+    } catch (err) {
+      console.error("Error fetching work mode requests:", err);
     }
   }, []);
 
@@ -218,15 +237,15 @@ const AdminNotifications = () => {
     fetchWorkModeRequests();
     fetchFullDayRequests();
     fetchResignationRequests();
-    
+
     // Poll every 60 seconds (increased from 30s to reduce load for Late Requests)
     const interval = setInterval(() => {
-        fetchOvertimeRequests();
-        fetchPunchOutRequests();
-        fetchLateRequests();
-        fetchWorkModeRequests();
-        fetchFullDayRequests();
-        fetchResignationRequests();
+      fetchOvertimeRequests();
+      fetchPunchOutRequests();
+      fetchLateRequests();
+      fetchWorkModeRequests();
+      fetchFullDayRequests();
+      fetchResignationRequests();
     }, 60000);
 
     return () => clearInterval(interval);
@@ -244,7 +263,7 @@ const AdminNotifications = () => {
         console.log("⚡ New Resignation Request received via Socket. Refreshing list...");
         fetchResignationRequests();
       });
-      
+
       socket.on("workMode:updated", () => {
         console.log("⚡ Work Mode Request updated via Socket. Refreshing list...");
         fetchWorkModeRequests();
@@ -302,86 +321,86 @@ const AdminNotifications = () => {
 
     // 1. Process Overtime
     overtimeData.forEach(item => {
-        const id = `sys-ot-${item._id}`;
-        systemNotifs.push({
-            _id: id,
-            message: `⏳ Overtime Request: ${item.employeeName || item.employeeId} requested  on ${item.date || "N/A"}`,
-            date: item.date || item.createdAt || new Date().toISOString(),
-            isRead: readSystemIds.includes(id), // Check session storage
-            type: "system",
-            icon: <FaClock className="text-orange-500" />
-        });
+      const id = `sys-ot-${item._id}`;
+      systemNotifs.push({
+        _id: id,
+        message: `⏳ Overtime Request: ${item.employeeName || item.employeeId} requested  on ${item.date || "N/A"}`,
+        date: item.date || item.createdAt || new Date().toISOString(),
+        isRead: readSystemIds.includes(id), // Check session storage
+        type: "system",
+        icon: <FaClock className="text-orange-500" />
+      });
     });
 
     // 2. Process Punch Out
     punchOutData.forEach(item => {
-        const id = `sys-po-${item._id}`;
-        systemNotifs.push({
-            _id: id,
-            message: `🔔 Punch Out Request: ${item.employeeName || "Employee"} - Reason: "${item.reason || "N/A"}"`,
-            date: item.createdAt || new Date().toISOString(),
-            isRead: readSystemIds.includes(id),
-            type: "system",
-            icon: <FaSignOutAlt className="text-red-500" />
-        });
+      const id = `sys-po-${item._id}`;
+      systemNotifs.push({
+        _id: id,
+        message: `🔔 Punch Out Request: ${item.employeeName || "Employee"} - Reason: "${item.reason || "N/A"}"`,
+        date: item.createdAt || new Date().toISOString(),
+        isRead: readSystemIds.includes(id),
+        type: "system",
+        icon: <FaSignOutAlt className="text-red-500" />
+      });
     });
 
     // 3. Process Late Login
     lateLoginData.forEach(item => {
-        const id = `sys-late-${item.reqId}`;
-        const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Unknown Date";
-        const reqTime = item.lateCorrectionRequest?.requestedTime 
-          ? new Date(item.lateCorrectionRequest.requestedTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-          : "N/A";
+      const id = `sys-late-${item.reqId}`;
+      const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Unknown Date";
+      const reqTime = item.lateCorrectionRequest?.requestedTime
+        ? new Date(item.lateCorrectionRequest.requestedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : "N/A";
 
-        systemNotifs.push({
-            _id: id,
-            message: `⏰ Late Login Request: ${item.empName} for ${dateStr} (Req: ${reqTime})`,
-            date: item.date || new Date().toISOString(),
-            isRead: readSystemIds.includes(id),
-            type: "system",
-            icon: <FaUserClock className="text-purple-500" />
-        });
+      systemNotifs.push({
+        _id: id,
+        message: `⏰ Late Login Request: ${item.empName} for ${dateStr} (Req: ${reqTime})`,
+        date: item.date || new Date().toISOString(),
+        isRead: readSystemIds.includes(id),
+        type: "system",
+        icon: <FaUserClock className="text-purple-500" />
+      });
     });
 
     // 4. Process Work Mode
     workModeData.forEach(item => {
-        const id = `sys-wm-${item._id}${item.isEdited ? `-edit-${item.editCount}` : ''}`;
-        systemNotifs.push({
-            _id: id,
-            message: `📍 Work Mode Request: ${item.employeeName} requested ${item.requestedMode === 'WFH' ? 'Work From Home' : 'Work From Office'} ${item.isEdited ? '⚠️ (Edited)' : ''}`,
-            date: item.isEdited ? item.lastEditedAt : (item.createdAt || new Date().toISOString()),
-            isRead: readSystemIds.includes(id),
-            type: "system",
-            icon: <FaMapMarkerAlt className="text-blue-500" />
-        });
+      const id = `sys-wm-${item._id}${item.isEdited ? `-edit-${item.editCount}` : ''}`;
+      systemNotifs.push({
+        _id: id,
+        message: `📍 Work Mode Request: ${item.employeeName} requested ${item.requestedMode === 'WFH' ? 'Work From Home' : 'Work From Office'} ${item.isEdited ? '⚠️ (Edited)' : ''}`,
+        date: item.isEdited ? item.lastEditedAt : (item.createdAt || new Date().toISOString()),
+        isRead: readSystemIds.includes(id),
+        type: "system",
+        icon: <FaMapMarkerAlt className="text-blue-500" />
+      });
     });
 
     // 5. Process Full Day Requests
     fullDayData.forEach(item => {
-        const id = `sys-fd-${item.employeeId}-${item.date}`;
-        const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Unknown Date";
-        systemNotifs.push({
-            _id: id,
-            message: `📋 Full Day Request: ${item.employeeName || "Employee"} requested Half Day → Full Day for ${dateStr}`,
-            date: item.requestedAt || new Date().toISOString(),
-            isRead: readSystemIds.includes(id),
-            type: "system",
-            icon: <FaStarHalfAlt className="text-teal-500" />
-        });
+      const id = `sys-fd-${item.employeeId}-${item.date}`;
+      const dateStr = item.date ? new Date(item.date).toLocaleDateString() : "Unknown Date";
+      systemNotifs.push({
+        _id: id,
+        message: `📋 Full Day Request: ${item.employeeName || "Employee"} requested Half Day → Full Day for ${dateStr}`,
+        date: item.requestedAt || new Date().toISOString(),
+        isRead: readSystemIds.includes(id),
+        type: "system",
+        icon: <FaStarHalfAlt className="text-teal-500" />
+      });
     });
 
     // 6. Process Resignations
     resignationData.forEach(item => {
-        const id = `sys-res-${item._id}`;
-        systemNotifs.push({
-            _id: id,
-            message: `⚠️ Resignation Submitted: ${item.employeeName} (${item.employeeId}) has submitted a resignation letter.`,
-            date: item.submittedAt || new Date().toISOString(),
-            isRead: readSystemIds.includes(id),
-            type: "system",
-            icon: <FaUserMinus className="text-red-600" />
-        });
+      const id = `sys-res-${item._id}`;
+      systemNotifs.push({
+        _id: id,
+        message: `⚠️ Resignation Submitted: ${item.employeeName} (${item.employeeId}) has submitted a resignation letter.`,
+        date: item.submittedAt || new Date().toISOString(),
+        isRead: readSystemIds.includes(id),
+        type: "system",
+        icon: <FaUserMinus className="text-red-600" />
+      });
     });
 
     // Combine System + Context Notifications
@@ -405,10 +424,10 @@ const AdminNotifications = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 md:p-8 font-sans antialiased text-slate-800">
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
+
         {/* ----------------- SIDE ACTION & FILTER PANEL ----------------- */}
         <div className="lg:col-span-3 space-y-6 lg:sticky lg:top-8">
-          
+
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-6">
             <div>
               <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 mb-2">
@@ -438,7 +457,7 @@ const AdminNotifications = () => {
 
         {/* ----------------- MAIN NOTIFICATIONS PANEL ----------------- */}
         <div className="lg:col-span-9 bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 space-y-6">
-          
+
           <div className="flex items-center justify-between border-b border-slate-100 pb-5">
             <div className="flex items-center gap-4">
               {/* ← Back button */}
@@ -480,11 +499,11 @@ const AdminNotifications = () => {
               {localNotifications.map((n) => {
                 const styles = getNotificationStyles(n);
                 const isUnread = !n.isRead;
-                
+
                 return (
                   <div
                     key={n._id}
-                    onClick={() => handleMarkAsReadWrapper(n)}
+                    onClick={() => handleNotificationClick(n)}
                     className={`group relative flex items-start gap-4 p-4 rounded-2xl border transition-all duration-300 ${styles.borderAccent} ${styles.cardBg} hover:shadow-md hover:border-slate-300 cursor-pointer`}
                   >
                     {/* Glowing Left Indicator */}
@@ -502,13 +521,13 @@ const AdminNotifications = () => {
                       <p className={`text-sm font-semibold leading-relaxed ${isUnread ? "text-slate-800" : "text-slate-600 font-medium"}`}>
                         {n.message}
                       </p>
-                      
+
                       <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         <span className="flex items-center gap-1">
                           <FaClock size={10} className="text-slate-400" /> {formatTime(n.date || n.timestamp)}
                         </span>
-                        
-                        {n.type === 'system' ? (
+
+                        {/* {n.type === 'system' ? (
                           <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
                             System Action Required
                           </span>
@@ -516,7 +535,7 @@ const AdminNotifications = () => {
                           <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
                             Database Msg
                           </span>
-                        )}
+                        )} */}
                       </div>
                     </div>
 
@@ -534,7 +553,7 @@ const AdminNotifications = () => {
                           <FaCheck size={12} />
                         </button>
                       )}
-                      
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
