@@ -1059,6 +1059,11 @@ export const sendOfferLetterEmail = async (data) => {
   return response.data;
 };
 
+export const sendGeneralLetterEmail = async (data) => {
+  const response = await api.post("/api/general-letters/send-email", data);
+  return response.data;
+};
+
 export const downloadOfferLetterDocx = async (data) => {
   const response = await api.post("/api/offer-letters/download-docx", data, {
     responseType: "blob",

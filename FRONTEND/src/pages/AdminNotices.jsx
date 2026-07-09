@@ -1016,7 +1016,7 @@ Meeting Link: ${meetingLink}`;
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-200">
-                          By: {notice.createdBy?.name || "System"} ({notice.createdBy?.employeeId || notice.createdBy?.supportAdminId || (notice.creatorModel === 'SupportAdmin' ? 'Support Admin' : 'Admin')})
+                          By: {notice.createdBy?.name || "System"}{notice.creatorModel === 'Admin' || (!notice.creatorModel && !notice.createdBy?.employeeId) ? ' (Admin)' : notice.creatorModel === 'Employee' && notice.createdBy?.employeeId ? ` (${notice.createdBy.employeeId})` : ''}
                         </span>
                         {isMeeting && (
                           <span className="inline-flex items-center gap-1.5 bg-rose-50 text-rose-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-rose-200"><FaVideo /> Meeting</span>

@@ -204,8 +204,9 @@ function OfferLetterIndex() {
         await api.sendOfferLetterEmail({
           employeeId: curId,
           pdfBase64: pdfDataUri,
-          emailBody: `Dear ${emp.name},\n\We are pleased to offer you the position at ${company}.\n\nPlease find the detailed offer letter attached.\n\nBest Regards,\nHR Team`,
-          companyName: company
+          emailBody: `Dear ${emp.name},\n\We are pleased to send you the ${type} from ${company}.\n\nPlease find the detailed document attached.\n\nBest Regards,\nHR Team`,
+          companyName: company,
+          letterType: type
         });
       } catch (err) { console.error(err); }
     }

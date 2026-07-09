@@ -1287,6 +1287,14 @@ const EmployeeManagement = () => {
                       <FaFileAlt className="text-blue-500" /> Offer Letter
                     </button>
 
+                    {/* General Letters */}
+                    <button
+                      onClick={() => { navigate("/admin/general-letters"); setHrActivitiesOpen(false); }}
+                      className="w-full text-left px-5 py-3.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-all duration-150 border-b border-slate-100"
+                    >
+                      <FaFileAlt className="text-blue-500" /> General Letters
+                    </button>
+
                     {/* Onboarding Invitation */}
                     <button
                       onClick={() => { navigate("/admin/onboarding-email"); setHrActivitiesOpen(false); }}

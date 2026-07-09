@@ -18,6 +18,7 @@ const FALLBACK_FEATURES = [
   { label: "Attendance Adjustment", route: "/admin/late-requests", description: "Handle late login and attendance correction requests" },
   { label: "Overtime Requests", route: "/admin/admin-overtime", description: "Review and manage employee overtime requests" },
   { label: "Live Tracking", route: "/admin/live-tracking", description: "Monitor employee idle time in real-time" },
+  { label: "Idle Tracking", route: "/admin/idletime-tracking", description: "Track and analyze employee idle and active periods" },
   { label: "Expense Management", route: "/admin/expense", description: "Handle and review employee expense requests" }
 ];
 

@@ -8,6 +8,9 @@ import mongoose from "mongoose";
 import nodemailer from "nodemailer";
 import TechnicalIssue from "../models/TechnicalIssue.js";
 import MasterAdmin from "../models/MasterAdmin.js";
+import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
+import Employee from "../models/Employee.js";
 
 const router = express.Router();
 
@@ -686,27 +689,64 @@ const superAdminAdminRaisedIssueEmail = ({
 </html>`;
 
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────────────────────
-const setUser = (req, res, next) => {
+const setUser = async (req, res, next) => {
   try {
     let token = req.headers.authorization?.split(" ")[1];
     if (!token) return res.status(401).json({ success: false, message: "No token provided" });
 
     token = token.replace(/(^"|"$)/g, "");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    const userRole = (decoded.role || decoded.type || "superadmin").toLowerCase();
     const userId = decoded.id || decoded._id || decoded.userId || decoded.employeeId || decoded.adminId || decoded.masterId;
+
+    if (!userId) return res.status(401).json({ success: false, message: "Invalid token" });
+
+    // Look up the user in all collections to establish true identity
+    let userRole = "superadmin";
+    let adminId = null;
+    let name = decoded.name || "";
+    let email = decoded.email || "";
+
+    const masterAdmin = await MasterAdmin.findById(userId).lean();
+    if (masterAdmin) {
+      userRole = "superadmin";
+      name = masterAdmin.name || name;
+      email = masterAdmin.email || email;
+    } else {
+      const admin = await Admin.findById(userId).lean();
+      if (admin) {
+        userRole = "admin";
+        name = admin.name || name;
+        email = admin.email || email;
+        adminId = admin.adminId || admin._id; // Account for tenant/sub-admins
+      } else {
+        const supportAdmin = await SupportAdmin.findById(userId).lean();
+        if (supportAdmin) {
+          userRole = "support-admin";
+          name = supportAdmin.name || name;
+          email = supportAdmin.email || email;
+          adminId = supportAdmin.adminId;
+        } else {
+          const employee = await Employee.findById(userId).lean();
+          if (employee) {
+            userRole = employee.role || "employee";
+            name = employee.name || employee.employeeName || name;
+            email = employee.email || employee.employeeEmail || email;
+            adminId = employee.adminId;
+          } else {
+            return res.status(401).json({ success: false, message: "Not authorized, user not found" });
+          }
+        }
+      }
+    }
 
     req.user = {
       _id: userId,
       role: userRole,
-      name: decoded.name || "",
-      email: decoded.email || "",
-      adminId: decoded.adminId,
-      companyId: decoded.companyId || decoded.company,
+      name,
+      email,
+      adminId
     };
 
-    if (!req.user._id) return res.status(401).json({ success: false, message: "Invalid token" });
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: "Invalid token" });

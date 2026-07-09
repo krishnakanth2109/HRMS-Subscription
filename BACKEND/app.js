@@ -45,6 +45,7 @@ import resignationRoutes from "./routes/resignationRoutes.js";
 import workRoutes from "./routes/workRoutes.js";
 import webauthnRoutes from "./routes/webauthnRoutes.js";
 import faceAuthRoutes from "./routes/faceAuthRoutes.js";
+import generalLetterRoutes from "./routes/generalLetterRoutes.js";
 const { employeeWorkRoutes, adminWorkRoutes } = workRoutes;
 
 /* ==================== 🔹 RAZORPAY IMPORT ==================== */
@@ -321,6 +322,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/induction", inductionRoutes);
 app.use("/api/resignations", resignationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
+app.use("/api/general-letters", generalLetterRoutes);
 app.use("/api/field-tracking", fieldTrackingRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/work", employeeWorkRoutes);

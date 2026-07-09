@@ -12,6 +12,21 @@ const getSecureUrl = (url) => {
   return url;
 };
 
+const isLinkValue = (val) => {
+  if (!val) return false;
+  if (val.startsWith('http')) return true;
+  // If it contains a dot and has no spaces, treat as a URL (e.g., vwsync.com)
+  if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(val) && !val.includes(' ')) return true;
+  return false;
+};
+
+const formatHref = (val) => {
+  if (!val) return "#";
+  if (val.startsWith('http')) return val;
+  if (isLinkValue(val)) return `https://${val}`;
+  return val;
+};
+
 const PortfolioPage = () => {
   const { employeeId } = useParams();
   const navigate = useNavigate();
@@ -229,10 +244,10 @@ const PortfolioPage = () => {
         </motion.div>
 
         {/* Custom Fields (Text) */}
-        {employee.customPortfolioFields && employee.customPortfolioFields.some(f => !f.value?.startsWith('http')) && (
+        {employee.customPortfolioFields && employee.customPortfolioFields.some(f => !isLinkValue(f.value)) && (
           <motion.div variants={itemVariants} className="w-full flex flex-col gap-4 mb-10 px-2 mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md mx-auto">
-              {employee.customPortfolioFields.filter(f => !f.value?.startsWith('http')).map((field, idx) => (
+              {employee.customPortfolioFields.filter(f => !isLinkValue(f.value)).map((field, idx) => (
                 <div key={idx} className="bg-white p-4 rounded-xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-gray-100 flex flex-col justify-center text-center">
                   <span className="text-[11px] font-bold text-[#C4A47C] uppercase tracking-wider mb-1">{field.label}</span>
                   <span className="text-[15px] font-semibold text-[#0B1320] break-all">{field.value}</span>
@@ -244,7 +259,7 @@ const PortfolioPage = () => {
 
         {/* Social Links & Custom Link Fields */}
         {((employee.socialLinks && (employee.socialLinks.linkedin || employee.socialLinks.github || employee.socialLinks.instagram || employee.socialLinks.website)) ||
-          (employee.customPortfolioFields && employee.customPortfolioFields.some(f => f.value?.startsWith('http')))) && (
+          (employee.customPortfolioFields && employee.customPortfolioFields.some(f => isLinkValue(f.value)))) && (
             <motion.div variants={itemVariants} className="flex justify-center gap-2.5">
               {employee.socialLinks?.linkedin && (
                 <motion.a
@@ -299,12 +314,12 @@ const PortfolioPage = () => {
                 </motion.a>
               )}
 
-              {employee.customPortfolioFields && employee.customPortfolioFields.filter(f => f.value?.startsWith('http')).map((field, idx) => (
+              {employee.customPortfolioFields && employee.customPortfolioFields.filter(f => isLinkValue(f.value)).map((field, idx) => (
                 <motion.a
                   key={`custom-link-${idx}`}
                   whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.95 }}
-                  href={field.value}
+                  href={formatHref(field.value)}
                   target="_blank"
                   rel="noopener noreferrer"
                   title={field.label}

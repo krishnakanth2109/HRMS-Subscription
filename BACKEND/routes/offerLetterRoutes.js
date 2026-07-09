@@ -10,6 +10,7 @@ import HTMLtoDOCX from "html-to-docx";
 import OfferLetterEmployee from "../models/OfferLetterEmployee.js";
 import GeneratedLetter from "../models/GeneratedLetter.js";
 import OfferLetterTemplate from "../models/OfferLetterTemplate.js";
+import Employee from "../models/employeeModel.js";
 import Company from "../models/CompanyModel.js";
 import InvitedEmployee from "../models/Invitedemployee.js";
 import PayrollRule from "../models/PayrollRule.js";
@@ -250,10 +251,26 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     const { employeeId, letterType = "Offer Letter", companyName = "" } = req.body;
     if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
 
-    const emp = await OfferLetterEmployee.findOne({ _id: employeeId, adminId });
+    let emp = await OfferLetterEmployee.findOne({ _id: employeeId, adminId });
+    let isRegularEmployee = false;
+
+    if (!emp) {
+      emp = await Employee.findOne({ _id: employeeId, adminId });
+      if (emp) isRegularEmployee = true;
+    }
+
     if (!emp) return res.status(404).json({ message: "Candidate not found" });
 
-    const comp = emp.compensation || {};
+    // Handle both OfferLetterEmployee (comp obj) and regular Employee (salary num)
+    let comp = emp.compensation || {};
+    if (isRegularEmployee && typeof emp.salary === 'number') {
+      comp = {
+        basic_salary: emp.salary,
+        pt: 0,
+        pf: 0,
+        ctc: emp.salary * 12
+      };
+    }
     const n = (v) => { if (v == null) return 0; try { return Math.round(parseFloat(v)); } catch { return 0; } };
 
     let ctc = n(comp.ctc);
@@ -726,7 +743,8 @@ router.post('/download-docx', protect, onlyAdmin, async (req, res) => {
 router.post("/send-email", protect, onlyAdmin, async (req, res) => {
   try {
     const adminId = req.user._id;
-    const { employeeId, pdfBase64, companyName, emailBody, companyId } = req.body;
+    const { employeeId, pdfBase64, companyName, emailBody, companyId, letterType } = req.body;
+    const type = letterType || "Offer Letter";
 
     if (!employeeId) return res.status(400).json({ message: "Employee ID is required" });
 
@@ -753,8 +771,11 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
     const token = crypto.randomBytes(32).toString("hex");
     emp.offer_token = token;
     emp.expires_at = null; // No expiry
-    emp.status = "Offer Sent";
-    emp.sent_at = new Date();
+
+    if (type === "Offer Letter") {
+      emp.status = "Offer Sent";
+      emp.sent_at = new Date();
+    }
     if (uploadedPdfUrl) {
       emp.pdfUrl = uploadedPdfUrl;
     }
@@ -773,20 +794,11 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
     const rejectUrl = `${respondUrl}&action=reject`;
 
     const company = companyName || "Your Company";
-    const customBody = emailBody || `Dear ${emp.name},\n\nWe are pleased to offer you the position at ${company}.\n\nPlease find the detailed offer letter attached.\n\nBest Regards,\nHR Team`;
+    const customBody = emailBody || `Dear ${emp.name},\n\nWe are pleased to send you the ${type} from ${company}.\n\nPlease find the detailed document attached.\n\nBest Regards,\nHR Team`;
 
-    // Build premium email HTML
-    const emailHtml = `
-      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
-        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 30px 40px; text-align: center;">
-          <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">${company}</h2>
-          <p style="color: #94a3b8; margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;">Offer Letter</p>
-        </div>
-        <div style="padding: 40px;">
-          <div style="font-size: 15px; line-height: 1.7; color: #334155;">
-            ${customBody.replace(/\n/g, "<br>")}
-          </div>
-        </div>
+    let actionButtons = "";
+    if (type === "Offer Letter") {
+      actionButtons = `
         <div style="padding: 0 40px 40px; text-align: center;">
           <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 600; text-transform: uppercase;">
             Please respond to this offer:
@@ -800,6 +812,22 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
             </a>
           </div>
         </div>
+      `;
+    }
+
+    // Build premium email HTML
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0;">
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 30px 40px; text-align: center;">
+          <h2 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">${company}</h2>
+          <p style="color: #94a3b8; margin: 8px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;">${type}</p>
+        </div>
+        <div style="padding: 40px;">
+          <div style="font-size: 15px; line-height: 1.7; color: #334155;">
+            ${customBody.replace(/\n/g, "<br>")}
+          </div>
+        </div>
+        ${actionButtons}
         <div style="background: #f8fafc; padding: 24px 40px; border-top: 1px solid #e2e8f0; text-align: center;">
           <p style="color: #94a3b8; font-size: 12px; margin: 0;">
             This is an automated email from ${company}. Please do not reply directly.
@@ -812,7 +840,7 @@ router.post("/send-email", protect, onlyAdmin, async (req, res) => {
     const mailOptions = {
       from: `"${company} HR" <${process.env.SMTP_USER}>`,
       to: emp.email,
-      subject: `Offer Letter - ${emp.name}`,
+      subject: `${type} - ${emp.name}`,
       html: emailHtml,
     };
 

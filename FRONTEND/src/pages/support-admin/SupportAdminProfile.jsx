@@ -3,10 +3,12 @@ import api from "../../api";
 import {
   FaUser, FaEnvelope, FaPhone, FaBuilding,
   FaCalendarAlt, FaEdit, FaSave, FaTimes, FaClock,
-  FaGlobe, FaGithub, FaLinkedin, FaInstagram, FaImage, FaInfoCircle
+  FaGlobe, FaGithub, FaLinkedin, FaInstagram, FaImage, FaInfoCircle,
+  FaFileUpload, FaSpinner, FaCheck, FaTrash, FaPlus, FaLink
 } from "react-icons/fa";
-import { QrCode } from "lucide-react";
+import { QrCode, Link as LinkIcon } from "lucide-react";
 import EmployeeQRCodeModal from "../../components/employee/EmployeeQRCodeModal";
+import { motion } from "framer-motion";
 
 const SupportAdminProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -14,6 +16,7 @@ const SupportAdminProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [uploading, setUploading] = useState({ profile: false, portfolioBg: false });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -23,6 +26,7 @@ const SupportAdminProfile = () => {
     bio: "",
     profileImageUrl: "",
     portfolioBackgroundImageUrl: "",
+    customPortfolioFields: [],
     socialLinks: {
       linkedin: "",
       github: "",
@@ -43,6 +47,7 @@ const SupportAdminProfile = () => {
         bio: res.data.bio || "",
         profileImageUrl: res.data.profileImageUrl || "",
         portfolioBackgroundImageUrl: res.data.portfolioBackgroundImageUrl || "",
+        customPortfolioFields: res.data.customPortfolioFields || [],
         socialLinks: {
           linkedin: res.data.socialLinks?.linkedin || "",
           github: res.data.socialLinks?.github || "",
@@ -60,6 +65,61 @@ const SupportAdminProfile = () => {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  const handleFileUpload = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+
+    setUploading(prev => ({ ...prev, [type]: true }));
+
+    try {
+      const res = await api.post(`/api/employees/upload-doc`, uploadData, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      });
+
+      let url = res.data.url;
+      if (url && url.startsWith("http:")) url = url.replace("http:", "https:");
+
+      if (type === "profile") {
+        setFormData(prev => ({ ...prev, profileImageUrl: url }));
+      } else if (type === "portfolioBg") {
+        setFormData(prev => ({ ...prev, portfolioBackgroundImageUrl: url }));
+      }
+    } catch (err) {
+      console.error("Upload Error:", err);
+      alert("File upload failed: " + (err.response?.data?.message || err.message));
+    } finally {
+      setUploading(prev => ({ ...prev, [type]: false }));
+    }
+  };
+
+  const addCustomField = () => {
+    setFormData(prev => ({
+      ...prev,
+      customPortfolioFields: [...prev.customPortfolioFields, { label: "", value: "" }]
+    }));
+  };
+
+  const removeCustomField = (index) => {
+    setFormData(prev => {
+      const list = [...prev.customPortfolioFields];
+      list.splice(index, 1);
+      return { ...prev, customPortfolioFields: list };
+    });
+  };
+
+  const updateCustomField = (index, key, val) => {
+    setFormData(prev => {
+      const list = [...prev.customPortfolioFields];
+      list[index] = { ...list[index], [key]: val };
+      return { ...prev, customPortfolioFields: list };
+    });
+  };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -221,15 +281,19 @@ const SupportAdminProfile = () => {
               value={formData.bio} displayValue={profile?.bio || "Not Provided"}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
             />
-            <EditableItem 
-              isEditing={isEditing} icon={<FaImage />} label="Profile Image URL" 
-              value={formData.profileImageUrl} displayValue={profile?.profileImageUrl || "Not Provided"}
-              onChange={(e) => setFormData({ ...formData, profileImageUrl: e.target.value })}
+            <FileUpload 
+              label="Profile Image" 
+              uploading={uploading.profile} 
+              fileUrl={formData.profileImageUrl || profile?.profileImageUrl} 
+              isEditing={isEditing}
+              onChange={(e) => handleFileUpload(e, 'profile')}
             />
-            <EditableItem 
-              isEditing={isEditing} icon={<FaImage />} label="Background Image URL" 
-              value={formData.portfolioBackgroundImageUrl} displayValue={profile?.portfolioBackgroundImageUrl || "Not Provided"}
-              onChange={(e) => setFormData({ ...formData, portfolioBackgroundImageUrl: e.target.value })}
+            <FileUpload 
+              label="Background Image" 
+              uploading={uploading.portfolioBg} 
+              fileUrl={formData.portfolioBackgroundImageUrl || profile?.portfolioBackgroundImageUrl} 
+              isEditing={isEditing}
+              onChange={(e) => handleFileUpload(e, 'portfolioBg')}
             />
             <EditableItem 
               isEditing={isEditing} icon={<FaLinkedin />} label="LinkedIn URL" 
@@ -242,10 +306,79 @@ const SupportAdminProfile = () => {
               onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, github: e.target.value }})}
             />
             <EditableItem 
+              isEditing={isEditing} icon={<FaInstagram />} label="Instagram URL" 
+              value={formData.socialLinks.instagram} displayValue={profile?.socialLinks?.instagram || "Not Provided"}
+              onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, instagram: e.target.value }})}
+            />
+            <EditableItem 
               isEditing={isEditing} icon={<FaGlobe />} label="Website URL" 
               value={formData.socialLinks.website} displayValue={profile?.socialLinks?.website || "Not Provided"}
               onChange={(e) => setFormData({ ...formData, socialLinks: { ...formData.socialLinks, website: e.target.value }})}
             />
+          </div>
+
+          {/* CUSTOM FIELDS */}
+          <div className="mt-8 pt-8 border-t border-gray-100">
+            <div className="flex justify-between items-center mb-6">
+              <h4 className="text-gray-900 font-bold flex items-center gap-2">
+                Custom Fields
+              </h4>
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={addCustomField}
+                  className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <FaPlus /> Add Field
+                </button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4">
+              {formData.customPortfolioFields.map((field, i) => (
+                <div key={i} className="flex gap-4 items-start">
+                  <div className="flex-1">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Label</p>
+                    {isEditing ? (
+                      <input className="w-full font-bold text-gray-900 border-b border-purple-200 focus:border-purple-600 outline-none py-1" value={field.label} onChange={(e) => updateCustomField(i, "label", e.target.value)} placeholder="e.g. Languages" />
+                    ) : (
+                      <p className="text-gray-900 font-bold truncate">{field.label}</p>
+                    )}
+                  </div>
+                  <div className="flex-[2]">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Value</p>
+                    {isEditing ? (
+                      <input className="w-full font-bold text-gray-900 border-b border-purple-200 focus:border-purple-600 outline-none py-1" value={field.value} onChange={(e) => updateCustomField(i, "value", e.target.value)} />
+                    ) : (
+                      field.value?.startsWith('http') ? (
+                        <motion.a
+                          key={`custom-link-${i}`}
+                          whileHover={{ y: -3 }}
+                          whileTap={{ scale: 0.95 }}
+                          href={field.value}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={field.label}
+                          className="w-[38px] h-[38px] bg-[#0B1320] rounded flex items-center justify-center text-white hover:bg-[#1A2640] transition-colors shadow-md relative group"
+                        >
+                          <LinkIcon className="w-[18px] h-[18px]" />
+                        </motion.a>
+                      ) : (
+                        <p className="text-gray-900 font-bold truncate">{field.value}</p>
+                      )
+                    )}
+                  </div>
+                  {isEditing && (
+                    <button onClick={() => removeCustomField(i)} className="mt-5 text-red-500 hover:text-red-700 p-2 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                      <FaTrash size={12} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {!(formData.customPortfolioFields?.length) && !isEditing && (
+                <p className="text-gray-400 italic text-sm">No custom fields added.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -293,5 +426,58 @@ const EditableItem = ({ isEditing, icon, label, value, displayValue, onChange })
     </div>
   </div>
 );
+
+const FileUpload = ({ label, onChange, uploading, fileUrl, isEditing }) => {
+  if (!isEditing && !fileUrl) {
+    return (
+      <div className="flex items-center gap-4 group min-w-0">
+        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 shrink-0">
+          <FaImage />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+          <p className="text-gray-900 font-bold truncate">Not Provided</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!isEditing && fileUrl) {
+    return (
+      <div className="flex items-center gap-4 group min-w-0">
+        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 shrink-0">
+          <FaImage />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+          <a href={fileUrl} target="_blank" rel="noreferrer" className="text-purple-600 font-bold hover:underline text-sm truncate">
+            View Image
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="col-span-1 md:col-span-2 border-2 border-dashed border-purple-200 rounded-xl p-4 bg-purple-50/50 hover:bg-purple-50 transition w-full">
+      <p className="text-xs font-semibold text-purple-900 mb-2 flex justify-between items-center">
+        {label}
+        {fileUrl && <span className="text-green-600 text-[10px] font-bold flex items-center gap-1"><FaCheck /> Uploaded</span>}
+      </p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <label className={`cursor-pointer flex items-center gap-2 bg-white border border-purple-200 px-4 py-2 rounded-lg hover:shadow-sm transition ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+          {uploading ? <FaSpinner className="animate-spin text-purple-600" /> : <FaFileUpload className="text-purple-600" />}
+          <span className="text-xs font-bold text-purple-700">{uploading ? "Uploading..." : "Choose Image"}</span>
+          <input type="file" className="hidden" accept="image/*" onChange={onChange} disabled={uploading} />
+        </label>
+        {fileUrl && (
+          <a href={fileUrl} target="_blank" rel="noreferrer" className="text-purple-600 hover:underline text-xs font-bold">
+            Preview
+          </a>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default SupportAdminProfile;

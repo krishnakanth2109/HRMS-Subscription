@@ -482,7 +482,7 @@ const NoticeList = () => {
                                     </button>
                                 )}
                                 <span className="text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded">
-                                  {notice.createdBy?.name || "System"} ({notice.createdBy?.employeeId || "Admin"})
+                                  {notice.createdBy?.name || "System"}{notice.creatorModel === 'Admin' || (!notice.creatorModel && !notice.createdBy?.employeeId) ? ' (Admin)' : notice.creatorModel === 'Employee' && notice.createdBy?.employeeId ? ` (${notice.createdBy.employeeId})` : ''}
                                 </span>
                                 <span className="text-[10px] text-slate-400">{date}, {time}</span>
                             </div>

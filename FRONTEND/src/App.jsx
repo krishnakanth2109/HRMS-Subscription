@@ -102,6 +102,7 @@ import AdminIssues from "./pages/AdminIssues";
 import EmployeeIssues from "./pages/EmployeeIssues";
 import AdminLiveTracking from "./pages/AdminLiveTracking";
 import OfferLetterPage from "./pages/OfferLetterPage";
+import GeneralLettersPage from "./pages/GeneralLettersPage";
 import AdminDemoRequests from "./pages/master/Admindemorequests";
 import RequestDemo from "./pages/Requestdemo";
 import PayrollPage from "./pages/PayrollManagement";
@@ -327,6 +328,7 @@ function App() {
         <Route path="/admin/setup-face" element={<CurrentEmployeeFaceSetup />} />
         <Route path="/admin/induction" element={<Induction />} />
         <Route path="/admin/offer-letter" element={<OfferLetterPage />} />
+        <Route path="/admin/general-letters" element={<GeneralLettersPage />} />
         <Route path="/admin/payrollcandidates" element={<PayrollPage />} />
         <Route path="/admin/doc-verify-invite" element={<DocVerifyInvite />} />
         <Route path="/admin/edit-email-template" element={<EditEmailTemplate />} />

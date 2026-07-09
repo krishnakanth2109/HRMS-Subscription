@@ -174,8 +174,8 @@ const selectStyle = {
     background: 'var(--bg-secondary)', color: 'var(--text-primary)'
 };
 
-const LetterModal = ({ employee, onClose, onSuccess }) => {
-    const [letterType, setLetterType] = useState('Offer Letter');
+const GeneralLetterModal = ({ employee, onClose, onSuccess }) => {
+    const [letterType, setLetterType] = useState('Experience Letter');
     const [generatedContent, setGeneratedContent] = useState('');
     const [loading, setLoading] = useState(false);
     const [viewMode, setViewMode] = useState('pdf');
@@ -273,10 +273,23 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
         // Update the ref to the new company name for next change
         prevCompanyNameRef.current = companyName;
 
-        // Update Email Body
-        setEmailBody(
-            `Dear ${employee.name},\n\nWe are pleased to offer you the position at ${companyName}.\n\nPlease find the detailed offer letter attached.\n\nBest Regards,\nHR Team`
-        );
+        // Update Email Body dynamically based on letterType
+        let hardcodedBody = "";
+        const role = employee.designation || 'professional';
+        
+        if (letterType === "Internship Letter") {
+            hardcodedBody = `Dear ${employee.name},\n\nCongratulations!\n\nWe are delighted to inform you that you have successfully completed your Internship in ${role} with ${companyName}.\nIt was a pleasure working with you and we very much enjoyed guiding you. Your hard work and contribution to ${companyName} are greatly appreciated. Hope you had a great learning experience with us as well and we wish you the best in your future endeavors.\n\nCongratulations once again!\nYou can find your internship completion letter attached to this mail.\n\nStay Happy & Healthy!\nThank You.\n\nRegards,\nHR ${companyName}`;
+        } else if (letterType === "Experience Letter") {
+            hardcodedBody = `Dear ${employee.name},\n\nThis email is to confirm that you have been employed with ${companyName} as a ${role}.\n\nYour hard work and dedication during your tenure have been greatly appreciated. We wish you the best in your future professional endeavors.\n\nYou can find your experience letter attached to this mail.\n\nThank You.\n\nRegards,\nHR ${companyName}`;
+        } else if (letterType === "Relieving Letter") {
+            hardcodedBody = `Dear ${employee.name},\n\nThis is to acknowledge that your resignation has been accepted and you are formally relieved from your duties at ${companyName}.\n\nWe appreciate your contributions to the company and wish you success in your future endeavors.\n\nPlease find your relieving letter attached to this mail.\n\nThank You.\n\nRegards,\nHR ${companyName}`;
+        } else if (letterType === "Appraisal Letter") {
+            hardcodedBody = `Dear ${employee.name},\n\nCongratulations!\n\nWe are pleased to inform you of your recent performance appraisal with ${companyName}. Your dedication and hard work have been recognized and valued by the management.\n\nPlease find your detailed appraisal letter attached to this mail.\n\nThank You.\n\nRegards,\nHR ${companyName}`;
+        } else {
+            hardcodedBody = `Dear ${employee.name},\n\nWe are pleased to send you the ${letterType} from ${companyName}.\n\nPlease find the detailed document attached.\n\nBest Regards,\nHR Team`;
+        }
+
+        setEmailBody(hardcodedBody);
 
         // Update Generated HTML Content to reflect new Company Name
         if (generatedContent && prevName !== companyName) {
@@ -303,7 +316,7 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
                 setGeneratedContent(newContent);
             }
         }
-    }, [companyName, employee.name]);
+    }, [companyName, employee.name, letterType]);
 
     // Auto-Preview when generatedContent changes
     useEffect(() => {
@@ -414,7 +427,7 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
 
         try {
             const subject = `${letterType} - ${employee.name}`;
-            await api.sendOfferLetterEmail({
+            await api.sendGeneralLetterEmail({
                 employeeId: employee.id || employee._id,
                 emailBody: emailBody,
                 pdfBase64: pdfUrl,
@@ -504,8 +517,6 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
                             color: 'var(--text-primary)', border: '1px solid var(--border-color)', flex: '1 1 150px', fontSize: '0.9rem', outline: 'none'
                         }}
                     >
-                        
-                        <option>Offer Letter</option>
                         <option>Internship Letter</option>
                         <option>Appraisal Letter</option>
                         <option>Experience Letter</option>
@@ -657,4 +668,4 @@ const LetterModal = ({ employee, onClose, onSuccess }) => {
     );
 };
 
-export default LetterModal;
+export default GeneralLetterModal;
