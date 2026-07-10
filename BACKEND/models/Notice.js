@@ -9,7 +9,9 @@ const noticeSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
   date: { type: Date, default: Date.now },
-  
+  meetingDate: { type: String }, // Format YYYY-MM-DD
+  meetingTime: { type: String }, // Format HH:mm
+
   // Dynamic reference to support both Admin and Employee creators
   createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 

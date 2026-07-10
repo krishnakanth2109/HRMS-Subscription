@@ -86,7 +86,7 @@ router.get("/", protect, async (req, res) => {
 ============================================================================ */
 router.post("/", protect, async (req, res) => {
   try {
-    const { title, description, recipients, companyId } = req.body;
+    const { title, description, recipients, companyId, meetingDate, meetingTime } = req.body;
     
     // If recipients is empty or explicitly "ALL", store as "ALL"
     const recipientValue = (Array.isArray(recipients) && recipients.length > 0) ? recipients : "ALL";
@@ -109,6 +109,8 @@ router.post("/", protect, async (req, res) => {
       title,
       description,
       date: new Date(),
+      meetingDate,
+      meetingTime,
       createdBy: req.user.actualId || req.user._id,
       creatorModel: creatorModel,
       recipients: recipientValue
@@ -141,12 +143,12 @@ router.put("/:id", protect, async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const { title, description, recipients } = req.body;
+    const { title, description, recipients, meetingDate, meetingTime } = req.body;
     const recipientValue = (Array.isArray(recipients) && recipients.length > 0) ? recipients : "ALL";
 
     const updated = await Notice.findByIdAndUpdate(
       req.params.id, 
-      { title, description, recipients: recipientValue }, 
+      { title, description, recipients: recipientValue, meetingDate, meetingTime }, 
       { new: true }
     );
     

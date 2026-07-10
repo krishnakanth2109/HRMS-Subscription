@@ -342,6 +342,20 @@ export const createLeave = async (req, res) => {
       }
     }
 
+    // ✅ NEW: Prevent overlapping leave requests (Pending or Approved)
+    const existingLeaves = await LeaveRequest.find({
+      employeeId: requesterKey,
+      status: { $in: ["Pending", "Approved"] },
+      from: { $lte: to },
+      to: { $gte: from }
+    });
+
+    if (existingLeaves.length > 0) {
+      return res.status(400).json({
+        message: "You already have a Pending or Approved leave request overlapping with these dates. If you wish to reapply, please cancel the existing request first."
+      });
+    }
+
     const { leavecategory, paidDays } = await resolveLeaveCategoryForRequest(
       adminIdForLeave,
       requesterKey,

@@ -26,6 +26,8 @@ import SidebarEmployee from "./SidebarEmployee";
 import NavbarEmployee from "./NavbarEmployee";
 import { Outlet } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
+import { getNotices } from "../../api";
+import Swal from "sweetalert2";
 
 const LayoutEmployee = () => {
   const { user } = useContext(AuthContext);
@@ -76,6 +78,63 @@ const LayoutEmployee = () => {
       setBubbles([]);
     }
   }, [theme]);
+
+  // Meeting Reminder Logic
+  useEffect(() => {
+    let popupShownFor = JSON.parse(sessionStorage.getItem("meetingPopupsShown") || "[]");
+
+    const checkMeetings = async () => {
+      try {
+        const notices = await getNotices();
+        if (!Array.isArray(notices)) return;
+
+        const now = new Date();
+        let showedPopup = false;
+
+        notices.forEach(notice => {
+          if (notice.meetingDate && notice.meetingTime) {
+            const [year, month, day] = notice.meetingDate.split("-");
+            const [hours, minutes] = notice.meetingTime.split(":");
+            const meetingTime = new Date(year, month - 1, day, hours, minutes);
+
+            const diffMs = meetingTime - now;
+            const diffMinutes = diffMs / 60000;
+
+            console.log(`[Meeting Reminder] Checking meeting "${notice.title}" at ${meetingTime}. Diff: ${diffMinutes.toFixed(2)} mins`);
+
+            // If meeting is within next 30 mins or started within the last 15 mins
+            if (diffMinutes >= -15 && diffMinutes <= 30) {
+              if (!popupShownFor.includes(notice._id)) {
+                console.log(`[Meeting Reminder] Triggering popup for "${notice.title}"`);
+                Swal.fire({
+                  title: "Upcoming Meeting Reminder!",
+                  html: `You have a meeting scheduled at <b>${notice.meetingTime}</b>.<br/>Please be ready.`,
+                  icon: "info",
+                  confirmButtonText: "Okay",
+                  confirmButtonColor: "#4F46E5",
+                });
+                popupShownFor.push(notice._id);
+                showedPopup = true;
+              } else {
+                console.log(`[Meeting Reminder] Popup already shown in this session for "${notice.title}"`);
+              }
+            }
+          }
+        });
+
+        if (showedPopup) {
+          sessionStorage.setItem("meetingPopupsShown", JSON.stringify(popupShownFor));
+        }
+
+      } catch (error) {
+        console.error("Error fetching notices for meeting check:", error);
+      }
+    };
+
+    checkMeetings();
+    const interval = setInterval(checkMeetings, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // Define background classes based on theme
   const getMainClassNames = () => {

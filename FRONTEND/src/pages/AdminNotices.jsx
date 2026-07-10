@@ -63,6 +63,7 @@ const AdminNotices = () => {
   // ✅ NEW: Meeting Link State
   const [meetingLink, setMeetingLink] = useState(DEFAULT_MEETING_LINK);
   const [isLinkEditable, setIsLinkEditable] = useState(false);
+  const [includeMeeting, setIncludeMeeting] = useState(false);
 
   // Toggle for "Specific" recipients list
   const [expandedRecipientNoticeId, setExpandedRecipientNoticeId] = useState(null);
@@ -530,9 +531,20 @@ const AdminNotices = () => {
         sendTo: identifiedGroup ? 'GROUP' : (isSpecific ? 'SPECIFIC' : 'ALL'),
         selectedGroupId: identifiedGroup ? identifiedGroup.id : null
       });
+
+      if (notice.meetingDate && notice.meetingTime && !isMeetingMode) {
+        setIncludeMeeting(true);
+        setMeetingParams({ date: notice.meetingDate, time: notice.meetingTime });
+        const linkMatch = notice.description ? (notice.description.match(/(https?:\/\/[^\s]+)/) || [])[0] : null;
+        setMeetingLink(linkMatch || DEFAULT_MEETING_LINK);
+      } else {
+        setIncludeMeeting(false);
+      }
+
     } else {
       setEditingNoticeId(null);
       setNoticeData(initialFormState);
+      setIncludeMeeting(false);
     }
     setIsModalOpen(true);
   };
@@ -621,11 +633,23 @@ Meeting Link: ${link || '{link}'}`;
         setIsSubmitting(false);
         return;
       }
-      if (!meetingLink) {
-        Swal.fire("Error", "Meeting link is required", "error");
+      // if (!meetingLink) {
+      //   Swal.fire("Error", "Meeting link is required", "error");
+      //   setIsSubmitting(false);
+      //   return;
+      // }
+    }
+    if (!isMeetingMode && includeMeeting) {
+      if (!meetingParams.date || !meetingParams.time) {
+        Swal.fire("Error", "Please select both date and time for the meeting.", "error");
         setIsSubmitting(false);
         return;
       }
+      // if (!meetingLink) {
+      //   Swal.fire("Error", "Meeting link is required", "error");
+      //   setIsSubmitting(false);
+      //   return;
+      // }
     }
 
     try {
@@ -643,9 +667,12 @@ Meeting Link: ${link || '{link}'}`;
       if (isMeetingMode) {
         finalDescription = `Dear Candidate,
 
-You are requested to join the scheduled meeting ${meetingParams.date} at ${meetingParams.time} as per the shared details. Please ensure you join on time and stay available for discussion.
-
-Meeting Link: ${meetingLink}`;
+You are requested to join the scheduled meeting ${meetingParams.date} at ${meetingParams.time} as per the shared details. Please ensure you join on time and stay available for discussion.`;
+// Meeting Link: ${meetingLink}`;
+      } else if (includeMeeting) {
+        // if (!finalDescription.includes(meetingLink)) {
+        //   finalDescription += `\n\nMeeting Link: ${meetingLink}`;
+        // }
       }
 
       if (editingNoticeId) {
@@ -654,6 +681,10 @@ Meeting Link: ${meetingLink}`;
           description: finalDescription,
           recipients: finalRecipients
         };
+        if (isMeetingMode || includeMeeting) {
+          updatePayload.meetingDate = meetingParams.date;
+          updatePayload.meetingTime = meetingParams.time;
+        }
         await updateNotice(editingNoticeId, updatePayload);
         Swal.fire('Updated', 'Notice updated successfully.', 'success');
       } else {
@@ -662,6 +693,10 @@ Meeting Link: ${meetingLink}`;
           description: finalDescription,
           recipients: finalRecipients === 'ALL' ? [] : finalRecipients,
         };
+        if (isMeetingMode || includeMeeting) {
+          payload.meetingDate = meetingParams.date;
+          payload.meetingTime = meetingParams.time;
+        }
         await addNotice(payload);
         Swal.fire('Posted', isMeetingMode ? 'Meeting Scheduled successfully.' : 'Notice sent successfully.', 'success');
       }
@@ -1875,8 +1910,8 @@ Meeting Link: ${meetingLink}`;
                     </div>
                   </div>
 
-                  {/* ✅ MEETING LINK INPUT (With Change Option) */}
-                  <div className="space-y-1.5">
+                  {/* ✅ MEETING LINK INPUT (Commented Out) */}
+                  {/* <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-indigo-500"></div><label className="text-xs font-semibold text-gray-700 uppercase">Meeting Link</label></div>
                     </div>
@@ -1888,7 +1923,7 @@ Meeting Link: ${meetingLink}`;
                           value={meetingLink}
                           onChange={handleLinkChange}
                           readOnly={!isLinkEditable}
-                          className={`w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/40 ${!isLinkEditable ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`}
+                          className={\`w-full border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400/40 \${!isLinkEditable ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}\`}
                           required
                         />
                       </div>
@@ -1898,27 +1933,71 @@ Meeting Link: ${meetingLink}`;
                         </button>
                       )}
                     </div>
-                    {/* Create New Link */}
                     <div className="text-right">
                       <a href="https://meet.google.com/landing" target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-indigo-600 hover:underline inline-flex items-center gap-1">
                         <FaExternalLinkAlt /> Create New Link
                       </a>
                     </div>
-                  </div>
+                  </div> */}
                 </>
               ) : (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Title</label></div>
-                  <input
-                    type="text"
-                    name="title"
-                    placeholder="Enter announcement title..."
-                    value={noticeData.title}
-                    onChange={handleChange}
-                    onBlur={handleAiDescription}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required autoFocus
-                  />
-                </div>
+                <>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 shadow-sm"></div><label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Title</label></div>
+                    <input
+                      type="text"
+                      name="title"
+                      placeholder="Enter announcement title..."
+                      value={noticeData.title}
+                      onChange={handleChange}
+                      onBlur={handleAiDescription}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400/40 focus:border-orange-400 placeholder-gray-500 text-gray-900 transition-all duration-200 bg-white shadow-sm" required autoFocus
+                    />
+                  </div>
+                  
+                  {/* Optional Meeting Toggle */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <input type="checkbox" id="includeMeeting" checked={includeMeeting} onChange={(e) => setIncludeMeeting(e.target.checked)} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300 cursor-pointer" />
+                    <label htmlFor="includeMeeting" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">Include Meeting Details</label>
+                  </div>
+
+                  {/* Optional Meeting Inputs */}
+                  {includeMeeting && (
+                    <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100 space-y-3">
+                      <div className="flex gap-4">
+                        <div className="flex-1 space-y-1.5">
+                          <label className="text-[10px] font-bold text-indigo-700 uppercase">Date</label>
+                          <input type="date" name="date" value={meetingParams.date} onChange={handleMeetingParamChange} className="w-full border border-indigo-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white" required />
+                        </div>
+                        <div className="flex-1 space-y-1.5">
+                          <label className="text-[10px] font-bold text-indigo-700 uppercase">Time</label>
+                          <input type="time" name="time" value={meetingParams.time} onChange={handleMeetingParamChange} className="w-full border border-indigo-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white" required />
+                        </div>
+                      </div>
+                      {/* <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-indigo-700 uppercase">Meeting Link</label>
+                        <div className="flex gap-2">
+                          <div className="relative flex-1">
+                            <FaLink className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-indigo-300" size={12} />
+                            <input
+                              type="text"
+                              value={meetingLink}
+                              onChange={handleLinkChange}
+                              readOnly={!isLinkEditable}
+                              className={\`w-full border border-indigo-200 rounded pl-7 pr-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 \${!isLinkEditable ? 'bg-indigo-100/50 text-indigo-600 cursor-not-allowed' : 'bg-white'}\`}
+                              required
+                            />
+                          </div>
+                          {!isLinkEditable && (
+                            <button type="button" onClick={() => setIsLinkEditable(true)} className="px-2.5 py-1.5 bg-white text-indigo-600 rounded text-xs font-bold border border-indigo-200 hover:bg-indigo-100">
+                              Edit
+                            </button>
+                          )}
+                        </div>
+                      </div> */}
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="space-y-1.5 relative">
