@@ -367,7 +367,7 @@ const AdminProfile = () => {
   const fetchPlans = async () => {
     try {
       const response = await api.get("/api/admin/all-plans");
-      setPlans(response.data.filter(p => p.planName?.toLowerCase() !== "owner"));
+      setPlans(response.data.filter(p => p.planName?.toLowerCase() !== "owner" && p.isActive !== false));
     } catch (error) {
       console.error("Error fetching plans:", error);
     } finally {
