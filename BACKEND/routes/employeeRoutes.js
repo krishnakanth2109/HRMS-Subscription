@@ -5,6 +5,7 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import PDFDocument from "pdfkit";
 import axios from "axios";
+import jwt from "jsonwebtoken";
 import Employee from "../models/employeeModel.js";
 import Company from "../models/CompanyModel.js";
 import Notification from "../models/notificationModel.js";
@@ -867,6 +868,42 @@ router.post("/idle-activity", protect, async (req, res) => {
 });
 
 /* ==============================================================
+ 🔥 SINGLE QR CODE DOWNLOAD
+============================================================== */
+router.get("/:id/qr/download", async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(401).json({ message: "No token provided" });
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.employeeId !== req.params.id) {
+       return res.status(403).json({ message: "Token does not match employee" });
+    }
+
+    // Find employee
+    const employee = await Employee.findOne({ employeeId: req.params.id });
+    if (!employee || !employee.qrCodeUrl) {
+      return res.status(404).json({ message: "QR code not found" });
+    }
+
+    // Proxy/redirect to Cloudinary with forced download using fl_attachment
+    const urlParts = employee.qrCodeUrl.split('/upload/');
+    if (urlParts.length === 2) {
+      const downloadUrl = `${urlParts[0]}/upload/fl_attachment:${employee.employeeId}-qr/${urlParts[1]}`;
+      return res.redirect(downloadUrl);
+    }
+    
+    // Fallback
+    return res.redirect(employee.qrCodeUrl);
+
+  } catch (err) {
+    console.error("Single QR download error:", err);
+    res.status(500).json({ error: "Failed to download QR code" });
+  }
+});
+
+/* ==============================================================
  🔥 ADMIN BULK QR CODE PDF DOWNLOAD
 ============================================================== */
 router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
@@ -950,6 +987,14 @@ router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
         // Add QR code image
         try {
           doc.image(imageBuffer, imgX, imgY, { width: imgSize, height: imgSize });
+
+          // Add clickable overlay
+          const token = jwt.sign({ employeeId: employee.employeeId }, process.env.JWT_SECRET);
+          const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+          const baseUrl = `${protocol}://${req.get("host")}`;
+          const downloadUrl = `${baseUrl}/api/employees/${employee.employeeId}/qr/download?token=${token}`;
+          
+          doc.link(imgX, imgY, imgSize, imgSize, downloadUrl);
         } catch (e) {
           console.error("Error drawing image in PDF", e);
         }
