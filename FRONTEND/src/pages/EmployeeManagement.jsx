@@ -908,6 +908,7 @@ const EmployeeManagement = () => {
   // const [punchOutRequestsCount, setPunchOutRequestsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isGeneratingZIP, setIsGeneratingZIP] = useState(false);
   const [socket, setSocket] = useState(null);
 
   // Socket URL
@@ -940,9 +941,11 @@ const EmployeeManagement = () => {
   const [hrFlowImageOpen, setHrFlowImageOpen] = useState(false);
 
   const hrDropdownRef = useRef(null);
+  const qrDropdownRef = useRef(null);
   const [employeeImages, setEmployeeImages] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [qrDownloadOpen, setQrDownloadOpen] = useState(false);
 
   // Close entire HR dropdown (and nested) on outside click
   useEffect(() => {
@@ -950,6 +953,9 @@ const EmployeeManagement = () => {
       if (hrDropdownRef.current && !hrDropdownRef.current.contains(event.target)) {
         setHrActivitiesOpen(false);
         setDocVerifyOpen(false);
+      }
+      if (qrDropdownRef.current && !qrDropdownRef.current.contains(event.target)) {
+        setQrDownloadOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -1131,6 +1137,42 @@ const EmployeeManagement = () => {
     }
   };
 
+  const handleDownloadQRZip = async () => {
+    setIsGeneratingZIP(true);
+    try {
+      const response = await api.get('/api/employees/admin/qr-codes/zip', {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `employee-qr-codes-${new Date().toISOString().split('T')[0]}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      Swal.fire({
+        icon: 'success',
+        title: 'Success!',
+        text: 'QR Codes ZIP generated successfully.',
+        timer: 3000,
+        showConfirmButton: false
+      });
+    } catch (error) {
+      console.error("Error generating QR codes ZIP:", error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: 'Could not generate the QR Codes ZIP. Ensure there are active employees with QR codes.',
+      });
+    } finally {
+      setIsGeneratingZIP(false);
+    }
+  };
+
   const handleDownloadActive = () => {
     const data = activeEmployees.map((emp) => ({ ID: emp.employeeId, Name: emp.name, Role: getCurrentRole(emp), Department: getCurrentDepartment(emp), Email: emp.email, "Phone Number": getCurrentPhone(emp) }));
     downloadExcelReport(data, "Active_Employees.xlsx");
@@ -1205,22 +1247,61 @@ const EmployeeManagement = () => {
               <button onClick={handleDownloadInactive} className="bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2">
                 <FaDownload /> <span className="hidden xs:inline">Inactive</span> Inactive List
               </button>
-              <button 
-                onClick={handleDownloadQRCodes} 
-                disabled={isGeneratingPDF}
-                className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-70 shadow-sm text-xs sm:text-sm font-semibold flex items-center gap-2"
-              >
-                {isGeneratingPDF ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <FaDownload /> <span className="hidden xs:inline">QR</span> QR PDF
-                  </>
+              {/* QR Download Dropdown */}
+              <div className="relative w-full md:w-auto" ref={qrDropdownRef}>
+                <button
+                  onClick={() => setQrDownloadOpen(!qrDownloadOpen)}
+                  className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 shadow-sm text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200"
+                >
+                  <FaDownload /> <span className="hidden xs:inline">QR</span> Download
+                  <FaChevronDown className={`text-[10px] ml-1 transition-transform duration-200 ${qrDownloadOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {qrDownloadOpen && (
+                  <div className="absolute right-0 left-0 md:left-auto mt-2 w-full md:w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-[9999] overflow-hidden">
+                    <button 
+                      onClick={() => {
+                        setQrDownloadOpen(false);
+                        handleDownloadQRCodes();
+                      }} 
+                      disabled={isGeneratingPDF}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      {isGeneratingPDF ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <FaFileAlt className="text-blue-500 text-lg" /> 
+                          Bulk QR PDF
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setQrDownloadOpen(false);
+                        handleDownloadQRZip();
+                      }} 
+                      disabled={isGeneratingZIP}
+                      className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold flex items-center gap-3 transition-colors disabled:opacity-70 disabled:cursor-not-allowed border-t border-slate-100"
+                    >
+                      {isGeneratingZIP ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <FaFileAlt className="text-blue-500 text-lg" /> 
+                          Bulk QR ZIP
+                        </>
+                      )}
+                    </button>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
           </div>
 

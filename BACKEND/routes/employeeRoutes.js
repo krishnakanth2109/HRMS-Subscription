@@ -6,6 +6,9 @@ import { v2 as cloudinary } from "cloudinary";
 import PDFDocument from "pdfkit";
 import axios from "axios";
 import jwt from "jsonwebtoken";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const archiver = require("archiver");
 import Employee from "../models/employeeModel.js";
 import Company from "../models/CompanyModel.js";
 import Notification from "../models/notificationModel.js";
@@ -868,6 +871,93 @@ router.post("/idle-activity", protect, async (req, res) => {
 });
 
 /* ==============================================================
+ 🔥 SHARED HELPER: FETCH QR IMAGE BUFFER
+============================================================== */
+const fetchQrImageBuffer = async (url) => {
+  try {
+    const secureUrl = url.replace("http:", "https:");
+    const response = await axios.get(secureUrl, { responseType: 'arraybuffer', timeout: 8000 });
+    return Buffer.from(response.data, 'binary');
+  } catch (error) {
+    console.error(`Failed to fetch image: ${url}`);
+    return null;
+  }
+};
+
+/* ==============================================================
+ 🔥 ADMIN BULK QR CODE ZIP DOWNLOAD
+============================================================== */
+router.get("/admin/qr-codes/zip", protect, onlyAdmin, async (req, res) => {
+  try {
+    const adminId = req.user.role === "admin" ? req.user._id : req.user.adminId;
+    
+    const employees = await Employee.find({ 
+      adminId, 
+      isActive: true,
+      qrCodeUrl: { $exists: true, $ne: "" }
+    }).select("name employeeId qrCodeUrl").lean();
+
+    if (!employees || employees.length === 0) {
+      return res.status(404).json({ message: "No active employees with QR codes found." });
+    }
+
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="employee-qr-codes-${new Date().toISOString().split('T')[0]}.zip"`);
+
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Sets the compression level.
+    });
+
+    // Listen for all archive warnings/errors
+    archive.on('warning', function(err) {
+      if (err.code === 'ENOENT') {
+        console.warn('Archiver warning:', err);
+      } else {
+        throw err;
+      }
+    });
+    archive.on('error', function(err) {
+      throw err;
+    });
+
+    // Pipe archive data to the response
+    archive.pipe(res);
+
+    // Process in batches of 10
+    const batchSize = 10;
+    for (let i = 0; i < employees.length; i += batchSize) {
+      const batch = employees.slice(i, i + batchSize);
+      
+      const imageBuffers = await Promise.all(batch.map(emp => fetchQrImageBuffer(emp.qrCodeUrl)));
+
+      for (let j = 0; j < batch.length; j++) {
+        const employee = batch[j];
+        const imageBuffer = imageBuffers[j];
+        
+        if (!imageBuffer) continue; 
+        
+        // Sanitize filename: FullName_ID.png
+        // Replace spaces with underscores, and strip invalid characters
+        const safeName = (employee.name || "Employee")
+          .replace(/\s+/g, '_')
+          .replace(/[^a-zA-Z0-9_\-\.]/g, '');
+        
+        const filename = `${safeName}_${employee.employeeId}.png`;
+        archive.append(imageBuffer, { name: filename });
+      }
+    }
+
+    archive.finalize();
+
+  } catch (err) {
+    console.error("Error generating QR Codes ZIP:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to generate ZIP" });
+    }
+  }
+});
+
+/* ==============================================================
  🔥 SINGLE QR CODE DOWNLOAD
 ============================================================== */
 router.get("/:id/qr/download", async (req, res) => {
@@ -940,18 +1030,6 @@ router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
 
     let currentCardCount = 0;
 
-    // Helper function to fetch image buffer
-    const fetchImage = async (url) => {
-      try {
-        const secureUrl = url.replace("http:", "https:");
-        const response = await axios.get(secureUrl, { responseType: 'arraybuffer', timeout: 8000 });
-        return Buffer.from(response.data, 'binary');
-      } catch (error) {
-        console.error(`Failed to fetch image: ${url}`);
-        return null;
-      }
-    };
-
     // Process in batches of 10 to respect Netlify's 10s timeout while avoiding memory exhaustion
     const batchSize = 10;
     
@@ -959,7 +1037,7 @@ router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
       const batch = employees.slice(i, i + batchSize);
       
       // Fetch images for the current batch concurrently
-      const imageBuffers = await Promise.all(batch.map(emp => fetchImage(emp.qrCodeUrl)));
+      const imageBuffers = await Promise.all(batch.map(emp => fetchQrImageBuffer(emp.qrCodeUrl)));
 
       for (let j = 0; j < batch.length; j++) {
         const employee = batch[j];
