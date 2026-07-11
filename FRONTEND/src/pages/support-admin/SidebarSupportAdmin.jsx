@@ -173,7 +173,6 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           route: "/admin/field-tracking",
           label: "Live Tracking",
           icon: LocateFixed,
-          alwaysAllowed: true,
         },
         {
           to: "/admin/work-reports",
