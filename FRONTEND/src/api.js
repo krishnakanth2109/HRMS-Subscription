@@ -1446,8 +1446,13 @@ export const getAllExpenses = async () =>
   (await api.get("/api/expenses/all")).data;
 
 // Admin: approve or reject an expense
-export const updateExpenseStatus = async (id, status) =>
-  (await api.put(`/api/expenses/${id}/status`, { status })).data;
+export const updateExpenseStatus = async (id, status, allocatedAmount) => {
+  const payload = { status };
+  if (allocatedAmount !== undefined) {
+    payload.allocatedAmount = allocatedAmount;
+  }
+  return (await api.put(`/api/expenses/${id}/status`, payload)).data;
+};
 
 // Admin: delete an expense
 export const deleteExpense = async (id) =>

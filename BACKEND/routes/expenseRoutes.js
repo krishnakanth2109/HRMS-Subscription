@@ -147,14 +147,10 @@ router.get('/employee/:employeeId', async (req, res) => {
 // --- ADMIN ROUTE: Get ALL Expenses (Scoped) ---
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    // Only fetch for this Admin
-    const expenses = await Expense.find({ adminId: req.user._id }).sort({ status: 1, date: -1 });
+    // Only fetch for this Admin and sort by newest submitted
+    const expenses = await Expense.find({ adminId: req.user._id }).sort({ createdAt: -1 });
 
-    const sortedExpenses = expenses.sort((a, b) => {
-      if (a.status === 'Pending' && b.status !== 'Pending') return -1;
-      if (a.status !== 'Pending' && b.status === 'Pending') return 1;
-      return new Date(b.date) - new Date(a.date);
-    });
+    const sortedExpenses = expenses;
 
     res.status(200).json({ success: true, count: sortedExpenses.length, data: sortedExpenses });
   } catch (error) {
@@ -166,15 +162,20 @@ router.get('/all', onlyAdmin, async (req, res) => {
 router.put('/:id/status', onlyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, allocatedAmount } = req.body;
 
     if (!['Approved', 'Rejected'].includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
+    
+    const updateData = { status: status, actionDate: new Date() };
+    if (allocatedAmount !== undefined) {
+      updateData.allocatedAmount = Number(allocatedAmount);
+    }
 
     const updatedExpense = await Expense.findOneAndUpdate(
       { _id: id, adminId: req.user._id },
-      { status: status, actionDate: new Date() },
+      updateData,
       { new: true }
     );
 

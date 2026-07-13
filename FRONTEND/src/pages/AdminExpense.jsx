@@ -56,43 +56,95 @@ const AdminExpenseDashboard = () => {
   }, [filter, expenses]);
 
   // --- Handle Status Update (Approve/Reject) ---
-  const handleStatusUpdate = async (id, newStatus) => {
+  const handleStatusUpdate = async (id, newStatus, currentAmount) => {
     const actionText = newStatus === 'Approved' ? 'Approve' : 'Reject';
+    let allocatedAmountInput = undefined;
 
-    const result = await Swal.fire({
-      title: `${actionText} Expense?`,
-      text: `Are you sure you want to ${actionText.toLowerCase()} this request?`,
-      icon: newStatus === 'Approved' ? 'question' : 'warning',
-      showCancelButton: true,
-      confirmButtonColor: newStatus === 'Approved' ? '#10B981' : '#EF4444',
-      confirmButtonText: `Yes, ${actionText} it!`
-    });
-
-    if (result.isConfirmed) {
-      try {
-        const res = await updateExpenseStatus(id, newStatus);
-        
-        if (res.success) {
-          Swal.fire({
-            icon: 'success',
-            title: 'Updated!',
-            text: `Expense marked as ${newStatus}.`,
-            timer: 1500,
-            showConfirmButton: false
-          });
-
-          setExpenses(prevExpenses => 
-            prevExpenses.map(exp => 
-              exp._id === id ? { ...exp, status: newStatus, actionDate: new Date() } : exp
-            )
-          );
-          
-          // Refresh data to get updated actionDate from server
-          fetchAllExpenses();
+    if (newStatus === 'Approved') {
+      const { value: amount, isConfirmed } = await Swal.fire({
+        html: `
+          <div class="text-left pt-2">
+            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 mb-5 shadow-sm">
+              <svg class="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="text-2xl font-extrabold text-gray-900 text-center mb-2 tracking-tight">Approve & Allocate</h3>
+            <p class="text-sm text-gray-500 text-center mb-6 px-2 leading-relaxed">Please confirm the exact funds you are allocating for this employee's expense request.</p>
+            
+            <div class="space-y-2 mt-4">
+              <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider ml-1">Allocated Amount</label>
+              <div class="relative rounded-xl shadow-sm">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <span class="text-gray-400 font-semibold text-lg">₹</span>
+                </div>
+                <input type="number" id="allocated-amount-input" 
+                  class="focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 block w-full pl-10 pr-4 py-3.5 text-lg border border-gray-200 rounded-xl transition-all font-bold text-gray-900 bg-gray-50 hover:bg-white focus:bg-white focus:outline-none" 
+                  placeholder="0.00" value="${currentAmount || 0}">
+              </div>
+            </div>
+          </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Confirm Approval',
+        cancelButtonText: 'Cancel',
+        customClass: {
+          popup: 'rounded-[24px] p-6 md:p-8 shadow-2xl border border-gray-100',
+          confirmButton: 'w-full sm:w-auto inline-flex justify-center items-center rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-all',
+          cancelButton: 'w-full sm:w-auto inline-flex justify-center items-center rounded-xl bg-white px-6 py-3 text-sm font-bold text-gray-700 shadow-sm border border-gray-200 hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-200 focus:ring-offset-2 transition-all',
+          actions: 'mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 w-full px-0',
+        },
+        buttonsStyling: false,
+        preConfirm: () => {
+          const input = document.getElementById('allocated-amount-input');
+          if (!input) return false;
+          const value = input.value;
+          if (value === '' || value < 0) {
+            Swal.showValidationMessage('Please enter a valid amount (0 or more)');
+            return false;
+          }
+          return value;
         }
-      } catch (err) {
-        Swal.fire('Error', 'Failed to update status.', 'error');
+      });
+      if (!isConfirmed) return;
+      allocatedAmountInput = amount;
+    } else {
+      const result = await Swal.fire({
+        title: `${actionText} Expense?`,
+        text: `Are you sure you want to ${actionText.toLowerCase()} this request?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#EF4444',
+        confirmButtonText: `Yes, ${actionText} it!`
+      });
+      if (!result.isConfirmed) return;
+    }
+
+    try {
+      const res = await updateExpenseStatus(id, newStatus, allocatedAmountInput);
+      
+      if (res.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Updated!',
+          text: `Expense marked as ${newStatus}.`,
+          timer: 1500,
+          showConfirmButton: false
+        });
+
+        setExpenses(prevExpenses => 
+          prevExpenses.map(exp => 
+            exp._id === id 
+              ? { ...exp, status: newStatus, actionDate: new Date(), allocatedAmount: allocatedAmountInput !== undefined ? Number(allocatedAmountInput) : exp.allocatedAmount } 
+              : exp
+          )
+        );
+        
+        // Refresh data to get updated actionDate from server
+        fetchAllExpenses();
       }
+    } catch (err) {
+      Swal.fire('Error', 'Failed to update status.', 'error');
     }
   };
 
@@ -213,7 +265,7 @@ const AdminExpenseDashboard = () => {
                     <th className="p-4 w-1/5">Employee</th>
                     <th className="p-4 w-1/6">Category / Date</th>
                     <th className="p-4 w-1/4">Description</th>
-                    <th className="p-4">Amount</th>
+                    <th className="p-4">Finances</th>
                     <th className="p-4">Receipt</th>
                     <th className="p-4">Status</th>
                     <th className="p-4">Action Date</th>
@@ -245,9 +297,23 @@ const AdminExpenseDashboard = () => {
                         </div>
                       </td>
 
-                      {/* Amount */}
+                      {/* Finances */}
                       <td className="p-4">
-                         <div className="font-bold text-gray-800 text-lg">₹{expense.amount.toLocaleString()}</div>
+                         <div className="text-xs text-gray-500 whitespace-nowrap">Spent: <span className="font-bold text-gray-800 text-sm">₹{expense.amount.toLocaleString()}</span></div>
+                         {(expense.status === 'Approved' || (expense.allocatedAmount !== undefined && expense.allocatedAmount > 0)) && (
+                           <>
+                             <div className="text-xs text-gray-500 whitespace-nowrap">Alloc: <span className="font-bold text-gray-800 text-sm">₹{(expense.allocatedAmount || 0).toLocaleString()}</span></div>
+                             {(() => {
+                               const diff = (expense.allocatedAmount || 0) - expense.amount;
+                               const colorClass = diff >= 0 ? "text-green-700 bg-green-100 border border-green-200" : "text-red-700 bg-red-100 border border-red-200";
+                               return (
+                                 <div className={`mt-1.5 inline-block px-2 py-0.5 rounded text-xs font-bold shadow-sm whitespace-nowrap ${colorClass}`}>
+                                   Bal: {diff < 0 ? '-' : diff > 0 ? '+' : ''}₹{Math.abs(diff).toLocaleString()}
+                                 </div>
+                               );
+                             })()}
+                           </>
+                         )}
                       </td>
 
                       {/* Receipt */}
@@ -297,7 +363,7 @@ const AdminExpenseDashboard = () => {
                         {expense.status === 'Pending' ? (
                           <div className="flex justify-center gap-2 opacity-100 transition-opacity">
                             <button 
-                              onClick={() => handleStatusUpdate(expense._id, 'Approved')}
+                              onClick={() => handleStatusUpdate(expense._id, 'Approved', expense.amount)}
                               className="p-2 bg-green-50 text-green-600 rounded-lg border border-green-200 hover:bg-green-600 hover:text-white hover:border-green-600 transition-all shadow-sm tooltip"
                               title="Approve Request"
                             >
