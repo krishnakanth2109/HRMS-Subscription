@@ -5,6 +5,17 @@ import React, { useState } from 'react';
 // ============================================
 const updates = [
   {
+    date: "July 13, 2026",
+    version: "v5.3.0",
+    items: [
+      {
+        type: "new",
+        title: "Performance Management",
+        desc: "Introduced task assignment capabilities, allowing admins to seamlessly delegate, manage, and track employee tasks directly from the dashboard."
+      }
+    ]
+  },
+  {
     date: "May 19, 2026",
     version: "v5.2.0",
     items: [
@@ -125,7 +136,7 @@ const WhatsNew = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <span className="text-sm text-gray-600">Current version</span>
-            <span className="font-mono font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-md text-sm">v5.2.0</span>
+            <span className="font-mono font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-md text-sm">{latestUpdate.version}</span>
           </div>
         </div>
 

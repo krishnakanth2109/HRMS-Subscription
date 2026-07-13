@@ -168,7 +168,27 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
           }
         }}
       >
-        <div className={`flex items-center shrink-0 ${collapsed && !isMobile ? "h-20 flex-col justify-center gap-2 px-2 py-3" : "h-16 justify-between px-4"}`}>
+        {/* Toggle Button - Absolute positioned to the edge */}
+        {!isMobile && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (collapsed) {
+                setCollapsed(false);
+                setIsPinned(true);
+              } else {
+                setCollapsed(true);
+                setIsPinned(false);
+              }
+            }}
+            className="absolute -right-3 top-6 bg-blue-600 text-white rounded-full p-1 shadow-lg hover:bg-blue-700 transition-all z-50 ring-2 ring-slate-900"
+            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+        )}
+
+        <div className={`h-16 flex items-center shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between px-4"}`}>
           {!collapsed || isMobile ? (
             <>
               <div className="flex items-center justify-center flex-1 overflow-hidden">
@@ -180,41 +200,17 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
                   />
                 </Link>
               </div>
-              {!isMobile && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCollapsed(true);
-                    setIsPinned(false);
-                  }}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
-                  title="Collapse Sidebar"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-              )}
             </>
           ) : (
             <>
-              <Link to="/employee/dashboard" className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-slate-800 ring-1 ring-slate-700 hover:opacity-90 transition-opacity">
+              <Link to="/employee/dashboard" className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center bg-slate-800 ring-1 ring-slate-700/50 hover:bg-slate-700 transition-colors shadow-md">
                 <img 
                   src={user?.favicon || "/favicon.png"} 
                   onError={(e) => { e.target.onerror = null; e.target.src = "/favicon.png"; }}
                   alt="Favicon" 
-                  className="w-full h-full object-contain p-0.5" 
+                  className="w-full h-full object-contain" 
                 />
               </Link>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCollapsed(false);
-                  setIsPinned(true);
-                }}
-                className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 rounded-lg transition-all shrink-0"
-                title="Expand Sidebar"
-              >
-                <ChevronRight size={16} />
-              </button>
             </>
           )}
           {isMobile && (

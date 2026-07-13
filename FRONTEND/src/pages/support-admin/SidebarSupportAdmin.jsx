@@ -605,7 +605,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
   };
 
   const sidebarClasses = `
-    h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50
+    relative h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50
     ${isMobile
       ? `fixed top-0 left-0 w-[300px] ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
       : `sticky top-0 ${collapsed ? "w-[64px]" : "w-[300px]"}`}
@@ -637,7 +637,27 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           }
         }}
       >
-        <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "flex-col justify-center gap-1 py-2" : "justify-between"}`}>
+        {/* Toggle Button - Absolute positioned to the edge */}
+        {!isMobile && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (collapsed) {
+                setCollapsed(false);
+                setIsPinned(true);
+              } else {
+                setCollapsed(true);
+                setIsPinned(false);
+              }
+            }}
+            className="absolute -right-3 top-6 bg-blue-600 text-white rounded-full p-1 shadow-lg hover:bg-blue-700 transition-all z-50 ring-2 ring-slate-900"
+            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+        )}
+
+        <div className={`h-16 flex items-center px-4 shrink-0 ${collapsed && !isMobile ? "justify-center" : "justify-between"}`}>
           {!collapsed || isMobile ? (
             <>
               <div className="flex items-center justify-center flex-1 overflow-hidden">
@@ -649,41 +669,17 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                   />
                 </Link>
               </div>
-              {!isMobile && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCollapsed(true);
-                    setIsPinned(false);
-                  }}
-                  className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
-                  title="Collapse Sidebar"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-              )}
             </>
           ) : (
             <>
-              <Link to="/support-admin/dashboard" className="w-8 h-8 rounded-lg bg-slate-800 ring-1 ring-slate-700 flex items-center justify-center text-white font-bold text-lg shrink-0 hover:bg-slate-700 transition-colors overflow-hidden">
+              <Link to="/support-admin/dashboard" className="w-11 h-11 rounded-xl bg-slate-800 ring-1 ring-slate-700/50 flex items-center justify-center text-white font-bold text-lg shrink-0 hover:bg-slate-700 transition-colors overflow-hidden shadow-md">
                 <img 
                   src={currentUser?.favicon || "/favicon.png"} 
                   onError={(e) => { e.target.onerror = null; e.target.src = "/favicon.png"; }}
                   alt="Favicon" 
-                  className="w-full h-full object-contain p-0.5" 
+                  className="w-full h-full object-contain" 
                 />
               </Link>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCollapsed(false);
-                  setIsPinned(true);
-                }}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-md transition-all shrink-0"
-                title="Expand Sidebar"
-              >
-                <ChevronRight size={18} />
-              </button>
             </>
           )}
           {isMobile && (
@@ -801,7 +797,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
             {(!collapsed || isMobile) ? (
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-slate-300 truncate">Support Admin Panel</span>
-                <span className="text-[10px] text-indigo-400 hover:underline">v5.2.0</span>
+                <span className="text-[10px] text-indigo-400 hover:underline">v5.3.0</span>
               </div>
             ) : (
               <span className="text-[10px] text-indigo-400 font-bold hover:underline">V5</span>
