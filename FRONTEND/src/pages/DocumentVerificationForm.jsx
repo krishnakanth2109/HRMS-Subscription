@@ -3,9 +3,10 @@ import {
   Upload, CheckCircle2, AlertCircle, Loader2, FileText,
   User, Mail, Briefcase, Building2, Shield, Clock, X, Eye
 } from 'lucide-react';
+import { baseURL } from '../api';
 import api from '../api';
 
-const API_URL = import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:5000';
+const API_URL = baseURL;
 
 // ─── Document categories configuration ─────────────────────────────────────
 const DOC_CATEGORIES = [

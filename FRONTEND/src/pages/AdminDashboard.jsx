@@ -225,6 +225,35 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  const handleSendBirthdayWishes = async (employeeEmail, employeeName) => {
+    if (!employeeEmail) {
+      Swal.fire("Error", "Employee email is not available.", "error");
+      return;
+    }
+    try {
+      Swal.fire({
+        title: 'Sending Wishes...',
+        text: 'Please wait while the email is being sent',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      const res = await api.post("/api/mail/send-birthday-wishes", {
+        employeeEmail,
+        employeeName
+      });
+      if (res.data.success) {
+        Swal.fire("Success", "Birthday wishes sent successfully!", "success");
+      } else {
+        Swal.fire("Error", "Failed to send birthday wishes.", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", "An error occurred while sending wishes.", "error");
+    }
+  };
+
   // ── Derived Data: Active Employees ───────────────────────────────────────
   const activeEmployees = useMemo(
     () => allEmployees.filter((e) => e.isActive !== false && (e.status || "").toLowerCase() !== "deactive"), [allEmployees]
@@ -469,6 +498,7 @@ const AdminDashboard = () => {
           month: dob.getMonth(),
           day: dob.getDate(),
           dob: e.personalDetails.dob,
+          email: e.email,
         };
       });
 
@@ -1284,7 +1314,9 @@ const AdminDashboard = () => {
                         </p>
                       </div>
                     </div>
-                    <button className="bg-[#FF8F8F] text-white text-[10px] font-bold py-1 px-3 rounded-lg shadow-sm">
+                    <button 
+                      onClick={() => handleSendBirthdayWishes(b.email, b.name)}
+                      className="bg-[#FF8F8F] text-white text-[10px] font-bold py-1 px-3 rounded-lg shadow-sm hover:bg-red-400 transition-colors">
                       Send Wishes
                     </button>
                   </div>

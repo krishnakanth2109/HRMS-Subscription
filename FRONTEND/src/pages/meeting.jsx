@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { baseURL } from '../api';
 
 const MeetingGenerator = () => {
   const [loading, setLoading] = useState(false);
@@ -7,7 +8,7 @@ const MeetingGenerator = () => {
   const [error, setError] = useState('');
 
   // 1. Define your Base URL (matches your server port)
-  const API_BASE_URL = 'http://localhost:5000/api/meetings'; 
+  const API_BASE_URL = `${baseURL}/api/meetings`;
 
   const createMeeting = async () => {
     setLoading(true);

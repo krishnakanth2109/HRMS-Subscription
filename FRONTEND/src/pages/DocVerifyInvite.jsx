@@ -6,11 +6,11 @@ import {
   User, Briefcase, ChevronDown, Edit, Grid, List
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { getAllCompanies } from '../api';
+import { getAllCompanies, baseURL } from '../api';
 import api from '../api';
 import Swal from 'sweetalert2';
 
-const BASE_URL = import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:5000';
+const BASE_URL = baseURL;
 const FORM_BASE = window.location.origin;
 
 const DEFAULT_SUBJECT = 'Document Verification Required – [Company Name]';
@@ -42,7 +42,7 @@ const DocVerifyInvite = () => {
   const [sending, setSending] = useState(false);
 
   const [templates, setTemplates] = useState(() => {
-    const list = localStorage.getItem('doc_verify_templates_list');
+    const list = sessionStorage.getItem('doc_verify_templates_list');
     if (list) {
       try {
         return JSON.parse(list);
@@ -56,25 +56,25 @@ const DocVerifyInvite = () => {
   });
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(() => {
-    return localStorage.getItem('doc_verify_selected_template_id') || 'default';
+    return sessionStorage.getItem('doc_verify_selected_template_id') || 'default';
   });
 
   const [emailSubject, setEmailSubject] = useState(() => {
-    return localStorage.getItem('doc_verify_email_subject') || DEFAULT_SUBJECT;
+    return sessionStorage.getItem('doc_verify_email_subject') || DEFAULT_SUBJECT;
   });
   const [emailMessage, setEmailMessage] = useState(() => {
-    return localStorage.getItem('doc_verify_email_message') || DEFAULT_MESSAGE;
+    return sessionStorage.getItem('doc_verify_email_message') || DEFAULT_MESSAGE;
   });
 
   const handleSelectTemplate = (id) => {
     const tpl = templates.find(t => t.id === id);
     if (tpl) {
       setSelectedTemplateId(tpl.id);
-      localStorage.setItem('doc_verify_selected_template_id', tpl.id);
+      sessionStorage.setItem('doc_verify_selected_template_id', tpl.id);
       setEmailSubject(tpl.subject);
       setEmailMessage(tpl.message);
-      localStorage.setItem('doc_verify_email_subject', tpl.subject);
-      localStorage.setItem('doc_verify_email_message', tpl.message);
+      sessionStorage.setItem('doc_verify_email_subject', tpl.subject);
+      sessionStorage.setItem('doc_verify_email_message', tpl.message);
     }
   };
 
@@ -113,7 +113,7 @@ const DocVerifyInvite = () => {
     fetchExistingEmployees();
     
     // Load custom templates list
-    const list = localStorage.getItem('doc_verify_templates_list');
+    const list = sessionStorage.getItem('doc_verify_templates_list');
     let loadedTemplates = [
       { id: 'default', name: 'Default Template', subject: DEFAULT_SUBJECT, message: DEFAULT_MESSAGE }
     ];
@@ -126,7 +126,7 @@ const DocVerifyInvite = () => {
       }
     }
 
-    const activeId = localStorage.getItem('doc_verify_selected_template_id') || 'default';
+    const activeId = sessionStorage.getItem('doc_verify_selected_template_id') || 'default';
     setSelectedTemplateId(activeId);
 
     const activeTpl = loadedTemplates.find(t => t.id === activeId) || loadedTemplates[0];

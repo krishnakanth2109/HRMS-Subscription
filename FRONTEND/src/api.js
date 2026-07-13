@@ -3,7 +3,7 @@
 import axios from "axios";
 
 // Automatically determine API base URL depending on environment
-const baseURL =
+export const baseURL =
   import.meta.env.MODE === "production"
     ? import.meta.env.VITE_API_URL_PRODUCTION
     : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";

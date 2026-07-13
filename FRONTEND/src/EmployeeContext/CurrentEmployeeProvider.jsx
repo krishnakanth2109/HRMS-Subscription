@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { CurrentEmployeeContext } from "./CurrentEmployeeContext";
+import { baseURL } from "../api";
 
 export const CurrentEmployeeProvider = ({ children }) => {
   const employeeId = sessionStorage.getItem("employeeId");
@@ -21,7 +22,7 @@ export const CurrentEmployeeProvider = ({ children }) => {
 
     const fetchEmployee = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/employees/${employeeId}`);
+        const res = await fetch(`${baseURL}/api/employees/${employeeId}`);
         if (!res.ok) throw new Error("Failed to fetch employee");
 
         const data = await res.json();

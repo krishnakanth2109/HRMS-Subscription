@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { baseURL } from "../api";
 
 const NewEmployeeAttendance = ({ employeeId, employeeName, department, role }) => {
   const [attendance, setAttendance] = useState([]);
@@ -7,7 +8,7 @@ const NewEmployeeAttendance = ({ employeeId, employeeName, department, role }) =
 
   const loadAttendance = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/attendance/${employeeId}`);
+      const res = await axios.get(`${baseURL}/api/attendance/${employeeId}`);
 
       const data = Array.isArray(res.data) ? res.data : [];
 
@@ -26,12 +27,12 @@ const NewEmployeeAttendance = ({ employeeId, employeeName, department, role }) =
   const handlePunch = async () => {
     try {
       if (!todayLog || !todayLog.punchIn) {
-        await axios.post("http://localhost:5000/api/attendance/punch-in", {
+        await axios.post(`${baseURL}/api/attendance/punch-in`, {
           employeeId,
           employeeName
         });
       } else {
-        await axios.post("http://localhost:5000/api/attendance/punch-out", {
+        await axios.post(`${baseURL}/api/attendance/punch-out`, {
           employeeId
         });
       }

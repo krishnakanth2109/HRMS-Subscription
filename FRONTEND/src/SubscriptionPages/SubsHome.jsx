@@ -391,7 +391,7 @@ const DynamicHRMSLandingPage = () => {
         };
     }, []);
     const [isDarkMode, setIsDarkMode] = useState(() => {
-        const savedTheme = localStorage.getItem('theme');
+        const savedTheme = sessionStorage.getItem('theme');
         return savedTheme ? savedTheme === 'dark' : false;
     });
     const [activeFaq, setActiveFaq] = useState(null);

@@ -135,6 +135,10 @@ const EmployeeDashboard = () => {
 
   // ✅ NEW: Today's Birthdays and On Leave Today States
   const [todaysBirthdays, setTodaysBirthdays] = useState([]);
+  const [showBirthdayBanner, setShowBirthdayBanner] = useState(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return sessionStorage.getItem(`birthdayBannerClosed_${today}`) !== "true";
+  });
   const [onLeaveToday, setOnLeaveToday] = useState([]);
 
   // ✅ NEW: Remote Workers & Leave Balance States
@@ -1338,6 +1342,52 @@ const EmployeeDashboard = () => {
   return (
     <div className="p-4 md:p-8 min-h-screen relative font-sans text-gray-800 max-w-7xl mx-auto">
 
+      {/* 🎂 BIRTHDAY BANNER */}
+      {todaysBirthdays.length > 0 && showBirthdayBanner && (
+        <div className="bg-gradient-to-r from-orange-400 via-pink-500 to-purple-500 text-white p-4 mb-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4 animate-fade-in-down relative overflow-hidden pr-12 md:pr-4">
+          {/* Subtle background decoration */}
+          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-10 rounded-full blur-xl"></div>
+          <div className="absolute bottom-0 left-1/4 w-32 h-32 bg-yellow-300 opacity-10 rounded-full blur-2xl"></div>
+          
+          <div className="flex items-center gap-4 relative z-10 flex-1">
+            <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm border border-white/30 shadow-inner">
+              <FaBirthdayCake className="text-3xl text-yellow-100 drop-shadow-md animate-bounce" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-xl tracking-tight text-white drop-shadow-sm flex items-center gap-2">
+                Happy Birthday! <span className="text-lg">🎉</span>
+              </h3>
+              <p className="text-sm font-medium text-pink-50 mt-0.5 leading-relaxed">
+                {(() => {
+                  const myBirthday = todaysBirthdays.find(b => b.employeeId === user?.employeeId || b.email === user?.email);
+                  const othersBirthdays = todaysBirthdays.filter(b => b.employeeId !== user?.employeeId && b.email !== user?.email);
+                  
+                  if (myBirthday && othersBirthdays.length === 0) {
+                    return <span>Wishing you a very Happy Birthday from the entire team! Have a fantastic day! 🥳</span>;
+                  } else if (myBirthday && othersBirthdays.length > 0) {
+                    return <span>Wishing you a very Happy Birthday from the team! 🥳 Also, wish a Happy Birthday to <span className="font-bold text-white border-b border-dashed border-white/50 pb-0.5">{othersBirthdays.map(b => b.name).join(', ')}</span>!</span>;
+                  } else {
+                    return <span>Today is <span className="font-bold text-white border-b border-dashed border-white/50 pb-0.5">{othersBirthdays.map(b => b.name).join(', ')}</span>'s birthday! Wish them a great day! 🥳</span>;
+                  }
+                })()}
+              </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={() => {
+              const today = new Date().toISOString().split("T")[0];
+              sessionStorage.setItem(`birthdayBannerClosed_${today}`, "true");
+              setShowBirthdayBanner(false);
+            }}
+            className="absolute top-3 right-3 md:relative md:top-auto md:right-auto z-10 text-white/70 hover:text-white bg-black/10 hover:bg-black/20 p-2 rounded-full transition-colors"
+            title="Dismiss"
+          >
+            <FaTimes />
+          </button>
+        </div>
+      )}
+
       {/* ✅ MISSED PUNCH BANNER — shows Pending/Rejected status + conditionally hides button */}
       {missedPunchLog && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 animate-pulse-slow">
@@ -1941,17 +1991,17 @@ const EmployeeDashboard = () => {
             ) : (
               <div className="w-full flex flex-col items-center pt-2">
                 <div className="flex -space-x-3 items-end justify-center py-4 min-h-[70px]">
-                  {(showAllRemoteEmp ? remoteWorkers : remoteWorkers.slice(0, 5)).map((worker, i) => (
+                  {remoteWorkers.slice(0, 5).map((worker, i) => (
                     <div key={i} className="group/avatar relative transition-all duration-300 hover:-translate-y-2 hover:z-20 z-0">
                       <div className={`relative w-11 h-11 rounded-full ring-2 ring-white bg-gradient-to-tr ${gradients[i % gradients.length]} flex items-center justify-center shadow-md cursor-pointer border border-white`}>
                         <span className="text-white font-bold text-sm">{worker.name.charAt(0)}</span>
                       </div>
                     </div>
                   ))}
-                  {!showAllRemoteEmp && remoteWorkers.length > 5 && (
-                    <button onClick={() => setShowAllRemoteEmp(true)} className="relative z-0 hover:z-10 transition-transform hover:scale-105 cursor-pointer">
+                  {remoteWorkers.length > 5 && (
+                    <button onClick={() => setShowAllRemoteEmp(!showAllRemoteEmp)} className="relative z-0 hover:z-10 transition-transform hover:scale-105 cursor-pointer">
                       <div className="w-11 h-11 rounded-full ring-2 ring-white bg-gray-50 border border-gray-200 flex items-center justify-center font-bold text-gray-600 text-xs shadow-sm">
-                        +{remoteWorkers.length - 5}
+                        {showAllRemoteEmp ? <FaTimes /> : `+${remoteWorkers.length - 5}`}
                       </div>
                     </button>
                   )}

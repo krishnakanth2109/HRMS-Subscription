@@ -4,10 +4,10 @@ import {
   RefreshCw, FileText, X, AlertCircle, Search, ChevronRight,
   Download, StickyNote, Trash2, CheckSquare, Square, Upload, Loader2
 } from 'lucide-react';
-import { getAllCompanies } from '../api';
+import { getAllCompanies, baseURL } from '../api';
 import api from '../api';
 
-const API_URL = import.meta.env.VITE_API_URL_DEVELOPMENT || 'http://localhost:5000';
+const API_URL = baseURL;
 
 // ─── Document category layout (same structure as the form) ─────────────────
 const DOC_CATEGORIES = [

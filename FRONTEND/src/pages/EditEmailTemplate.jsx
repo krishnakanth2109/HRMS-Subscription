@@ -59,7 +59,7 @@ const EditEmailTemplate = () => {
   const imageInputRef = useRef(null);
 
   const [templates, setTemplates] = useState(() => {
-    const list = localStorage.getItem('doc_verify_templates_list');
+    const list = sessionStorage.getItem('doc_verify_templates_list');
     if (list) {
       try {
         return JSON.parse(list);
@@ -73,7 +73,7 @@ const EditEmailTemplate = () => {
   });
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(() => {
-    return localStorage.getItem('doc_verify_selected_template_id') || 'default';
+    return sessionStorage.getItem('doc_verify_selected_template_id') || 'default';
   });
 
   const [subject, setSubject] = useState('');
@@ -102,7 +102,7 @@ const EditEmailTemplate = () => {
     const tpl = templates.find(t => t.id === id);
     if (tpl) {
       setSelectedTemplateId(tpl.id);
-      localStorage.setItem('doc_verify_selected_template_id', tpl.id);
+      sessionStorage.setItem('doc_verify_selected_template_id', tpl.id);
       setSubject(tpl.subject);
       if (editorRef.current) {
         editorRef.current.innerHTML = getFormattedMessage(tpl.message);
@@ -138,9 +138,9 @@ const EditEmailTemplate = () => {
     });
 
     setTemplates(updated);
-    localStorage.setItem('doc_verify_templates_list', JSON.stringify(updated));
-    localStorage.setItem('doc_verify_email_subject', subject);
-    localStorage.setItem('doc_verify_email_message', htmlContent);
+    sessionStorage.setItem('doc_verify_templates_list', JSON.stringify(updated));
+    sessionStorage.setItem('doc_verify_email_subject', subject);
+    sessionStorage.setItem('doc_verify_email_message', htmlContent);
 
     Swal.fire({
       icon: 'success',
@@ -210,9 +210,9 @@ const EditEmailTemplate = () => {
 
         const updated = [...templates, newTpl];
         setTemplates(updated);
-        localStorage.setItem('doc_verify_templates_list', JSON.stringify(updated));
+        sessionStorage.setItem('doc_verify_templates_list', JSON.stringify(updated));
         setSelectedTemplateId(newId);
-        localStorage.setItem('doc_verify_selected_template_id', newId);
+        sessionStorage.setItem('doc_verify_selected_template_id', newId);
         
         setSubject(newTpl.subject);
         if (editorRef.current) {
