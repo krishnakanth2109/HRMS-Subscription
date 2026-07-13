@@ -176,6 +176,9 @@ export const loginAdmin = async (req, res) => {
 
     const token = signToken(admin._id, admin.role);
 
+    admin.lastLoginAt = new Date();
+    await admin.save({ validateModifiedOnly: true });
+
     res.status(200).json({
       message: "Login successful",
       token,
@@ -436,7 +439,7 @@ export const getLoginAccessStatus = async (req, res) => {
     plans.forEach(p => planMap[p.planName] = p);
 
     const admins = await Admin.find({})
-      .select("name email plan userLimit loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount planDetails createdAt")
+      .select("name email plan userLimit loginEnabled isPaid planActivatedAt planExpiresAt lastPaymentAt lastPaymentAmount planDetails createdAt lastLoginAt")
       .sort({ createdAt: -1 });
 
     const adminData = await Promise.all(
@@ -490,6 +493,7 @@ export const getLoginAccessStatus = async (req, res) => {
           loginEnabled: admin.loginEnabled !== false,
           planExpiresAt: planExpiresAt,
           createdAt: admin.createdAt,
+          lastLoginAt: admin.lastLoginAt,
           totalEmployees,
           disabledEmployees,
           staffNames,

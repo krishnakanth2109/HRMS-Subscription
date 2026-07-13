@@ -143,6 +143,12 @@ export const login = async (req, res) => {
 
     // ── 6. Respond with token + user (password stripped, role attached) ───
     const token = generateToken(user._id);
+    
+    if (role === "admin") {
+      user.lastLoginAt = new Date();
+      await user.save({ validateModifiedOnly: true });
+    }
+
     const userObj = user.toObject();
     delete userObj.password;
     userObj.role = role; // always present in the response

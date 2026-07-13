@@ -36,6 +36,7 @@ const adminSchema = new mongoose.Schema(
     /* ==================== LOGIN ACCESS CONTROL ==================== */
     loginEnabled: { type: Boolean, default: true }, // Super-admin can toggle this
     mobileAccessEnabled: { type: Boolean, default: true },
+    lastLoginAt: { type: Date, default: null },
 
     /* ==================== BRANDING ==================== */
     companyLogo: {

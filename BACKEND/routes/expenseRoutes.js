@@ -8,6 +8,9 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import dotenv from 'dotenv';
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
+import Notification from '../models/notificationModel.js';
+import Admin from '../models/adminModel.js';
+import Employee from '../models/employeeModel.js';
 
 dotenv.config();
 
@@ -85,6 +88,24 @@ router.post('/add', (req, res) => {
 
       const savedExpense = await newExpense.save();
 
+      // Notify Admin
+      const io = req.app.get("io");
+      const admin = await Admin.findById(req.user.adminId);
+      if (admin) {
+        const notif = await Notification.create({
+          adminId: admin._id,
+          companyId: req.user.company,
+          userId: admin._id,
+          userType: "Admin",
+          title: "New Expense Submitted",
+          message: `${employeeName} submitted an expense of ${amount} for ${category}.`,
+          type: "expense",
+          isRead: false,
+          date: new Date(),
+        });
+        if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
+      }
+
       res.status(201).json({
         success: true,
         message: 'Expense submitted successfully.',
@@ -158,6 +179,25 @@ router.put('/:id/status', onlyAdmin, async (req, res) => {
     );
 
     if (!updatedExpense) return res.status(404).json({ success: false, message: 'Expense not found' });
+
+    // Notify Employee
+    const io = req.app.get("io");
+    const employee = await Employee.findById(updatedExpense.employeeId);
+    if (employee) {
+      const notif = await Notification.create({
+        adminId: req.user._id,
+        companyId: updatedExpense.companyId,
+        userId: employee._id,
+        userType: "Employee",
+        title: "Expense Status Updated",
+        message: `Your expense of ${updatedExpense.amount} for ${updatedExpense.category} was ${status}.`,
+        type: "expense-status",
+        isRead: false,
+        date: new Date(),
+      });
+      if (io) io.to(`user_${employee._id}`).emit("newNotification", notif);
+      if (io) io.to(`user_${employee._id}`).emit("expense:statusUpdate", updatedExpense);
+    }
 
     res.status(200).json({ success: true, message: `Expense marked as ${status}`, data: updatedExpense });
 

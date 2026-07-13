@@ -138,8 +138,9 @@ const AdminNotifications = () => {
       navigate("/admin/admin-Leavemanage");
     } else if (n.type === "correction") {
       navigate("/admin/late-requests");
-    }
-    else if (n.redirectUrl) {
+    } else if (n.type === "expense") {
+      navigate("/admin/expense");
+    } else if (n.redirectUrl) {
       navigate(n.redirectUrl);
     }
   };

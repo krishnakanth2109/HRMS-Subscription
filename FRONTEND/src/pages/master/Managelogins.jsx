@@ -1,13 +1,20 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import api from "../../api"; // your configured axios instance
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import api from "../../api";
 import Swal from "sweetalert2";
-import { FaChevronDown, FaChevronUp, FaKey, FaEllipsisV, FaReceipt, FaTrash } from "react-icons/fa";
+import {
+  Search, Filter, Key, Trash2, Receipt, MoreVertical,
+  Users, CheckCircle2, Ban, Clock, ShieldAlert, Mail, AlertTriangle, ShieldCheck
+} from "lucide-react";
 
 /* ──────────────────────────────────────────────
    TINY HELPERS
 ────────────────────────────────────────────── */
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+const formatDateTime = (d) =>
+  d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true }) : "Never logged in";
+
 
 const isPlanExpired = (expiresAt) =>
   expiresAt ? new Date() > new Date(expiresAt) : false;
@@ -52,28 +59,26 @@ function Toggle({ checked, onChange, disabled }) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-        transition-colors duration-200 ease-in-out focus:outline-none 
-        ${checked ? "bg-emerald-500" : "bg-gray-300"}
-        ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+        transition-all duration-300 ease-in-out focus:outline-none shadow-inner
+        ${checked ? "bg-blue-600 shadow-blue-500/20" : "bg-slate-200"}
+        ${disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-105"}
       `}
     >
-      <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ease-in-out ${checked ? "translate-x-5" : "translate-x-0"}`} />
+      <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out ${checked ? "translate-x-5" : "translate-x-0"}`} />
     </button>
   );
 }
 
-
-
 function Badge({ active, label, variant = "status" }) {
   const styles = variant === "danger"
-    ? "bg-rose-100 text-rose-700"
-    : (active ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600");
+    ? "bg-rose-50 text-rose-700 border border-rose-200"
+    : (active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200");
 
-  const dot = variant === "danger" ? "bg-rose-500" : (active ? "bg-emerald-500" : "bg-red-500");
+  const dot = variant === "danger" ? "bg-rose-500" : (active ? "bg-emerald-500" : "bg-slate-400");
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${styles}`}>
-      <span className={`w-1 h-1 rounded-full ${dot}`} />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dot} ${active && variant !== "danger" ? 'animate-pulse' : ''}`} />
       {label}
     </span>
   );
@@ -84,6 +89,7 @@ function Badge({ active, label, variant = "status" }) {
 ────────────────────────────────────────────── */
 export default function ManageLogins() {
   const [admins, setAdmins] = useState([]);
+  const [existingPlans, setExistingPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
   const [search, setSearch] = useState("");
@@ -118,23 +124,17 @@ export default function ManageLogins() {
     const { value: newPassword, isConfirmed } = await Swal.fire({
       title: `Change Password`,
       html: `
-        <p style="color:#6b7280;font-size:13px;margin-bottom:14px">Set a new password for <strong>${admin.companyName}</strong></p>
-        <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
-          <input id="swal-password" type="password" placeholder="New password (min. 6 chars)" class="swal2-input" style="width:82%;margin:0;padding-right:44px" />
-          <button id="eye-pw" type="button" style="position:absolute;right:calc(9%);background:none;border:none;cursor:pointer;color:#6b7280;padding:6px;display:flex;align-items:center;border-radius:6px;transition:color 0.2s">
-            <svg id="eye-pw-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
+        <p style="color:#64748b;font-size:14px;margin-bottom:16px">Set a new password for <strong>${admin.companyName}</strong></p>
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
+          <input id="swal-password" type="password" placeholder="New password (min. 6 chars)" class="swal2-input" style="width:85%;margin:0;padding-right:44px;border-radius:10px;font-size:14px" />
+          <button id="eye-pw" type="button" style="position:absolute;right:10%;background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;display:flex;align-items:center;transition:color 0.2s">
+            <svg id="eye-pw-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
         <div style="position:relative;display:flex;align-items:center;justify-content:center">
-          <input id="swal-confirm" type="password" placeholder="Confirm new password" class="swal2-input" style="width:82%;margin:0;padding-right:44px" />
-          <button id="eye-cf" type="button" style="position:absolute;right:calc(9%);background:none;border:none;cursor:pointer;color:#6b7280;padding:6px;display:flex;align-items:center;border-radius:6px;transition:color 0.2s">
-            <svg id="eye-cf-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
+          <input id="swal-confirm" type="password" placeholder="Confirm new password" class="swal2-input" style="width:85%;margin:0;padding-right:44px;border-radius:10px;font-size:14px" />
+          <button id="eye-cf" type="button" style="position:absolute;right:10%;background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;display:flex;align-items:center;transition:color 0.2s">
+            <svg id="eye-cf-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         </div>
       `,
@@ -153,7 +153,7 @@ export default function ManageLogins() {
             const isHidden = input.type === "password";
             input.type = isHidden ? "text" : "password";
             btn.innerHTML = isHidden ? EYE_OFF : EYE_OPEN;
-            btn.style.color = isHidden ? "#2563eb" : "#6b7280";
+            btn.style.color = isHidden ? "#2563eb" : "#94a3b8";
           });
         };
         makeToggle("eye-pw", "swal-password");
@@ -191,16 +191,16 @@ export default function ManageLogins() {
       title: "Delete Admin Account?",
       html: `
         <p style="color:#ef4444;font-size:14px;font-weight:700;margin-bottom:10px">⚠️ WARNING: THIS IS PERMANENT</p>
-        <p style="color:#4b5563;font-size:13px;line-height:1.5">
-          Deleting the admin account for <strong>${escapeHtml(admin.companyName)}</strong> (${escapeHtml(admin.email)}) will permanently erase:
+        <p style="color:#4b5563;font-size:14px;line-height:1.5">
+          Deleting the admin account for <strong>${escapeHtml(admin.companyName)}</strong> will permanently erase:
         </p>
-        <ul style="text-align:left;color:#4b5563;font-size:12px;margin:10px auto;width:80%;line-height:1.6">
+        <ul style="text-align:left;color:#4b5563;font-size:13px;margin:12px auto;width:80%;line-height:1.6;background:#fef2f2;padding:12px;border-radius:8px;border:1px solid #fee2e2">
           <li>• The Admin credentials and profile</li>
           <li>• All ${admin.totalEmployees} employee/staff logins & profiles</li>
           <li>• All associated attendance and shift data</li>
         </ul>
-        <p style="color:#6b7280;font-size:12px">Type <strong>DELETE</strong> below to confirm deletion:</p>
-        <input id="swal-delete-confirm" type="text" class="swal2-input" placeholder="DELETE" style="width:60%;margin-top:10px;text-align:center;font-weight:bold" />
+        <p style="color:#64748b;font-size:13px">Type <strong>DELETE</strong> below to confirm deletion:</p>
+        <input id="swal-delete-confirm" type="text" class="swal2-input" placeholder="DELETE" style="width:60%;margin-top:10px;text-align:center;font-weight:bold;border-radius:8px" />
       `,
       icon: "warning",
       showCancelButton: true,
@@ -244,17 +244,17 @@ export default function ManageLogins() {
     ];
 
     Swal.fire({
-      title: "Bills",
+      title: "Billing Details",
       html: `
         <div style="text-align:left;margin-top:10px">
-          <p style="margin:0 0 14px;color:#64748b;font-size:13px">
-            Bill details for <strong style="color:#0f172a">${escapeHtml(admin.companyName || "Admin")}</strong>
+          <p style="margin:0 0 16px;color:#64748b;font-size:14px">
+            Overview for <strong style="color:#0f172a">${escapeHtml(admin.companyName || "Admin")}</strong>
           </p>
-          <div style="display:grid;gap:10px">
+          <div style="display:grid;gap:12px">
             ${billRows.map(([label, value]) => `
               <label style="display:grid;gap:6px">
                 <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b">${escapeHtml(label)}</span>
-                <input readonly value="${escapeHtml(value)}" style="width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:12px;padding:11px 12px;font-size:13px;font-weight:700;color:#0f172a;background:#f8fafc;outline:none" />
+                <input readonly value="${escapeHtml(value)}" style="width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;font-size:14px;font-weight:600;color:#0f172a;background:#f8fafc;outline:none" />
               </label>
             `).join("")}
           </div>
@@ -282,8 +282,12 @@ export default function ManageLogins() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/api/admin/login-access");
-      setAdmins(data);
+      const [loginRes, planRes] = await Promise.all([
+        api.get("/api/admin/login-access"),
+        api.get("/api/admin/all-plans").catch(() => ({ data: [] }))
+      ]);
+      setAdmins(loginRes.data);
+      setExistingPlans(planRes.data || []);
     } catch (err) {
       toast("Failed to load data.", "error");
     } finally {
@@ -365,7 +369,11 @@ export default function ManageLogins() {
     expired: admins.filter(a => isPlanExpired(a.planExpiresAt)).length,
   }), [admins]);
 
-  const uniquePlans = useMemo(() => ["All Plans", ...new Set(admins.map(a => a.plan).filter(Boolean))], [admins]);
+  const uniquePlans = useMemo(() => {
+    const adminPlans = admins.map(a => a.plan).filter(Boolean);
+    const apiPlans = existingPlans.map(p => p.planName).filter(Boolean);
+    return ["All Plans", ...new Set([...adminPlans, ...apiPlans])];
+  }, [admins, existingPlans]);
 
   const violations = useMemo(() => {
     return admins.filter(a => isPlanExpired(a.planExpiresAt) && a.disabledEmployees < a.totalEmployees && a.totalEmployees > 0);
@@ -383,63 +391,94 @@ export default function ManageLogins() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 pb-20 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+
+        {/* ── HEADER ── */}
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+            <ShieldCheck className="w-8 h-8 text-blue-600" />
+            Access Management
+          </h1>
+          <p className="mt-2 text-sm text-slate-500 font-medium max-w-2xl">
+            Control login access for administrators and their staff, monitor subscription statuses, and manage billing accounts.
+          </p>
+        </div>
 
         {/* ── COUNTS / STATS ── */}
         {!loading && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
             {[
-              { id: "all", label: "Total Accounts", value: stats.all, icon: "👥", color: "blue" },
-              { id: "active", label: "Active Access", value: stats.active, icon: "✅", color: "emerald" },
-              { id: "blocked", label: "Blocked", value: stats.blocked, icon: "🚫", color: "rose" },
-              { id: "expired", label: "Expired Plan", value: stats.expired, icon: "⌛", color: "amber" },
-            ].map((s) => (
-              <button
-                key={s.id}
-                onClick={() => { setActiveFilter(s.id); setSearch(""); }}
-                className={`text-left transition-all duration-200 bg-white p-5 rounded-2xl border-2 relative overflow-hidden shadow-sm
-                  ${activeFilter === s.id ? `border-${s.color}-500 ring-4 ring-${s.color}-50` : "border-transparent hover:border-gray-200"}`}
-              >
-                <div className="flex justify-between items-start relative z-10">
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{s.label}</p>
-                    <p className="text-3xl font-black text-slate-800 mt-1">{s.value}</p>
+              { id: "all", label: "Total Accounts", value: stats.all, icon: Users, color: "blue" },
+              { id: "active", label: "Active Access", value: stats.active, icon: CheckCircle2, color: "emerald" },
+              { id: "blocked", label: "Blocked", value: stats.blocked, icon: Ban, color: "rose" },
+              { id: "expired", label: "Expired Plan", value: stats.expired, icon: Clock, color: "amber" },
+            ].map((s) => {
+              const Icon = s.icon;
+              const isActive = activeFilter === s.id;
+
+              const colorMaps = {
+                blue: "from-blue-600 to-indigo-700 shadow-blue-500/30",
+                emerald: "from-emerald-500 to-teal-600 shadow-emerald-500/30",
+                rose: "from-rose-500 to-red-600 shadow-rose-500/30",
+                amber: "from-amber-500 to-orange-500 shadow-amber-500/30",
+              };
+
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => { setActiveFilter(s.id); setSearch(""); }}
+                  className={`text-left transition-all duration-300 rounded-3xl p-6 relative overflow-hidden group
+                    ${isActive ? `bg-gradient-to-br ${colorMaps[s.color]} text-white shadow-xl scale-105 z-10` : "bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md"}`}
+                >
+                  <div className="flex justify-between items-start relative z-10">
+                    <div>
+                      <p className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-white/80" : "text-slate-400"}`}>
+                        {s.label}
+                      </p>
+                      <p className={`text-4xl font-black mt-2 tracking-tight ${isActive ? "text-white" : "text-slate-800"}`}>
+                        {s.value}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-2xl ${isActive ? "bg-white/20 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600 transition-colors"}`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
                   </div>
-                  <span className="text-2xl opacity-80">{s.icon}</span>
-                </div>
-                <div className={`absolute bottom-0 left-0 h-1 w-full bg-${s.color}-500 ${activeFilter === s.id ? "opacity-100" : "opacity-10"}`} />
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
 
         {/* ── SEPARATE FRAME: STAFF LOGIN VIOLATIONS ── */}
         {!loading && violations.length > 0 && (
-          <div className="mb-8 bg-white border-2 border-rose-100 rounded-3xl overflow-hidden shadow-sm">
-            <div className="bg-rose-50 px-6 py-3 border-b border-rose-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🚨</span>
-                <h2 className="text-xs font-black text-rose-700 uppercase tracking-widest">Identify Violations: Staff active on Expired Plans</h2>
+          <div className="bg-white border border-rose-200 rounded-3xl overflow-hidden shadow-sm">
+            <div className="bg-gradient-to-r from-rose-50 to-white px-6 py-4 border-b border-rose-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 animate-pulse" />
+                </div>
+                <h2 className="text-sm font-bold text-rose-800 uppercase tracking-widest">Identify Violations: Staff active on Expired Plans</h2>
               </div>
-              <span className="bg-rose-200 text-rose-800 text-[10px] font-black px-2 py-0.5 rounded-full">{violations.length} ACCOUNTS</span>
+              <span className="bg-rose-600 text-white shadow-sm shadow-rose-200 text-xs font-black px-3 py-1 rounded-full">{violations.length} ACCOUNTS</span>
             </div>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {violations.map(v => (
                 <div
                   key={v.id}
                   onClick={() => { setSearch(v.email); setActiveFilter("all"); setPlanFilter("All Plans"); }}
-                  className="bg-rose-50/30 border border-rose-100 p-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-rose-100/50 transition-colors group"
+                  className="bg-white border border-rose-200 p-4 rounded-2xl flex items-center justify-between cursor-pointer hover:shadow-md transition-all group"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-800 truncate group-hover:text-rose-600 transition-colors">{v.companyName}</p>
-                    <p className="text-[10px] text-rose-500 font-black">
-                      {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-70">{getDaysAgo(v.planExpiresAt)}</span>
+                    <p className="text-sm font-bold text-slate-800 truncate group-hover:text-rose-600 transition-colors">{v.companyName}</p>
+                    <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-80">{getDaysAgo(v.planExpiresAt)}</span>
                     </p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[9px] font-black text-gray-400">STAFF ACTIVE</p>
-                    <p className="text-sm font-black text-rose-600">{v.totalEmployees - v.disabledEmployees}</p>
+                  <div className="text-right shrink-0 bg-rose-50 px-3 py-2 rounded-xl">
+                    <p className="text-[9px] font-black text-rose-400">STAFF ACTIVE</p>
+                    <p className="text-lg font-black text-rose-600">{v.totalEmployees - v.disabledEmployees}</p>
                   </div>
                 </div>
               ))}
@@ -448,25 +487,24 @@ export default function ManageLogins() {
         )}
 
         {/* ── SEARCH & PLAN FILTER ── */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+        <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by name or email..."
-              className="w-full pl-11 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none shadow-sm"
+              placeholder="Search by company or email..."
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 hover:bg-slate-100/50 transition-colors border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm font-medium text-slate-700 placeholder-slate-400"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-1 shadow-sm">
-            <span className="text-[10px] font-black text-gray-400 uppercase ml-2">Select Plan:</span>
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-1.5 w-full md:w-auto">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <span className="text-[10px] font-black text-slate-500 uppercase">Plan:</span>
             <select
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
-              className="text-sm font-bold text-gray-700 outline-none bg-transparent py-2 cursor-pointer min-w-[140px]"
+              className="text-sm font-bold text-slate-800 outline-none bg-transparent py-2 cursor-pointer pr-2 min-w-[120px]"
             >
               {uniquePlans.map(plan => <option key={plan} value={plan}>{plan}</option>)}
             </select>
@@ -476,15 +514,24 @@ export default function ManageLogins() {
         {/* ── MAIN LIST AREA ── */}
         {loading ? (
           <div className="space-y-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-28 bg-gray-100 animate-pulse rounded-2xl" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200/50 animate-pulse rounded-3xl" />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300">
-            <p className="text-gray-400 font-medium">No results found.</p>
-            <button onClick={() => { setSearch(""); setPlanFilter("All Plans"); setActiveFilter("all"); }} className="mt-2 text-blue-600 text-sm font-bold uppercase tracking-widest">Reset Filters</button>
+          <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+              <Search className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-slate-500 font-bold text-lg">No records found</p>
+            <p className="text-slate-400 text-sm mt-1 mb-4">Try adjusting your filters or search query.</p>
+            <button
+              onClick={() => { setSearch(""); setPlanFilter("All Plans"); setActiveFilter("all"); }}
+              className="text-blue-600 bg-blue-50 hover:bg-blue-100 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors"
+            >
+              Clear Filters
+            </button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-5">
             {filtered.map((admin) => {
               const adminOn = getAdminLogin(admin);
               const empOn = getEmployeeLogin(admin, adminOn);
@@ -492,89 +539,126 @@ export default function ManageLogins() {
               const hasPending = !!pendingChanges[admin.id];
 
               return (
-                <div key={admin.id} className={`bg-white rounded-2xl border transition-all duration-200 ${hasPending ? "border-blue-400 shadow-md ring-1 ring-blue-50" : "border-gray-200 shadow-sm hover:border-gray-300"}`}>
-                  <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="flex items-start gap-4 flex-1">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-lg font-bold ${adminOn ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-400"}`}>
-                        {admin.companyName ? admin.companyName.charAt(0) : admin.name.charAt(0)}
+                <div
+                  key={admin.id}
+                  className={`bg-white rounded-3xl transition-all duration-300 relative group overflow-visible
+                    ${hasPending ? "border-blue-300 shadow-lg shadow-blue-500/10 ring-2 ring-blue-50" : "border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"}`}
+                >
+                  <div className="p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+
+                    {/* Left: Info */}
+                    <div className="flex items-start gap-5 flex-1 min-w-0">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-xl font-black shadow-inner transition-colors duration-300
+                        ${adminOn ? "bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}>
+                        {admin.companyName ? admin.companyName.charAt(0).toUpperCase() : admin.name.charAt(0).toUpperCase()}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-900 truncate">{admin.companyName}</h3>
-                          <Badge active={adminOn} label={adminOn ? "Admin Active" : "Admin Disabled"} />
-                          {expired && <Badge variant="danger" label={`Plan Expired`} />}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                          <h3 className="text-lg font-bold text-slate-900 truncate tracking-tight">{admin.companyName || admin.name}</h3>
+                          <Badge active={adminOn} label={adminOn ? "Active" : "Disabled"} />
+                          {expired && <Badge variant="danger" label="Expired" />}
                         </div>
-                        <p className="text-xs text-gray-500 mb-3 truncate">{admin.email}</p>
-                        <div className="flex flex-wrap gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                          <span>Plan: <span className="text-gray-800">{admin.plan || "N/A"}</span></span>
-                          <span>Expires: <span className={expired ? "text-rose-500" : "text-gray-800"}>{formatDate(admin.planExpiresAt)}</span></span>
-                          <span className="flex items-center gap-1">
-                            Staff Total: <span className="text-gray-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.plan?.toLowerCase() === 'owner' ? '/ Unlimited' : (admin.userLimit ? `/ ${admin.userLimit}` : '')}</span>
+
+                        <div className="flex items-center gap-2 text-sm text-slate-500 mb-4 truncate font-medium">
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          {admin.email}
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 inline-flex items-center text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                            Plan: <span className="text-slate-800">{admin.plan || "N/A"}</span>
+                          </span>
+                          <span className="w-px h-3 bg-slate-300 mx-1"></span>
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            Expires: <span className={expired ? "text-rose-600 font-black" : "text-slate-800"}>{formatDate(admin.planExpiresAt)}</span>
+                          </span>
+                          <span className="w-px h-3 bg-slate-300 mx-1"></span>
+                          <span className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-emerald-400" />
+                            Staff: <span className="text-slate-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.plan?.toLowerCase() === 'owner' ? '/ \u221E' : (admin.userLimit ? `/ ${admin.userLimit}` : '')}</span>
+                          </span>
+                          <span className="w-px h-3 bg-slate-300 mx-1"></span>
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-blue-400" />
+                            Last Login: <span className="text-slate-800">{formatDateTime(admin.lastLoginAt)}</span>
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 shrink-0">
-                      <div className="flex items-center gap-3 px-3 border-r border-slate-200">
-                        <span className="text-[10px] font-black text-slate-500 uppercase">Admin</span>
+                    {/* Right: Controls & Actions */}
+                    <div className="flex flex-wrap items-center gap-3 bg-slate-50/50 p-3 rounded-2xl border border-slate-100 shrink-0">
+
+                      <div className="flex items-center gap-3 px-4 border-r border-slate-200">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Admin Login</span>
                         <Toggle checked={adminOn} onChange={(v) => handleToggleAdmin(admin.id, v)} disabled={saving[admin.id]} />
                       </div>
-                      <div className="flex items-center gap-3 px-3">
-                        <span className="text-[10px] font-black text-slate-500 uppercase">Staff</span>
+
+                      <div className="flex items-center gap-3 px-4 border-r border-slate-200">
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Staff Login</span>
                         <Toggle checked={empOn} onChange={(v) => handleToggleEmployees(admin.id, v)} disabled={saving[admin.id] || admin.totalEmployees === 0 || !adminOn} />
                       </div>
-                      <button
-                        onClick={() => handleSave(admin.id)}
-                        disabled={!hasPending || saving[admin.id]}
-                        className={`ml-2 px-6 py-2 rounded-xl text-xs font-black transition-all ${hasPending ? "bg-blue-600 text-white shadow-lg shadow-blue-100 hover:bg-blue-700" : "bg-gray-200 text-gray-400 cursor-not-allowed"}`}
-                      >
-                        {saving[admin.id] ? "..." : "SAVE"}
-                      </button>
 
-                      {/* ── ACTIONS DROPDOWN ── */}
-                      <div className="relative" ref={openActionMenu === admin.id ? actionMenuRef : null}>
+                      <div className="pl-2 flex items-center gap-2">
                         <button
-                          onClick={() => toggleActionMenu(admin.id)}
-                          className="ml-1 p-2 rounded-xl text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors"
-                          title="Actions"
+                          onClick={() => handleSave(admin.id)}
+                          disabled={!hasPending || saving[admin.id]}
+                          className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all ${hasPending
+                              ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 hover:bg-blue-700 hover:-translate-y-0.5"
+                              : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                            }`}
                         >
-                          <FaEllipsisV size={12} />
+                          {saving[admin.id] ? "SAVING..." : "SAVE"}
                         </button>
-                        {openActionMenu === admin.id && (
-                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-xl z-20 overflow-hidden">
-                            <button
-                              onClick={() => handleChangePassword(admin)}
-                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                            >
-                              <FaKey size={11} />
-                              Change Password
-                            </button>
-                            <button
-                              onClick={() => handleDeleteAdmin(admin)}
-                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors border-t border-gray-100"
-                            >
-                              <FaTrash size={11} />
-                              Delete Account
-                            </button>
-                            <button
-                              onClick={() => handleViewBills(admin)}
-                              className="w-full flex items-center gap-2 px-4 py-3 text-xs font-bold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-gray-100"
-                            >
-                              <FaReceipt size={11} />
-                              Bills
-                            </button>
-                          </div>
-                        )}
+
+                        {/* Actions Menu */}
+                        <div className="relative" ref={openActionMenu === admin.id ? actionMenuRef : null}>
+                          <button
+                            onClick={() => toggleActionMenu(admin.id)}
+                            className="p-2.5 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
+                            title="Actions"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {openActionMenu === admin.id && (
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden transform origin-top-right transition-all">
+                              <button
+                                onClick={() => handleChangePassword(admin)}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                              >
+                                <Key className="w-4 h-4" /> Change Password
+                              </button>
+                              <button
+                                onClick={() => handleViewBills(admin)}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-slate-100"
+                              >
+                                <Receipt className="w-4 h-4" /> View Bills
+                              </button>
+                              <button
+                                onClick={() => handleDeleteAdmin(admin)}
+                                className="w-full flex items-center gap-3 px-4 py-3.5 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors border-t border-slate-100"
+                              >
+                                <Trash2 className="w-4 h-4" /> Delete Account
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
+
                     </div>
                   </div>
+
+                  {/* Staff Directory Expansion */}
                   {expandedStaff[admin.id] && admin.staffNames && admin.staffNames.length > 0 && (
-                    <div className="px-5 pb-5 pt-3 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl">
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Staff Directory</p>
+                    <div className="px-6 pb-6 pt-4 border-t border-slate-100 bg-slate-50/50 rounded-b-3xl">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Staff Directory</p>
                       <div className="flex flex-wrap gap-2">
                         {admin.staffNames.map((name, idx) => (
-                          <span key={idx} className="bg-white border border-gray-200 text-gray-700 text-[11px] px-2.5 py-1 rounded-md font-bold shadow-sm">
+                          <span key={idx} className="bg-white border border-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-bold shadow-sm">
                             {name}
                           </span>
                         ))}
@@ -590,3 +674,4 @@ export default function ManageLogins() {
     </div>
   );
 }
+
