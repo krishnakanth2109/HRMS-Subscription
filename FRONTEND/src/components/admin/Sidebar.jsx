@@ -669,8 +669,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
             </>
           ) : (
             <>
-              <Link to="/admin/dashboard" className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0 hover:bg-indigo-700 transition-colors">
-                V
+              <Link to="/admin/dashboard" className="w-8 h-8 rounded-lg bg-slate-800 ring-1 ring-slate-700 flex items-center justify-center text-white font-bold text-lg shrink-0 hover:bg-slate-700 transition-colors overflow-hidden">
+                <img 
+                  src={currentUser?.favicon || "/favicon.png"} 
+                  onError={(e) => { e.target.onerror = null; e.target.src = "/favicon.png"; }}
+                  alt="Favicon" 
+                  className="w-full h-full object-contain p-0.5" 
+                />
               </Link>
               <button
                 onClick={(e) => {

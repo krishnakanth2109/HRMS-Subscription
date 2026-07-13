@@ -609,17 +609,24 @@ const EmployeeDailyAttendance = () => {
   const donutOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    cutout: "70%",
+    cutout: "75%",
+    layout: {
+      padding: {
+        top: 10,
+        bottom: 10
+      }
+    },
     plugins: {
       legend: {
-        position: "right",
+        position: "bottom",
         labels: {
-          boxWidth: 10,      // 🔹 smaller color box
-          boxHeight: 10,
-          padding: 10,       // 🔹 space between items
+          boxWidth: 8,      // 🔹 smaller color box
+          boxHeight: 8,
+          usePointStyle: true,
+          padding: 15,       // 🔹 space between items
           font: {
             size: 11,        // 🔥 REDUCE TEXT SIZE (default ~14)
-            weight: "500"
+            weight: "600"
           }
         }
       }
@@ -1045,9 +1052,9 @@ const EmployeeDailyAttendance = () => {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col min-h-[300px]">
             <h3 className="text-gray-800 font-bold mb-6 flex items-center gap-2"><FaListAlt className="text-blue-500" /> Monthly Overview</h3>
             <div className="relative flex-1 flex flex-col items-center justify-center">
-              <div className="w-full h-full max-h-56 relative">
+              <div className="w-full h-full max-h-64 relative">
                 <Doughnut data={donutData} options={donutOptions} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
                   <span className="text-3xl font-black text-gray-800">{getDaysInMonth(selectedDate.getFullYear(), selectedDate.getMonth()).length}</span>
                   <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Total Days</span>
                 </div>

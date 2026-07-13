@@ -101,7 +101,7 @@ const CustomizingAdmin = () => {
 
   const handleClearAll = () => {
     setSelectedFeatures([]);
-  };  
+  };
 
   // Upload company logo
   const handleLogoUpload = async (e) => {
@@ -334,11 +334,10 @@ const CustomizingAdmin = () => {
                 <button
                   type="button"
                   onClick={() => setNavTemplate("sidebar")}
-                  className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                    navTemplate === "sidebar"
+                  className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${navTemplate === "sidebar"
                       ? "border-blue-600 bg-blue-50/50 text-blue-600 shadow-sm"
                       : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <div className="w-8 h-6 border border-current rounded flex overflow-hidden opacity-80">
                     <div className="w-2.5 bg-current border-r border-current"></div>
@@ -349,11 +348,10 @@ const CustomizingAdmin = () => {
                 <button
                   type="button"
                   onClick={() => setNavTemplate("navbar")}
-                  className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
-                    navTemplate === "navbar"
+                  className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${navTemplate === "navbar"
                       ? "border-blue-600 bg-blue-50/50 text-blue-600 shadow-sm"
                       : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   <div className="w-8 h-6 border border-current rounded flex flex-col overflow-hidden opacity-80">
                     <div className="h-2 bg-current border-b border-current"></div>
@@ -428,7 +426,7 @@ const CustomizingAdmin = () => {
                     className="w-full h-full object-contain p-1"
                   />
                 ) : (
-                  <ImageIcon className="w-8 h-8 text-slate-300" />
+                  <img src="/favicon.png" alt="Default Favicon" className="w-full h-full object-contain p-1" />
                 )}
               </div>
               <input
@@ -512,11 +510,10 @@ const CustomizingAdmin = () => {
                   <div
                     key={feat.route}
                     onClick={() => handleFeatureToggle(feat.route)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex gap-3 items-start select-none ${
-                      isSelected
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex gap-3 items-start select-none ${isSelected
                         ? "border-blue-200 bg-blue-50/20 hover:border-blue-300"
                         : "border-slate-100 hover:border-slate-200 hover:bg-slate-50/40"
-                    }`}
+                      }`}
                   >
                     <div className="mt-0.5 text-blue-600">
                       {isSelected ? (

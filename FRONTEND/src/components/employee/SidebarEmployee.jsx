@@ -197,10 +197,11 @@ const SidebarEmployee = ({ mobileOpen, setMobileOpen }) => {
           ) : (
             <>
               <Link to="/employee/dashboard" className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-slate-800 ring-1 ring-slate-700 hover:opacity-90 transition-opacity">
-                <img
-                  src={user?.companyLogo || "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png"}
-                  alt="Logo"
-                  className="w-full h-full object-contain p-0.5"
+                <img 
+                  src={user?.favicon || "/favicon.png"} 
+                  onError={(e) => { e.target.onerror = null; e.target.src = "/favicon.png"; }}
+                  alt="Favicon" 
+                  className="w-full h-full object-contain p-0.5" 
                 />
               </Link>
               <button

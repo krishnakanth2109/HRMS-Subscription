@@ -28,10 +28,10 @@ const checkUserLimit = async (adminId) => {
   if (!admin) return { allowed: true };
 
   // If the admin is on the Owner plan or is unlimited, they have unlimited user limit!
-  const hasUnlimitedPlan = 
-    admin.planDetails?.isUnlimited || 
+  const hasUnlimitedPlan =
+    admin.planDetails?.isUnlimited ||
     admin.plan?.toLowerCase() === 'owner';
-  
+
   if (hasUnlimitedPlan) {
     return { allowed: true };
   }
@@ -70,7 +70,7 @@ const checkUserLimit = async (adminId) => {
 
   // Sum active addon limits (only those that are paid and not yet expired)
   const now = new Date();
-  
+
   // Use razorpay details from planDetails if available, otherwise from top-level
   const currentRazorpayPaymentId = admin.planDetails?.razorpayPaymentId || admin.razorpayPaymentId;
   const currentRazorpayOrderId = admin.planDetails?.razorpayOrderId || admin.razorpayOrderId;
@@ -540,7 +540,7 @@ router.get("/portfolio/:id", async (req, res) => {
         .select("supportAdminId name email phone role department profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
         .populate("adminId", "companyLogo")
         .lean();
-        
+
       if (supportAdmin) {
         employee = {
           ...supportAdmin,
@@ -565,10 +565,10 @@ router.get("/portfolio/:id", async (req, res) => {
       const currExp = employee.experienceDetails.find(e => e.lastWorkingDate === "Present" || !e.lastWorkingDate);
       jobRole = currExp?.role || employee.experienceDetails[employee.experienceDetails.length - 1].role;
     }
-    
+
     employee.role = jobRole || employee.role || "Professional";
     employee.companyLogo = employee.adminId?.companyLogo || null;
-    
+
     // Clean up internal fields
     delete employee.adminId;
     delete employee.experienceDetails;
@@ -628,7 +628,7 @@ router.put("/:id", protect, async (req, res) => {
     delete updateData.employeeId;
     delete updateData.adminId;
     delete updateData.company;
-    
+
     // Prevent accidental overwrite of generated fields from stale frontend state
     delete updateData.qrCodeUrl;
 
@@ -890,9 +890,9 @@ const fetchQrImageBuffer = async (url) => {
 router.get("/admin/qr-codes/zip", protect, onlyAdmin, async (req, res) => {
   try {
     const adminId = req.user.role === "admin" ? req.user._id : req.user.adminId;
-    
-    const employees = await Employee.find({ 
-      adminId, 
+
+    const employees = await Employee.find({
+      adminId,
       isActive: true,
       qrCodeUrl: { $exists: true, $ne: "" }
     }).select("name employeeId qrCodeUrl").lean();
@@ -909,14 +909,14 @@ router.get("/admin/qr-codes/zip", protect, onlyAdmin, async (req, res) => {
     });
 
     // Listen for all archive warnings/errors
-    archive.on('warning', function(err) {
+    archive.on('warning', function (err) {
       if (err.code === 'ENOENT') {
         console.warn('Archiver warning:', err);
       } else {
         throw err;
       }
     });
-    archive.on('error', function(err) {
+    archive.on('error', function (err) {
       throw err;
     });
 
@@ -927,21 +927,21 @@ router.get("/admin/qr-codes/zip", protect, onlyAdmin, async (req, res) => {
     const batchSize = 10;
     for (let i = 0; i < employees.length; i += batchSize) {
       const batch = employees.slice(i, i + batchSize);
-      
+
       const imageBuffers = await Promise.all(batch.map(emp => fetchQrImageBuffer(emp.qrCodeUrl)));
 
       for (let j = 0; j < batch.length; j++) {
         const employee = batch[j];
         const imageBuffer = imageBuffers[j];
-        
-        if (!imageBuffer) continue; 
-        
+
+        if (!imageBuffer) continue;
+
         // Sanitize filename: FullName_ID.png
         // Replace spaces with underscores, and strip invalid characters
         const safeName = (employee.name || "Employee")
           .replace(/\s+/g, '_')
           .replace(/[^a-zA-Z0-9_\-\.]/g, '');
-        
+
         const filename = `${safeName}_${employee.employeeId}.png`;
         archive.append(imageBuffer, { name: filename });
       }
@@ -968,7 +968,7 @@ router.get("/:id/qr/download", async (req, res) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (decoded.employeeId !== req.params.id) {
-       return res.status(403).json({ message: "Token does not match employee" });
+      return res.status(403).json({ message: "Token does not match employee" });
     }
 
     // Find employee
@@ -983,7 +983,7 @@ router.get("/:id/qr/download", async (req, res) => {
       const downloadUrl = `${urlParts[0]}/upload/fl_attachment:${employee.employeeId}-qr/${urlParts[1]}`;
       return res.redirect(downloadUrl);
     }
-    
+
     // Fallback
     return res.redirect(employee.qrCodeUrl);
 
@@ -999,10 +999,10 @@ router.get("/:id/qr/download", async (req, res) => {
 router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
   try {
     const adminId = req.user.role === "admin" ? req.user._id : req.user.adminId;
-    
+
     // Fetch all active employees for this tenant that have a qrCodeUrl
-    const employees = await Employee.find({ 
-      adminId, 
+    const employees = await Employee.find({
+      adminId,
       isActive: true,
       qrCodeUrl: { $exists: true, $ne: "" }
     }).select("name employeeId currentDepartment currentRole experienceDetails qrCodeUrl").lean();
@@ -1032,17 +1032,17 @@ router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
 
     // Process in batches of 10 to respect Netlify's 10s timeout while avoiding memory exhaustion
     const batchSize = 10;
-    
+
     for (let i = 0; i < employees.length; i += batchSize) {
       const batch = employees.slice(i, i + batchSize);
-      
+
       // Fetch images for the current batch concurrently
       const imageBuffers = await Promise.all(batch.map(emp => fetchQrImageBuffer(emp.qrCodeUrl)));
 
       for (let j = 0; j < batch.length; j++) {
         const employee = batch[j];
         const imageBuffer = imageBuffers[j];
-        
+
         if (!imageBuffer) continue; // Skip if image failed to load
 
         if (currentCardCount > 0 && currentCardCount % cardsPerPage === 0) {
@@ -1071,7 +1071,7 @@ router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
           const protocol = req.headers['x-forwarded-proto'] || req.protocol;
           const baseUrl = `${protocol}://${req.get("host")}`;
           const downloadUrl = `${baseUrl}/api/employees/${employee.employeeId}/qr/download?token=${token}`;
-          
+
           doc.link(imgX, imgY, imgSize, imgSize, downloadUrl);
         } catch (e) {
           console.error("Error drawing image in PDF", e);
@@ -1079,23 +1079,23 @@ router.get("/admin/qr-codes/pdf", protect, onlyAdmin, async (req, res) => {
 
         // Add text below image
         let textY = imgY + imgSize + 15;
-        
+
         // Name
         doc.font('Helvetica-Bold').fontSize(12).fillColor('#333333');
         doc.text(employee.name, x, textY, { width: cardWidth, align: 'center' });
-        
+
         // Employee ID
         textY += 15;
         doc.font('Helvetica').fontSize(10).fillColor('#666666');
         doc.text(`ID: ${employee.employeeId}`, x, textY, { width: cardWidth, align: 'center' });
-        
+
         // Department
         let dept = employee.currentDepartment;
         if (!dept && employee.experienceDetails && employee.experienceDetails.length > 0) {
           const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present");
           dept = currentExp?.department;
         }
-        
+
         textY += 12;
         doc.font('Helvetica').fontSize(10).fillColor('#666666');
         doc.text(dept || "N/A", x, textY, { width: cardWidth, align: 'center' });

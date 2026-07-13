@@ -118,7 +118,7 @@ export default function ManageLogins() {
     const { value: newPassword, isConfirmed } = await Swal.fire({
       title: `Change Password`,
       html: `
-        <p style="color:#6b7280;font-size:13px;margin-bottom:14px">Set a new password for <strong>${admin.name}</strong></p>
+        <p style="color:#6b7280;font-size:13px;margin-bottom:14px">Set a new password for <strong>${admin.companyName}</strong></p>
         <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:10px">
           <input id="swal-password" type="password" placeholder="New password (min. 6 chars)" class="swal2-input" style="width:82%;margin:0;padding-right:44px" />
           <button id="eye-pw" type="button" style="position:absolute;right:calc(9%);background:none;border:none;cursor:pointer;color:#6b7280;padding:6px;display:flex;align-items:center;border-radius:6px;transition:color 0.2s">
@@ -192,7 +192,7 @@ export default function ManageLogins() {
       html: `
         <p style="color:#ef4444;font-size:14px;font-weight:700;margin-bottom:10px">⚠️ WARNING: THIS IS PERMANENT</p>
         <p style="color:#4b5563;font-size:13px;line-height:1.5">
-          Deleting the admin account for <strong>${escapeHtml(admin.name)}</strong> (${escapeHtml(admin.email)}) will permanently erase:
+          Deleting the admin account for <strong>${escapeHtml(admin.companyName)}</strong> (${escapeHtml(admin.email)}) will permanently erase:
         </p>
         <ul style="text-align:left;color:#4b5563;font-size:12px;margin:10px auto;width:80%;line-height:1.6">
           <li>• The Admin credentials and profile</li>
@@ -232,7 +232,7 @@ export default function ManageLogins() {
     setOpenActionMenu(null);
 
     const billRows = [
-      ["Admin", admin.name || "N/A"],
+      ["Admin", admin.companyName || "N/A"],
       ["Plan", admin.plan || "N/A"],
       ["Billing Cycle", billingCycleLabel[admin.billingCycle] || "N/A"],
       ["Per Employee Price", formatCurrency(admin.planPrice)],
@@ -248,7 +248,7 @@ export default function ManageLogins() {
       html: `
         <div style="text-align:left;margin-top:10px">
           <p style="margin:0 0 14px;color:#64748b;font-size:13px">
-            Bill details for <strong style="color:#0f172a">${escapeHtml(admin.name || "Admin")}</strong>
+            Bill details for <strong style="color:#0f172a">${escapeHtml(admin.companyName || "Admin")}</strong>
           </p>
           <div style="display:grid;gap:10px">
             ${billRows.map(([label, value]) => `
@@ -346,7 +346,7 @@ export default function ManageLogins() {
     if (willDisableAdmin) {
       Swal.fire({
         title: "Stop Admin Login?",
-        text: `Disabling "${admin.name}" will also block all staff members immediately.`,
+        text: `Disabling "${admin.companyName}" will also block all staff members immediately.`,
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#ef4444",
@@ -372,7 +372,7 @@ export default function ManageLogins() {
   }, [admins]);
 
   const filtered = admins.filter((a) => {
-    const matchesSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.email.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = a.companyName?.toLowerCase().includes(search.toLowerCase()) || a.name?.toLowerCase().includes(search.toLowerCase()) || a.email.toLowerCase().includes(search.toLowerCase());
     const matchesPlan = planFilter === "All Plans" || a.plan === planFilter;
     const isExpired = isPlanExpired(a.planExpiresAt);
     let matchesStatus = true;
@@ -432,7 +432,7 @@ export default function ManageLogins() {
                   className="bg-rose-50/30 border border-rose-100 p-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-rose-100/50 transition-colors group"
                 >
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-800 truncate group-hover:text-rose-600 transition-colors">{v.name}</p>
+                    <p className="text-xs font-bold text-gray-800 truncate group-hover:text-rose-600 transition-colors">{v.companyName}</p>
                     <p className="text-[10px] text-rose-500 font-black">
                       {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-70">{getDaysAgo(v.planExpiresAt)}</span>
                     </p>
@@ -496,11 +496,11 @@ export default function ManageLogins() {
                   <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="flex items-start gap-4 flex-1">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-lg font-bold ${adminOn ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-400"}`}>
-                        {admin.name.charAt(0)}
+                        {admin.companyName ? admin.companyName.charAt(0) : admin.name.charAt(0)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-900 truncate">{admin.name}</h3>
+                          <h3 className="font-bold text-gray-900 truncate">{admin.companyName}</h3>
                           <Badge active={adminOn} label={adminOn ? "Admin Active" : "Admin Disabled"} />
                           {expired && <Badge variant="danger" label={`Plan Expired`} />}
                         </div>

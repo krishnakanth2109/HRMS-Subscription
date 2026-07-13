@@ -2,9 +2,9 @@
 import express from "express";
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
-import { 
-  authMaster, 
-  getAllAdmins, 
+import {
+  authMaster,
+  getAllAdmins,
   updateMasterSettings,
   assignPlan,
   getAdminPlanDetails,
@@ -91,4 +91,4 @@ router.delete("/admins/:adminId/logo", protectMaster, removeLogo);
 router.delete("/admins/:adminId/favicon", protectMaster, removeFavicon);
 
 export default router;
-// --- END OF FILE routes/masterRoutes.js ---
+// --- END OF FILE routes/masterRoutes.js ---

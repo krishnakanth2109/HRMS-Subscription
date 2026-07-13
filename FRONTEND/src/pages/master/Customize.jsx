@@ -70,6 +70,7 @@ const Customize = () => {
   // Filtered admins
   const filteredAdmins = admins.filter((admin) => {
     const matchesSearch = 
+      admin.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       admin.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       admin.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -239,11 +240,11 @@ const Customize = () => {
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shadow-inner ${
                       isPremium ? "bg-amber-100 text-amber-800" : isOwner ? "bg-purple-100 text-purple-800" : "bg-blue-100 text-blue-800"
                     }`}>
-                      {admin.name?.charAt(0).toUpperCase()}
+                      {admin.companyName ? admin.companyName.charAt(0).toUpperCase() : admin.name?.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors text-base truncate max-w-[150px]">
-                        {admin.name}
+                        {admin.companyName || admin.name}
                       </h4>
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider mt-1 ${badgeStyle}`}>
                         {admin.plan} Plan

@@ -4,6 +4,7 @@ import SupportAdmin from "../models/supportAdminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
 import Employee from "../models/employeeModel.js";
 import Feature from "../models/featureModel.js";
+import Company from "../models/CompanyModel.js";
 import jwt from "jsonwebtoken";
 import { getExpiredSubscriptionPayload } from "../utils/subscriptionAccess.js";
 import { generateAndUploadQRCode } from "../utils/qrCodeHelper.js";
@@ -297,9 +298,15 @@ export const getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find({}).sort({ createdAt: -1 });
 
+    const adminIds = admins.map(a => a._id);
+    const companies = await Company.find({ adminId: { $in: adminIds } }).select("adminId name");
+    const companyMap = {};
+    companies.forEach(c => { companyMap[c.adminId.toString()] = c.name; });
+
     // Map nested planDetails to top-level properties for frontend compatibility
     const mappedAdmins = admins.map((admin) => {
       const adminObj = admin.toObject();
+      adminObj.companyName = companyMap[admin._id.toString()] || adminObj.name;
       if (adminObj.planDetails) {
         adminObj.plan = adminObj.planDetails.planName || adminObj.plan;
         adminObj.isPaid = adminObj.planDetails.isPaid !== undefined ? adminObj.planDetails.isPaid : adminObj.isPaid;
@@ -441,6 +448,9 @@ export const getLoginAccessStatus = async (req, res) => {
 
         const supportAdminCount = await SupportAdmin.countDocuments({ adminId: admin._id });
 
+        const company = await Company.findOne({ adminId: admin._id }).select("name");
+        const companyName = company ? company.name : admin.name;
+
         let details = admin.planDetails || {};
         let planName = details.planName || admin.plan || "Free";
         let isPaid = details.planName ? details.isPaid : admin.isPaid;
@@ -466,6 +476,7 @@ export const getLoginAccessStatus = async (req, res) => {
         return {
           id: admin._id,
           name: admin.name,
+          companyName: companyName,
           email: admin.email,
           plan: planName,
           userLimit,

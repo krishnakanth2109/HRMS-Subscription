@@ -617,7 +617,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300" onClick={() => setMobileOpen(false)} />
       )}
 
-      <aside 
+      <aside
         ref={sidebarRef}
         className={sidebarClasses}
         onClick={() => {
@@ -665,8 +665,13 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
             </>
           ) : (
             <>
-              <Link to="/support-admin/dashboard" className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0 hover:bg-indigo-700 transition-colors">
-                V
+              <Link to="/support-admin/dashboard" className="w-8 h-8 rounded-lg bg-slate-800 ring-1 ring-slate-700 flex items-center justify-center text-white font-bold text-lg shrink-0 hover:bg-slate-700 transition-colors overflow-hidden">
+                <img 
+                  src={currentUser?.favicon || "/favicon.png"} 
+                  onError={(e) => { e.target.onerror = null; e.target.src = "/favicon.png"; }}
+                  alt="Favicon" 
+                  className="w-full h-full object-contain p-0.5" 
+                />
               </Link>
               <button
                 onClick={(e) => {
@@ -727,8 +732,8 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                                 to={link.to}
                                 className={({ isActive }) => `
                                   group flex items-center gap-3 px-3 min-h-[44px] rounded-md transition-all duration-200
-                                  ${isActive 
-                                    ? "bg-indigo-500/10 text-indigo-400 border-l-2 border-indigo-500" 
+                                  ${isActive
+                                    ? "bg-indigo-500/10 text-indigo-400 border-l-2 border-indigo-500"
                                     : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border-l-2 border-transparent"}
                                   ${collapsed && !isMobile ? "justify-center px-0" : ""}
                                 `}
@@ -770,16 +775,16 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
                             >
                               <Icon size={20} className="shrink-0 opacity-50" />
                               {(!collapsed || isMobile) && (
-                                  <>
-                                    <span className="text-[14px] font-medium truncate">{link.label}</span>
-                                    <Lock size={12} className="ml-auto opacity-50" />
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                                <>
+                                  <span className="text-[14px] font-medium truncate">{link.label}</span>
+                                  <Lock size={12} className="ml-auto opacity-50" />
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -793,14 +798,14 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
             to="/support-admin/whats-new"
             className={`flex items-center gap-3 px-3 py-2 rounded-md hover:bg-slate-800/30 transition-all cursor-pointer ${collapsed && !isMobile ? "justify-center" : ""}`}
           >
-             {(!collapsed || isMobile) ? (
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-slate-300 truncate">Support Admin Panel</span>
-                  <span className="text-[10px] text-indigo-400 hover:underline">v5.2.0</span>
-                </div>
-             ) : (
-               <span className="text-[10px] text-indigo-400 font-bold hover:underline">V5</span>
-             )}
+            {(!collapsed || isMobile) ? (
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold text-slate-300 truncate">Support Admin Panel</span>
+                <span className="text-[10px] text-indigo-400 hover:underline">v5.2.0</span>
+              </div>
+            ) : (
+              <span className="text-[10px] text-indigo-400 font-bold hover:underline">V5</span>
+            )}
           </Link>
         </div>
       </aside>
