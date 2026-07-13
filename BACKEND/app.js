@@ -46,6 +46,7 @@ import workRoutes from "./routes/workRoutes.js";
 import webauthnRoutes from "./routes/webauthnRoutes.js";
 import faceAuthRoutes from "./routes/faceAuthRoutes.js";
 import generalLetterRoutes from "./routes/generalLetterRoutes.js";
+import adminTaskRoutes from "./routes/adminTaskRoutes.js";
 const { employeeWorkRoutes, adminWorkRoutes } = workRoutes;
 
 /* ==================== 🔹 RAZORPAY IMPORT ==================== */
@@ -327,6 +328,7 @@ app.use("/api/field-tracking", fieldTrackingRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/work", employeeWorkRoutes);
 app.use("/api/work/admin", adminWorkRoutes);
+app.use("/api/admin-tasks", adminTaskRoutes);
 app.use("/api/webauthn", webauthnRoutes);
 app.use("/api/face-auth", faceAuthRoutes);
 

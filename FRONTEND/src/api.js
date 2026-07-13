@@ -1187,6 +1187,7 @@ export const submitEveningWork = async (
   description,
   images = [],
   employee_submitted_percentage,
+  task_completed = false
 ) => {
   const formData = new FormData();
   formData.append("description", description);
@@ -1194,6 +1195,9 @@ export const submitEveningWork = async (
     "employee_submitted_percentage",
     employee_submitted_percentage,
   );
+  if (task_completed !== undefined) {
+    formData.append("task_completed", task_completed);
+  }
 
   images.forEach((image) => {
     formData.append("images", image);
@@ -1462,3 +1466,5 @@ export const getExpensesForEmployee = async (employeeId) =>
   (await api.get(`/api/expenses/employee/${employeeId}`)).data;
 
 export default api;
+
+export const getMyAssignedTasks = async () => (await api.get('/api/admin-tasks/employee')).data;

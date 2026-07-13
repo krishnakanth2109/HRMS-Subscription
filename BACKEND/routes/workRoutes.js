@@ -9,6 +9,7 @@ import WorkImage from "../models/WorkImage.js";
 import Employee from "../models/employeeModel.js";
 import Notification from "../models/notificationModel.js";
 import WorkPercentageSetting from "../models/WorkPercentageSetting.js";
+import AdminTask from "../models/AdminTask.js";
 import {
   calculateMonthlyPerformance,
   getCurrentMonthYear,
@@ -172,6 +173,7 @@ const formatWorkEntryResponse = (entry, images = []) => ({
   _id: entry._id,
   employeeId: entry.employeeId,
   date: entry.date,
+  adminTaskId: entry.adminTaskId,
   morning_title: entry.morning_title,
   morning_description: entry.morning_description,
   morning_time: entry.morning_time,
@@ -371,7 +373,7 @@ adminWorkRoutes.use(protect, onlyAdmin);
 
 employeeWorkRoutes.post("/morning", async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, adminTaskId } = req.body;
 
     if (!title?.trim() || !description?.trim()) {
       return res.status(400).json({
@@ -401,6 +403,7 @@ employeeWorkRoutes.post("/morning", async (req, res) => {
       morning_title: title.trim(),
       morning_description: description.trim(),
       morning_time: getTimeKeyInTimeZone(),
+      adminTaskId: adminTaskId || null,
     });
 
     return res.status(201).json({
@@ -440,7 +443,7 @@ employeeWorkRoutes.post("/evening", (req, res) => {
     }
 
     try {
-      const { description, employee_submitted_percentage } = req.body;
+      const { description, employee_submitted_percentage, task_completed } = req.body;
       const normalizedEmployeePercentage = Number(employee_submitted_percentage);
 
       if (!description?.trim()) {
@@ -491,6 +494,13 @@ employeeWorkRoutes.post("/evening", (req, res) => {
       entry.employee_submitted_percentage = normalizedEmployeePercentage;
       entry.status = "pending";
       await entry.save();
+
+      if (entry.adminTaskId && (task_completed === "true" || task_completed === true)) {
+        await AdminTask.findByIdAndUpdate(entry.adminTaskId, {
+          status: "Completed",
+          completedAt: new Date()
+        });
+      }
 
       const uploadedImageUrls = await uploadImagesToCloudinary(req.files || []);
       const imageDocs =

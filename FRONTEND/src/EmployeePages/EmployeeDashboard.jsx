@@ -1340,7 +1340,7 @@ const EmployeeDashboard = () => {
   ];
 
   return (
-    <div className="p-4 md:p-8 min-h-screen relative font-sans text-gray-800 max-w-7xl mx-auto">
+    <div className="p-4 md:p-8 min-h-screen relative font-sans text-gray-800 max-w-7xl mx-auto overflow-x-hidden">
 
       {/* 🎂 BIRTHDAY BANNER */}
       {todaysBirthdays.length > 0 && showBirthdayBanner && (

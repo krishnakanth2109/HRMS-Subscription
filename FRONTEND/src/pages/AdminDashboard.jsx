@@ -575,12 +575,12 @@ const AdminDashboard = () => {
   };
 
   const showBirthdayProfile = (b) => {
-    const formattedDob = b.dob 
+    const formattedDob = b.dob
       ? new Date(b.dob).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
       : "Not specified";
-      
+
     const initials = getInitials(b.name);
-    
+
     const colorMap = {
       "bg-blue-500": "#3b82f6",
       "bg-purple-500": "#a855f7",
@@ -758,23 +758,23 @@ const AdminDashboard = () => {
           </Link>
 
           {/* Leave Requests */}
-<div
-  onClick={() => navigate("/admin/admin-Leavemanage")}
-  className="bg-white rounded-[20px] p-5 shadow-sm h-[130px] flex flex-col justify-between border border-gray-100 transition-all hover:shadow-md cursor-pointer"
->
-  <div className="w-11 h-11 bg-[#F4F7FE] rounded-xl flex items-center justify-center text-[#4318FF] text-lg">
-    <FaPlane />
-  </div>
+          <div
+            onClick={() => navigate("/admin/admin-Leavemanage")}
+            className="bg-white rounded-[20px] p-5 shadow-sm h-[130px] flex flex-col justify-between border border-gray-100 transition-all hover:shadow-md cursor-pointer"
+          >
+            <div className="w-11 h-11 bg-[#F4F7FE] rounded-xl flex items-center justify-center text-[#4318FF] text-lg">
+              <FaPlane />
+            </div>
 
-  <div>
-    <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
-      Leave Requests
-    </p>
-    <h3 className="text-3xl font-bold text-[#2B3674] tracking-tight">
-      {totalPendingLeavesCount}
-    </h3>
-  </div>
-</div>
+            <div>
+              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                Leave Requests
+              </p>
+              <h3 className="text-3xl font-bold text-[#2B3674] tracking-tight">
+                {totalPendingLeavesCount}
+              </h3>
+            </div>
+          </div>
 
           {/* Pending Resignations */}
           {/* <Link
@@ -955,10 +955,10 @@ const AdminDashboard = () => {
             <h3 className="text-[#2B3674] font-bold text-lg mb-4 shrink-0">
               Employee Distribution
             </h3>
-            
+
             <div className="flex flex-col sm:flex-row lg:flex-col 2xl:flex-row items-center justify-center gap-4 sm:gap-6 lg:gap-3 xl:gap-6 w-full min-h-[180px] overflow-hidden">
               {/* PieChart Wrapper with center text overlay */}
-              <div 
+              <div
                 className="relative shrink-0 flex items-center justify-center bg-white/20 rounded-full"
                 style={{ width: pieSize, height: pieSize }}
               >
@@ -983,7 +983,7 @@ const AdminDashboard = () => {
 
                 {/* Center text overlay */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span 
+                  <span
                     className="text-[#2B3674] font-black leading-none mb-0.5"
                     style={{ fontSize: pieSize >= 180 ? '1.25rem' : pieSize >= 150 ? '1.1rem' : '0.95rem' }}
                   >
@@ -991,9 +991,9 @@ const AdminDashboard = () => {
                       ? "100%"
                       : `${((departmentData[activeIndex].value / totalEmployeesCount) * 100).toFixed(0)}%`}
                   </span>
-                  <span 
+                  <span
                     className="text-gray-450 font-bold truncate text-center"
-                    style={{ 
+                    style={{
                       fontSize: pieSize >= 180 ? '10px' : '9px',
                       maxWidth: pieSize >= 180 ? '100px' : pieSize >= 150 ? '80px' : '70px'
                     }}
@@ -1006,7 +1006,7 @@ const AdminDashboard = () => {
               </div>
 
               {/* Dynamic Scrollable Legend Panel */}
-              <div 
+              <div
                 className="flex-1 w-full min-w-0 overflow-y-auto pr-1 custom-scrollbar internal-scroll space-y-1.5"
                 style={{ maxHeight: pieSize }}
               >
@@ -1017,7 +1017,7 @@ const AdminDashboard = () => {
 
                 <div className="space-y-1">
                   {departmentData.map((dept, idx) => (
-                    <div 
+                    <div
                       key={idx}
                       className="flex items-center justify-between p-1 rounded-lg border border-transparent hover:bg-slate-50/70 hover:border-slate-100/50 transition-all duration-200"
                     >
@@ -1108,7 +1108,7 @@ const AdminDashboard = () => {
                           </p>
                         </div>
                       </div>
-                      
+
                       {/* Actions or Status Badge */}
                       <div className="flex items-center justify-end gap-3 sm:ml-auto">
                         {item.status === "Pending" ? (
@@ -1132,11 +1132,10 @@ const AdminDashboard = () => {
                           </div>
                         ) : (
                           <span
-                            className={`text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full ${
-                              item.status === "Approved"
+                            className={`text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-full ${item.status === "Approved"
                                 ? "bg-[#E6F9F3] text-[#05CD99]"
                                 : "bg-[#FEEFEE] text-[#EE5D50]"
-                            }`}
+                              }`}
                           >
                             {item.status}
                           </span>
@@ -1314,7 +1313,7 @@ const AdminDashboard = () => {
                         </p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => handleSendBirthdayWishes(b.email, b.name)}
                       className="bg-[#FF8F8F] text-white text-[10px] font-bold py-1 px-3 rounded-lg shadow-sm hover:bg-red-400 transition-colors">
                       Send Wishes

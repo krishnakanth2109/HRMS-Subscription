@@ -19,6 +19,7 @@ import {
   FaDownload,
 } from "react-icons/fa";
 import ImageEditorModal from "../components/ImageEditor/ImageEditorModal";
+import AdminAssignTaskModal from "../components/admin/AdminAssignTaskModal";
 
 import {
   reviewWorkEntry,
@@ -154,6 +155,7 @@ const AdminWorkReports = () => {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showAllImages, setShowAllImages] = useState(false);
+  const [showAssignTaskModal, setShowAssignTaskModal] = useState(false);
 
   const [percentageSaving, setPercentageSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
@@ -704,9 +706,17 @@ const AdminWorkReports = () => {
               <h1 className="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
                 Performance Management
               </h1>
-              <p className="max-w-2xl text-sm text-gray-500 leading-relaxed md:text-base">
-                Manage Employee Work Submissions Efficiently
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <p className="max-w-2xl text-sm text-gray-500 leading-relaxed md:text-base">
+                  Manage Employee Work Submissions Efficiently
+                </p>
+                <button 
+                  onClick={() => setShowAssignTaskModal(true)}
+                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-2 text-sm font-bold text-white shadow hover:shadow-lg transition-all"
+                >
+                  Assign Task
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -1836,6 +1846,9 @@ const AdminWorkReports = () => {
           }}
           onClose={() => setEditingImage(null)}
         />
+      )}
+      {showAssignTaskModal && (
+        <AdminAssignTaskModal onClose={() => setShowAssignTaskModal(false)} />
       )}
     </div>
   );

@@ -13,6 +13,11 @@ const DailyWorkEntrySchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    adminTaskId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "AdminTask",
+      default: null,
+    },
     morning_title: {
       type: String,
       required: true,

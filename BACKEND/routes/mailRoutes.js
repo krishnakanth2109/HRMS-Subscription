@@ -17,12 +17,12 @@ const memoryUpload = multer({
 // @route   POST /api/mail/send-onboarding
 // @access  Protected
 router.post("/send-onboarding", protect, async (req, res) => {
-  const { 
-    recipientEmail, 
-    recipientList, 
-    emailSubject, 
-    emailMessage, 
-    formLink 
+  const {
+    recipientEmail,
+    recipientList,
+    emailSubject,
+    emailMessage,
+    formLink
   } = req.body;
 
   try {
@@ -75,18 +75,18 @@ router.post("/send-onboarding", protect, async (req, res) => {
     // Wait for all emails to attempt sending
     await Promise.all(emailPromises);
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       message: `Successfully sent emails to ${recipients.length} recipient(s).`,
       sentTo: recipients
     });
 
   } catch (error) {
     console.error("Send Mail Error:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to send emails.", 
-      error: error.message 
+    res.status(500).json({
+      success: false,
+      message: "Failed to send emails.",
+      error: error.message
     });
   }
 });

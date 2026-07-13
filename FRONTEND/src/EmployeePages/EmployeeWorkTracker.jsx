@@ -30,6 +30,7 @@ import {
   submitEveningWork,
   submitMorningWork,
   editEveningWork,
+  getMyAssignedTasks,
 } from "../api";
 import WorkRecordsCalendar, {
   getWorkDateKey,
@@ -400,10 +401,13 @@ const EmployeeWorkTracker = () => {
   const [morningForm, setMorningForm] = useState({
     title: "",
     description: "",
+    adminTaskId: "",
   });
+  const [pendingTasks, setPendingTasks] = useState([]);
   const [eveningDescription, setEveningDescription] = useState("");
   const [eveningPercentage, setEveningPercentage] = useState("");
   const [eveningImages, setEveningImages] = useState([]);
+  const [eveningTaskCompleted, setEveningTaskCompleted] = useState(false);
   const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState("");
   const [showWorkPercentageCalendar, setShowWorkPercentageCalendar] = useState(false);
   const [showCalendarPopup, setShowCalendarPopup] = useState(false);
@@ -529,10 +533,18 @@ const EmployeeWorkTracker = () => {
     setLoading(true);
     try {
       const [year, month] = monthValue.split("-");
-      const response = await getMyDailyWorkRecords(Number(month), Number(year));
+      const [response, tasksResponse] = await Promise.all([
+        getMyDailyWorkRecords(Number(month), Number(year)),
+        getMyAssignedTasks().catch(() => []) // Handle quietly if tasks fail
+      ]);
+      
       if (response.success) {
         setRecords((response.data || []).map(normalizeWorkRecord));
         setPerformance(response.performance || null);
+      }
+      
+      if (Array.isArray(tasksResponse)) {
+        setPendingTasks(tasksResponse);
       }
     } catch (error) {
       console.error("Daily work load failed:", error);
@@ -632,7 +644,8 @@ const EmployeeWorkTracker = () => {
       const response = await submitEveningWork(
         eveningDescription,
         eveningImages,
-        normalizedPercentage
+        normalizedPercentage,
+        eveningTaskCompleted
       );
       if (response.success) {
         Swal.fire("Submitted", response.message, "success");
@@ -812,6 +825,42 @@ const EmployeeWorkTracker = () => {
           </div>
 
           <form onSubmit={handleMorningSubmit} className="space-y-4">
+            {pendingTasks && pendingTasks.length > 0 && (
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                  Work Assigned by Admin
+                </label>
+                <select
+                  value={morningForm.adminTaskId || ""}
+                  onChange={(event) => {
+                    const taskId = event.target.value;
+                    const selectedTask = pendingTasks.find(t => t._id === taskId);
+                    if (selectedTask) {
+                      setMorningForm(current => ({
+                        ...current,
+                        adminTaskId: taskId,
+                        title: selectedTask.title,
+                        description: selectedTask.description || current.description
+                      }));
+                    } else {
+                      setMorningForm(current => ({
+                        ...current,
+                        adminTaskId: "",
+                        title: "",
+                        description: ""
+                      }));
+                    }
+                  }}
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400"
+                >
+                  <option value="">-- Choose assigned work or write your own --</option>
+                  {pendingTasks.map(task => (
+                    <option key={task._id} value={task._id}>{task.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
                 Morning Title
@@ -820,7 +869,7 @@ const EmployeeWorkTracker = () => {
                 type="text"
                 value={morningForm.title}
                 onChange={(event) =>
-                  setMorningForm((current) => ({ ...current, title: event.target.value }))
+                  setMorningForm((current) => ({ ...current, title: event.target.value, adminTaskId: "" }))
                 }
                 placeholder="What is the main focus this morning?"
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400"
@@ -950,6 +999,21 @@ const EmployeeWorkTracker = () => {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {todayRecord?.adminTaskId && (
+              <div className="flex items-center gap-3 rounded-2xl bg-indigo-50/50 border border-indigo-100 p-4">
+                <input
+                  type="checkbox"
+                  id="taskCompleted"
+                  checked={eveningTaskCompleted}
+                  onChange={(e) => setEveningTaskCompleted(e.target.checked)}
+                  className="h-5 w-5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <label htmlFor="taskCompleted" className="text-sm font-semibold text-slate-700 cursor-pointer">
+                  Mark assigned task as complete?
+                </label>
               </div>
             )}
 
