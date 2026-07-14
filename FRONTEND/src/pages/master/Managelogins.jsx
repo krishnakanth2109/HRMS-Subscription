@@ -231,37 +231,77 @@ export default function ManageLogins() {
   const handleViewBills = (admin) => {
     setOpenActionMenu(null);
 
-    const billRows = [
-      ["Admin", admin.companyName || "N/A"],
-      ["Plan", admin.plan || "N/A"],
-      ["Billing Cycle", billingCycleLabel[admin.billingCycle] || "N/A"],
-      ["Per Employee Price", formatCurrency(admin.planPrice)],
-      ["Bill Paid", formatCurrency(admin.billPaid)],
-      ["Paid On", formatDate(admin.lastPaymentAt || admin.planActivatedAt || admin.createdAt)],
-      ["Plan Starts", formatDate(admin.planActivatedAt || admin.createdAt)],
-      ["Plan Expires", formatDate(admin.planExpiresAt)],
-      ["Payment Status", admin.isPaid ? "Paid" : "Not Paid"],
-    ];
+    const isPaid = admin.isPaid;
+    const statusColor = isPaid ? "#10b981" : "#ef4444"; // emerald-500 : red-500
+    const statusBg = isPaid ? "#ecfdf5" : "#fef2f2";
+    const statusText = isPaid ? "Paid" : "Not Paid";
 
     Swal.fire({
-      title: "Billing Details",
       html: `
-        <div style="text-align:left;margin-top:10px">
-          <p style="margin:0 0 16px;color:#64748b;font-size:14px">
-            Overview for <strong style="color:#0f172a">${escapeHtml(admin.companyName || "Admin")}</strong>
-          </p>
-          <div style="display:grid;gap:12px">
-            ${billRows.map(([label, value]) => `
-              <label style="display:grid;gap:6px">
-                <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#64748b">${escapeHtml(label)}</span>
-                <input readonly value="${escapeHtml(value)}" style="width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;font-size:14px;font-weight:600;color:#0f172a;background:#f8fafc;outline:none" />
-              </label>
-            `).join("")}
+        <div style="font-family: inherit; text-align: left; padding: 8px;">
+          <!-- Header -->
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed #cbd5e1; padding-bottom: 20px; margin-bottom: 24px;">
+            <div>
+              <h3 style="margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">Billing Overview</h3>
+              <p style="margin: 4px 0 0; color: #64748b; font-size: 14px; font-weight: 500;">
+                <strong style="color: #334155;">${escapeHtml(admin.companyName || "Admin")}</strong>
+              </p>
+            </div>
+            <div style="background-color: ${statusBg}; color: ${statusColor}; padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 800; border: 1px solid ${statusColor}40; text-transform: uppercase; letter-spacing: 0.05em;">
+              ${statusText}
+            </div>
+          </div>
+
+          <!-- Highlighted Row (Amount) -->
+          <div style="background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 16px; padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border: 1px solid #e2e8f0; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+            <div>
+              <span style="display: block; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Total Bill Paid</span>
+              <span style="font-size: 28px; font-weight: 900; color: #0f172a; line-height: 1;">${escapeHtml(formatCurrency(admin.billPaid))}</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="display: block; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Per Employee</span>
+              <span style="font-size: 18px; font-weight: 800; color: #475569; line-height: 1;">${escapeHtml(formatCurrency(admin.planPrice))}</span>
+            </div>
+          </div>
+
+          <!-- Grid Details -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; background: #ffffff; padding: 0 4px;">
+            <!-- Column 1 -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Current Plan</div>
+                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(admin.plan || "N/A")}</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Billing Cycle</div>
+                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(billingCycleLabel[admin.billingCycle] || "N/A")}</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Last Paid On</div>
+                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(formatDate(admin.lastPaymentAt || admin.planActivatedAt || admin.createdAt))}</div>
+              </div>
+            </div>
+
+            <!-- Column 2 -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Plan Started</div>
+                <div style="font-size: 15px; font-weight: 700; color: #1e293b;">${escapeHtml(formatDate(admin.planActivatedAt || admin.createdAt))}</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;">Plan Expires</div>
+                <div style="font-size: 15px; font-weight: 700; color: #ef4444;">${escapeHtml(formatDate(admin.planExpiresAt))}</div>
+              </div>
+            </div>
           </div>
         </div>
       `,
-      confirmButtonText: "Close",
-      confirmButtonColor: "#2563eb",
+      showConfirmButton: false,
+      showCloseButton: true,
+      customClass: {
+        popup: '!rounded-3xl shadow-2xl border border-slate-100 p-2',
+        closeButton: 'text-slate-400 hover:text-slate-600 focus:outline-none !text-3xl mt-1 mr-1'
+      },
       width: 520,
     });
   };

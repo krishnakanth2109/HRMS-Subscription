@@ -2195,6 +2195,82 @@ router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => 
  * Employee: Get Own Correction Requests
  * GET /api/attendance/my-corrections
  */
-export default router;
+// ==========================================
+// OPTIMIZED ADMIN ROUTES FOR LATE REQUESTS
+// ==========================================
 
+/**
+ * Admin: Get All Pending Late/Correction Requests
+ * GET /api/attendance/admin/pending-late-requests
+ */
+router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) => {
+  try {
+    const employeeIds = await getEmployeeAttendanceIds(req);
+
+    const pendingRequests = await Attendance.aggregate([
+      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $unwind: "$attendance" },
+      { 
+        $match: { 
+          "attendance.lateCorrectionRequest.hasRequest": true,
+          "attendance.lateCorrectionRequest.status": "PENDING"
+        } 
+      },
+      { $sort: { "attendance.date": -1 } },
+      {
+        $project: {
+          _id: 0,
+          employeeId: 1,
+          employeeName: 1,
+          date: "$attendance.date",
+          currentPunchIn: "$attendance.punchIn",
+          requestedTime: "$attendance.lateCorrectionRequest.requestedTime",
+          reason: "$attendance.lateCorrectionRequest.reason"
+        }
+      }
+    ]);
+
+    res.status(200).json({ success: true, count: pendingRequests.length, data: pendingRequests });
+  } catch (err) {
+    console.error("Error in /admin/pending-late-requests:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Admin: Get All Monthly Request Limits
+ * GET /api/attendance/admin/all-request-limits
+ */
+router.get("/admin/all-request-limits", protect, onlyAdmin, async (req, res) => {
+  try {
+    const employeeIds = await getEmployeeAttendanceIds(req);
+    const currentMonth = new Date().toISOString().slice(0, 7);
+
+    const attendances = await Attendance.find(
+      { adminId: req.user._id, employeeId: { $in: employeeIds } },
+      "employeeId employeeName monthlyRequestLimits"
+    ).lean();
+
+    const limitData = attendances.map(att => {
+      // Map handling since it's a raw object after .lean()
+      const monthData = (att.monthlyRequestLimits && att.monthlyRequestLimits[currentMonth]) 
+        || { limit: 5, used: 0 };
+      
+      return {
+        employeeId: att.employeeId,
+        employeeName: att.employeeName,
+        currentLimit: monthData.limit,
+        currentUsed: monthData.used,
+        remaining: monthData.limit - monthData.used
+      };
+    });
+
+    res.status(200).json({ success: true, count: limitData.length, data: limitData });
+  } catch (err) {
+    console.error("Error in /admin/all-request-limits:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+export default router;
 // --- END OF FILE EmployeeattendanceRoutes.js ---

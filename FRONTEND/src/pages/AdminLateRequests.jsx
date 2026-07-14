@@ -63,36 +63,8 @@ const AdminLateRequests = () => {
     if (requests.length === 0) setLoading(true);
 
     try {
-      const { data } = await api.get("/api/attendance/all", {
-        params: { status: 'PENDING', type: 'LATE_CORRECTION' }
-      });
-
-      const allRecords = data.data || [];
-      const pendingRequests = [];
-
-      // High-Performance Loop
-      for (const empRecord of allRecords) {
-        if (!empRecord.attendance || !Array.isArray(empRecord.attendance)) continue;
-
-        for (const dayLog of empRecord.attendance) {
-          if (
-            dayLog.lateCorrectionRequest?.hasRequest &&
-            dayLog.lateCorrectionRequest?.status === "PENDING"
-          ) {
-            pendingRequests.push({
-              employeeId: empRecord.employeeId,
-              employeeName: empRecord.employeeName,
-              date: dayLog.date,
-              currentPunchIn: dayLog.punchIn,
-              requestedTime: dayLog.lateCorrectionRequest.requestedTime,
-              reason: dayLog.lateCorrectionRequest.reason,
-            });
-          }
-        }
-      }
-
-      // Sort by date (Newest First)
-      pendingRequests.sort((a, b) => new Date(b.date) - new Date(a.date));
+      const { data } = await api.get("/api/attendance/admin/pending-late-requests");
+      const pendingRequests = data.data || [];
       setRequests(pendingRequests);
     } catch (err) {
       console.error("Error fetching requests:", err);
@@ -131,53 +103,8 @@ const AdminLateRequests = () => {
   const fetchEmployeeLimits = async (showLoader = true) => {
     if (showLoader) setLoadingLimits(true);
     try {
-      // Fetch all attendance records first
-      const { data } = await api.get("/api/attendance/all");
-      const allRecords = data.data || [];
-      const limitData = [];
-      const batchSize = 5;
-
-      // Process in batches for better performance
-      for (let i = 0; i < allRecords.length; i += batchSize) {
-        const batch = allRecords.slice(i, i + batchSize);
-        const batchPromises = batch.map(async (empRecord) => {
-          if (!empRecord.employeeId) return null;
-
-          try {
-            // Use cached data if available
-            const existingLimit = employeeLimits.find(emp => emp.employeeId === empRecord.employeeId);
-            if (existingLimit && !showLoader) {
-              return existingLimit;
-            }
-
-            const limitResponse = await api.get(`/api/attendance/request-limit/${empRecord.employeeId}`);
-            const currentMonth = new Date().toISOString().slice(0, 7);
-            const monthData = limitResponse.data.monthlyRequestLimits?.[currentMonth] || { limit: 5, used: 0 };
-
-            return {
-              employeeId: empRecord.employeeId,
-              employeeName: empRecord.employeeName,
-              currentLimit: monthData.limit,
-              currentUsed: monthData.used,
-              remaining: monthData.limit - monthData.used
-            };
-          } catch (err) {
-            console.error(`Error fetching limit for ${empRecord.employeeId}:`, err);
-            return {
-              employeeId: empRecord.employeeId,
-              employeeName: empRecord.employeeName,
-              currentLimit: 5,
-              currentUsed: 0,
-              remaining: 5
-            };
-          }
-        });
-
-        const batchResults = await Promise.all(batchPromises);
-        limitData.push(...batchResults.filter(Boolean));
-      }
-
-      setEmployeeLimits(limitData);
+      const { data } = await api.get("/api/attendance/admin/all-request-limits");
+      setEmployeeLimits(data.data || []);
     } catch (err) {
       console.error("Error fetching employee limits:", err);
       if (showLoader) {
