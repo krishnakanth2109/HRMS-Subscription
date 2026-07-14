@@ -21,6 +21,7 @@ import {
 const Customize = () => {
   const navigate = useNavigate();
   const [admins, setAdmins] = useState([]);
+  const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -34,23 +35,27 @@ const Customize = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch all admins
-  const fetchAdmins = async () => {
+  // Fetch all admins and plans
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/api/admin/all-admins");
-      setAdmins(res.data);
+      const [adminsRes, plansRes] = await Promise.all([
+        api.get("/api/admin/all-admins"),
+        api.get("/api/admin/all-plans").catch(() => ({ data: [] }))
+      ]);
+      setAdmins(adminsRes.data);
+      setPlans(plansRes.data || []);
       setError(null);
     } catch (err) {
-      console.error("Fetch admins error:", err);
-      setError("Failed to fetch subscribed admins. Please try again.");
+      console.error("Fetch error:", err);
+      setError("Failed to fetch dashboard data. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAdmins();
+    fetchData();
   }, []);
 
   // Helper: Get Time Remaining
@@ -164,9 +169,11 @@ const Customize = () => {
               className="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none cursor-pointer w-full md:w-auto"
             >
               <option value="all">All Plans</option>
-              <option value="premium">Premium</option>
-              <option value="free">Free</option>
-              <option value="owner">Owner</option>
+              {plans.map((plan) => (
+                <option key={plan._id || plan.id || plan.planName} value={plan.planName.toLowerCase()}>
+                  {plan.planName}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -186,7 +193,7 @@ const Customize = () => {
 
           {/* Sync Button */}
           <button
-            onClick={fetchAdmins}
+            onClick={fetchData}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 transition-all w-full md:w-auto"
           >
             <RefreshCw className="w-4 h-4" />
@@ -283,7 +290,9 @@ const Customize = () => {
                 <div className="flex items-center gap-2.5 text-slate-600">
                   <User className="w-4.5 h-4.5 text-slate-400" />
                   <span className="text-sm font-medium">
-                    Seat Capacity: <strong className="text-slate-800">{admin.userLimit || "30"} users</strong>
+                    Seat Capacity: <strong className="text-slate-800">
+                      {admin.plan?.toLowerCase().includes("owner") ? "Unlimited" : `${admin.userLimit || "30"} users`}
+                    </strong>
                   </span>
                 </div>
 

@@ -357,23 +357,24 @@ const PortfolioPage = () => {
       </div>
 
       {/* Full-width cover Hero */}
-      <section className="relative isolate z-10 h-[190px] w-full overflow-hidden text-center sm:h-[270px] lg:hidden">
+      <section className="relative isolate z-10 h-[210px] sm:h-[240px] w-full overflow-hidden text-center lg:hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-[8000ms] ease-out lg:group-hover:scale-[1.03]"
+          className="absolute -top-[1px] left-0 right-0 -bottom-[2px] bg-cover bg-center bg-no-repeat transition-transform duration-[8000ms] ease-out lg:group-hover:scale-[1.03]"
           style={{
             backgroundImage: employee?.portfolioBackgroundImageUrl
               ? `linear-gradient(
-          to bottom,
-          rgba(255,255,255,0) 0%,
-          rgba(255,255,255,0) 82%,
-          rgba(255,255,255,0.08) 90%,
-          rgba(255,255,255,0.22) 95%,
-          rgba(250,251,255,1) 100%
-        ), url(${getSecureUrl(employee.portfolioBackgroundImageUrl)})`
+                to bottom,
+                rgba(15,23,42,0.15) 0%,
+                rgba(15,23,42,0.05) 45%,
+                rgba(250,251,255,0) 70%,
+                rgba(250,251,255,0.12) 82%,
+                rgba(250,251,255,0.45) 92%,
+                rgba(250,251,255,0.75) 97%,
+                rgba(250,251,255,1) 100%
+              ), url(${getSecureUrl(employee.portfolioBackgroundImageUrl)})`
               : "linear-gradient(135deg, #bfdbfe 0%, #dbeafe 48%, #eff6ff 100%)",
           }}
         />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(250,251,255,0)_0%,rgba(250,251,255,0)_76%,rgba(250,251,255,0.12)_84%,rgba(250,251,255,0.48)_93%,rgba(250,251,255,1)_100%)] lg:bg-[linear-gradient(to_bottom,rgba(15,23,42,0.35)_0%,rgba(15,23,42,0.05)_30%,rgba(250,251,255,0)_60%,rgba(250,251,255,0.85)_88%,rgba(250,251,255,1)_100%)]" />
 
         <div className="absolute left-4 right-4 top-4 z-10 flex items-center justify-between sm:left-5 sm:right-5 sm:top-5 lg:left-8 lg:right-8 lg:top-8 lg:px-2">
           <button
@@ -397,25 +398,24 @@ const PortfolioPage = () => {
         </div>
 
         {/* Centered Hero content wrapper */}
-        <div className="absolute inset-x-0 bottom-3 z-10 flex flex-col items-center px-5 pb-0 sm:px-8 sm:pb-4 lg:inset-0 lg:justify-center lg:pb-0">
-          <motion.div
-            variants={avatarVariants}
-            initial="hidden"
-            animate="show"
-            className="mb-1 h-[72px] w-[72px] overflow-hidden rounded-full border-4 border-white bg-blue-50 shadow-[0_10px_26px_rgba(15,23,42,0.22)] sm:mb-2 sm:h-24 sm:w-24 lg:h-32 lg:w-32 lg:border-[6px] lg:shadow-[0_16px_40px_rgba(15,23,42,0.3)] shrink-0"
-          >
-            {employee.profileImageUrl ? (
-              <img src={getSecureUrl(employee.profileImageUrl)} alt={employee.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xl font-bold text-[#2563EB] sm:text-2xl lg:text-3xl">{initials}</div>
-            )}
-          </motion.div>
-          <h1 className="mb-0 px-2 text-base font-bold leading-tight tracking-tight text-white [text-shadow:0_1px_4px_rgba(15,23,42,0.75)] sm:mb-0.5 sm:text-2xl lg:text-4xl lg:mb-1">{employee.name}</h1>
-          <p className="mb-0.5 text-[9px] font-bold uppercase tracking-[0.22em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)] sm:mb-1 sm:text-xs sm:tracking-[0.25em] lg:text-[13px] lg:tracking-[0.3em] lg:mb-2">{employee.role || 'Professional'}</p>
-          {employee.bio && (
-            <p className="max-w-md px-2 text-[11px] leading-snug text-white/95 [text-shadow:0_1px_3px_rgba(15,23,42,0.75)] break-words sm:text-sm sm:leading-relaxed lg:max-w-xl lg:text-[15px] lg:leading-relaxed">{employee.bio}</p>
-          )}
-          <div className="mt-1.5 h-1 w-8 rounded-full bg-[#2563EB] sm:mt-2 sm:w-10 lg:mt-3 lg:w-12 lg:h-[4px] lg:shadow-[0_2px_8px_rgba(37,99,235,0.4)]" />
+        <div className="relative z-10 w-full flex flex-col items-center justify-end text-center h-[210px] sm:h-[240px] px-5 pb-5">
+          <div className="flex flex-col items-center">
+            <motion.div
+              variants={avatarVariants}
+              initial="hidden"
+              animate="show"
+              className="mb-1 h-24 w-24 sm:h-28 sm:w-28 overflow-hidden rounded-full border-2 border-white/40 bg-blue-50 shadow-[0_8px_24px_rgba(0,0,0,0.25)] shrink-0"
+            >
+              {employee.profileImageUrl ? (
+                <img src={getSecureUrl(employee.profileImageUrl)} alt={employee.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-[#2563EB] sm:text-4xl">{initials}</div>
+              )}
+            </motion.div>
+            <h1 className="mb-0 px-2 text-sm font-bold leading-tight tracking-tight text-white [text-shadow:0_1px_4px_rgba(15,23,42,0.75)] sm:mb-0.5 sm:text-xl">{employee.name}</h1>
+            <p className="mb-0.5 text-[8.5px] font-bold uppercase tracking-[0.20em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)] sm:mb-1 sm:text-xs sm:tracking-[0.25em]">{employee.role || 'Professional'}</p>
+            <div className="mt-1 h-0.5 w-6 rounded-full bg-[#2563EB] sm:w-8" />
+          </div>
         </div>
       </section>
 
@@ -446,7 +446,7 @@ const PortfolioPage = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 sm:py-2 lg:pt-14 lg:pb-12 flex-1 flex flex-col justify-start relative z-10">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 sm:py-2 lg:pt-14 lg:pb-12 lg:flex-1 block lg:flex lg:flex-col lg:justify-start relative z-10">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -460,7 +460,7 @@ const PortfolioPage = () => {
             className="hidden lg:flex lg:col-span-3 flex-col gap-3"
           >
             {(employee.companyName || employee.companyLogo || employee.companyTagline || employee.companyDescription || (employee.companyFeatures && employee.companyFeatures.length > 0)) && (
-              <div className="bg-white/80 backdrop-blur-md rounded-[28px] border border-slate-200/60 p-4 lg:p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] hover:shadow-[0_25px_70px_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center">
+              <div className="bg-white/80 backdrop-blur-md rounded-[28px] border border-slate-200/60 p-4 lg:p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] hover:shadow-[0_25px_70px_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center lg:min-h-[300px] lg:justify-center">
                 {employee.companyLogo ? (
                   <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-4 border border-blue-100/50">
                     <img
@@ -544,51 +544,50 @@ const PortfolioPage = () => {
           {/* CENTER COLUMN (Profile) */}
           <motion.div
             variants={itemVariants}
-            className="col-span-1 lg:col-span-6 flex flex-col items-center w-full animate-none"
+            className="col-span-1 lg:col-span-6 block w-full animate-none"
           >
-            <div className="w-full flex flex-col items-center">
+            <div className="w-full block">
 
               {/* Desktop Hero Card */}
-              <div className="hidden lg:block w-full overflow-hidden rounded-[28px] border border-slate-200/60 shadow-[0_20px_60px_rgba(15,23,42,0.06)] bg-white mb-4 relative h-[300px] group">
+              <div className="hidden lg:block w-full overflow-hidden rounded-t-[28px] bg-transparent mb-4 relative h-[260px] lg:h-[280px] group">
                 {/* Background Cover image/gradient */}
                 <div
-                  className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-[8000ms] ease-out group-hover:scale-[1.03]"
+                  className="absolute -top-[1px] left-0 right-0 -bottom-[2px] bg-cover bg-center bg-no-repeat transition-transform duration-[8000ms] ease-out group-hover:scale-[1.03]"
                   style={{
                     backgroundImage: employee?.portfolioBackgroundImageUrl
                       ? `linear-gradient(
                   to bottom,
-                  rgba(255,255,255,0) 0%,
-                  rgba(255,255,255,0) 70%,
-                  rgba(255,255,255,0.08) 85%,
-                  rgba(255,255,255,0.22) 92%,
-                  rgba(255,255,255,1) 100%
+                  rgba(15,23,42,0.20) 0%,
+                  rgba(15,23,42,0.05) 45%,
+                  rgba(250,251,255,0) 70%,
+                  rgba(250,251,255,0.12) 82%,
+                  rgba(250,251,255,0.45) 92%,
+                  rgba(250,251,255,0.75) 97%,
+                  rgba(250,251,255,1) 100%
                 ), url(${getSecureUrl(employee.portfolioBackgroundImageUrl)})`
                       : "linear-gradient(135deg, #bfdbfe 0%, #dbeafe 48%, #eff6ff 100%)",
                   }}
                 />
-                {/* Double overlay gradients */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(15,23,42,0.25)_0%,rgba(15,23,42,0.05)_40%,rgba(255,255,255,0)_70%,rgba(255,255,255,0.85)_92%,rgba(255,255,255,1)_100%)]" />
 
                 {/* Vertically centered Hero content */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-10">
-                  <motion.div
-                    variants={avatarVariants}
-                    initial="hidden"
-                    animate="show"
-                    className="mb-2 h-28 w-28 lg:h-24 lg:w-24 overflow-hidden rounded-full border-[6px] lg:border-4 border-white bg-blue-50 shadow-[0_16px_40px_rgba(15,23,42,0.25)] shrink-0"
-                  >
-                    {employee.profileImageUrl ? (
-                      <img src={getSecureUrl(employee.profileImageUrl)} alt={employee.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-[#2563EB]">{initials}</div>
-                    )}
-                  </motion.div>
-                  <h1 className="mb-1 text-3xl lg:text-2xl font-bold text-white [text-shadow:0_1px_4px_rgba(15,23,42,0.75)]">{employee.name}</h1>
-                  <p className="mb-2 lg:mb-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)]">{employee.role || 'Professional'}</p>
-                  {employee.bio && (
-                    <p className="max-w-md text-xs leading-relaxed text-white/95 [text-shadow:0_1px_3px_rgba(15,23,42,0.75)] break-words">{employee.bio}</p>
-                  )}
-                  <div className="mt-3 lg:mt-2 h-1 w-10 rounded-full bg-[#2563EB] shadow-[0_2px_8px_rgba(37,99,235,0.4)]" />
+                <div className="relative z-10 w-full flex flex-col items-center justify-end text-center h-[260px] lg:h-[280px] px-6 pb-6">
+                  <div className="flex flex-col items-center">
+                    <motion.div
+                      variants={avatarVariants}
+                      initial="hidden"
+                      animate="show"
+                      className="mb-2 h-28 w-28 lg:h-32 lg:w-32 overflow-hidden rounded-full border-[3px] border-white/40 bg-blue-50 shadow-[0_12px_36px_rgba(0,0,0,0.3)] shrink-0"
+                    >
+                      {employee.profileImageUrl ? (
+                        <img src={getSecureUrl(employee.profileImageUrl)} alt={employee.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-3xl lg:text-4xl font-bold text-[#2563EB]">{initials}</div>
+                      )}
+                    </motion.div>
+                    <h1 className="mb-1 text-2xl font-bold text-white [text-shadow:0_1px_4px_rgba(15,23,42,0.75)]">{employee.name}</h1>
+                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)]">{employee.role || 'Professional'}</p>
+                    <div className="mt-2 h-1 w-10 rounded-full bg-[#2563EB] shadow-[0_2px_8px_rgba(37,99,235,0.4)]" />
+                  </div>
                 </div>
               </div>
 
@@ -621,49 +620,58 @@ const PortfolioPage = () => {
 
               <div className="hidden" />
 
-              <div className="w-full flex flex-col gap-3 lg:gap-2.5 mt-3 sm:mt-4 lg:mt-0 mb-4 px-2 sm:px-0">
+              <div className="w-full flex flex-col gap-2 sm:gap-2.5 lg:gap-2.5 mt-4 lg:mt-0 mb-0 px-2 sm:px-0">
+                {/* About / Bio Section */}
+                {employee.bio && (
+                  <div className="bg-transparent rounded-[20px] sm:rounded-[24px] px-3.5 py-2.5 sm:p-5 lg:p-6 shadow-none flex flex-col">
+                    <p className="text-center text-xs sm:text-sm font-medium text-gray-600 leading-relaxed break-words whitespace-pre-line">
+                      {employee.bio}
+                    </p>
+                  </div>
+                )}
+
                 {/* Full Name */}
-                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-4 border border-blue-100/20 shadow-inner flex-shrink-0">
-                    <User className="w-5 h-5" />
+                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/20 shadow-inner flex-shrink-0">
+                    <User className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Full Name</span>
+                    <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Full Name</span>
                     <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">{employee.name || '--'}</span>
                   </div>
                 </div>
 
                 {/* Employee ID */}
-                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-4 border border-blue-100/20 shadow-inner flex-shrink-0">
-                    <ShieldCheck className="w-5 h-5" />
+                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/20 shadow-inner flex-shrink-0">
+                    <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Employee ID</span>
+                    <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Employee ID</span>
                     <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">{employee.employeeId || '--'}</span>
                   </div>
                 </div>
 
                 {/* Department */}
-                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-4 border border-blue-100/20 shadow-inner flex-shrink-0">
-                    <Briefcase className="w-5 h-5" />
+                <div className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/20 shadow-inner flex-shrink-0">
+                    <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Department</span>
-                    <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">{employee.department || '--'}</span>
+                    <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Department</span>
+                    <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">{employee.department || employee.experienceDetails?.[0]?.department || '--'}</span>
                   </div>
                 </div>
 
                 {/* Dynamic Custom Fields (added into Employee Details / Info) */}
                 {employee.customPortfolioFields && employee.customPortfolioFields.map((field, i) => (
                   field.value && (
-                    <div key={i} className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-4 border border-blue-100/20 shadow-inner flex-shrink-0">
-                        <Award className="w-5 h-5" />
+                    <div key={i} className="bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 lg:p-3.5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                      <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/20 shadow-inner flex-shrink-0">
+                        <Award className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
                       <div className="flex flex-col text-left">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{field.label}</span>
+                        <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">{field.label}</span>
                         {field.value?.startsWith('http') ? (
                           <a
                             href={field.value}
@@ -683,12 +691,12 @@ const PortfolioPage = () => {
 
                 {/* Official Email (Mobile only) */}
                 {employee.email && (
-                  <div className="lg:hidden bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-4 border border-blue-100/20 shadow-inner flex-shrink-0">
-                      <Mail className="w-5 h-5" />
+                  <div className="lg:hidden bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/20 shadow-inner flex-shrink-0">
+                      <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Official Email</span>
+                      <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Official Email</span>
                       <a href={`mailto:${employee.email}`} className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-[#2563EB] hover:underline break-all">
                         {employee.email}
                       </a>
@@ -698,12 +706,12 @@ const PortfolioPage = () => {
 
                 {/* Mobile Number (Mobile only) */}
                 {(employee.phone || employee.phoneNumber) && (
-                  <div className="lg:hidden bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-4 border border-blue-100/20 shadow-inner flex-shrink-0">
-                      <Phone className="w-5 h-5" />
+                  <div className="lg:hidden bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/20 shadow-inner flex-shrink-0">
+                      <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div className="flex flex-col text-left">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Mobile Number</span>
+                      <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Mobile Number</span>
                       <a href={`tel:${employee.phone || employee.phoneNumber}`} className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-[#2563EB] hover:underline break-all">
                         {employee.phone || employee.phoneNumber}
                       </a>
@@ -712,12 +720,12 @@ const PortfolioPage = () => {
                 )}
 
                 {/* Blood Group (Mobile only) */}
-                <div className="lg:hidden bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[20px] sm:rounded-[24px] p-4 sm:p-5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-red-50/60 text-[#EF4444] flex items-center justify-center mr-4 border border-red-100/20 shadow-inner flex-shrink-0">
-                    <Heart className="w-5 h-5" />
+                <div className="lg:hidden bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-[14px] sm:rounded-[24px] p-2.5 sm:p-5 shadow-[0_4px_20px_rgba(15,23,42,0.02)] flex items-center hover:shadow-[0_8px_30px_rgba(15,23,42,0.05)] hover:-translate-y-0.5 transition-all duration-300">
+                  <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-red-50/60 text-[#EF4444] flex items-center justify-center mr-3 border border-red-100/20 shadow-inner flex-shrink-0">
+                    <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Blood Group</span>
+                    <span className="text-[8px] sm:text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Blood Group</span>
                     <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">{employee.personalDetails?.bloodGroup || '--'}</span>
                   </div>
                 </div>
@@ -726,8 +734,8 @@ const PortfolioPage = () => {
               </div>
 
               {employee.socialLinks && (employee.socialLinks.linkedin || employee.socialLinks.github || employee.socialLinks.instagram || employee.socialLinks.website) && (
-                <div className="w-full flex flex-col items-center">
-                  <div className="flex items-center justify-center gap-4 w-full my-6">
+                <div className="w-full block text-center mt-5 mb-5 lg:mt-0 lg:mb-0">
+                  <div className="flex items-center justify-center gap-4 w-full lg:my-6">
                     <div className="flex items-center flex-1 justify-end">
                       <div className="h-px bg-gradient-to-r from-transparent to-blue-200 w-16" />
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-300 ml-1" />
@@ -815,67 +823,69 @@ const PortfolioPage = () => {
             variants={itemVariants}
             className="hidden lg:flex lg:col-span-3 flex-col gap-3"
           >
-            <div className="bg-white/80 backdrop-blur-md rounded-[28px] border border-slate-200/60 p-4 lg:p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] hover:shadow-[0_25px_70px_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col w-full">
-              <h3 className="text-base font-bold text-[#0F172A] mb-2 text-center">Contact Information</h3>
-              <div className="w-8 h-0.5 bg-[#2563EB] mx-auto mb-4 rounded-full" />
+            <div className="bg-white/80 backdrop-blur-md rounded-[28px] border border-slate-200/60 p-4 lg:p-5 shadow-[0_20px_60px_rgba(15,23,42,0.08)] hover:shadow-[0_25px_70px_rgba(15,23,42,0.12)] hover:-translate-y-0.5 transition-all duration-300 flex flex-col w-full lg:min-h-[300px] lg:justify-between">
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A] mb-2 text-center">Contact Information</h3>
+                <div className="w-8 h-0.5 bg-[#2563EB] mx-auto mb-4 rounded-full" />
+              </div>
 
-              <div className="flex flex-col gap-3 lg:gap-2.5">
+              <div className="flex flex-col gap-3 lg:gap-2 flex-grow lg:justify-center">
 
                 {/* Official Email */}
-                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-3 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-2.5 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="w-9 h-9 rounded-xl bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/10 shadow-inner flex-shrink-0">
                     <Mail className="w-4.5 h-4.5" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Official Email</span>
                     {employee.email ? (
-                      <a href={`mailto:${employee.email}`} className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-[#2563EB] hover:underline break-all">
+                      <a href={`mailto:${employee.email}`} className="text-xs xl:text-sm font-semibold text-gray-700 hover:text-[#2563EB] hover:underline break-all">
                         {employee.email}
                       </a>
                     ) : (
-                      <span className="text-xs sm:text-sm font-semibold text-gray-400">--</span>
+                      <span className="text-xs xl:text-sm font-semibold text-gray-400">--</span>
                     )}
                   </div>
                 </div>
 
                 {/* Mobile Number */}
-                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-3 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-2.5 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="w-9 h-9 rounded-xl bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/10 shadow-inner flex-shrink-0">
                     <Phone className="w-4.5 h-4.5" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Mobile Number</span>
                     {employee.phone || employee.phoneNumber ? (
-                      <a href={`tel:${employee.phone || employee.phoneNumber}`} className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-[#2563EB] hover:underline break-all">
+                      <a href={`tel:${employee.phone || employee.phoneNumber}`} className="text-xs xl:text-sm font-semibold text-gray-700 hover:text-[#2563EB] hover:underline break-all">
                         {employee.phone || employee.phoneNumber}
                       </a>
                     ) : (
-                      <span className="text-xs sm:text-sm font-semibold text-gray-400">--</span>
+                      <span className="text-xs xl:text-sm font-semibold text-gray-400">--</span>
                     )}
                   </div>
                 </div>
 
                 {/* Location */}
-                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-3 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-2.5 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="w-9 h-9 rounded-xl bg-blue-50/60 text-[#2563EB] flex items-center justify-center mr-3 border border-blue-100/10 shadow-inner flex-shrink-0">
                     <MapPin className="w-4.5 h-4.5" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Location</span>
-                    <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">
+                    <span className="text-xs xl:text-sm font-semibold text-gray-700 break-all">
                       {employee.address || '--'}
                     </span>
                   </div>
                 </div>
 
                 {/* Blood Group */}
-                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-3 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+                <div className="bg-white/75 backdrop-blur-md border border-slate-200/40 rounded-2xl p-4 lg:p-2.5 flex items-center hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
                   <div className="w-9 h-9 rounded-xl bg-red-50/60 text-[#EF4444] flex items-center justify-center mr-3 border border-red-100/10 shadow-inner flex-shrink-0">
                     <Heart className="w-4.5 h-4.5" />
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Blood Group</span>
-                    <span className="text-xs sm:text-sm font-semibold text-gray-700 break-all">{employee.personalDetails?.bloodGroup || '--'}</span>
+                    <span className="text-xs xl:text-sm font-semibold text-gray-700 break-all">{employee.personalDetails?.bloodGroup || '--'}</span>
                   </div>
                 </div>
 

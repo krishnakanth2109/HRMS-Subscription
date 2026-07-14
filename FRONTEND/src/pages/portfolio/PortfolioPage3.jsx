@@ -269,9 +269,9 @@ const PortfolioPage3 = () => {
                 {employee.role}
               </p>
             )}
-            {employee.department && (
-              <p className="text-xs sm:text-sm font-bold tracking-widest text-gray-500 uppercase mb-1.5">
-                {employee.department}
+            {(employee.department || employee.experienceDetails?.[0]?.department) && (
+              <p className="mt-1 text-xs md:text-sm font-semibold tracking-[0.2em] text-[#00FFFF] uppercase">
+                {employee.department || employee.experienceDetails?.[0]?.department}
               </p>
             )}
             {employee.bio && (
@@ -293,7 +293,7 @@ const PortfolioPage3 = () => {
               <SectionLabel icon={<ShieldCheck size={13} />} label="Employee Details" />
               <div className="flex flex-col divide-y divide-white/[0.04]">
                 <ContactRow label="Employee ID" value={employee.employeeId || '--'} />
-                <ContactRow label="Department" value={employee.department || '--'} />
+                <ContactRow label="Department" value={employee.department || employee.experienceDetails?.[0]?.department || '--'} />
                 <ContactRow label="Role" value={employee.role || '--'} />
                 {customFields.map((field, i) => {
                   const label = field.label || field.fieldName;

@@ -594,7 +594,8 @@ export const updateAdminProfile = async (req, res) => {
   try {
     const { 
       name, phone, department, 
-      profileImageUrl, portfolioBackgroundImageUrl, bio, customPortfolioFields, socialLinks
+      profileImageUrl, portfolioBackgroundImageUrl, bio, customPortfolioFields, socialLinks,
+      address, emergency, emergencyPhone, bankDetails, personalDetails, experienceDetails
     } = req.body;
 
     if (!name || !phone) {
@@ -610,7 +611,7 @@ export const updateAdminProfile = async (req, res) => {
     if (req.user.role === "support-admin") {
       updatedAdmin = await SupportAdmin.findByIdAndUpdate(
         req.user.actualId || req.user._id,
-        updateFields,
+        { ...updateFields, address, emergency, emergencyPhone, bankDetails, personalDetails, experienceDetails },
         { new: true, runValidators: true }
       );
     } else {

@@ -438,9 +438,9 @@ const PortfolioPage2 = () => {
                 <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-widest">
                   {employee.role || 'Team Member'}
                 </p>
-                {employee.department && (
-                  <p className="text-[11px] font-semibold text-[#96692F] mt-0.5 uppercase tracking-widest">
-                    {employee.department}
+                {(employee.department || employee.experienceDetails?.[0]?.department) && (
+                  <p className="mt-2 text-[13px] md:text-sm font-semibold tracking-widest text-[#96692F] uppercase">
+                    {employee.department || employee.experienceDetails?.[0]?.department}
                   </p>
                 )}
                 {employee.bio && (
@@ -474,8 +474,8 @@ const PortfolioPage2 = () => {
                   <span className="font-bold">{employee.employeeId || '--'}</span>
                 </div>
                 <div className="flex items-center justify-between py-2 lg:py-2.5">
-                  <span className="text-xs font-semibold text-slate-400">Department</span>
-                  <span className="font-bold">{employee.department || '--'}</span>
+                  <span className="text-sm text-slate-400">Department</span>
+                  <span className="font-bold">{employee.department || employee.experienceDetails?.[0]?.department || '--'}</span>
                 </div>
                 {/* Dynamic Custom Fields in Employee Details */}
                 {employee.customPortfolioFields && employee.customPortfolioFields.map((field, i) => (

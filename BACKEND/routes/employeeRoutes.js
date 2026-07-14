@@ -531,7 +531,7 @@ router.get("/", protect, async (req, res) => {
 router.get("/portfolio/:id", async (req, res) => {
   try {
     let employee = await Employee.findOne({ employeeId: req.params.id })
-      .select("employeeId name email phone phoneNumber personalDetails role currentRole experienceDetails companyName profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
+      .select("employeeId name email phone phoneNumber personalDetails role currentRole experienceDetails companyName profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId department")
       .populate("adminId", "companyLogo portfolio")
       .lean();
 
