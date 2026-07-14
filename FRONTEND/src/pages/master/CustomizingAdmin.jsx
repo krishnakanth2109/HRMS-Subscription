@@ -273,218 +273,285 @@ const CustomizingAdmin = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Columns - Plan Settings */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+      <form onSubmit={handleSave} className="space-y-6">
+        {/* Top Row: General Settings & Branding */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          
+          {/* General Settings */}
+          <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-6">
               <Settings className="w-5 h-5 text-blue-500" />
               <h3 className="font-bold text-slate-800 text-lg">General Settings</h3>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-grow">
+              {/* Left Column Settings */}
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    Plan Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                  />
+                </div>
 
-            {/* Price Input */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                Plan Price (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Seat Capacity (maxUsers)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={maxUsers}
+                    onChange={(e) => setMaxUsers(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                  />
+                </div>
 
-            {/* Seat Capacity Limit */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Seat Capacity (maxUsers)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={maxUsers}
-                onChange={(e) => setMaxUsers(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
-              />
-            </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Billing Cycle
+                  </label>
+                  <select
+                    value={billingCycle}
+                    onChange={(e) => setBillingCycle(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm cursor-pointer"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="halfYearly">Half-Yearly</option>
+                    <option value="yearly">Yearly</option>
+                    <option value="custom">Custom</option>
+                    <option value="free">Free</option>
+                  </select>
+                </div>
+              </div>
 
-            {/* Billing Cycle */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Billing Cycle
-              </label>
-              <select
-                value={billingCycle}
-                onChange={(e) => setBillingCycle(e.target.value)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm cursor-pointer"
-              >
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="halfYearly">Half-Yearly</option>
-                <option value="yearly">Yearly</option>
-                <option value="custom">Custom</option>
-                <option value="free">Free</option>
-              </select>
-            </div>
-
-            {/* Navigation Layout Toggle */}
-            <div className="space-y-2 pt-3 border-t border-slate-100">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Navigation Layout Style
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNavTemplate("sidebar")}
-                  className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${navTemplate === "sidebar"
-                      ? "border-blue-600 bg-blue-50/50 text-blue-600 shadow-sm"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                    }`}
-                >
-                  <div className="w-8 h-6 border border-current rounded flex overflow-hidden opacity-80">
-                    <div className="w-2.5 bg-current border-r border-current"></div>
-                    <div className="flex-1 bg-transparent"></div>
+              {/* Right Column Settings */}
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Navigation Layout Style
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNavTemplate("sidebar")}
+                      className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${navTemplate === "sidebar"
+                          ? "border-blue-600 bg-blue-50/50 text-blue-600 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                    >
+                      <div className="w-8 h-6 border border-current rounded flex overflow-hidden opacity-80">
+                        <div className="w-2.5 bg-current border-r border-current"></div>
+                        <div className="flex-1 bg-transparent"></div>
+                      </div>
+                      Sidebar Menu
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNavTemplate("navbar")}
+                      className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${navTemplate === "navbar"
+                          ? "border-blue-600 bg-blue-50/50 text-blue-600 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                    >
+                      <div className="w-8 h-6 border border-current rounded flex flex-col overflow-hidden opacity-80">
+                        <div className="h-2 bg-current border-b border-current"></div>
+                        <div className="flex-1 bg-transparent"></div>
+                      </div>
+                      Navbar Menu
+                    </button>
                   </div>
-                  Sidebar Menu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setNavTemplate("navbar")}
-                  className={`py-2 px-3 rounded-xl border font-bold text-xs flex flex-col items-center gap-1.5 transition-all cursor-pointer ${navTemplate === "navbar"
-                      ? "border-blue-600 bg-blue-50/50 text-blue-600 shadow-sm"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                    }`}
-                >
-                  <div className="w-8 h-6 border border-current rounded flex flex-col overflow-hidden opacity-80">
-                    <div className="h-2 bg-current border-b border-current"></div>
-                    <div className="flex-1 bg-transparent"></div>
-                  </div>
-                  Navbar Menu
-                </button>
+                </div>
+
+                <div className="space-y-2 pt-1 border-t border-slate-100">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Portfolio Theme
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPortfolioModalOpen(true)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm flex justify-between items-center cursor-pointer hover:bg-slate-100"
+                  >
+                    <span className="capitalize">{selectedPortfolio}</span>
+                    <Settings className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Branding */}
+          <div className="xl:col-span-1 flex flex-col gap-6">
+            {/* Company Logo */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex-1">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <ImageIcon className="w-5 h-5 text-purple-500" />
+                <h3 className="font-bold text-slate-800 text-lg">Company Logo</h3>
+              </div>
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
+                  {companyLogo ? (
+                    <img src={companyLogo} alt="Company Logo" className="w-full h-full object-contain p-1" />
+                  ) : (
+                    <ImageIcon className="w-10 h-10 text-slate-300" />
+                  )}
+                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <div className="flex items-center justify-center gap-2 w-full flex-wrap">
+                  <button
+                    type="button"
+                    disabled={logoUploading || logoRemoving}
+                    onClick={() => logoInputRef.current?.click()}
+                    className="flex-1 min-w-[120px] justify-center flex items-center gap-2 text-xs font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl border border-purple-200 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {logoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {logoUploading ? "Uploading..." : "Change Logo"}
+                  </button>
+                  {companyLogo && companyLogo !== "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png" && (
+                    <button
+                      type="button"
+                      disabled={logoUploading || logoRemoving}
+                      onClick={handleLogoRemove}
+                      className="flex-1 min-w-[120px] justify-center flex items-center gap-2 text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl border border-red-200 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {logoRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      {logoRemoving ? "Removing..." : "Remove"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Portfolio Selection */}
-            <div className="space-y-2 pt-3 border-t border-slate-100">
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                Portfolio Theme
-              </label>
+            {/* Company Favicon */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 flex-1">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                <ImageIcon className="w-5 h-5 text-indigo-500" />
+                <h3 className="font-bold text-slate-800 text-lg">Company Favicon</h3>
+              </div>
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
+                  {companyFavicon ? (
+                    <img
+                      src={companyFavicon.includes("res.cloudinary.com") ? companyFavicon.replace("/upload/", "/upload/e_trim/") : companyFavicon}
+                      alt="Company Favicon"
+                      className="w-full h-full object-contain p-1"
+                    />
+                  ) : (
+                    <img src="/favicon.png" alt="Default Favicon" className="w-full h-full object-contain p-1" />
+                  )}
+                </div>
+                <input
+                  ref={faviconInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/x-icon"
+                  className="hidden"
+                  onChange={handleFaviconUpload}
+                />
+                <div className="flex items-center justify-center gap-2 w-full flex-wrap">
+                  <button
+                    type="button"
+                    disabled={faviconUploading || faviconRemoving}
+                    onClick={() => faviconInputRef.current?.click()}
+                    className="flex-1 min-w-[120px] justify-center flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl border border-indigo-200 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {faviconUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {faviconUploading ? "Uploading..." : "Change Favicon"}
+                  </button>
+                  {companyFavicon && (
+                    <button
+                      type="button"
+                      disabled={faviconUploading || faviconRemoving}
+                      onClick={handleFaviconRemove}
+                      className="flex-1 min-w-[120px] justify-center flex items-center gap-2 text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl border border-red-200 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {faviconRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      {faviconRemoving ? "Removing..." : "Remove"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Assignment */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-3 flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <Sliders className="w-5 h-5 text-purple-500" />
+              <h3 className="font-bold text-slate-800 text-lg">Custom Features Assignment</h3>
+            </div>
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsPortfolioModalOpen(true)}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm flex justify-between items-center cursor-pointer hover:bg-slate-100"
+                onClick={handleSelectAll}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-all cursor-pointer"
               >
-                <span className="capitalize">{selectedPortfolio}</span>
-                <Settings className="w-4 h-4 text-slate-400" />
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="text-xs font-bold text-slate-600 hover:text-slate-800 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
+              >
+                Clear All
               </button>
             </div>
           </div>
 
-          {/* Company Branding */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <ImageIcon className="w-5 h-5 text-purple-500" />
-              <h3 className="font-bold text-slate-800 text-lg">Company Logo</h3>
-            </div>
-            {/* Logo Preview */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
-                {companyLogo ? (
-                  <img src={companyLogo} alt="Company Logo" className="w-full h-full object-contain p-1" />
-                ) : (
-                  <ImageIcon className="w-10 h-10 text-slate-300" />
-                )}
-              </div>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={handleLogoUpload}
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={logoUploading || logoRemoving}
-                  onClick={() => logoInputRef.current?.click()}
-                  className="flex items-center gap-2 text-xs font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl border border-purple-200 transition-all cursor-pointer disabled:opacity-50"
+          {/* Features Checklist List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+            {FALLBACK_FEATURES.map((feat) => {
+              const isSelected = selectedFeatures.includes(feat.route);
+              return (
+                <div
+                  key={feat.route}
+                  onClick={() => handleFeatureToggle(feat.route)}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer flex gap-3 items-start select-none ${isSelected
+                      ? "border-blue-300 bg-blue-50/50 shadow-sm"
+                      : "border-slate-100 hover:border-slate-200 hover:bg-slate-50/40"
+                    }`}
                 >
-                  {logoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {logoUploading ? "Uploading..." : "Change Logo"}
-                </button>
-                {companyLogo && companyLogo !== "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png" && (
-                  <button
-                    type="button"
-                    disabled={logoUploading || logoRemoving}
-                    onClick={handleLogoRemove}
-                    className="flex items-center gap-2 text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl border border-red-200 transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {logoRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    {logoRemoving ? "Removing..." : "Remove Logo"}
-                  </button>
-                )}
-              </div>
-            </div>
+                  <div className="mt-0.5 text-blue-600">
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5 fill-blue-600 text-white" />
+                    ) : (
+                      <Square className="w-5 h-5 text-slate-300" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className={`text-sm font-bold ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
+                      {feat.label}
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                      {feat.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Company Favicon */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
-              <ImageIcon className="w-5 h-5 text-indigo-500" />
-              <h3 className="font-bold text-slate-800 text-lg">Company Favicon</h3>
-            </div>
-            {/* Favicon Preview */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden bg-slate-50">
-                {companyFavicon ? (
-                  <img
-                    src={companyFavicon.includes("res.cloudinary.com") ? companyFavicon.replace("/upload/", "/upload/e_trim/") : companyFavicon}
-                    alt="Company Favicon"
-                    className="w-full h-full object-contain p-1"
-                  />
-                ) : (
-                  <img src="/favicon.png" alt="Default Favicon" className="w-full h-full object-contain p-1" />
-                )}
-              </div>
-              <input
-                ref={faviconInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/x-icon"
-                className="hidden"
-                onChange={handleFaviconUpload}
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={faviconUploading || faviconRemoving}
-                  onClick={() => faviconInputRef.current?.click()}
-                  className="flex items-center gap-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl border border-indigo-200 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {faviconUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {faviconUploading ? "Uploading..." : "Change Favicon"}
-                </button>
-                {companyFavicon && (
-                  <button
-                    type="button"
-                    disabled={faviconUploading || faviconRemoving}
-                    onClick={handleFaviconRemove}
-                    className="flex items-center gap-2 text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl border border-red-200 transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {faviconRemoving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    {faviconRemoving ? "Removing..." : "Remove Favicon"}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Action Trigger Card */}
+        {/* Action Trigger Card */}
+        <div className="flex justify-end mt-2">
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3.5 rounded-2xl font-bold shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
+            className="w-full md:w-auto px-10 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-3.5 rounded-2xl font-bold shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01]"
           >
             {saving ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -493,67 +560,6 @@ const CustomizingAdmin = () => {
             )}
             Save Custom Settings
           </button>
-        </div>
-
-        {/* Right Columns - Feature Selection */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3 flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <Sliders className="w-5 h-5 text-purple-500" />
-                <h3 className="font-bold text-slate-800 text-lg">Custom Features Assignment</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-800 px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 transition-all cursor-pointer"
-                >
-                  Select All
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="text-xs font-bold text-slate-600 hover:text-slate-800 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition-all cursor-pointer"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-
-            {/* Features Checklist List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-2">
-              {FALLBACK_FEATURES.map((feat) => {
-                const isSelected = selectedFeatures.includes(feat.route);
-                return (
-                  <div
-                    key={feat.route}
-                    onClick={() => handleFeatureToggle(feat.route)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex gap-3 items-start select-none ${isSelected
-                        ? "border-blue-200 bg-blue-50/20 hover:border-blue-300"
-                        : "border-slate-100 hover:border-slate-200 hover:bg-slate-50/40"
-                      }`}
-                  >
-                    <div className="mt-0.5 text-blue-600">
-                      {isSelected ? (
-                        <CheckSquare className="w-5 h-5 fill-blue-600/10" />
-                      ) : (
-                        <Square className="w-5 h-5 text-slate-300" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-800">
-                        {feat.label}
-                      </h4>
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">
-                        {feat.description}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </form>
 
