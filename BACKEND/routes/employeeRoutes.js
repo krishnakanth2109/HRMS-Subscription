@@ -532,13 +532,13 @@ router.get("/portfolio/:id", async (req, res) => {
   try {
     let employee = await Employee.findOne({ employeeId: req.params.id })
       .select("employeeId name email phone phoneNumber personalDetails role currentRole experienceDetails companyName profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
-      .populate("adminId", "companyLogo")
+      .populate("adminId", "companyLogo portfolio")
       .lean();
 
     if (!employee) {
       const supportAdmin = await SupportAdmin.findOne({ supportAdminId: req.params.id })
         .select("supportAdminId name email phone role department profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
-        .populate("adminId", "companyLogo")
+        .populate("adminId", "companyLogo portfolio")
         .lean();
 
       if (supportAdmin) {
@@ -568,6 +568,7 @@ router.get("/portfolio/:id", async (req, res) => {
 
     employee.role = jobRole || employee.role || "Professional";
     employee.companyLogo = employee.adminId?.companyLogo || null;
+    employee.portfolioTheme = employee.adminId?.portfolio || "default";
 
     // Clean up internal fields
     delete employee.adminId;

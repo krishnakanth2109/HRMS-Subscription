@@ -52,6 +52,10 @@ const adminSchema = new mongoose.Schema(
       enum: ["sidebar", "navbar"],
       default: "sidebar",
     },
+    portfolio: {
+      type: String,
+      default: "default",
+    },
 
     /* ==================== PLAN & BILLING ==================== */
     planDetails: {

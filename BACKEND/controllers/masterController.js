@@ -174,7 +174,7 @@ export const assignPlan = async (req, res) => {
 export const getAdminPlanDetails = async (req, res) => {
   try {
     const { adminId } = req.params;
-    const admin = await Admin.findById(adminId).select("name email plan planDetails userLimit isPaid planActivatedAt planExpiresAt companyLogo favicon navTemplate");
+    const admin = await Admin.findById(adminId).select("name email plan planDetails userLimit isPaid planActivatedAt planExpiresAt companyLogo favicon navTemplate portfolio");
     if (!admin) {
       return res.status(404).json({ message: "Admin not found." });
     }
@@ -199,6 +199,7 @@ export const getAdminPlanDetails = async (req, res) => {
       companyLogo: admin.companyLogo || null,
       favicon: admin.favicon || null,
       navTemplate: admin.navTemplate || "sidebar",
+      portfolio: admin.portfolio || "default",
       planDetails: details,
     });
   } catch (error) {
@@ -217,7 +218,7 @@ export const customizePlan = async (req, res) => {
       return res.status(404).json({ message: "Admin not found." });
     }
 
-    const { price, features, maxUsers, billingCycle, navTemplate } = req.body;
+    const { price, features, maxUsers, billingCycle, navTemplate, portfolio } = req.body;
 
     if (!admin.planDetails || !admin.planDetails.planName) {
       // If the admin doesn't have planDetails yet, initialize it
@@ -243,11 +244,14 @@ export const customizePlan = async (req, res) => {
     if (navTemplate) {
       admin.navTemplate = navTemplate;
     }
+    if (portfolio) {
+      admin.portfolio = portfolio;
+    }
 
     admin.markModified("planDetails");
 
     await admin.save();
-    res.status(200).json({ message: "Plan customized successfully", planDetails: admin.planDetails, navTemplate: admin.navTemplate });
+    res.status(200).json({ message: "Plan customized successfully", planDetails: admin.planDetails, navTemplate: admin.navTemplate, portfolio: admin.portfolio });
   } catch (error) {
     console.error("❌ CUSTOMIZE PLAN ERROR:", error);
     res.status(500).json({ message: error.message });

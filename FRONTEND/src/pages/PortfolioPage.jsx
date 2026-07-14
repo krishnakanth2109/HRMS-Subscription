@@ -4,6 +4,10 @@ import { Linkedin, Github, Instagram, Globe, AlertCircle, ArrowLeft, Briefcase, 
 import { motion } from 'framer-motion';
 import api from '../api';
 
+import PortfolioPage1 from './portfolio/PortfolioPage1';
+import PortfolioPage2 from './portfolio/PortfolioPage2';
+import PortfolioPage3 from './portfolio/PortfolioPage3';
+
 const getSecureUrl = (url) => {
   if (!url) return "";
   if (url.startsWith("http:")) {
@@ -82,6 +86,10 @@ const PortfolioPage = () => {
       </motion.div>
     );
   }
+
+  if (employee.portfolioTheme === 'Portfolio 1') return <PortfolioPage1 />;
+  if (employee.portfolioTheme === 'Portfolio 2') return <PortfolioPage2 />;
+  if (employee.portfolioTheme === 'Portfolio 3') return <PortfolioPage3 />;
 
   const initials = employee.name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
 
