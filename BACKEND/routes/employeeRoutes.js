@@ -537,7 +537,7 @@ router.get("/portfolio/:id", async (req, res) => {
 
     if (!employee) {
       const supportAdmin = await SupportAdmin.findOne({ supportAdminId: req.params.id })
-        .select("supportAdminId name email phone role department profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId")
+        .select("supportAdminId name email phone role department profileImageUrl portfolioBackgroundImageUrl bio customPortfolioFields socialLinks isActive status adminId experienceDetails")
         .populate("adminId", "companyLogo portfolio")
         .lean();
 

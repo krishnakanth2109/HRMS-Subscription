@@ -210,7 +210,7 @@ const PortfolioPage = () => {
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-3 mb-4 px-4">
             <h2 className="text-[14px] sm:text-[16px] font-semibold text-[#C4A47C] uppercase tracking-[0.15em] m-0 text-center leading-snug">
-              {employee.role || 'Professional'}
+              {employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || 'Professional'}
             </h2>
             <span className="px-2 py-0.5 bg-[#0B1320] text-[#C4A47C] text-[11px] sm:text-xs font-bold rounded uppercase tracking-widest whitespace-nowrap">
               {employee.employeeId}

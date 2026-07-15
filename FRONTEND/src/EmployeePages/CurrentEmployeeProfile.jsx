@@ -430,14 +430,26 @@ const CurrentEmployeeProfile = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Bank Name</label>
                 {isEditing ? (
-                  <select
-                    value={bankDetails.bankName || INDIAN_BANKS[0]}
-                    onChange={(e) => handleNestedChange("bankDetails", "bankName", e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    {INDIAN_BANKS.map(bank => <option key={bank} value={bank}>{bank}</option>)}
-                  </select>
-                ) : <p className="p-2 border-b border-slate-200 text-slate-800">{bankDetails.bankName || "N/A"}</p>}
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={INDIAN_BANKS.includes(bankDetails.bankName) ? bankDetails.bankName : (bankDetails.bankName ? "Others" : INDIAN_BANKS[0])}
+                      onChange={(e) => handleNestedChange("bankDetails", "bankName", e.target.value)}
+                      className="w-full border border-slate-300 rounded-lg px-4 py-2.5 bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      {INDIAN_BANKS.map(bank => <option key={bank} value={bank}>{bank}</option>)}
+                      <option value="Others">Others</option>
+                    </select>
+                    {(!INDIAN_BANKS.includes(bankDetails.bankName) && bankDetails.bankName) || bankDetails.bankName === "Others" ? (
+                      <input 
+                        type="text"
+                        placeholder="Enter your bank name"
+                        value={bankDetails.bankName === "Others" ? "" : bankDetails.bankName}
+                        onChange={(e) => handleNestedChange("bankDetails", "bankName", e.target.value || "Others")}
+                        className="w-full border border-slate-300 rounded-lg py-2.5 px-4 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-slate-50 focus:bg-white"
+                      />
+                    ) : null}
+                  </div>
+                ) : <p className="p-2 border-b border-slate-200 text-slate-800">{bankDetails.bankName === "Others" ? "N/A" : (bankDetails.bankName || "N/A")}</p>}
               </div>
               <Input label="Account Number" value={bankDetails.accountNumber} onChange={(v) => handleNestedChange("bankDetails", "accountNumber", v)} editable={isEditing} icon={<FaCreditCard />} />
               <Input label="IFSC Code" value={bankDetails.ifsc} onChange={(v) => handleNestedChange("bankDetails", "ifsc", v)} editable={isEditing} className="uppercase" />

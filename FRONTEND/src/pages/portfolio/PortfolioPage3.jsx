@@ -89,7 +89,7 @@ const PortfolioPage3 = () => {
 
   const downloadVcard = () => {
     const nameParts = employee.name ? employee.name.split(' ') : ['Employee'];
-    const vcard = `BEGIN:VCARD\nVERSION:3.0\nN:${nameParts.slice(1).join(' ') || ''};${nameParts[0] || ''};;;\nFN:${employee.name || ''}\nORG:${employee.companyName || ''}\nTITLE:${employee.role || ''}\nEMAIL;TYPE=PREF,INTERNET:${employee.email || ''}\nURL:${employee.socialLinks?.website || ''}\nEND:VCARD`;
+    const vcard = `BEGIN:VCARD\nVERSION:3.0\nN:${nameParts.slice(1).join(' ') || ''};${nameParts[0] || ''};;;\nFN:${employee.name || ''}\nORG:${employee.companyName || ''}\nTITLE:${employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || ''}\nEMAIL;TYPE=PREF,INTERNET:${employee.email || ''}\nURL:${employee.socialLinks?.website || ''}\nEND:VCARD`;
     const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -264,9 +264,9 @@ const PortfolioPage3 = () => {
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-white leading-tight mb-1.5">
               {employee.name}
             </h1>
-            {employee.role && (
+            {(employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role) && (
               <p className="text-sm sm:text-base font-bold tracking-widest text-gray-300 uppercase mb-1">
-                {employee.role}
+                {employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role}
               </p>
             )}
             {(employee.department || employee.experienceDetails?.[0]?.department) && (
@@ -294,7 +294,7 @@ const PortfolioPage3 = () => {
               <div className="flex flex-col divide-y divide-white/[0.04]">
                 <ContactRow label="Employee ID" value={employee.employeeId || '--'} />
                 <ContactRow label="Department" value={employee.department || employee.experienceDetails?.[0]?.department || '--'} />
-                <ContactRow label="Role" value={employee.role || '--'} />
+                <ContactRow label="Role" value={employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || '--'} />
                 {customFields.map((field, i) => {
                   const label = field.label || field.fieldName;
                   const value = field.value || field.fieldValue;

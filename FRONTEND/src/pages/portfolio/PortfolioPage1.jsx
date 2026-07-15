@@ -413,7 +413,7 @@ const PortfolioPage = () => {
               )}
             </motion.div>
             <h1 className="mb-0 px-2 text-sm font-bold leading-tight tracking-tight text-white [text-shadow:0_1px_4px_rgba(15,23,42,0.75)] sm:mb-0.5 sm:text-xl">{employee.name}</h1>
-            <p className="mb-0.5 text-[8.5px] font-bold uppercase tracking-[0.20em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)] sm:mb-1 sm:text-xs sm:tracking-[0.25em]">{employee.role || 'Professional'}</p>
+            <p className="mb-0.5 text-[8.5px] font-bold uppercase tracking-[0.20em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)] sm:mb-1 sm:text-xs sm:tracking-[0.25em]">{employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || 'Professional'}</p>
             <div className="mt-1 h-0.5 w-6 rounded-full bg-[#2563EB] sm:w-8" />
           </div>
         </div>
@@ -585,7 +585,7 @@ const PortfolioPage = () => {
                       )}
                     </motion.div>
                     <h1 className="mb-1 text-2xl font-bold text-white [text-shadow:0_1px_4px_rgba(15,23,42,0.75)]">{employee.name}</h1>
-                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)]">{employee.role || 'Professional'}</p>
+                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.25em] text-white [text-shadow:0_1px_3px_rgba(15,23,42,0.7)]">{employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || 'Professional'}</p>
                     <div className="mt-2 h-1 w-10 rounded-full bg-[#2563EB] shadow-[0_2px_8px_rgba(37,99,235,0.4)]" />
                   </div>
                 </div>
@@ -615,7 +615,7 @@ const PortfolioPage = () => {
               </div>
 
               <h2 className="hidden">
-                {employee.role || 'Professional'}
+                {employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || 'Professional'}
               </h2>
 
               <div className="hidden" />

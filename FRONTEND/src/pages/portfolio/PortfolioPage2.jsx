@@ -436,7 +436,7 @@ const PortfolioPage2 = () => {
                   {employee.name}
                 </h1>
                 <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-widest">
-                  {employee.role || 'Team Member'}
+                  {employee.currentRole || employee.designation || employee.experienceDetails?.[employee.experienceDetails.length - 1]?.role || employee.role || 'Team Member'}
                 </p>
                 {(employee.department || employee.experienceDetails?.[0]?.department) && (
                   <p className="mt-2 text-[13px] md:text-sm font-semibold tracking-widest text-[#96692F] uppercase">
