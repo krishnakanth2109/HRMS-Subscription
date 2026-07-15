@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ModalWrapper from "../components/ModalWrapper";
+import SupportAdminProfileView from "../components/admin/SupportAdminProfileView";
 import Swal from "sweetalert2";
 
 import {
@@ -68,6 +69,7 @@ const SupportAdminManagement = () => {
   const [deletingId, setDeletingId] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
+  const [viewingAdmin, setViewingAdmin] = useState(null);
   const [createAdminLoading, setCreateAdminLoading] = useState(false);
   const [editAdminLoading, setEditAdminLoading] = useState(false);
   const [newAdminForm, setNewAdminForm] = useState({
@@ -351,6 +353,16 @@ const SupportAdminManagement = () => {
     }
   };
 
+  if (viewingAdmin) {
+    return (
+      <SupportAdminProfileView 
+        admin={viewingAdmin} 
+        onBack={() => setViewingAdmin(null)} 
+        allSidebarFeatures={ALL_SIDEBAR_FEATURES} 
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -463,14 +475,14 @@ const SupportAdminManagement = () => {
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center justify-center gap-2">
-                          {/* <button
+                          <button
                             type="button"
-                            onClick={() => navigate(`/support-admin/attendance/profile/${admin._id}`)}
+                            onClick={() => setViewingAdmin(admin)}
                             className="rounded-xl border border-indigo-100 bg-indigo-50 p-2 text-indigo-600 transition hover:bg-indigo-100"
-                            title="View Attendance"
+                            title={`View ${ADMINISTRATION_USER_LABEL}`}
                           >
                             <FaEye />
-                          </button> */}
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(admin)}
@@ -979,6 +991,8 @@ const SupportAdminManagement = () => {
           </button>
         </div>
       </ModalWrapper>
+
+
     </div>
   );
 };

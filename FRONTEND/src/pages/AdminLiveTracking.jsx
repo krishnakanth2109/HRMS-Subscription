@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import api, { getEmployees, getIdleTimeForEmployeeByDate, getAttendanceByDateRange } from ".././api";
 import {
     FaUserFriends, FaRegClock,
@@ -23,8 +23,14 @@ import { Doughnut, Line, Bar } from "react-chartjs-2";
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, PointElement, LineElement, BarElement);
 
 const AdminLiveTracking = () => {
-    const [liveData, setLiveData] = useState([]);
+    const [rawLiveData, setLiveData] = useState([]);
     const [employeesMap, setEmployeesMap] = useState({});
+
+    // Filter to only show employees belonging to this admin
+    const liveData = useMemo(() => {
+        return rawLiveData.filter(record => !!employeesMap[record.employeeId]);
+    }, [rawLiveData, employeesMap]);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [lastUpdated, setLastUpdated] = useState(new Date());
