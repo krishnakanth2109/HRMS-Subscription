@@ -609,10 +609,10 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   };
 
   const sidebarClasses = `
-    relative h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50
+     h-screen bg-slate-900 border-r border-slate-800 flex flex-col transition-all duration-300 ease-in-out z-50
     ${isMobile
       ? `fixed top-0 left-0 w-[300px] ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`
-      : `sticky top-0 ${collapsed ? "w-[64px]" : "w-[300px]"}`}
+      : `relative sticky top-0 ${collapsed ? "w-[64px]" : "w-[300px]"}`}
   `;
 
   return (
