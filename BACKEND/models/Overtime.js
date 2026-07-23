@@ -17,6 +17,11 @@ const OvertimeSchema = new mongoose.Schema(
       enum: ["INCENTIVE_OT", "PENDING_OT"],
       required: true,
     },
+    
+    hours: { type: Number, required: true },
+    reason: { type: String, required: true },
+    fromTime: { type: String, required: true },
+    toTime: { type: String, required: true },
 
     status: {
       type: String,

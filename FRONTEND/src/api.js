@@ -197,6 +197,8 @@ export const addEmployee = async (data) =>
   (await api.post("/api/employees", data)).data;
 export const updateEmployeeById = async (id, data) =>
   (await api.put(`/api/employees/${id}`, data)).data;
+export const updateEmployeeOTLimit = async (id, limit) =>
+  (await api.put(`/api/employees/${id}/ot-limit`, { limit })).data;
 export const deactivateEmployeeById = async (id, data) =>
   (await api.patch(`/api/employees/${id}/deactivate`, data)).data;
 export const deleteEmployeeById = async (id) =>

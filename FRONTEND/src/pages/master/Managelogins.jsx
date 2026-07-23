@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import api from "../../api";
 import Swal from "sweetalert2";
 import {
@@ -8,7 +9,7 @@ import {
 
 /* ──────────────────────────────────────────────
    TINY HELPERS
-────────────────────────────────────────────── */
+ ────────────────────────────────────────────── */
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
@@ -50,7 +51,7 @@ const billingCycleLabel = {
 
 /* ──────────────────────────────────────────────
    TOGGLE COMPONENT
-────────────────────────────────────────────── */
+ ────────────────────────────────────────────── */
 function Toggle({ checked, onChange, disabled }) {
   return (
     <button
@@ -59,8 +60,8 @@ function Toggle({ checked, onChange, disabled }) {
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent 
-        transition-all duration-300 ease-in-out focus:outline-none shadow-inner
-        ${checked ? "bg-blue-600 shadow-blue-500/20" : "bg-slate-200"}
+        transition-all duration-305 ease-in-out focus:outline-none shadow-inner
+        ${checked ? "bg-purple-600 shadow-purple-500/20" : "bg-slate-200"}
         ${disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-105"}
       `}
     >
@@ -71,13 +72,13 @@ function Toggle({ checked, onChange, disabled }) {
 
 function Badge({ active, label, variant = "status" }) {
   const styles = variant === "danger"
-    ? "bg-rose-50 text-rose-700 border border-rose-200"
-    : (active ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-slate-100 text-slate-500 border border-slate-200");
+    ? "bg-rose-50 text-rose-700 border border-rose-150/50"
+    : (active ? "bg-emerald-50 text-emerald-700 border border-emerald-150/50" : "bg-slate-50 text-slate-500 border border-slate-150/50");
 
   const dot = variant === "danger" ? "bg-rose-500" : (active ? "bg-emerald-500" : "bg-slate-400");
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${styles}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider ${styles}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${dot} ${active && variant !== "danger" ? 'animate-pulse' : ''}`} />
       {label}
     </span>
@@ -86,8 +87,9 @@ function Badge({ active, label, variant = "status" }) {
 
 /* ──────────────────────────────────────────────
    MAIN PAGE
-────────────────────────────────────────────── */
+   ────────────────────────────────────────────── */
 export default function ManageLogins() {
+  const location = useLocation();
   const [admins, setAdmins] = useState([]);
   const [existingPlans, setExistingPlans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +110,12 @@ export default function ManageLogins() {
     setOpenActionMenu(prev => prev === adminId ? null : adminId);
   };
 
+  useEffect(() => {
+    if (location.state && location.state.status) {
+      setActiveFilter(location.state.status);
+    }
+  }, [location]);
+
   // Close action menu on outside click
   useEffect(() => {
     const handler = (e) => {
@@ -124,7 +132,7 @@ export default function ManageLogins() {
     const { value: newPassword, isConfirmed } = await Swal.fire({
       title: `Change Password`,
       html: `
-        <p style="color:#64748b;font-size:14px;margin-bottom:16px">Set a new password for <strong>${admin.companyName}</strong></p>
+        <p style="color:#64748b;font-size:14px;margin-bottom:16px font-weight:500;">Set a new password for <strong>${admin.companyName}</strong></p>
         <div style="position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:12px">
           <input id="swal-password" type="password" placeholder="New password (min. 6 chars)" class="swal2-input" style="width:85%;margin:0;padding-right:44px;border-radius:10px;font-size:14px" />
           <button id="eye-pw" type="button" style="position:absolute;right:10%;background:none;border:none;cursor:pointer;color:#94a3b8;padding:6px;display:flex;align-items:center;transition:color 0.2s">
@@ -139,7 +147,7 @@ export default function ManageLogins() {
         </div>
       `,
       confirmButtonText: "Update Password",
-      confirmButtonColor: "#2563eb",
+      confirmButtonColor: "#7c3aed",
       showCancelButton: true,
       focusConfirm: false,
       didOpen: () => {
@@ -153,7 +161,7 @@ export default function ManageLogins() {
             const isHidden = input.type === "password";
             input.type = isHidden ? "text" : "password";
             btn.innerHTML = isHidden ? EYE_OFF : EYE_OPEN;
-            btn.style.color = isHidden ? "#2563eb" : "#94a3b8";
+            btn.style.color = isHidden ? "#7c3aed" : "#94a3b8";
           });
         };
         makeToggle("eye-pw", "swal-password");
@@ -431,286 +439,285 @@ export default function ManageLogins() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 pb-20 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    <div className="space-y-8 animate-[fadeIn_0.4s_ease-out]">
 
-        {/* ── HEADER ── */}
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
-            <ShieldCheck className="w-8 h-8 text-blue-600" />
-            Access Management
-          </h1>
-          <p className="mt-2 text-sm text-slate-500 font-medium max-w-2xl">
-            Control login access for administrators and their staff, monitor subscription statuses, and manage billing accounts.
-          </p>
-        </div>
+      {/* ── HEADER ── */}
+      <div>
+        <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-purple-600" />
+          Access Management
+        </h2>
+        <p className="mt-1 text-slate-400 text-xs font-semibold tracking-wide">
+          Control login access for administrators and their staff, monitor subscription statuses, and manage billing accounts.
+        </p>
+      </div>
 
-        {/* ── COUNTS / STATS ── */}
-        {!loading && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              { id: "all", label: "Total Accounts", value: stats.all, icon: Users, color: "blue" },
-              { id: "active", label: "Active Access", value: stats.active, icon: CheckCircle2, color: "emerald" },
-              { id: "blocked", label: "Blocked", value: stats.blocked, icon: Ban, color: "rose" },
-              { id: "expired", label: "Expired Plan", value: stats.expired, icon: Clock, color: "amber" },
-            ].map((s) => {
-              const Icon = s.icon;
-              const isActive = activeFilter === s.id;
+      {/* ── COUNTS / STATS ── */}
+      {!loading && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            { id: "all", label: "Total Accounts", value: stats.all, icon: Users, color: "purple" },
+            { id: "active", label: "Active Access", value: stats.active, icon: CheckCircle2, color: "emerald" },
+            { id: "blocked", label: "Blocked", value: stats.blocked, icon: Ban, color: "rose" },
+            { id: "expired", label: "Expired Plan", value: stats.expired, icon: Clock, color: "amber" },
+          ].map((s) => {
+            const Icon = s.icon;
+            const isActive = activeFilter === s.id;
 
-              const colorMaps = {
-                blue: "from-blue-600 to-indigo-700 shadow-blue-500/30",
-                emerald: "from-emerald-500 to-teal-600 shadow-emerald-500/30",
-                rose: "from-rose-500 to-red-600 shadow-rose-500/30",
-                amber: "from-amber-500 to-orange-500 shadow-amber-500/30",
-              };
+            const colorMaps = {
+              purple: "from-purple-600 to-indigo-600 shadow-purple-500/20",
+              emerald: "from-emerald-500 to-teal-600 shadow-emerald-500/20",
+              rose: "from-rose-500 to-red-600 shadow-rose-500/20",
+              amber: "from-amber-500 to-orange-500 shadow-amber-500/20",
+            };
 
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => { setActiveFilter(s.id); setSearch(""); }}
-                  className={`text-left transition-all duration-300 rounded-3xl p-6 relative overflow-hidden group
-                    ${isActive ? `bg-gradient-to-br ${colorMaps[s.color]} text-white shadow-xl scale-105 z-10` : "bg-white border border-slate-200 hover:border-slate-300 hover:shadow-md"}`}
-                >
-                  <div className="flex justify-between items-start relative z-10">
-                    <div>
-                      <p className={`text-[10px] font-black uppercase tracking-widest ${isActive ? "text-white/80" : "text-slate-400"}`}>
-                        {s.label}
-                      </p>
-                      <p className={`text-4xl font-black mt-2 tracking-tight ${isActive ? "text-white" : "text-slate-800"}`}>
-                        {s.value}
-                      </p>
-                    </div>
-                    <div className={`p-3 rounded-2xl ${isActive ? "bg-white/20 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600 transition-colors"}`}>
-                      <Icon className="w-6 h-6" />
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── SEPARATE FRAME: STAFF LOGIN VIOLATIONS ── */}
-        {!loading && violations.length > 0 && (
-          <div className="bg-white border border-rose-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="bg-gradient-to-r from-rose-50 to-white px-6 py-4 border-b border-rose-100 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 animate-pulse" />
-                </div>
-                <h2 className="text-sm font-bold text-rose-800 uppercase tracking-widest">Identify Violations: Staff active on Expired Plans</h2>
-              </div>
-              <span className="bg-rose-600 text-white shadow-sm shadow-rose-200 text-xs font-black px-3 py-1 rounded-full">{violations.length} ACCOUNTS</span>
-            </div>
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {violations.map(v => (
-                <div
-                  key={v.id}
-                  onClick={() => { setSearch(v.email); setActiveFilter("all"); setPlanFilter("All Plans"); }}
-                  className="bg-white border border-rose-200 p-4 rounded-2xl flex items-center justify-between cursor-pointer hover:shadow-md transition-all group"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-slate-800 truncate group-hover:text-rose-600 transition-colors">{v.companyName}</p>
-                    <p className="text-xs text-rose-500 font-semibold mt-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-80">{getDaysAgo(v.planExpiresAt)}</span>
+            return (
+              <button
+                key={s.id}
+                onClick={() => { setActiveFilter(s.id); setSearch(""); }}
+                className={`text-left transition-all duration-300 rounded-2xl p-6 relative overflow-hidden group
+                  ${isActive ? `bg-gradient-to-br ${colorMaps[s.color]} text-white shadow-xl scale-105 z-10` : "bg-white border border-slate-100 hover:border-slate-200 hover:shadow-sm"}`}
+              >
+                <div className="flex justify-between items-start relative z-10">
+                  <div>
+                    <p className={`text-[10px] font-black uppercase tracking-wider ${isActive ? "text-white/80" : "text-slate-400"}`}>
+                      {s.label}
+                    </p>
+                    <p className={`text-3xl font-black mt-2 tracking-tight ${isActive ? "text-white" : "text-slate-800"}`}>
+                      {s.value}
                     </p>
                   </div>
-                  <div className="text-right shrink-0 bg-rose-50 px-3 py-2 rounded-xl">
-                    <p className="text-[9px] font-black text-rose-400">STAFF ACTIVE</p>
-                    <p className="text-lg font-black text-rose-600">{v.totalEmployees - v.disabledEmployees}</p>
+                  <div className={`p-3 rounded-xl ${isActive ? "bg-white/20 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600 transition-colors"}`}>
+                    <Icon className="w-5 h-5" />
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        {/* ── SEARCH & PLAN FILTER ── */}
-        <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by company or email..."
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 hover:bg-slate-100/50 transition-colors border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm font-medium text-slate-700 placeholder-slate-400"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      {/* ── SEPARATE FRAME: STAFF LOGIN VIOLATIONS ── */}
+      {!loading && violations.length > 0 && (
+        <div className="bg-white border border-rose-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+          <div className="bg-gradient-to-r from-rose-50/50 to-white px-6 py-4 border-b border-rose-100/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-rose-100/50 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-rose-600 animate-pulse" />
+              </div>
+              <h2 className="text-xs font-bold text-rose-800 uppercase tracking-widest">Identify Violations: Staff active on Expired Plans</h2>
+            </div>
+            <span className="bg-rose-600 text-white shadow-sm shadow-rose-200 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-lg">{violations.length} Accounts</span>
           </div>
-          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-1.5 w-full md:w-auto">
-            <Filter className="w-4 h-4 text-slate-400" />
-            <span className="text-[10px] font-black text-slate-500 uppercase">Plan:</span>
-            <select
-              value={planFilter}
-              onChange={(e) => setPlanFilter(e.target.value)}
-              className="text-sm font-bold text-slate-800 outline-none bg-transparent py-2 cursor-pointer pr-2 min-w-[120px]"
-            >
-              {uniquePlans.map(plan => <option key={plan} value={plan}>{plan}</option>)}
-            </select>
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {violations.map(v => (
+              <div
+                key={v.id}
+                onClick={() => { setSearch(v.email); setActiveFilter("all"); setPlanFilter("All Plans"); }}
+                className="bg-white border border-rose-100 p-4 rounded-xl flex items-center justify-between cursor-pointer hover:shadow-md hover:border-rose-200 transition-all duration-300 group"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800 truncate group-hover:text-rose-600 transition-colors">{v.companyName}</p>
+                  <p className="text-xs text-rose-500 font-semibold mt-1.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {formatDate(v.planExpiresAt)} <span className="ml-1 opacity-80">{getDaysAgo(v.planExpiresAt)}</span>
+                  </p>
+                </div>
+                <div className="text-right shrink-0 bg-rose-50/50 px-3 py-2 rounded-lg border border-rose-100/30">
+                  <p className="text-[9px] font-bold text-rose-400">STAFF ACTIVE</p>
+                  <p className="text-base font-black text-rose-600">{v.totalEmployees - v.disabledEmployees}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
+      )}
 
-        {/* ── MAIN LIST AREA ── */}
-        {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200/50 animate-pulse rounded-3xl" />)}
+      {/* ── SEARCH & PLAN FILTER ── */}
+      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div className="relative flex-1 w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by company, administrator or email..."
+            className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-xs font-semibold text-slate-800 transition-all placeholder-slate-400"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl px-4 py-1.5 w-full md:w-auto shadow-inner">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Plan:</span>
+          <select
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value)}
+            className="text-xs font-bold text-slate-850 outline-none bg-transparent py-2 cursor-pointer pr-2 min-w-[120px]"
+          >
+            {uniquePlans.map(plan => <option key={plan} value={plan}>{plan}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* ── MAIN LIST AREA ── */}
+      {loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-200/50 animate-pulse rounded-2xl" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-slate-250">
+          <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
+            <Search className="w-5 h-5 text-slate-400" />
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-300">
-            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-              <Search className="w-6 h-6 text-slate-400" />
-            </div>
-            <p className="text-slate-500 font-bold text-lg">No records found</p>
-            <p className="text-slate-400 text-sm mt-1 mb-4">Try adjusting your filters or search query.</p>
-            <button
-              onClick={() => { setSearch(""); setPlanFilter("All Plans"); setActiveFilter("all"); }}
-              className="text-blue-600 bg-blue-50 hover:bg-blue-100 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors"
-            >
-              Clear Filters
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5">
-            {filtered.map((admin) => {
-              const adminOn = getAdminLogin(admin);
-              const empOn = getEmployeeLogin(admin, adminOn);
-              const expired = isPlanExpired(admin.planExpiresAt);
-              const hasPending = !!pendingChanges[admin.id];
+          <p className="text-slate-700 font-bold text-sm">No records found</p>
+          <p className="text-slate-400 text-xs mt-1 mb-4 font-semibold">Try adjusting your filters or search query.</p>
+          <button
+            onClick={() => { setSearch(""); setPlanFilter("All Plans"); setActiveFilter("all"); }}
+            className="text-purple-600 bg-purple-50 hover:bg-purple-100 px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors border border-purple-100/50"
+          >
+            Clear Filters
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-5">
+          {filtered.map((admin) => {
+            const adminOn = getAdminLogin(admin);
+            const empOn = getEmployeeLogin(admin, adminOn);
+            const expired = isPlanExpired(admin.planExpiresAt);
+            const hasPending = !!pendingChanges[admin.id];
 
-              return (
-                <div
-                  key={admin.id}
-                  className={`bg-white rounded-3xl transition-all duration-300 relative group overflow-visible
-                    ${hasPending ? "border-blue-300 shadow-lg shadow-blue-500/10 ring-2 ring-blue-50" : "border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300"}`}
-                >
-                  <div className="p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+            return (
+              <div
+                key={admin.id}
+                className={`bg-white rounded-2xl transition-all duration-300 relative group overflow-visible
+                  ${hasPending ? "border-purple-250 ring-4 ring-purple-50/50 shadow-lg" : "border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-205/80"}`}
+              >
+                <div className="p-6 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
 
-                    {/* Left: Info */}
-                    <div className="flex items-start gap-5 flex-1 min-w-0">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-xl font-black shadow-inner transition-colors duration-300
-                        ${adminOn ? "bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700" : "bg-slate-100 text-slate-400"}`}>
-                        {admin.companyName ? admin.companyName.charAt(0).toUpperCase() : admin.name.charAt(0).toUpperCase()}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                          <h3 className="text-lg font-bold text-slate-900 truncate tracking-tight">{admin.companyName || admin.name}</h3>
-                          <Badge active={adminOn} label={adminOn ? "Active" : "Disabled"} />
-                          {expired && <Badge variant="danger" label="Expired" />}
-                        </div>
-
-                        <div className="flex items-center gap-2 text-sm text-slate-500 mb-4 truncate font-medium">
-                          <Mail className="w-3.5 h-3.5 text-slate-400" />
-                          {admin.email}
-                        </div>
-
-                        <div className="flex flex-wrap gap-4 bg-slate-50 border border-slate-100 rounded-xl px-4 py-2 inline-flex items-center text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                          <span className="flex items-center gap-1.5">
-                            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-                            Plan: <span className="text-slate-800">{admin.plan || "N/A"}</span>
-                          </span>
-                          <span className="w-px h-3 bg-slate-300 mx-1"></span>
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-amber-400" />
-                            Expires: <span className={expired ? "text-rose-600 font-black" : "text-slate-800"}>{formatDate(admin.planExpiresAt)}</span>
-                          </span>
-                          <span className="w-px h-3 bg-slate-300 mx-1"></span>
-                          <span className="flex items-center gap-1.5">
-                            <Users className="w-3.5 h-3.5 text-emerald-400" />
-                            Staff: <span className="text-slate-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.plan?.toLowerCase() === 'owner' ? '/ \u221E' : (admin.userLimit ? `/ ${admin.userLimit}` : '')}</span>
-                          </span>
-                          <span className="w-px h-3 bg-slate-300 mx-1"></span>
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-blue-400" />
-                            Last Login: <span className="text-slate-800">{formatDateTime(admin.lastLoginAt)}</span>
-                          </span>
-                        </div>
-                      </div>
+                  {/* Left: Info */}
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 text-sm font-black shadow-inner transition-colors duration-300
+                      ${adminOn ? "bg-gradient-to-br from-purple-50 to-indigo-50 text-purple-750" : "bg-slate-100 text-slate-400"}`}>
+                      {admin.companyName ? admin.companyName.charAt(0).toUpperCase() : admin.name.charAt(0).toUpperCase()}
                     </div>
 
-                    {/* Right: Controls & Actions */}
-                    <div className="flex flex-wrap items-center gap-3 bg-slate-50/50 p-3 rounded-2xl border border-slate-100 shrink-0">
-
-                      <div className="flex items-center gap-3 px-4 border-r border-slate-200">
-                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Admin Login</span>
-                        <Toggle checked={adminOn} onChange={(v) => handleToggleAdmin(admin.id, v)} disabled={saving[admin.id]} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <h3 className="text-base font-bold text-slate-900 truncate tracking-tight">{admin.companyName || admin.name}</h3>
+                        <Badge active={adminOn} label={adminOn ? "Active" : "Disabled"} />
+                        {expired && <Badge variant="danger" label="Expired" />}
                       </div>
 
-                      <div className="flex items-center gap-3 px-4 border-r border-slate-200">
-                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Staff Login</span>
-                        <Toggle checked={empOn} onChange={(v) => handleToggleEmployees(admin.id, v)} disabled={saving[admin.id] || admin.totalEmployees === 0 || !adminOn} />
+                      <div className="flex items-center gap-1.5 text-xs text-slate-505 mb-3.5 truncate font-semibold">
+                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                        {admin.email}
                       </div>
 
-                      <div className="pl-2 flex items-center gap-2">
-                        <button
-                          onClick={() => handleSave(admin.id)}
-                          disabled={!hasPending || saving[admin.id]}
-                          className={`px-5 py-2.5 rounded-xl text-xs font-black tracking-wide transition-all ${hasPending
-                              ? "bg-blue-600 text-white shadow-md shadow-blue-500/30 hover:bg-blue-700 hover:-translate-y-0.5"
-                              : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                            }`}
-                        >
-                          {saving[admin.id] ? "SAVING..." : "SAVE"}
-                        </button>
-
-                        {/* Actions Menu */}
-                        <div className="relative" ref={openActionMenu === admin.id ? actionMenuRef : null}>
-                          <button
-                            onClick={() => toggleActionMenu(admin.id)}
-                            className="p-2.5 rounded-xl text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-colors cursor-pointer"
-                            title="Actions"
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-
-                          {openActionMenu === admin.id && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden transform origin-top-right transition-all">
-                              <button
-                                onClick={() => handleChangePassword(admin)}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-                              >
-                                <Key className="w-4 h-4" /> Change Password
-                              </button>
-                              <button
-                                onClick={() => handleViewBills(admin)}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-slate-100"
-                              >
-                                <Receipt className="w-4 h-4" /> View Bills
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAdmin(admin)}
-                                className="w-full flex items-center gap-3 px-4 py-3.5 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors border-t border-slate-100"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete Account
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex flex-wrap gap-4 bg-slate-50/60 border border-slate-100/50 rounded-xl px-4 py-2 inline-flex items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider shadow-inner">
+                        <span className="flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+                          Plan: <span className="text-slate-800">{admin.plan || "N/A"}</span>
+                        </span>
+                        <span className="w-px h-3 bg-slate-200 mx-1"></span>
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          Expires: <span className={expired ? "text-rose-600 font-black" : "text-slate-800"}>{formatDate(admin.planExpiresAt)}</span>
+                        </span>
+                        <span className="w-px h-3 bg-slate-200 mx-1"></span>
+                        <span className="flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-emerald-450" />
+                          Staff: <span className="text-slate-800">{admin.totalEmployees + (admin.supportAdminCount || 0)} {admin.plan?.toLowerCase() === 'owner' ? '/ \u221E' : (admin.userLimit ? `/ ${admin.userLimit}` : '')}</span>
+                        </span>
+                        <span className="w-px h-3 bg-slate-200 mx-1"></span>
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-blue-400" />
+                          Last Login: <span className="text-slate-800">{formatDateTime(admin.lastLoginAt)}</span>
+                        </span>
                       </div>
-
                     </div>
                   </div>
 
-                  {/* Staff Directory Expansion */}
-                  {expandedStaff[admin.id] && admin.staffNames && admin.staffNames.length > 0 && (
-                    <div className="px-6 pb-6 pt-4 border-t border-slate-100 bg-slate-50/50 rounded-b-3xl">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Staff Directory</p>
-                      <div className="flex flex-wrap gap-2">
-                        {admin.staffNames.map((name, idx) => (
-                          <span key={idx} className="bg-white border border-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-bold shadow-sm">
-                            {name}
-                          </span>
-                        ))}
+                  {/* Right: Controls & Actions */}
+                  <div className="flex flex-wrap items-center gap-3 bg-slate-50/40 p-2.5 rounded-xl border border-slate-100/50 shrink-0">
+
+                    <div className="flex items-center gap-2.5 px-3 border-r border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-550 uppercase tracking-wider">Admin Login</span>
+                      <Toggle checked={adminOn} onChange={(v) => handleToggleAdmin(admin.id, v)} disabled={saving[admin.id]} />
+                    </div>
+
+                    <div className="flex items-center gap-2.5 px-3 border-r border-slate-200">
+                      <span className="text-[10px] font-bold text-slate-550 uppercase tracking-wider">Staff Login</span>
+                      <Toggle checked={empOn} onChange={(v) => handleToggleEmployees(admin.id, v)} disabled={saving[admin.id] || admin.totalEmployees === 0 || !adminOn} />
+                    </div>
+
+                    <div className="pl-1.5 flex items-center gap-2">
+                      <button
+                        onClick={() => handleSave(admin.id)}
+                        disabled={!hasPending || saving[admin.id]}
+                        className={`px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${
+                          hasPending
+                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20 hover:shadow-lg hover:-translate-y-0.5 active:scale-95"
+                            : "bg-slate-150 text-slate-400 cursor-not-allowed"
+                        }`}
+                      >
+                        {saving[admin.id] ? "SAVING..." : "SAVE"}
+                      </button>
+
+                      {/* Actions Menu */}
+                      <div className="relative" ref={openActionMenu === admin.id ? actionMenuRef : null}>
+                        <button
+                          onClick={() => toggleActionMenu(admin.id)}
+                          className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+                          title="Actions"
+                        >
+                          <MoreVertical size={14} />
+                        </button>
+
+                        {openActionMenu === admin.id && (
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100 rounded-xl shadow-xl z-30 overflow-hidden animate-[fadeIn_0.15s_ease-out]">
+                            <button
+                              onClick={() => handleChangePassword(admin)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-purple-50 hover:text-purple-750 transition-colors"
+                            >
+                              <Key className="w-3.5 h-3.5 text-purple-500" /> Change Password
+                            </button>
+                            <button
+                              onClick={() => handleViewBills(admin)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors border-t border-slate-100"
+                            >
+                              <Receipt className="w-3.5 h-3.5 text-emerald-500" /> View Bills
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAdmin(admin)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-xs font-bold text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-colors border-t border-slate-100"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-500" /> Delete Account
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
+
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
+                {/* Staff Directory Expansion */}
+                {expandedStaff[admin.id] && admin.staffNames && admin.staffNames.length > 0 && (
+                  <div className="px-6 pb-6 pt-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Staff Directory</p>
+                    <div className="flex flex-wrap gap-2">
+                      {admin.staffNames.map((name, idx) => (
+                        <span key={idx} className="bg-white border border-slate-150 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-bold shadow-sm">
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

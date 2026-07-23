@@ -117,6 +117,12 @@ const EmployeeSchema = new mongoose.Schema({
 
   // ROLES
   role: { type: String, enum: ["employee", "manager"], default: "employee" },
+
+  // OT LIMIT (in hours per month, null = unlimited)
+  monthlyOtLimit: { type: Number, default: null },
+
+  // PREFERENCES
+  theme: { type: String, enum: ["light", "dark", "system"], default: "system" },
   isAdmin: { type: Boolean, default: false }, // Internal flag (e.g., Company HR), not the SaaS Admin
 }, { timestamps: true });
 

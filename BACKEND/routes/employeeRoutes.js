@@ -603,6 +603,30 @@ router.get("/:id", protect, async (req, res) => {
   }
 });
 
+// UPDATE OT Limit for employee
+router.put("/:id/ot-limit", protect, async (req, res) => {
+  try {
+    if (req.user.role !== "admin" && req.user.role !== "support-admin") {
+      return res.status(403).json({ message: "Only admins can set OT limits" });
+    }
+    const { limit } = req.body; // Can be a number or null
+    
+    const query = { employeeId: req.params.id };
+    if (req.user.role === "admin") query.adminId = req.user._id;
+
+    const employee = await Employee.findOneAndUpdate(
+      query,
+      { monthlyOtLimit: limit },
+      { new: true }
+    );
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+    res.json(employee);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // UPDATE employee
 router.put("/:id", protect, async (req, res) => {
   try {

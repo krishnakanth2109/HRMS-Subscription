@@ -255,6 +255,7 @@ const createArrowIcon = (angle) =>
 
 const MapViewController = ({ positions, focusedLocation }) => {
   const map = useMap();
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
     const observer = new ResizeObserver(() => map.invalidateSize());
@@ -274,13 +275,17 @@ const MapViewController = ({ positions, focusedLocation }) => {
   useEffect(() => {
     if (focusedLocation) {
       map.setView(focusedLocation, 17);
+      hasInitialized.current = false; // Reset so that when focus is cleared, it fits bounds again
     } else {
       if (!positions.length) return;
 
-      if (positions.length === 1) {
-        map.setView(positions[0], 16);
-      } else {
-        map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
+      if (!hasInitialized.current) {
+        if (positions.length === 1) {
+          map.setView(positions[0], 16);
+        } else {
+          map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
+        }
+        hasInitialized.current = true;
       }
     }
   }, [map, positions, focusedLocation]);
@@ -960,6 +965,7 @@ const AdminFieldTracking = () => {
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                   {routePoints.length ? (
                     <TripRouteMap
+                      key={selectedTrip._id}
                       routePoints={routePoints}
                       stopPoints={stopPoints}
                       breaks={selectedTrip?.breaks || []}

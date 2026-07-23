@@ -326,11 +326,30 @@ const employeeOvertimeStatusEmail = ({
 ====================================================== */
 router.post("/apply", async (req, res) => {
   try {
-    const { employeeId, employeeName, date, type } = req.body;
+    const { employeeId, employeeName, date, type, hours, reason, fromTime, toTime } = req.body;
     const employeeEmail = req.user?.email || "";
 
-    if (!employeeId || !employeeName || !date || !type) {
+    if (!employeeId || !employeeName || !date || !type || !hours || !reason || !fromTime || !toTime) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // ============================================
+    // 🔹 OT LIMIT VALIDATION (By Number of Requests)
+    // ============================================
+    const employee = await Employee.findOne({ employeeId });
+    if (employee && employee.monthlyOtLimit !== null) {
+      const currentMonth = date.substring(0, 7); // 'YYYY-MM'
+      const existingOvertimes = await Overtime.find({
+        employeeId,
+        date: { $regex: `^${currentMonth}` },
+        status: { $in: ["PENDING", "APPROVED"] }
+      });
+      const currentRequestCount = existingOvertimes.length;
+      if (currentRequestCount >= employee.monthlyOtLimit) {
+        return res.status(400).json({ 
+          message: `Monthly overtime limit exceeded. You can only request overtime ${employee.monthlyOtLimit} time(s) per month.` 
+        });
+      }
     }
 
     // CREATE WITH HIERARCHY
@@ -341,6 +360,10 @@ router.post("/apply", async (req, res) => {
       employeeName,
       date,
       type,
+      hours,
+      reason,
+      fromTime,
+      toTime,
       status: "PENDING",
     });
 

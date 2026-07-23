@@ -20,11 +20,17 @@ import {
 
 // --- DEFAULT RULES ---
 const DEFAULT_RULES = {
+  basicValueType: 'percentage',
   basicPercentage: 40,
+  hraValueType: 'percentage',
   hraPercentage: 40,
+  conveyanceValueType: 'fixed',
   conveyance: 1600,
+  medicalValueType: 'fixed',
   medical: 1250,
+  travellingAllowanceValueType: 'fixed',
   travellingAllowance: 800,
+  otherAllowanceValueType: 'fixed',
   otherAllowance: 1000,
   // PF Defaults
   pfCalculationMethod: 'percentage', // 'percentage' | 'fixed'
@@ -356,7 +362,7 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
     const { name, value, type, checked } = e.target;
     if (type === 'checkbox') {
       setRules(prev => ({ ...prev, [name]: checked }));
-    } else if (name === 'pfCalculationMethod' || name === 'latePenaltyType') {
+    } else if (name === 'pfCalculationMethod' || name === 'latePenaltyType' || name.endsWith('ValueType')) {
       setRules(prev => ({ ...prev, [name]: value }));
     } else {
       setRules(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
@@ -390,28 +396,64 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
             <div className="grid grid-cols-2 gap-4">
               {/* Standard Fields */}
               <div>
-                <label className="text-xs font-semibold text-gray-600">Basic Salary (% of Total)</label>
-                <input type="number" name="basicPercentage" value={rules.basicPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold text-gray-700">Basic Salary</label>
+                  <select name="basicValueType" value={rules.basicValueType || 'percentage'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                    <option value="percentage">% of Total</option>
+                    <option value="fixed">Fixed ₹</option>
+                  </select>
+                </div>
+                <input type="number" name="basicPercentage" value={rules.basicPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">HRA (% of Basic)</label>
-                <input type="number" name="hraPercentage" value={rules.hraPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold text-gray-700">HRA</label>
+                  <select name="hraValueType" value={rules.hraValueType || 'percentage'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                    <option value="percentage">% of Basic</option>
+                    <option value="fixed">Fixed ₹</option>
+                  </select>
+                </div>
+                <input type="number" name="hraPercentage" value={rules.hraPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">Conveyance (Fixed ₹)</label>
-                <input type="number" name="conveyance" value={rules.conveyance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold text-gray-700">Conveyance</label>
+                  <select name="conveyanceValueType" value={rules.conveyanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                    <option value="percentage">% of Basic</option>
+                    <option value="fixed">Fixed ₹</option>
+                  </select>
+                </div>
+                <input type="number" name="conveyance" value={rules.conveyance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">Medical (Fixed ₹)</label>
-                <input type="number" name="medical" value={rules.medical} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold text-gray-700">Medical</label>
+                  <select name="medicalValueType" value={rules.medicalValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                    <option value="percentage">% of Basic</option>
+                    <option value="fixed">Fixed ₹</option>
+                  </select>
+                </div>
+                <input type="number" name="medical" value={rules.medical} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">Travelling Allowance (Fixed ₹)</label>
-                <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold text-gray-700">Travelling Allowance</label>
+                  <select name="travellingAllowanceValueType" value={rules.travellingAllowanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                    <option value="percentage">% of Basic</option>
+                    <option value="fixed">Fixed ₹</option>
+                  </select>
+                </div>
+                <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">Other Allowance (Fixed ₹)</label>
-                <input type="number" name="otherAllowance" value={rules.otherAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold text-gray-700">Other Allowance</label>
+                  <select name="otherAllowanceValueType" value={rules.otherAllowanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                    <option value="percentage">% of Basic</option>
+                    <option value="fixed">Fixed ₹</option>
+                  </select>
+                </div>
+                <input type="number" name="otherAllowance" value={rules.otherAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
 
               {/* Dynamic Custom Fields */}
@@ -1408,10 +1450,19 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
 };
 
 // --- PAYSLIP MODAL COMPONENT ---
+const PAYSLIP_LAYOUTS = [
+  { id: 'classic',    label: 'Classic',    icon: '📄', desc: 'Clean document style' },
+  { id: 'modern',     label: 'Modern',     icon: '🎨', desc: 'Card-based with color accents' },
+  { id: 'corporate',  label: 'Corporate',  icon: '🏢', desc: 'Bold header, professional' },
+  { id: 'minimal',    label: 'Minimal',    icon: '✨', desc: 'Ultra-clean, stripe rows' },
+  { id: 'executive',  label: 'Executive',  icon: '💼', desc: 'Dark header, premium feel' },
+];
+
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   const [companyData, setCompanyData] = useState(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [selectedLayout, setSelectedLayout] = useState('classic');
 
   // ✅ Fetch company details dynamically — employee.companyId holds emp.company (ObjectId)
   useEffect(() => {
@@ -1470,7 +1521,24 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
 
   // Builds the raw payslip HTML (used both for print and PDF)
   const buildPayslipHTML = useCallback((pfLabel, employerPfLabel) => {
-    const earningsList = [
+    // ── shared helpers ────────────────────────────────────────────────
+    const numToWords = (num) => {
+      const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
+      const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+      let val = Math.floor(num);
+      if (val === 0) return 'Zero';
+      if ((val = val.toString()).length > 9) return '';
+      let n = ('000000000' + val).substr(-9).match(/^(\d{2})(\d{2})(\d{2})(\d{1})(\d{2})$/);
+      if (!n) return ''; let str = '';
+      str += (n[1] != 0) ? (a[Number(n[1])] || b[n[1][0]] + ' ' + a[n[1][1]]) + 'Crore ' : '';
+      str += (n[2] != 0) ? (a[Number(n[2])] || b[n[2][0]] + ' ' + a[n[2][1]]) + 'Lakh ' : '';
+      str += (n[3] != 0) ? (a[Number(n[3])] || b[n[3][0]] + ' ' + a[n[3][1]]) + 'Thousand ' : '';
+      str += (n[4] != 0) ? (a[Number(n[4])] || b[n[4][0]] + ' ' + a[n[4][1]]) + 'Hundred ' : '';
+      str += (n[5] != 0) ? ((str !== '') ? 'and ' : '') + (a[Number(n[5])] || b[n[5][0]] + ' ' + a[n[5][1]]) : '';
+      return str.trim() || '';
+    };
+
+    const earnList = [
       { name: 'Basic Salary', val: employee.monthlyBreakdown.basic },
       { name: 'HRA', val: employee.monthlyBreakdown.hra },
       { name: 'Conveyance', val: employee.monthlyBreakdown.conveyance },
@@ -1479,9 +1547,9 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
       { name: 'Other Allowance', val: employee.monthlyBreakdown.otherAllowance },
       ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value })),
       { name: 'Special', val: employee.monthlyBreakdown.special }
-    ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
+    ].filter(i => i.val > 0);
 
-    const deductionsList = [
+    const deductList = [
       { name: pfLabel, val: employee.breakdown.pf },
       { name: employerPfLabel, val: employee.breakdown.employerPf },
       { name: 'Professional Tax', val: employee.breakdown.pt },
@@ -1491,62 +1559,392 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
           const type = r?.latePenaltyType || 'halfDay';
           const late = employee.lateDaysCount;
-          if (type === 'halfDay') return `Late Penalty (${late} late × 0.5 day each)`;
-          if (type === 'fullDay') return `Late Penalty (${late} late × 1 day each)`;
-          return `Late Penalty (${late} late × ₹${r?.latePenaltyManualAmount || 0} each)`;
+          if (type === 'halfDay') return `Late Penalty (${late} late × 0.5d)`;
+          if (type === 'fullDay') return `Late Penalty (${late} late × 1d)`;
+          return `Late Penalty (${late} × ₹${r?.latePenaltyManualAmount || 0})`;
         })(), val: employee.lateDeduction },
       ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
-    ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
+    ].filter(i => i.val > 0);
 
-    const maxLen = Math.max(earningsList.length, deductionsList.length);
-    let rowsHtml = '';
-    for (let i = 0; i < maxLen; i++) {
-      const earn = earningsList[i] || { name: '', val: null };
-      const deduct = deductionsList[i] || { name: '', val: null };
-      
-      rowsHtml += `
-        <tr>
-          <td style="padding:5px 7px;border:1px solid #ddd;">${earn.name}</td>
-          <td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${earn.val !== null ? formatCurrency(earn.val) : ''}</td>
-          <td style="padding:5px 7px;border:1px solid #ddd;">${deduct.name}</td>
-          <td style="padding:5px 7px;border:1px solid #ddd;text-align:right;">${deduct.val !== null ? formatCurrency(deduct.val) : ''}</td>
-        </tr>
-      `;
+    const maxLen = Math.max(earnList.length, deductList.length);
+    const SIGN = `"https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png"`;
+    const fc = formatCurrency;
+    const nw = numToWords(employee.netPayableSalary);
+    const period = `${formatDateDMY(periodStart)} – ${formatDateDMY(periodEnd)}`;
+
+    // ── TEMPLATE 1: Classic Document ────────────────────────────────
+    if (selectedLayout === 'classic') {
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        tRows += `<div style="display:flex;padding:10px 14px;border-bottom:1px dotted #e2e8f0;font-size:11px;">
+          <div style="flex:1;color:#1e293b;font-weight:500;">${e.name}</div>
+          <div style="width:100px;text-align:right;color:#0f172a;font-weight:700;">${e.val !== null ? fc(e.val) : ''}</div>
+          <div style="flex:1;color:#1e293b;font-weight:500;padding-left:14px;">${d.name}</div>
+          <div style="width:100px;text-align:right;color:#0f172a;font-weight:700;">${d.val !== null ? fc(d.val) : ''}</div>
+        </div>`;
+      }
+      return `<div style="font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1e293b;font-size:11px;line-height:1.5;padding:24px;background:transparent;">
+        <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px;">EMPLOYEE SUMMARY</div>
+        
+        <div style="display:flex;gap:24px;margin-bottom:20px;">
+          <div style="flex:1.5;">
+            <div style="display:flex;margin-bottom:10px;"><div style="width:140px;color:#64748b;">Employee Name</div><div style="font-weight:600;color:#0f172a;">: ${employee.employeeName}</div></div>
+            <div style="display:flex;margin-bottom:10px;"><div style="width:140px;color:#64748b;">Designation</div><div style="color:#0f172a;">: ${employee.role}</div></div>
+            <div style="display:flex;margin-bottom:10px;"><div style="width:140px;color:#64748b;">Employee ID</div><div style="color:#0f172a;">: ${employee.employeeId}</div></div>
+            <div style="display:flex;margin-bottom:10px;"><div style="width:140px;color:#64748b;">Department</div><div style="color:#0f172a;">: ${employee.department || '--'}</div></div>
+            <div style="display:flex;margin-bottom:10px;"><div style="width:140px;color:#64748b;">Date of Joining</div><div style="color:#0f172a;">: ${employee.joiningDate ? formatDateDMY(employee.joiningDate) : '--'}</div></div>
+            <div style="display:flex;margin-bottom:10px;"><div style="width:140px;color:#64748b;">Pay Date</div><div style="font-weight:600;color:#0f172a;">: ${formatDateDMY(periodEnd)}</div></div>
+          </div>
+          
+          <div style="flex:1;background:#f2fcf5;border:1px solid #d1f4e0;border-radius:12px;padding:16px;">
+            <div style="display:flex;align-items:center;margin-bottom:16px;">
+              <div style="width:4px;height:40px;background:#22c55e;border-radius:4px;margin-right:12px;"></div>
+              <div>
+                <div style="font-size:24px;font-weight:700;color:#0f172a;line-height:1;">${fc(employee.netPayableSalary)}</div>
+                <div style="font-size:11px;color:#16a34a;font-weight:600;margin-top:6px;">Total Net Pay</div>
+              </div>
+            </div>
+            <div style="border-top:1px dotted #cbd5e1;padding-top:12px;display:flex;justify-content:space-between;color:#64748b;">
+              <div style="flex:1;">Paid Days</div><div style="font-weight:600;color:#0f172a;">: ${employee.workedDays}</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:#64748b;margin-top:8px;">
+              <div style="flex:1;">LOP Days</div><div style="font-weight:600;color:#0f172a;">: ${employee.lopDays || 0}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="border-top:1px dotted #cbd5e1;margin-bottom:16px;"></div>
+        
+        <div style="display:flex;margin-bottom:8px;"><div style="width:140px;color:#64748b;">Bank Account No</div><div style="color:#0f172a;">: ${employee.bankAccountNumber || '--'}</div></div>
+        <div style="display:flex;margin-bottom:24px;"><div style="width:140px;color:#64748b;">Work Location</div><div style="color:#0f172a;">: ${employee.workLocation || '--'}</div></div>
+        
+        <div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+          <div style="display:flex;padding:12px 14px;background:#fff;border-bottom:1px solid #e2e8f0;">
+            <div style="flex:1;font-weight:800;font-size:10px;color:#0f172a;letter-spacing:0.5px;">EARNINGS</div>
+            <div style="width:100px;font-weight:800;font-size:10px;color:#0f172a;text-align:right;letter-spacing:0.5px;">AMOUNT</div>
+            <div style="flex:1;font-weight:800;font-size:10px;color:#0f172a;padding-left:14px;letter-spacing:0.5px;">DEDUCTIONS</div>
+            <div style="width:100px;font-weight:800;font-size:10px;color:#0f172a;text-align:right;letter-spacing:0.5px;">AMOUNT</div>
+          </div>
+          ${tRows}
+          <div style="display:flex;padding:14px;background:#f8fafc;">
+            <div style="flex:1;font-weight:800;color:#0f172a;font-size:11px;">Gross Earnings</div>
+            <div style="width:100px;text-align:right;font-weight:800;color:#0f172a;font-size:11px;">${fc(employee.breakdown.gross)}</div>
+            <div style="flex:1;font-weight:800;color:#0f172a;font-size:11px;padding-left:14px;">Total Deductions</div>
+            <div style="width:100px;text-align:right;font-weight:800;color:#0f172a;font-size:11px;">${fc(employee.totalDeductions)}</div>
+          </div>
+        </div>
+        
+        <div style="border:1px solid #e2e8f0;border-radius:12px;display:flex;overflow:hidden;margin-bottom:12px;">
+          <div style="flex:1;padding:16px 20px;background:#fff;display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-weight:800;font-size:12px;color:#0f172a;">TOTAL NET PAYABLE</div>
+            <div style="font-size:10px;color:#64748b;margin-top:4px;">Gross Earnings - Total Deductions</div>
+          </div>
+          <div style="padding:16px 24px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;">
+            <div style="font-size:18px;font-weight:800;color:#0f172a;">${fc(employee.netPayableSalary)}</div>
+          </div>
+        </div>
+        
+        <div style="text-align:right;font-size:10px;color:#64748b;">
+          Amount In Words : <span style="font-weight:600;color:#0f172a;">Indian Rupee ${nw} Only</span>
+        </div>
+      </div>`;
     }
 
-    return `
-      <div style="font-family:'Arial',sans-serif;color:#000;font-size:13px;line-height:1.5;">
-        <div style="display:flex;justify-content:space-between;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:16px;">
+    // ── TEMPLATE 2 : Modern (rounded corners, blue accent, no outer cell borders) ──
+    if (selectedLayout === 'modern') {
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        const bg = i % 2 === 0 ? '#f0f6ff' : '#fff';
+        tRows += `<tr style="background:${bg};">
+          <td style="padding:5px 10px;font-size:11px;color:#374151;word-break:break-word;white-space:normal;border:none;">${e.name}</td>
+          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#1d4ed8;border:none;">${e.val !== null ? fc(e.val) : ''}</td>
+          <td style="padding:5px 10px;font-size:11px;color:#374151;border:none;border-left:2px solid #dbeafe;word-break:break-word;white-space:normal;">${d.name}</td>
+          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#dc2626;border:none;">${d.val !== null ? fc(d.val) : ''}</td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:14px 22px;background:transparent;color:#111;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div>
-            <div style="font-size:18px;font-weight:bold;text-transform:uppercase;color:#1e3a8a;">${companyName}</div>
-            <div style="font-size:11px;color:#555;">${companyAddress}</div>
+            <div style="font-size:17px;font-weight:900;color:#1d4ed8;">${companyName}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:1px;">${companyAddress}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:16px;font-weight:bold;">PAYSLIP</div>
-            <div style="font-size:11px;">${formatDateDMY(periodStart)} – ${formatDateDMY(periodEnd)}</div>
+            <div style="background:#1d4ed8;color:#fff;font-weight:800;font-size:10px;letter-spacing:2px;padding:3px 12px;border-radius:20px;display:inline-block;">PAYSLIP</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">${period}</div>
           </div>
         </div>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Name</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.employeeName}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Emp ID</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.employeeId}</td></tr>
-          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Designation</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.role}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Work Summary</td><td style="padding:5px 7px;border:1px solid #ddd;">Full:${employee.fullDays} | Half:${employee.halfDays} | WeekOff:${employee.weekOffDays} | Hol:${employee.holidayDays}</td></tr>
-          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Total Days in Month</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.totalDaysInMonth}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Worked Days</td><td style="padding:5px 7px;border:1px solid #ddd;">${employee.workedDays}</td></tr>
-          <tr><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Per Day Salary</td><td style="padding:5px 7px;border:1px solid #ddd;">${formatCurrency(employee.perDaySalary)}</td><td style="background:#f1f5f9;font-weight:bold;padding:5px 7px;border:1px solid #ddd;">Calculated Salary</td><td style="padding:5px 7px;border:1px solid #ddd;">${formatCurrency(employee.calculatedSalary)}</td></tr>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:10px;border:1px solid #dbeafe;">
+          <tr style="background:#eff6ff;">
+            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;width:20%;border:none;border-bottom:1px solid #dbeafe;">NAME</td>
+            <td style="padding:5px 10px;font-size:11px;font-weight:700;width:30%;border:none;border-bottom:1px solid #dbeafe;">${employee.employeeName}</td>
+            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;width:20%;border:none;border-bottom:1px solid #dbeafe;border-left:1px solid #dbeafe;">ID</td>
+            <td style="padding:5px 10px;font-size:11px;font-weight:700;width:30%;border:none;border-bottom:1px solid #dbeafe;">${employee.employeeId}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;border:none;">DESIGNATION</td>
+            <td style="padding:5px 10px;font-size:11px;border:none;">${employee.role}</td>
+            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;border:none;border-left:1px solid #dbeafe;">PAID DAYS</td>
+            <td style="padding:5px 10px;font-size:11px;font-weight:700;border:none;">${employee.workedDays} <span style="color:#6b7280;font-weight:400;">of</span> ${employee.totalDaysInMonth} &nbsp;|&nbsp; LOP: <span style="color:#dc2626;">${employee.lopDays || 0}</span></td>
+          </tr>
         </table>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-          <tr style="background:#f1f5f9;font-weight:bold;"><th style="padding:6px 7px;border:1px solid #ddd;text-align:left;width:38%;">EARNINGS</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:right;width:12%;">AMOUNT</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:left;width:38%;">DEDUCTIONS</th><th style="padding:6px 7px;border:1px solid #ddd;text-align:right;width:12%;">AMOUNT</th></tr>
-          ${rowsHtml}
-          <tr style="background:#eff6ff;font-weight:bold;"><td style="padding:6px 7px;border:1px solid #ddd;">GROSS EARNINGS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.breakdown.gross)}</td><td style="padding:6px 7px;border:1px solid #ddd;">TOTAL DEDUCTIONS</td><td style="padding:6px 7px;border:1px solid #ddd;text-align:right;">${formatCurrency(employee.totalDeductions)}</td></tr>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #dbeafe;border-radius:8px;overflow:hidden;margin-bottom:10px;">
+          <thead>
+            <tr style="background:#1d4ed8;">
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none;color:#fff;">EARNINGS</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none;color:#fff;">AMOUNT</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none;border-left:2px solid #3b82f6;color:#fff;">DEDUCTIONS</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none;color:#fff;">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr style="background:#dbeafe;">
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;color:#1e3a8a;border:none;border-top:1px solid #bfdbfe;">Gross Earnings</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;border:none;border-top:1px solid #bfdbfe;">${fc(employee.breakdown.gross)}</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;color:#1e3a8a;border:none;border-left:2px solid #3b82f6;border-top:1px solid #bfdbfe;">Total Deductions</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;border:none;border-top:1px solid #bfdbfe;">${fc(employee.totalDeductions)}</td>
+            </tr>
+          </tbody>
         </table>
-        <div style="padding:10px 14px;text-align:center;font-weight:bold;font-size:15px;border-radius:4px;color:#000;">NET SALARY PAYABLE: ${formatCurrency(employee.netPayableSalary)}</div>
-
-        <div style="margin-top:36px;text-align:right;padding-right:20px;">
-          <img src="${SIGNATURE_URL}" height="45" style="display:block;margin-left:auto;margin-bottom:4px;" />
-          <span style="font-size:12px;color:#333;">Authorized Signatory</span>
+        <div style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <div style="color:#fff;font-weight:800;font-size:12px;">TOTAL NET PAYABLE</div>
+            <div style="color:#bfdbfe;font-size:10px;margin-top:2px;">Indian Rupee ${nw} Only</div>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:#fff;">${fc(employee.netPayableSalary)}</div>
         </div>
-      </div>
-    `;
-  }, [employee, companyName, companyAddress, periodStart, periodEnd]);
+        <div style="display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+        </div>
+        <div style="text-align:center;font-size:9px;color:#aaa;margin-top:8px;">-- This is a system-generated document. --</div>
+      </div>`;
+    }
 
+    // ── TEMPLATE 3 : Corporate (dark header, thick left border accent) ──
+    if (selectedLayout === 'corporate') {
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        tRows += `<tr>
+          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;color:#334155;word-break:break-word;white-space:normal;">${e.name}</td>
+          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">${e.val !== null ? fc(e.val) : ''}</td>
+          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;border-left:3px solid #0f172a;color:#334155;word-break:break-word;white-space:normal;">${d.name}</td>
+          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:#dc2626;">${d.val !== null ? fc(d.val) : ''}</td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:0;background:transparent;color:#111;">
+        <div style="background:#0f172a;color:#fff;padding:14px 22px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:17px;font-weight:900;">${companyName}</div>
+              <div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:20px;font-weight:900;letter-spacing:4px;color:#38bdf8;">PAYSLIP</div>
+              <div style="font-size:10px;color:#64748b;">${period}</div>
+            </div>
+          </div>
+        </div>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;background:#f1f5f9;border-bottom:2px solid #0f172a;">
+          <tr>
+            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;width:20%;">Employee</td>
+            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#0f172a;width:30%;">${employee.employeeName}</td>
+            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;width:20%;">ID / Role</td>
+            <td style="padding:6px 10px;font-size:11px;color:#334155;width:30%;">${employee.employeeId} &nbsp;·&nbsp; ${employee.role}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;">Paid Days</td>
+            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#16a34a;">${employee.workedDays} / ${employee.totalDaysInMonth}</td>
+            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;">LOP / Pay Date</td>
+            <td style="padding:6px 10px;font-size:11px;color:#334155;">${employee.lopDays || 0} days &nbsp;·&nbsp; ${formatDateDMY(periodEnd)}</td>
+          </tr>
+        </table>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0;">
+          <thead>
+            <tr style="background:#1e293b;color:#fff;">
+              <th style="padding:6px 22px;font-size:10px;font-weight:700;text-align:left;width:35%;">EARNINGS</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border-left:3px solid #0f172a;">DEDUCTIONS</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody style="background:#fff;">${tRows}
+            <tr style="background:#e2e8f0;border-top:2px solid #0f172a;">
+              <td style="padding:6px 22px;font-size:11px;font-weight:800;">GROSS EARNINGS</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;">${fc(employee.breakdown.gross)}</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;border-left:3px solid #0f172a;">TOTAL DEDUCTIONS</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;">${fc(employee.totalDeductions)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="background:#0f172a;padding:10px 22px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="color:#fff;font-weight:800;font-size:12px;">NET SALARY PAYABLE</div>
+            <div style="color:#475569;font-size:10px;">Indian Rupee ${nw} Only</div>
+          </div>
+          <div style="font-size:19px;font-weight:900;color:#38bdf8;">${fc(employee.netPayableSalary)}</div>
+        </div>
+        <div style="background:#fff;padding:10px 22px;display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+        </div>
+        <div style="text-align:center;font-size:9px;color:#aaa;padding-bottom:8px;">-- This is a system-generated document. --</div>
+      </div>`;
+    }
+
+    // ── TEMPLATE 4 : Minimal (zebra stripe, purple accent, no outer border) ──
+    if (selectedLayout === 'minimal') {
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        const bg = i % 2 === 0 ? '#faf5ff' : '#fff';
+        tRows += `<tr style="background:${bg};">
+          <td style="padding:5px 8px;font-size:11px;color:#4b5563;word-break:break-word;white-space:normal;">
+            ${e.name ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#7c3aed;margin-right:5px;vertical-align:middle;"></span>` : ''}${e.name}
+          </td>
+          <td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:700;color:#111;">${e.val !== null ? fc(e.val) : ''}</td>
+          <td style="padding:5px 8px;font-size:11px;color:#4b5563;border-left:1px solid #ede9fe;word-break:break-word;white-space:normal;">
+            ${d.name ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;margin-right:5px;vertical-align:middle;"></span>` : ''}${d.name}
+          </td>
+          <td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:700;color:#ef4444;">${d.val !== null ? fc(d.val) : ''}</td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:14px 22px;background:transparent;color:#111;">
+        <div style="border-left:5px solid #7c3aed;padding-left:12px;margin-bottom:12px;">
+          <div style="font-size:16px;font-weight:900;">${companyName}</div>
+          <div style="font-size:10px;color:#6b7280;">${companyAddress}</div>
+          <div style="font-size:10px;color:#7c3aed;font-weight:700;margin-top:2px;">PAYSLIP &nbsp;·&nbsp; ${period}</div>
+        </div>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin-bottom:10px;">
+          <tr>
+            <td style="padding:3px 0;font-size:10px;color:#9ca3af;width:20%;">EMPLOYEE</td>
+            <td style="padding:3px 0;font-size:11px;font-weight:700;width:30%;">${employee.employeeName}</td>
+            <td style="padding:3px 0;font-size:10px;color:#9ca3af;width:20%;">EMPLOYEE ID</td>
+            <td style="padding:3px 0;font-size:11px;font-weight:600;width:30%;">${employee.employeeId}</td>
+          </tr>
+          <tr>
+            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">ROLE</td>
+            <td style="padding:3px 0;font-size:11px;">${employee.role}</td>
+            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">PAID DAYS</td>
+            <td style="padding:3px 0;font-size:11px;color:#7c3aed;font-weight:700;">${employee.workedDays}/${employee.totalDaysInMonth} &nbsp;(LOP: ${employee.lopDays || 0})</td>
+          </tr>
+          <tr>
+            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">PAY DATE</td>
+            <td style="padding:3px 0;font-size:11px;">${formatDateDMY(periodEnd)}</td>
+            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">NET PAY</td>
+            <td style="padding:3px 0;font-size:12px;font-weight:900;color:#7c3aed;">${fc(employee.netPayableSalary)}</td>
+          </tr>
+        </table>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-top:2px solid #7c3aed;border-bottom:2px solid #7c3aed;margin-bottom:8px;">
+          <thead>
+            <tr style="background:#7c3aed;color:#fff;">
+              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:left;width:35%;">EARNINGS</th>
+              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:left;width:35%;border-left:1px solid #a78bfa;">DEDUCTIONS</th>
+              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr style="background:#ede9fe;border-top:1px solid #c4b5fd;">
+              <td style="padding:5px 8px;font-size:11px;font-weight:800;color:#5b21b6;">Gross Earnings</td>
+              <td style="padding:5px 8px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;">${fc(employee.breakdown.gross)}</td>
+              <td style="padding:5px 8px;font-size:11px;font-weight:800;color:#5b21b6;border-left:1px solid #ede9fe;">Total Deductions</td>
+              <td style="padding:5px 8px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;">${fc(employee.totalDeductions)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="border:2px solid #7c3aed;border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <div style="font-weight:800;font-size:11px;color:#5b21b6;">NET SALARY PAYABLE</div>
+            <div style="font-size:10px;color:#9ca3af;margin-top:1px;">Indian Rupee ${nw} Only</div>
+          </div>
+          <div style="font-size:17px;font-weight:900;color:#7c3aed;">${fc(employee.netPayableSalary)}</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+        </div>
+        <div style="text-align:center;font-size:9px;color:#aaa;margin-top:8px;">-- This is a system-generated document. --</div>
+      </div>`;
+    }
+
+    // ── TEMPLATE 5 : Executive (gradient header, colored cells, premium) ──
+    // (selectedLayout === 'executive')
+    {
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        const bg = i % 2 === 0 ? '#f0f4ff' : '#fff';
+        tRows += `<tr style="background:${bg};">
+          <td style="padding:5px 10px;font-size:11px;color:#1e3a5f;word-break:break-word;white-space:normal;">${e.name}</td>
+          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#1d4ed8;">${e.val !== null ? fc(e.val) : ''}</td>
+          <td style="padding:5px 10px;font-size:11px;color:#1e3a5f;border-left:2px solid #bfdbfe;word-break:break-word;white-space:normal;">${d.name}</td>
+          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#dc2626;">${d.val !== null ? fc(d.val) : ''}</td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:0;background:transparent;color:#111;">
+        <div style="background:linear-gradient(135deg,#1e3a8a,#3730a3);padding:14px 22px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="font-size:17px;font-weight:900;color:#fff;">${companyName}</div>
+              <div style="font-size:10px;color:#bfdbfe;margin-top:2px;">${companyAddress}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;font-weight:900;letter-spacing:4px;color:#e0e7ff;">PAYSLIP</div>
+              <div style="font-size:10px;color:#93c5fd;margin-top:3px;">${period}</div>
+            </div>
+          </div>
+        </div>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;background:#e8eef8;border-bottom:1px solid #c7d2e8;">
+          <tr>
+            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;width:20%;">Employee</td>
+            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#0f172a;width:30%;">${employee.employeeName}</td>
+            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;width:20%;">ID / Role</td>
+            <td style="padding:6px 10px;font-size:11px;color:#334155;width:30%;">${employee.employeeId} &nbsp;·&nbsp; ${employee.role}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;">Paid Days</td>
+            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#16a34a;">${employee.workedDays} / ${employee.totalDaysInMonth}</td>
+            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;">LOP / Pay Date</td>
+            <td style="padding:6px 10px;font-size:11px;color:#334155;">${employee.lopDays || 0} days &nbsp;·&nbsp; ${formatDateDMY(periodEnd)}</td>
+          </tr>
+        </table>
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #bfdbfe;margin:0;">
+          <thead>
+            <tr style="background:#1e3a8a;color:#fff;">
+              <th style="padding:6px 22px;font-size:10px;font-weight:700;text-align:left;width:35%;">EARNINGS</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border-left:2px solid #3730a3;">DEDUCTIONS</th>
+              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr style="background:#dbeafe;border-top:2px solid #1e3a8a;">
+              <td style="padding:6px 22px;font-size:11px;font-weight:800;color:#1e3a8a;">Gross Earnings</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;">${fc(employee.breakdown.gross)}</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;color:#1e3a8a;border-left:2px solid #3730a3;">Total Deductions</td>
+              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;">${fc(employee.totalDeductions)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="background:linear-gradient(135deg,#1e3a8a,#3730a3);padding:10px 22px;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="color:#fff;font-weight:800;font-size:12px;">NET SALARY PAYABLE</div>
+            <div style="color:#93c5fd;font-size:10px;margin-top:2px;">Indian Rupee ${nw} Only</div>
+          </div>
+          <div style="font-size:19px;font-weight:900;color:#fff;">${fc(employee.netPayableSalary)}</div>
+        </div>
+        <div style="background:#fff;padding:10px 22px;display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+        </div>
+        <div style="text-align:center;font-size:9px;color:#aaa;padding-bottom:8px;">-- This is a system-generated document. --</div>
+      </div>`;
+    }
+  }, [employee, companyName, companyAddress, periodStart, periodEnd, selectedLayout]);
   // Plain print (no template — opens browser print dialog as before)
   const downloadPayslip = () => {
     const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employee PF (Fixed)' : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
@@ -1719,7 +2117,32 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
             <span className="font-black text-xl sm:text-3xl text-blue-400">{formatCurrency(employee.netPayableSalary)}</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 shrink-0">
+          {/* Layout Template Picker */}
+          <div style={{ marginBottom: '12px' }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>📐 Payslip Layout</p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {PAYSLIP_LAYOUTS.map(layout => (
+                <button
+                  key={layout.id}
+                  onClick={() => setSelectedLayout(layout.id)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '8px 14px', borderRadius: '12px', border: '2px solid',
+                    borderColor: selectedLayout === layout.id ? '#4f46e5' : '#e2e8f0',
+                    background: selectedLayout === layout.id ? '#eef2ff' : '#f8fafc',
+                    cursor: 'pointer', transition: 'all 0.15s', minWidth: '80px',
+                    boxShadow: selectedLayout === layout.id ? '0 0 0 3px rgba(79,70,229,0.15)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '18px', marginBottom: '2px' }}>{layout.icon}</span>
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: selectedLayout === layout.id ? '#4f46e5' : '#374151' }}>{layout.label}</span>
+                  <span style={{ fontSize: '9px', color: '#9ca3af', marginTop: '1px', textAlign: 'center', lineHeight: 1.2 }}>{layout.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2 shrink-0">
             <button
               onClick={downloadPayslip}
               className="flex-1 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 hover:border-gray-300 transition active:scale-95 flex items-center justify-center gap-2"
@@ -1734,7 +2157,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
               {generatingPdf ? (
                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Generating...</>
               ) : (
-                <>📄 Custom PDF</>
+                <>📄 Custom PDF (with letterhead)</>
               )}
             </button>
           </div>
@@ -1980,12 +2403,19 @@ const PayrollManagement = () => {
       const thresholdSlab2 = 20000;
 
       const monthlyTotal = baseSalary;
-      const monthlyBasic = monthlyTotal * (ruleBasic / 100);
-      const monthlyHRA = monthlyBasic * (ruleHra / 100);
-      const monthlyConv = ruleConv;
-      const monthlyMed = ruleMed;
-      const monthlyTravelling = ruleTravelling;
-      const monthlyOther = ruleOther;
+      const monthlyBasic = (payrollRules.basicValueType === 'fixed') 
+        ? ruleBasic 
+        : monthlyTotal * (ruleBasic / 100);
+      const monthlyHRA = (payrollRules.hraValueType === 'fixed') 
+        ? ruleHra 
+        : monthlyBasic * (ruleHra / 100);
+
+      const calcAllowance = (val, type) => (type === 'percentage') ? monthlyBasic * (val / 100) : val;
+
+      const monthlyConv = calcAllowance(ruleConv, payrollRules.conveyanceValueType || 'fixed');
+      const monthlyMed = calcAllowance(ruleMed, payrollRules.medicalValueType || 'fixed');
+      const monthlyTravelling = calcAllowance(ruleTravelling, payrollRules.travellingAllowanceValueType || 'fixed');
+      const monthlyOther = calcAllowance(ruleOther, payrollRules.otherAllowanceValueType || 'fixed');
 
       // --- DYNAMIC CUSTOM FIELDS CALCULATION ---
       let customEarningsTotal = 0;

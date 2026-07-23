@@ -12,7 +12,7 @@ import {
 const OvertimeWithModal = () => {
   const { user } = useContext(AuthContext);
 
-  const [form, setForm] = useState({ date: "", type: "INCENTIVE_OT" });
+  const [form, setForm] = useState({ date: "", type: "INCENTIVE_OT", reason: "", hours: "", fromTime: "", toTime: "" });
   const [overtimeList, setOvertimeList] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,8 +65,8 @@ const OvertimeWithModal = () => {
     setError("");
     setSuccess("");
 
-    if (!form.date) {
-      setError("Please select a date.");
+    if (!form.date || !form.reason || !form.hours || !form.fromTime || !form.toTime) {
+      setError("Please fill out all fields.");
       return;
     }
 
@@ -82,16 +82,21 @@ const OvertimeWithModal = () => {
         employeeName: user.name,
         date: form.date,
         type: form.type,
+        reason: form.reason,
+        hours: Number(form.hours),
+        fromTime: form.fromTime,
+        toTime: form.toTime,
       });
 
       setSuccess("Overtime submitted successfully!");
-      setForm({ date: "", type: "INCENTIVE_OT" });
+      setForm({ date: "", type: "INCENTIVE_OT", reason: "", hours: "", fromTime: "", toTime: "" });
       fetchOT();
 
       setTimeout(() => setApplyModalOpen(false), 1200);
     } catch (err) {
       console.error(err);
-      setError("Failed to submit overtime. Try again.");
+      const backendError = err.response?.data?.error || err.response?.data?.message || err.message;
+      setError(`Failed to submit overtime: ${backendError}`);
     }
   };
 
@@ -136,6 +141,7 @@ const OvertimeWithModal = () => {
               <tr>
                 <th className="px-6 py-5">Request Date</th>
                 <th className="px-6 py-5">Overtime Type</th>
+                <th className="px-6 py-5">Requested Hours</th>
                 <th className="px-6 py-5 text-center">Current Status</th>
                 <th className="px-6 py-5 text-right">Actions</th>
               </tr>
@@ -150,6 +156,9 @@ const OvertimeWithModal = () => {
                       <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter">
                         {ot.type.replace("_", " ")}
                       </span>
+                    </td>
+                    <td className="px-6 py-5 font-bold text-indigo-700">
+                      {ot.hours ? `${ot.hours} hrs` : "-"}
                     </td>
                     <td className="px-6 py-5 text-center">
                       <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
@@ -178,7 +187,7 @@ const OvertimeWithModal = () => {
                 ))
               ) : (
                 <tr>
-                  <td className="p-20 text-center text-gray-400 font-black uppercase tracking-widest text-xs" colSpan="4">
+                  <td className="p-20 text-center text-gray-400 font-black uppercase tracking-widest text-xs" colSpan="5">
                     No overtime requests found
                   </td>
                 </tr>
@@ -210,6 +219,10 @@ const OvertimeWithModal = () => {
                 <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
                   <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Type</span>
                   <span className="text-xs font-bold text-indigo-700">{ot.type.replace("_", " ")}</span>
+                </div>
+                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100 mt-2">
+                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Requested</span>
+                  <span className="text-xs font-bold text-gray-800">{ot.hours ? `${ot.hours} hrs` : "-"}</span>
                 </div>
 
                 {ot.status === "PENDING" && (
@@ -303,6 +316,55 @@ const OvertimeWithModal = () => {
                       <option value="INCENTIVE_OT">Incentive OT</option>
                       <option value="PENDING_OT">Pending OT</option>
                     </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">From Time</label>
+                      <input
+                        type="time"
+                        name="fromTime"
+                        value={form.fromTime}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">To Time</label>
+                      <input
+                        type="time"
+                        name="toTime"
+                        value={form.toTime}
+                        onChange={handleChange}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Total Hours Requested</label>
+                    <input
+                      type="number"
+                      name="hours"
+                      value={form.hours}
+                      onChange={handleChange}
+                      placeholder="e.g. 2"
+                      min="0.5"
+                      step="0.5"
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Reason</label>
+                    <textarea
+                      name="reason"
+                      value={form.reason}
+                      onChange={handleChange}
+                      placeholder="Briefly explain why overtime is needed..."
+                      rows="2"
+                      className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 focus:ring-4 focus:ring-indigo-100 outline-none transition-all font-bold text-sm resize-none"
+                    ></textarea>
                   </div>
 
                   {error && <p className="bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold border border-red-100">{error}</p>}

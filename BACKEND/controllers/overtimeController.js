@@ -11,10 +11,33 @@ import Notification from "../models/notificationModel.js";
 export const applyOvertime = async (req, res) => {
   try {
     const user = req.user;
-    const { date, hours, reason } = req.body;
+    const { date, type, hours, reason, fromTime, toTime } = req.body;
 
-    if (!date || !hours || !reason) {
+    if (!date || !type || !hours || !reason || !fromTime || !toTime) {
       return res.status(400).json({ message: "All fields are required." });
+    }
+
+    // ============================================
+    // 🔹 OT LIMIT VALIDATION (By Number of Requests)
+    // ============================================
+    const employee = await Employee.findOne({ employeeId: user.employeeId });
+    if (employee && employee.monthlyOtLimit !== null) {
+      // Calculate current month's total OT requests
+      const currentMonth = date.substring(0, 7); // 'YYYY-MM'
+      
+      const existingOvertimes = await Overtime.find({
+        employeeId: user.employeeId,
+        date: { $regex: `^${currentMonth}` }, // matches dates starting with YYYY-MM
+        status: { $in: ["PENDING", "APPROVED"] }
+      });
+      
+      const currentRequestCount = existingOvertimes.length;
+      
+      if (currentRequestCount >= employee.monthlyOtLimit) {
+        return res.status(400).json({ 
+          message: `Monthly overtime limit exceeded. You can only request overtime ${employee.monthlyOtLimit} time(s) per month.` 
+        });
+      }
     }
 
     // 1. Create Overtime with Hierarchy
@@ -24,9 +47,12 @@ export const applyOvertime = async (req, res) => {
       employeeId: user.employeeId,
       employeeName: user.name,
       date,
+      type,
       hours,
       reason,
-      status: "Pending",
+      fromTime,
+      toTime,
+      status: "PENDING",
       appliedAt: new Date(),
     });
 
@@ -56,7 +82,7 @@ export const applyOvertime = async (req, res) => {
     return res.status(201).json(overtime);
   } catch (err) {
     console.error("applyOvertime error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message, stack: err.stack });
   }
 };
 
