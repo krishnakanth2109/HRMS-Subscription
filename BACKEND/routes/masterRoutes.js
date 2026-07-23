@@ -10,13 +10,13 @@ import {
   getAdminPlanDetails,
   customizePlan,
   uploadLogo,
-  removeLogo,
+  removeLogo,      
   uploadFavicon,
   removeFavicon
 } from "../controllers/masterController.js";
 import { protectMaster } from "../middleware/authMasterMiddleware.js";
 import { cloudinary } from "../config/cloudinary.js";
-
+//his
 const router = express.Router();
 
 // Dedicated Cloudinary storage for company logos
