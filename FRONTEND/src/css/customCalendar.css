@@ -1,0 +1,32 @@
+/* REMOVE ALL HOVER EFFECTS */
+.react-calendar__tile:hover {
+  background-color: inherit !important;
+  transform: none !important;
+}
+
+/* ACTIVE DAY (selected) = BLUE */
+.react-calendar__tile--active {
+  background: #2563eb !important;
+  color: white !important;
+  border-radius: 10px;
+}
+
+/* WEEKENDS = LIGHT RED */
+.weekend-light-red {
+  background: #ffe5e5 !important;
+  color: #b30000 !important;
+  border-radius: 8px;
+}
+
+/* HOLIDAYS = GREEN */
+.holiday-green {
+  background: #22c55e !important;
+  color: white !important;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+/* NO HOVER ON HOLIDAYS */
+.holiday-green:hover {
+  background: #22c55e !important;
+}
