@@ -589,49 +589,111 @@ const EmployeeDailyAttendance = () => {
     };
   }, [yearlyStats]);
 
-  const donutData = {
-    labels: ['Present', 'Absent', 'Late', 'Holidays/Off'],
-    datasets: [
-      {
-        data: [
-          summaryStats.presentDays,
-          summaryStats.absentDays,
-          summaryStats.lateCount,
-          summaryStats.weekOffs + summaryStats.holidayCount
-        ],
-        backgroundColor: ['#10b981', '#ef4444', '#f59e0b', '#cbd5e1'],
-        borderWidth: 0,
-        hoverOffset: 4
-      },
-    ],
-  };
+  // --- Enhanced Monthly Overview Pie Chart Data ---
+  const monthlyChartData = useMemo(() => {
+    const monthDays = processedCalendarData.filter(
+      (d) => d.workedStatus !== "Upcoming" && !d.isBeforeAccountCreation
+    );
 
-  const donutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: "75%",
-    layout: {
-      padding: {
-        top: 10,
-        bottom: 10
+    let fullDayCount = 0;
+    let lateCount = 0;
+    let halfDayCount = 0;
+    let absentCount = 0;
+    let leaveCount = 0;
+    let holidaysAndOffCount = 0;
+    let workingCount = 0;
+
+    monthDays.forEach((item) => {
+      if (item.workedStatus === "Working") {
+        workingCount++;
+      } else if (item.loginStatus === "LATE") {
+        lateCount++;
+      } else if (item.workedStatus === "Full Day") {
+        fullDayCount++;
+      } else if (item.workedStatus === "Half Day") {
+        halfDayCount++;
+      } else if (item.workedStatus === "Leave" || item.status === "LEAVE") {
+        leaveCount++;
+      } else if (item.workedStatus === "Holiday" || item.workedStatus === "Week Off") {
+        holidaysAndOffCount++;
+      } else {
+        absentCount++;
       }
-    },
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: {
-          boxWidth: 8,      // 🔹 smaller color box
-          boxHeight: 8,
-          usePointStyle: true,
-          padding: 15,       // 🔹 space between items
-          font: {
-            size: 11,        // 🔥 REDUCE TEXT SIZE (default ~14)
-            weight: "600"
-          }
-        }
-      }
+    });
+
+    const totalEvaluatedDays = monthDays.length || 1;
+    const workingDays = totalEvaluatedDays - holidaysAndOffCount;
+    const presentTotal = fullDayCount + lateCount + halfDayCount * 0.5 + workingCount;
+    const attendanceRate = workingDays > 0 ? Math.min(100, Math.round((presentTotal / Math.max(1, workingDays)) * 100)) : 100;
+
+    const categories = [
+      { label: "Full Day", count: fullDayCount, color: "#10b981", bg: "bg-emerald-500" },
+      { label: "Late", count: lateCount, color: "#f97316", bg: "bg-orange-500" },
+      { label: "Half Day", count: halfDayCount, color: "#f59e0b", bg: "bg-amber-500" },
+      { label: "Absent", count: absentCount, color: "#ef4444", bg: "bg-red-500" },
+      { label: "Leave", count: leaveCount, color: "#8b5cf6", bg: "bg-purple-500" },
+      { label: "Holidays/Off", count: holidaysAndOffCount, color: "#94a3b8", bg: "bg-slate-400" },
+    ];
+
+    if (workingCount > 0) {
+      categories.unshift({ label: "Working", count: workingCount, color: "#3b82f6", bg: "bg-blue-500" });
     }
-  };
+
+    const activeCategories = categories.filter((c) => c.count > 0);
+
+    return {
+      totalEvaluatedDays,
+      totalMonthDays: getDaysInMonth(selectedDate.getFullYear(), selectedDate.getMonth()).length,
+      workingDays,
+      attendanceRate,
+      categories: activeCategories.length > 0 ? activeCategories : categories,
+      allCategories: categories
+    };
+  }, [processedCalendarData, selectedDate]);
+
+  const donutData = useMemo(() => {
+    return {
+      labels: monthlyChartData.categories.map((c) => c.label),
+      datasets: [
+        {
+          data: monthlyChartData.categories.map((c) => c.count),
+          backgroundColor: monthlyChartData.categories.map((c) => c.color),
+          borderWidth: 2,
+          borderColor: "#ffffff",
+          hoverOffset: 6,
+          borderRadius: 4,
+        },
+      ],
+    };
+  }, [monthlyChartData]);
+
+  const donutOptions = useMemo(() => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "74%",
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          backgroundColor: "#1e293b",
+          titleFont: { size: 12, weight: "bold" },
+          bodyFont: { size: 12 },
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: function (context) {
+              const val = context.raw || 0;
+              const total = monthlyChartData.totalEvaluatedDays || 1;
+              const pct = ((val / total) * 100).toFixed(1);
+              return ` ${context.label}: ${val} days (${pct}%)`;
+            },
+          },
+        },
+      },
+    };
+  }, [monthlyChartData]);
 
 
   // --- HISTORY LOGIC ---
@@ -1049,16 +1111,52 @@ const EmployeeDailyAttendance = () => {
         {/* --- Charts Section --- */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Monthly Donut */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col min-h-[300px]">
-            <h3 className="text-gray-800 font-bold mb-6 flex items-center gap-2"><FaListAlt className="text-blue-500" /> Monthly Overview</h3>
-            <div className="relative flex-1 flex flex-col items-center justify-center">
-              <div className="w-full h-full max-h-64 relative">
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between min-h-[380px]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-900 font-extrabold flex items-center gap-2 text-base tracking-tight">
+                <FaListAlt className="text-blue-500" /> Monthly Overview
+              </h3>
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                {monthlyChartData.attendanceRate}% Rate
+              </span>
+            </div>
+
+            {/* Doughnut Chart Wrapper */}
+            <div className="relative flex-1 flex flex-col items-center justify-center min-h-[190px] my-2">
+              <div className="w-full h-48 relative">
                 <Doughnut data={donutData} options={donutOptions} />
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8">
-                  <span className="text-3xl font-black text-gray-800">{getDaysInMonth(selectedDate.getFullYear(), selectedDate.getMonth()).length}</span>
-                  <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Total Days</span>
+                {/* Center Badge */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-3xl font-black text-gray-900 leading-none">
+                    {monthlyChartData.attendanceRate}%
+                  </span>
+                  <span className="text-[9px] text-gray-400 uppercase font-black tracking-widest mt-1">
+                    Attendance
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-bold mt-0.5">
+                    {monthlyChartData.totalEvaluatedDays} / {monthlyChartData.totalMonthDays} Days
+                  </span>
                 </div>
               </div>
+            </div>
+
+            {/* Custom Interactive Legend */}
+            <div className="pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {monthlyChartData.categories.map((cat, idx) => {
+                const pct = ((cat.count / monthlyChartData.totalEvaluatedDays) * 100).toFixed(0);
+                return (
+                  <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 border border-gray-100 hover:bg-gray-100/80 transition-all">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full ${cat.bg} shrink-0`} />
+                      <span className="text-xs font-bold text-gray-700 truncate">{cat.label}</span>
+                    </div>
+                    <div className="flex items-center gap-1 ml-1 shrink-0">
+                      <span className="text-xs font-black text-gray-900">{cat.count}d</span>
+                      <span className="text-[9px] font-bold text-gray-400">({pct}%)</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1119,6 +1217,16 @@ const EmployeeDailyAttendance = () => {
 
             {/* Quick Filter / History Buttons */}
             <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  const todayISO = toISODateString(new Date());
+                  const todayRow = processedCalendarData.find(p => toISODateString(p.date) === todayISO) || { date: todayISO };
+                  openAdvancedCorrectionModal(todayRow);
+                }}
+                className="flex-1 min-w-[160px] px-4 py-2.5 text-white bg-gradient-to-r from-orange-500 to-amber-600 rounded-xl hover:opacity-95 text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm"
+              >
+                <FaUserClock /> Request Late Login
+              </button>
               <button
                 onClick={() => setShowRequestsModal(true)}
                 className="flex-1 min-w-[140px] px-4 py-2.5 text-orange-600 bg-orange-50 rounded-xl hover:bg-orange-100 text-xs font-bold transition flex items-center justify-center gap-2 border border-orange-100"

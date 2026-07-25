@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { FaTimes, FaCheck, FaSearchPlus, FaSearchMinus, FaRedo, FaUndo, FaExpand, FaCompress } from "react-icons/fa";
+import { FaTimes, FaCheck, FaSearchPlus, FaSearchMinus, FaRedo, FaUndo, FaCompress } from "react-icons/fa";
 
 const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => {
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
-  
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   // State for drag interaction
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -16,22 +17,25 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
   const imageRef = useRef(null);
   const containerRef = useRef(null);
   const previewRef = useRef(null);
+  const modalRef = useRef(null);
 
   // Initialize image dimensions when loaded
   useEffect(() => {
     if (imageSrc) {
+      setImageLoaded(false);
       const img = new Image();
       img.onload = () => {
         setImageDimensions({
           width: img.width,
           height: img.height
         });
+        setImageLoaded(true);
       };
       img.src = imageSrc;
     }
   }, [imageSrc]);
 
-  // --- DRAG EVENT HANDLERS ---
+  // --- DRAG EVENT HANDLERS (mouse) ---
   const onMouseDown = (e) => {
     e.preventDefault();
     setIsDragging(true);
@@ -65,6 +69,95 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
       };
     }
   }, [isDragging, onMouseMove, onMouseUp]);
+
+  // --- DRAG EVENT HANDLERS (touch, single finger pan) ---
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: touch.clientX, y: touch.clientY });
+    setDragStartPosition({ ...position });
+  };
+
+  const onTouchMove = useCallback((e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - dragStart.x;
+    const deltaY = touch.clientY - dragStart.y;
+    setPosition({
+      x: dragStartPosition.x + deltaX,
+      y: dragStartPosition.y + deltaY,
+    });
+  }, [isDragging, dragStart, dragStartPosition]);
+
+  const onTouchEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("touchmove", onTouchMove, { passive: false });
+      document.addEventListener("touchend", onTouchEnd);
+      return () => {
+        document.removeEventListener("touchmove", onTouchMove);
+        document.removeEventListener("touchend", onTouchEnd);
+      };
+    }
+  }, [isDragging, onTouchMove, onTouchEnd]);
+
+  // --- SCROLL TO ZOOM ---
+  const onWheel = useCallback((e) => {
+    if (isUploading) return;
+    e.preventDefault();
+    setScale((prev) => {
+      const delta = e.deltaY > 0 ? -0.08 : 0.08;
+      return Math.min(3, Math.max(0.5, parseFloat((prev + delta).toFixed(2))));
+    });
+  }, [isUploading]);
+
+  useEffect(() => {
+    const node = previewRef.current;
+    if (!node) return;
+    node.addEventListener("wheel", onWheel, { passive: false });
+    return () => node.removeEventListener("wheel", onWheel);
+  }, [onWheel]);
+
+  // --- KEYBOARD SHORTCUTS ---
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (isUploading) return;
+      switch (e.key) {
+        case "Escape":
+          onCancel();
+          break;
+        case "+":
+        case "=":
+          setScale((s) => Math.min(3, parseFloat((s + 0.1).toFixed(2))));
+          break;
+        case "-":
+        case "_":
+          setScale((s) => Math.max(0.5, parseFloat((s - 0.1).toFixed(2))));
+          break;
+        case "ArrowLeft":
+          setRotation((r) => (r - 90 + 360) % 360);
+          break;
+        case "ArrowRight":
+          setRotation((r) => (r + 90) % 360);
+          break;
+        case "0":
+          handleReset();
+          break;
+        case "Enter":
+          if (!isUploading) handleCrop();
+          break;
+        default:
+          break;
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isUploading, onCancel]);
 
   // Calculate image display dimensions and position
   const getImageTransform = () => {
@@ -103,11 +196,11 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
     const canvas = canvasRef.current;
     const image = imageRef.current;
     const container = previewRef.current;
-    
+
     if (!canvas || !image || !container) return;
 
     const ctx = canvas.getContext("2d");
-    
+
     // Output size 500x500
     const outputSize = 500;
     canvas.width = outputSize;
@@ -145,7 +238,7 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
     // Calculate source coordinates in original image
     const scaleX = imgWidth / displayWidth;
     const scaleY = imgHeight / displayHeight;
-    
+
     const sourceX = (cropX - position.x - (containerWidth - displayWidth) / 2) * scaleX;
     const sourceY = (cropY - position.y - (containerHeight - displayHeight) / 2) * scaleY;
     const sourceDiameter = cropDiameter * scaleX;
@@ -193,65 +286,77 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
   };
 
   // Quick zoom presets
-  const handleZoomIn = () => setScale(Math.min(3, scale + 0.2));
-  const handleZoomOut = () => setScale(Math.max(0.5, scale - 0.2));
+  const handleZoomIn = () => setScale((s) => Math.min(3, parseFloat((s + 0.2).toFixed(2))));
+  const handleZoomOut = () => setScale((s) => Math.max(0.5, parseFloat((s - 0.2).toFixed(2))));
   const handleZoomFit = () => setScale(1);
 
   const imageTransform = getImageTransform();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl p-6 max-w-6xl w-full max-h-[95vh] flex flex-col shadow-2xl border border-gray-200">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6 flex-shrink-0">
-          <div>
-            <h3 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Crop Your Profile Picture
-            </h3>
-            <p className="text-gray-500 text-sm mt-1">
-              Adjust the image to fit within the circle
-            </p>
-          </div>
-          <button 
-            onClick={onCancel} 
-            disabled={isUploading} 
-            className="text-gray-400 hover:text-gray-600 p-3 rounded-xl hover:bg-gray-100 transition-all duration-300 disabled:opacity-50 transform hover:scale-110"
-          >
-            <FaTimes size={24} />
-          </button>
-        </div>
-        
-        {/* Main Content */}
-        <div className="flex-grow overflow-hidden flex flex-col lg:flex-row gap-6">
-          {/* Preview Section */}
-          <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-lg font-semibold text-gray-700">Preview</h4>
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <FaExpand className="text-blue-500" />
-                <span>Drag to move • Scroll to zoom</span>
-              </div>
+    <div
+      className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 flex items-center justify-center z-50 p-3 sm:p-6 backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="crop-modal-title"
+    >
+      <div
+        ref={modalRef}
+        className="relative bg-white dark:bg-[#141416] rounded-[28px] w-full max-w-lg lg:max-w-3xl max-h-[94vh] flex flex-col lg:flex-row shadow-2xl dark:shadow-[0_30px_90px_-20px_rgba(0,0,0,0.8)] border border-slate-200/90 dark:border-white/[0.08] animate-[scaleIn_0.25s_cubic-bezier(0.16,1,0.3,1)] overflow-hidden"
+      >
+        {/* Left / top column: header + viewfinder */}
+        <div className="flex flex-col lg:w-[55%] lg:flex-shrink-0 min-h-0">
+          {/* Header */}
+          <div className="flex justify-between items-start px-5 pt-5 pb-3 flex-shrink-0">
+            <div>
+              <h3
+                id="crop-modal-title"
+                className="text-lg font-bold text-slate-900 dark:text-zinc-100 tracking-tight"
+              >
+                Adjust photo
+              </h3>
+              <p className="text-slate-500 dark:text-zinc-400 text-xs mt-0.5">
+                Drag to reposition · scroll or pinch to zoom
+              </p>
             </div>
-            
-            <div 
-              ref={previewRef}
-              className="relative bg-gradient-to-br from-gray-900 to-gray-700 rounded-2xl overflow-hidden flex-1 min-h-[400px] border-2 border-gray-300 shadow-inner"
+            <button
+              onClick={onCancel}
+              disabled={isUploading}
+              aria-label="Close crop dialog"
+              className="text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-100 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed active:scale-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
             >
+              <FaTimes size={16} />
+            </button>
+          </div>
+
+          {/* Viewfinder — camera viewfinder */}
+          <div className="px-5 pb-5 lg:pb-5 flex-1 min-h-0">
+            <div
+              ref={previewRef}
+              className="relative bg-black rounded-2xl overflow-hidden aspect-square w-full max-h-[52vh] lg:max-h-[60vh] mx-auto border border-slate-200 dark:border-white/10 select-none shadow-inner"
+            >
+              {!imageLoaded && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="h-8 w-8 border-2 border-white/20 border-t-teal-300 rounded-full animate-spin" />
+                </div>
+              )}
+
               {/* Image Container */}
               <div
-                className={`absolute inset-0 flex items-center justify-center ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"} ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
                 onMouseDown={onMouseDown}
+                onTouchStart={onTouchStart}
+                onDoubleClick={handleReset}
                 style={{
                   transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
-                  transformOrigin: 'center',
-                  transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                  transformOrigin: "center",
+                  transition: isDragging ? "none" : "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)"
                 }}
               >
-                <img 
-                  ref={imageRef} 
-                  src={imageSrc} 
-                  alt="To crop" 
-                  className="max-w-none select-none pointer-events-none shadow-2xl"
+                <img
+                  ref={imageRef}
+                  src={imageSrc}
+                  alt="To crop"
+                  className="max-w-none select-none pointer-events-none"
                   style={{
                     width: imageTransform.width,
                     height: imageTransform.height
@@ -259,8 +364,8 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
                   draggable={false}
                 />
               </div>
-              
-              {/* Enhanced Crop Overlay */}
+
+              {/* Crop overlay: dark mask + focus ring + viewfinder brackets */}
               <div className="absolute inset-0 pointer-events-none">
                 <svg className="w-full h-full">
                   <defs>
@@ -268,220 +373,238 @@ const ImageCropModal = ({ imageSrc, onCropComplete, onCancel, isUploading }) => 
                       <rect width="100%" height="100%" fill="white" />
                       <circle cx="50%" cy="50%" r="40%" fill="black" />
                     </mask>
-                    <radialGradient id="borderGradient">
-                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
-                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0.2" />
-                    </radialGradient>
                   </defs>
-                  
-                  {/* Dark overlay outside crop area */}
-                  <rect width="100%" height="100%" fill="rgba(0,0,0,0.7)" mask="url(#cropMask)" />
-                  
-                  {/* Border with gradient */}
-                  <circle 
-                    cx="50%" 
-                    cy="50%" 
-                    r="40%" 
-                    fill="none" 
-                    stroke="url(#borderGradient)" 
-                    strokeWidth="3"
-                  />
-                  
-                  {/* Inner subtle border */}
-                  <circle 
-                    cx="50%" 
-                    cy="50%" 
-                    r="39.5%" 
-                    fill="none" 
-                    stroke="rgba(255,255,255,0.3)" 
+
+                  <rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#cropMask)" />
+
+                  {/* Solid focus ring */}
+                  <circle cx="50%" cy="50%" r="40%" fill="none" stroke="rgba(94,234,212,0.9)" strokeWidth="1.5" />
+
+                  {/* Rotating dashed ring — subtle "live" signature */}
+                  <circle
+                    cx="50%" cy="50%" r="43%"
+                    fill="none"
+                    stroke="rgba(94,234,212,0.35)"
                     strokeWidth="1"
+                    strokeDasharray="2,8"
+                    className="origin-center animate-[spin_18s_linear_infinite]"
+                    style={{ transformBox: "fill-box" }}
                   />
-                  
-                  {/* Guide lines */}
-                  <line x1="50%" y1="10%" x2="50%" y2="90%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="4,4" />
-                  <line x1="10%" y1="50%" x2="90%" y2="50%" stroke="rgba(255,255,255,0.2)" strokeWidth="1" strokeDasharray="4,4" />
                 </svg>
-                
-                {/* Instructions */}
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-4 py-2 rounded-full text-sm backdrop-blur-sm">
-                  🎯 Center your face in the circle
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Controls Section */}
-          <div className="lg:w-80 flex flex-col gap-6">
-            {/* Zoom Controls */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <FaSearchPlus className="text-blue-500" />
-                  Zoom: {Math.round(scale * 100)}%
-                </label>
-                <div className="flex gap-1">
-                  <button
-                    onClick={handleZoomOut}
-                    disabled={isUploading || scale <= 0.5}
-                    className="p-2 hover:bg-white rounded-xl transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed transform hover:scale-110 shadow-sm"
-                  >
-                    <FaSearchMinus className="text-gray-700" />
-                  </button>
-                  <button
-                    onClick={handleZoomFit}
-                    disabled={isUploading}
-                    className="p-2 hover:bg-white rounded-xl transition-all duration-200 transform hover:scale-110 shadow-sm"
-                  >
-                    <FaCompress className="text-gray-700" />
-                  </button>
-                  <button
-                    onClick={handleZoomIn}
-                    disabled={isUploading || scale >= 3}
-                    className="p-2 hover:bg-white rounded-xl transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed transform hover:scale-110 shadow-sm"
-                  >
-                    <FaSearchPlus className="text-gray-700" />
-                  </button>
-                </div>
-              </div>
-              <input 
-                type="range" 
-                min="0.5" 
-                max="3" 
-                step="0.1" 
-                value={scale} 
-                onChange={(e) => setScale(parseFloat(e.target.value))} 
-                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                disabled={isUploading}
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>50%</span>
-                <span>100%</span>
-                <span>300%</span>
-              </div>
-            </div>
-            
-            {/* Rotation Controls */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-5 rounded-2xl border border-purple-100 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <label className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                  <FaRedo className="text-purple-500" />
-                  Rotation: {rotation}°
-                </label>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setRotation((rotation - 90 + 360) % 360)}
-                    disabled={isUploading}
-                    className="p-2 hover:bg-white rounded-xl transition-all duration-200 transform hover:scale-110 shadow-sm"
-                  >
-                    <FaUndo className="text-gray-700" />
-                  </button>
-                  <button
-                    onClick={() => setRotation((rotation + 90) % 360)}
-                    disabled={isUploading}
-                    className="p-2 hover:bg-white rounded-xl transition-all duration-200 transform hover:scale-110 shadow-sm"
-                  >
-                    <FaRedo className="text-gray-700" />
-                  </button>
-                </div>
-              </div>
-              <input 
-                type="range" 
-                min="0" 
-                max="360" 
-                step="1" 
-                value={rotation} 
-                onChange={(e) => setRotation(parseInt(e.target.value))} 
-                className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider-thumb"
-                disabled={isUploading}
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-2">
-                <span>0°</span>
-                <span>180°</span>
-                <span>360°</span>
-              </div>
-            </div>
+                {/* Camera-style corner brackets */}
+                {[
+                  "top-3 left-3 border-t-2 border-l-2 rounded-tl-lg",
+                  "top-3 right-3 border-t-2 border-r-2 rounded-tr-lg",
+                  "bottom-3 left-3 border-b-2 border-l-2 rounded-bl-lg",
+                  "bottom-3 right-3 border-b-2 border-r-2 rounded-br-lg"
+                ].map((pos, i) => (
+                  <div key={i} className={`absolute ${pos} w-5 h-5 border-teal-300/70`} />
+                ))}
 
-            {/* Position Info */}
-            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="text-center">
-                  <div className="text-gray-500">X Position</div>
-                  <div className="font-mono font-bold text-gray-800">{Math.round(position.x)}px</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-gray-500">Y Position</div>
-                  <div className="font-mono font-bold text-gray-800">{Math.round(position.y)}px</div>
-                </div>
+                {rotation !== 0 && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 text-teal-300 text-xs font-mono px-2.5 py-1 rounded-full border border-white/10">
+                    {rotation}°
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
-        
-        {/* Hidden Canvas */}
-        <canvas ref={canvasRef} className="hidden" />
-        
-        {/* Footer Actions */}
-        <div className="flex gap-4 pt-6 border-t border-gray-200 mt-6 flex-shrink-0">
-          <button 
-            onClick={handleReset}
-            disabled={isUploading}
-            className="px-6 py-4 rounded-xl font-semibold bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 hover:from-gray-300 hover:to-gray-400 transition-all duration-300 disabled:opacity-50 transform hover:scale-105 shadow-md flex items-center gap-2"
-          >
-            <FaUndo />
-            Reset All
-          </button>
-          <button 
-            onClick={onCancel} 
-            disabled={isUploading} 
-            className="flex-1 py-4 rounded-xl font-semibold bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 hover:from-gray-300 hover:to-gray-400 transition-all duration-300 disabled:opacity-50 transform hover:scale-105 shadow-md"
-          >
-            Cancel
-          </button>
-          <button 
-            onClick={handleCrop} 
-            disabled={isUploading} 
-            className="flex-1 py-4 rounded-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 transform hover:scale-105 shadow-lg flex items-center justify-center gap-3"
-          >
-            {isUploading ? (
-              <>
-                <div className="animate-spin h-6 w-6 border-3 border-white border-t-transparent rounded-full" />
-                <span className="animate-pulse">Uploading...</span>
-              </>
-            ) : (
-              <>
-                <FaCheck className="text-lg" />
-                <span className="text-shadow">Crop & Save</span>
-              </>
-            )}
-          </button>
+
+        {/* Right / bottom column: full control set */}
+        <div className="flex flex-col lg:w-[45%] lg:border-l border-t lg:border-t-0 border-slate-200/80 dark:border-white/[0.08] px-5 py-4 lg:py-5 gap-4 overflow-y-auto bg-slate-50/50 dark:bg-[#141416]">
+          {/* Zoom */}
+          <div className="bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-sm dark:shadow-none">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wide">Zoom</span>
+              <span className="text-xs font-mono text-teal-600 dark:text-teal-400 font-bold tabular-nums">{Math.round(scale * 100)}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleZoomOut}
+                disabled={isUploading || scale <= 0.5}
+                aria-label="Zoom out"
+                className="text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+              >
+                <FaSearchMinus size={12} />
+              </button>
+              <input
+                type="range"
+                min="0.5"
+                max="3"
+                step="0.1"
+                value={scale}
+                onChange={(e) => setScale(parseFloat(e.target.value))}
+                aria-label="Zoom level"
+                className="flex-1 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full appearance-none cursor-pointer slider-thumb"
+                disabled={isUploading}
+              />
+              <button
+                onClick={handleZoomIn}
+                disabled={isUploading || scale >= 3}
+                aria-label="Zoom in"
+                className="text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+              >
+                <FaSearchPlus size={12} />
+              </button>
+            </div>
+          </div>
+
+          {/* Rotation */}
+          <div className="bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-sm dark:shadow-none">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wide">Rotation</span>
+              <span className="text-xs font-mono text-teal-600 dark:text-teal-400 font-bold tabular-nums">{rotation}°</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="360"
+              step="1"
+              value={rotation}
+              onChange={(e) => setRotation(parseInt(e.target.value, 10))}
+              aria-label="Rotation angle"
+              className="w-full h-1.5 bg-slate-200 dark:bg-white/10 rounded-full appearance-none cursor-pointer slider-thumb mb-3"
+              disabled={isUploading}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+                disabled={isUploading}
+                aria-label="Rotate left 90 degrees"
+                className="flex-1 flex items-center justify-center gap-1.5 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+              >
+                <FaUndo size={11} /> 90°
+              </button>
+              <button
+                onClick={() => setRotation((r) => (r + 90) % 360)}
+                disabled={isUploading}
+                aria-label="Rotate right 90 degrees"
+                className="flex-1 flex items-center justify-center gap-1.5 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+              >
+                <FaRedo size={11} /> 90°
+              </button>
+            </div>
+          </div>
+
+          {/* Position + reset */}
+          <div className="bg-white dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.08] rounded-2xl p-3.5 shadow-sm dark:shadow-none">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="text-center">
+                <div className="text-slate-400 dark:text-zinc-400 text-[10px] uppercase font-bold tracking-wide">X position</div>
+                <div className="font-mono text-sm text-slate-900 dark:text-zinc-100 font-semibold">{Math.round(position.x)}px</div>
+              </div>
+              <div className="text-center">
+                <div className="text-slate-400 dark:text-zinc-400 text-[10px] uppercase font-bold tracking-wide">Y position</div>
+                <div className="font-mono text-sm text-slate-900 dark:text-zinc-100 font-semibold">{Math.round(position.y)}px</div>
+              </div>
+            </div>
+            <button
+              onClick={handleReset}
+              disabled={isUploading}
+              aria-label="Reset all adjustments"
+              className="w-full flex items-center justify-center gap-1.5 text-slate-700 dark:text-zinc-300 hover:text-teal-600 dark:hover:text-teal-400 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+            >
+              <FaCompress size={11} /> Reset all
+            </button>
+          </div>
+
+          <div className="text-[10px] text-slate-400 dark:text-zinc-400 text-center leading-relaxed mt-auto pt-1 hidden sm:block">
+            <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 font-mono text-slate-600 dark:text-zinc-300">+</kbd>/<kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 font-mono text-slate-600 dark:text-zinc-300">−</kbd> zoom ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 font-mono text-slate-600 dark:text-zinc-300">←</kbd>/<kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 font-mono text-slate-600 dark:text-zinc-300">→</kbd> rotate ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 font-mono text-slate-600 dark:text-zinc-300">0</kbd> reset ·{" "}
+            <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-white/5 rounded border border-slate-200 dark:border-white/10 font-mono text-slate-600 dark:text-zinc-300">esc</kbd> cancel
+          </div>
+
+          {/* Hidden Canvas */}
+          <canvas ref={canvasRef} className="hidden" />
+
+          {/* Footer Actions */}
+          <div className="flex gap-3 flex-shrink-0">
+            <button
+              onClick={onCancel}
+              disabled={isUploading}
+              className="px-5 py-3 rounded-xl font-bold text-sm bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.08] text-slate-700 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCrop}
+              disabled={isUploading || !imageLoaded}
+              className="flex-1 py-3 rounded-xl font-bold text-sm bg-teal-500 hover:bg-teal-400 dark:bg-teal-400 dark:hover:bg-teal-300 text-slate-950 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] shadow-[0_8px_24px_-8px_rgba(45,212,191,0.5)] flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+            >
+              {isUploading ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-slate-950/40 border-t-slate-950 rounded-full" />
+                  <span>Uploading…</span>
+                </>
+              ) : (
+                <>
+                  <FaCheck size={13} />
+                  <span>Save photo</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Custom Slider Styles */}
+      {/* Custom styles */}
       <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.96) translateY(8px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
         .slider-thumb::-webkit-slider-thumb {
           appearance: none;
-          height: 20px;
-          width: 20px;
+          height: 14px;
+          width: 14px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: #0d9488;
           cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          border: 2px solid #ffffff;
+          box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.3);
+          transition: transform 0.15s ease;
         }
-        
+        .dark .slider-thumb::-webkit-slider-thumb {
+          background: #2dd4bf;
+          border: 2px solid #141416;
+          box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.6);
+        }
+        .slider-thumb::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
+        }
+
         .slider-thumb::-moz-range-thumb {
-          height: 20px;
-          width: 20px;
+          height: 14px;
+          width: 14px;
           border-radius: 50%;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: #0d9488;
           cursor: pointer;
-          border: 2px solid white;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+          border: 2px solid #ffffff;
+          box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.3);
+          transition: transform 0.15s ease;
         }
-        
-        .text-shadow {
-          text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        .dark .slider-thumb::-moz-range-thumb {
+          background: #2dd4bf;
+          border: 2px solid #141416;
+          box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.6);
+        }
+        .slider-thumb::-moz-range-thumb:hover {
+          transform: scale(1.2);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+          }
         }
       `}</style>
     </div>

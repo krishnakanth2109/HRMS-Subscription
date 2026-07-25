@@ -174,7 +174,7 @@ const AddEmployee = () => {
   // Handle Add Company
   const handleAddCompany = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!newCompanyData.name.trim() || !newCompanyData.prefix.trim()) {
       Swal.fire("Warning", "Company name and prefix are required", "warning");
@@ -222,9 +222,9 @@ const AddEmployee = () => {
     } catch (err) {
       // Handle duplicate company error
       const errorMessage = err.response?.data?.message || "Error adding company";
-      if (errorMessage.toLowerCase().includes("already taken") || 
-          errorMessage.toLowerCase().includes("duplicate") ||
-          errorMessage.toLowerCase().includes("exists")) {
+      if (errorMessage.toLowerCase().includes("already taken") ||
+        errorMessage.toLowerCase().includes("duplicate") ||
+        errorMessage.toLowerCase().includes("exists")) {
         Swal.fire({
           icon: "warning",
           title: "Company Already Exists",
@@ -298,8 +298,8 @@ const AddEmployee = () => {
       Swal.fire("Success", "Company updated successfully!", "success");
     } catch (err) {
       const errorMessage = err.response?.data?.message || "Error updating company";
-      if (errorMessage.toLowerCase().includes("already taken") || 
-          errorMessage.toLowerCase().includes("duplicate")) {
+      if (errorMessage.toLowerCase().includes("already taken") ||
+        errorMessage.toLowerCase().includes("duplicate")) {
         Swal.fire({
           icon: "warning",
           title: "Company Already Exists",
@@ -534,13 +534,13 @@ const AddEmployee = () => {
                   >
                     {formData.company
                       ? (() => {
-                          const c = companies.find(
-                            (c) => c._id === formData.company,
-                          );
-                          return c
-                            ? `${c.name} (${c.prefix})`
-                            : "Select a Company";
-                        })()
+                        const c = companies.find(
+                          (c) => c._id === formData.company,
+                        );
+                        return c
+                          ? `${c.name} (${c.prefix})`
+                          : "Select a Company";
+                      })()
                       : "-- Select a Company --"}
                   </span>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -630,7 +630,7 @@ const AddEmployee = () => {
                 <FaIdBadge className="absolute left-3 top-4 text-gray-400" />
 
                 <label className="absolute left-10 text-xs text-gray-500 font-medium top-1.5">
-                  Generated Employee ID 
+                  Generated Employee ID
                 </label>
                 <input
                   type="text"
@@ -912,7 +912,7 @@ const AddEmployee = () => {
                   <FaRegBuilding /> Basic Information
                 </h4>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -932,7 +932,7 @@ const AddEmployee = () => {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Employee ID Prefix (2-5 chars) *
@@ -988,6 +988,7 @@ const AddEmployee = () => {
                   </label>
                   <input
                     type="email"
+                    required
                     value={newCompanyData.email}
                     onChange={(e) =>
                       setNewCompanyData({
@@ -1006,6 +1007,7 @@ const AddEmployee = () => {
                   </label>
                   <input
                     type="tel"
+                    required
                     value={newCompanyData.phone}
                     onChange={(e) => {
                       let value = e.target.value.replace(/[^0-9]/g, "");
@@ -1204,7 +1206,7 @@ const AddEmployee = () => {
                   <FaRegBuilding /> Basic Information
                 </h4>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -1223,7 +1225,7 @@ const AddEmployee = () => {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">
                     Employee ID Prefix (2-5 chars) *

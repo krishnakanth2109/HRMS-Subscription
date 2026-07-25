@@ -259,6 +259,11 @@ const SupportAdminManagement = () => {
       return;
     }
 
+    if (newAdminForm.phone && newAdminForm.phone.length !== 10) {
+      showSwal({ icon: "warning", title: "Invalid Phone Number", text: "Phone number must be exactly 10 digits." });
+      return;
+    }
+
     if (newAdminForm.password.length < 8) {
       showSwal({ icon: "warning", title: "Password too short", text: "Password must be at least 8 characters." });
       return;
@@ -320,7 +325,7 @@ const SupportAdminManagement = () => {
       positionName: admin.positionName || ADMINISTRATION_LABEL,
       name: admin.name || "",
       email: admin.email || "",
-      phone: admin.phone || "",
+      phone: (admin.phone || "").replace(/\D/g, "").slice(0, 10),
       department: admin.department || ADMINISTRATION_LABEL,
       loginEnabled: admin.loginEnabled !== false,
       password: "",
@@ -341,6 +346,11 @@ const SupportAdminManagement = () => {
 
     if (!editAdminForm.supportAdminId.trim()) {
       showSwal({ icon: "warning", title: `${ADMINISTRATION_LABEL} ID required`, text: `Please enter a unique ID for this ${ADMINISTRATION_USER_LABEL.toLowerCase()}.` });
+      return;
+    }
+
+    if (editAdminForm.phone && editAdminForm.phone.length !== 10) {
+      showSwal({ icon: "warning", title: "Invalid Phone Number", text: "Phone number must be exactly 10 digits." });
       return;
     }
 
@@ -394,10 +404,10 @@ const SupportAdminManagement = () => {
 
   if (viewingAdmin) {
     return (
-      <SupportAdminProfileView 
-        admin={viewingAdmin} 
-        onBack={() => setViewingAdmin(null)} 
-        allSidebarFeatures={ALL_SIDEBAR_FEATURES} 
+      <SupportAdminProfileView
+        admin={viewingAdmin}
+        onBack={() => setViewingAdmin(null)}
+        allSidebarFeatures={ALL_SIDEBAR_FEATURES}
       />
     );
   }
@@ -692,10 +702,15 @@ const SupportAdminManagement = () => {
               <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Phone</label>
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={10}
                 value={newAdminForm.phone}
-                onChange={(event) => setNewAdminForm({ ...newAdminForm, phone: event.target.value })}
+                onChange={(event) => {
+                  const cleaned = event.target.value.replace(/\D/g, "").slice(0, 10);
+                  setNewAdminForm({ ...newAdminForm, phone: cleaned });
+                }}
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-purple-600 focus:outline-none"
-                placeholder="Phone number"
+                placeholder="10-digit phone number"
               />
             </div>
 
@@ -848,10 +863,15 @@ const SupportAdminManagement = () => {
               <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-gray-400">Phone</label>
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={10}
                 value={editAdminForm.phone}
-                onChange={(event) => setEditAdminForm({ ...editAdminForm, phone: event.target.value })}
+                onChange={(event) => {
+                  const cleaned = event.target.value.replace(/\D/g, "").slice(0, 10);
+                  setEditAdminForm({ ...editAdminForm, phone: cleaned });
+                }}
                 className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-900 transition-colors focus:border-blue-600 focus:outline-none"
-                placeholder="Phone number"
+                placeholder="10-digit phone number"
               />
             </div>
 
@@ -1035,8 +1055,8 @@ const SupportAdminManagement = () => {
             type="button"
             onClick={() => setIsFeatureModalOpen(false)}
             className={`w-full rounded-xl py-3 font-bold text-white shadow-lg transition-all ${featureModalMode === "create"
-                ? "bg-purple-600 shadow-purple-200 hover:bg-purple-700"
-                : "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
+              ? "bg-purple-600 shadow-purple-200 hover:bg-purple-700"
+              : "bg-blue-600 shadow-blue-200 hover:bg-blue-700"
               }`}
           >
             Done

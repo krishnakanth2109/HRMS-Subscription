@@ -62,20 +62,20 @@ HR Team
     init();
   }, []);
 
-useEffect(() => {
-  if (selectedCompany) {
-    fetchCompanyDocuments();
-    fetchHistory(selectedCompany, companies);
-    fetchExistingEmployees(selectedCompany);
-    setBulkCandidateIds([]);
-  } else {
-    setDocuments([]);
-    setSentHistory([]); // ❌ clear logs if no company selected
-    setExistingEmployees([]);
-    setSelectedExistingEmployee('');
-    setBulkCandidateIds([]);
-  }
-}, [selectedCompany]);
+  useEffect(() => {
+    if (selectedCompany) {
+      fetchCompanyDocuments();
+      fetchHistory(selectedCompany, companies);
+      fetchExistingEmployees(selectedCompany);
+      setBulkCandidateIds([]);
+    } else {
+      setDocuments([]);
+      setSentHistory([]); // ❌ clear logs if no company selected
+      setExistingEmployees([]);
+      setSelectedExistingEmployee('');
+      setBulkCandidateIds([]);
+    }
+  }, [selectedCompany]);
 
   const fetchCompanies = async () => {
     try {
@@ -993,7 +993,7 @@ useEffect(() => {
                 <div className="space-y-3">
                   {bulkRows.map((row, idx) => (
                     <div key={idx} className="p-6 bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-300 relative group space-y-4">
-                      
+
                       {/* Header of the Row Card */}
                       <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                         <div className="flex items-center gap-2">
@@ -1033,9 +1033,19 @@ useEffect(() => {
                             <input
                               type="text"
                               placeholder="John Doe"
+                              maxLength={50}
                               className="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all duration-200 outline-none text-sm font-medium"
                               value={row.name}
-                              onChange={(e) => updateBulkRow(idx, "name", e.target.value)}
+                              onChange={(e) =>
+                                updateBulkRow(
+                                  idx,
+                                  "name",
+                                  e.target.value
+                                    .replace(/[^a-zA-Z\s]/g, "") // Only letters & spaces
+                                    .replace(/\s{2,}/g, " ") // Prevent multiple spaces
+                                    .replace(/^\s+/g, "") // No leading spaces
+                                )
+                              }
                             />
                           </div>
                         </div>
@@ -1190,13 +1200,12 @@ useEffect(() => {
                       </p>
                     </div>
                     <span
-                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${
-                        item.status === "onboarded"
+                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${item.status === "onboarded"
                           ? "bg-green-100 text-green-700"
                           : item.status === "revoked"
                             ? "bg-orange-100 text-orange-700"
                             : "bg-blue-100 text-blue-700"
-                      }`}
+                        }`}
                     >
                       {item.status}
                     </span>
@@ -1222,11 +1231,10 @@ useEffect(() => {
 
                     <div className="flex items-center gap-2 text-[10px] font-bold mt-2 pt-2 border-t border-slate-200">
                       <span
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] ${
-                          item.policyStatus === "accepted"
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] ${item.policyStatus === "accepted"
                             ? "bg-green-50 text-green-700"
                             : "bg-slate-100 text-slate-500"
-                        }`}
+                          }`}
                       >
                         {item.policyStatus === "accepted" ? (
                           <CheckCircle size={8} />

@@ -1544,18 +1544,18 @@ const EmployeeManagement = () => {
         </div>
 
         {/* Table Section */}
-        <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 relative z-10 overflow-hidden mx-4 sm:px-0">
-          <div className="overflow-x-auto pb-16">
+        <div className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-gray-200 relative z-10 overflow-visible mx-4 sm:px-0">
+          <div className="overflow-visible">
             <table className="min-w-full">
-              <thead className="bg-slate-800 border-b border-slate-700">
+              <thead className="bg-slate-800 border-b border-slate-700 rounded-t-2xl">
                 <tr className="text-white uppercase text-[10px] sm:text-xs font-semibold tracking-wider">
-                  <th className="p-4 text-left pl-6 hidden sm:table-cell">ID</th>
-                  <th className="p-4 text-left">Employee</th>
+                  <th className="p-4 text-left pl-6 hidden sm:table-cell rounded-tl-2xl">ID</th>
+                  <th className="p-4 text-left sm:rounded-none rounded-tl-2xl">Employee</th>
                   <th className="p-4 text-left hidden md:table-cell">Role</th>
                   <th className="p-4 text-left hidden lg:table-cell">Dept</th>
                   <th className="p-4 text-left hidden xl:table-cell">Company</th>
                   <th className="p-4 text-left hidden xl:table-cell">Email</th>
-                  <th className="p-4 text-center">Actions</th>
+                  <th className="p-4 text-center rounded-tr-2xl">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

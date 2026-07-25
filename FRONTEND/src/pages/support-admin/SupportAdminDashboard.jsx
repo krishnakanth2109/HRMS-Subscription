@@ -64,10 +64,12 @@ import api, {
   getAdminWorkRecords,
   getFieldTrackingEmployees,
   getRecentFieldTrips,
+  requestCorrectionAdvanced,
 } from "../../api";
 import { AuthContext } from "../../context/AuthContext";
 import Swal from "sweetalert2";
 import ImageCropModal from "../../EmployeePages/ImageCropModal";
+import ModalWrapper from "../../components/ModalWrapper";
 
 const getDeptRole = (emp) => {
   const exp = Array.isArray(emp.experienceDetails)
@@ -239,6 +241,15 @@ const SupportAdminDashboard = () => {
 
   const [adminProfile, setAdminProfile] = useState(null);
 
+  // Late Login Request Modal States
+  const [showLateLoginModal, setShowLateLoginModal] = useState(false);
+  const [lateModalData, setLateModalData] = useState({
+    date: new Date().toISOString().split("T")[0],
+    reason: "",
+    requestedPunchIn: "10:00",
+  });
+  const [submittingLateReq, setSubmittingLateReq] = useState(false);
+
   const dropdownRef = useRef(null);
   const breakDropdownRef = useRef(null);
   const alarmPlayedRef = useRef(false);
@@ -247,6 +258,49 @@ const SupportAdminDashboard = () => {
   const displayAdministrationId = adminProfile?.supportAdminId || user?.supportAdminId || targetEmployeeId;
   const displayRoleName = adminProfile?.positionName || user?.positionName || "Support Admin";
   const todayIso = new Date().toISOString().split("T")[0];
+
+  const handleLateLoginSubmit = async () => {
+    if (!lateModalData.reason.trim()) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Reason Required",
+        text: "Please enter a reason for your late login request.",
+      });
+    }
+    setSubmittingLateReq(true);
+    try {
+      const empId = targetEmployeeId || adminProfile?.supportAdminId || adminProfile?._id || user?.id;
+      await requestCorrectionAdvanced({
+        employeeId: empId,
+        date: lateModalData.date,
+        reason: lateModalData.reason,
+        requestedStatus: "Full Day",
+        requestedPunchIn: lateModalData.requestedPunchIn || "10:00",
+        currentStatus: "Absent",
+      });
+      Swal.fire({
+        icon: "success",
+        title: "Request Submitted!",
+        text: "Your late login request has been sent to the Admin for approval.",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      setShowLateLoginModal(false);
+      setLateModalData({ date: new Date().toISOString().split("T")[0], reason: "", requestedPunchIn: "10:00" });
+      if (getAttendanceForEmployeeLocal && empId) {
+        getAttendanceForEmployeeLocal(empId);
+      }
+    } catch (err) {
+      console.error("Late login request error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Submission Failed",
+        text: err.response?.data?.message || "Failed to submit late login request.",
+      });
+    } finally {
+      setSubmittingLateReq(false);
+    }
+  };
 
   const speak = (text) => {
     if ('speechSynthesis' in window) {
@@ -1333,7 +1387,15 @@ const SupportAdminDashboard = () => {
               <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600"><FaRegClock size={18} /></div>
               <h2 className="font-bold text-lg text-gray-800">Daily Attendance</h2>
             </div>
-            <button onClick={() => navigate("/support-admin/my-attendance")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition shadow-sm">View History →</button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowLateLoginModal(true)}
+                className="text-xs font-bold text-orange-700 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-lg border border-orange-200 transition shadow-sm flex items-center gap-1.5"
+              >
+                <FaUserClock className="text-orange-500" /> Request Late Login
+              </button>
+              <button onClick={() => navigate("/support-admin/my-attendance")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition shadow-sm">View History →</button>
+            </div>
           </div>
 
           {/* Desktop Table View */}
@@ -2208,6 +2270,60 @@ const SupportAdminDashboard = () => {
           }}
           isUploading={uploadingImage}
         />
+      )}
+
+      {/* Request Late Login Modal */}
+      {showLateLoginModal && (
+        <ModalWrapper isOpen={showLateLoginModal} onClose={() => setShowLateLoginModal(false)} title="Request Late Login to Admin">
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Select Date</label>
+              <input
+                type="date"
+                value={lateModalData.date}
+                onChange={(e) => setLateModalData({ ...lateModalData, date: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-medium text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Expected / Requested Punch In Time</label>
+              <input
+                type="time"
+                value={lateModalData.requestedPunchIn}
+                onChange={(e) => setLateModalData({ ...lateModalData, requestedPunchIn: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-medium text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Reason for Late Login *</label>
+              <textarea
+                rows="3"
+                value={lateModalData.reason}
+                onChange={(e) => setLateModalData({ ...lateModalData, reason: e.target.value })}
+                placeholder="E.g., Traffic delay, personal emergency, medical appointment..."
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-none"
+              ></textarea>
+            </div>
+
+            <div className="pt-3 flex gap-3">
+              <button
+                onClick={() => setShowLateLoginModal(false)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLateLoginSubmit}
+                disabled={submittingLateReq}
+                className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:shadow-none transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {submittingLateReq ? "Submitting..." : "Submit to Admin"}
+              </button>
+            </div>
+          </div>
+        </ModalWrapper>
       )}
     </div>
   );

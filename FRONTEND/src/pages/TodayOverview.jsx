@@ -496,13 +496,13 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-slate-200 relative flex flex-col h-full"
+      className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-slate-200 relative flex flex-col h-full overflow-hidden min-w-0"
     >
-      <div className="p-4 flex-grow">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
+      <div className="p-4 flex-grow flex flex-col min-w-0">
+        <div className="flex items-start justify-between mb-3 gap-2 min-w-0">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div
-              className="relative cursor-pointer group"
+              className="relative cursor-pointer group flex-shrink-0"
               onClick={() => onImageClick(profilePic)}
             >
               <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-200 shadow-sm relative">
@@ -527,21 +527,21 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
               </div>
             </div>
 
-            <div className="overflow-hidden">
-              <h3 className="font-semibold text-slate-900 text-base truncate flex items-center gap-2" title={employee.employeeName}>
-                {employee.employeeName}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <h3 className="font-semibold text-slate-900 text-base flex items-center gap-1.5 min-w-0" title={employee.employeeName}>
+                <span className="truncate">{employee.employeeName}</span>
                 {isPendingResignation && (
-                  <span className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter">
+                  <span className="flex-shrink-0 bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded-full font-black border border-red-200 uppercase tracking-tighter">
                     Resigning
                   </span>
                 )}
               </h3>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <FaIdBadge className="text-slate-400 text-xs" />
-                <span className="text-xs text-slate-600 font-mono">{employee.employeeId}</span>
+              <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                <FaIdBadge className="text-slate-400 text-xs flex-shrink-0" />
+                <span className="text-xs text-slate-600 font-mono truncate">{employee.employeeId}</span>
               </div>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <FaBuilding className="text-slate-400 text-xs" />
+              <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                <FaBuilding className="text-slate-400 text-xs flex-shrink-0" />
                 <span className="text-xs text-slate-600 truncate" title={employee.department}>
                   {employee.department}
                 </span>
@@ -549,7 +549,7 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             {/* ✅ FIXED: REMOVED CHECK FOR PHONE NUMBER SO ICON ALWAYS SHOWS */}
             <button
               onClick={toggleDropdown}
@@ -593,20 +593,24 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
           </div>
         </div>
 
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">Status</span>
-            <StatusBadge status={category} />
+        <div className="space-y-2.5 min-w-0">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span className="text-xs text-slate-500 flex-shrink-0">Status</span>
+            <div className="min-w-0 flex-shrink-0 flex justify-end">
+              <StatusBadge status={category} />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">Login Status</span>
-            <LoginStatusBadge status={employee.loginStatus?.status || "--"} />
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span className="text-xs text-slate-500 flex-shrink-0">Login Status</span>
+            <div className="min-w-0 flex-shrink-0 flex justify-end">
+              <LoginStatusBadge status={employee.loginStatus?.status || "--"} />
+            </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">Time Today</span>
-            <div className="text-right">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span className="text-xs text-slate-500 flex-shrink-0">Time Today</span>
+            <div className="text-right flex-shrink-0">
               {employee.punchIn ? (
                 <>
                   <div className="text-sm font-medium text-emerald-700">
@@ -625,16 +629,18 @@ const EmployeeCard = ({ employee, onImageClick, category, onCallClick, onMessage
           </div>
 
           {category === 'WORKING' && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-slate-500">Duration</span>
-              <LiveTimer startTime={employee.punchIn} />
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="text-xs text-slate-500 flex-shrink-0">Duration</span>
+              <div className="flex-shrink-0">
+                <LiveTimer startTime={employee.punchIn} />
+              </div>
             </div>
           )}
 
           {employee.isOnLeave && (
-            <div className="bg-purple-50 rounded-md p-2.5 border border-purple-100">
-              <div className="text-xs font-medium text-purple-800">{employee.leaveType}</div>
-              <div className="text-xs text-purple-700 mt-0.5 line-clamp-1">"{employee.reason}"</div>
+            <div className="bg-purple-50 rounded-md p-2.5 border border-purple-100 min-w-0 overflow-hidden">
+              <div className="text-xs font-medium text-purple-800 truncate">{employee.leaveType}</div>
+              <div className="text-xs text-purple-700 mt-0.5 line-clamp-2 break-words">"{employee.reason}"</div>
             </div>
           )}
         </div>

@@ -19,13 +19,13 @@ const StatCard = ({ icon, title, value, color }) => (
 );
 
 // A reusable filter input component
-const FilterInput = ({ label, value, onChange, placeholder, children }) => (
+const FilterInput = ({ label, value, onChange, placeholder, type = "text", children }) => (
     <div className="w-full">
         <label className="text-sm font-semibold text-gray-600 mb-1 block">{label}</label>
         <div className="relative">
             {children}
             <input
-                type="text"
+                type={type}
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
@@ -162,8 +162,8 @@ const OvertimeAdmin = () => {
                             </div>
                         </div>
 
-                        <FilterInput label="Filter by Date" value={filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value })} placeholder="YYYY-MM-DD">
-                            <FaCalendarAlt className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400" />
+                        <FilterInput label="Filter by Date" type="date" value={filters.date} onChange={(e) => setFilters({ ...filters, date: e.target.value })}>
+                            <FaCalendarAlt className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
                         </FilterInput>
                     </div>
                     {/* --- END OF NEW FILTERS UI --- */}

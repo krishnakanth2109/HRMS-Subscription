@@ -1970,10 +1970,28 @@ router.post("/request-correction-advanced", protect, async (req, res) => {
       return res.status(400).json({ message: "Missing required fields." });
     }
 
-    // Find employee's attendance record to get adminId and companyId
-    const attendanceRecord = await Attendance.findOne({ employeeId });
+    // Find employee's or support admin's attendance record to get adminId and companyId
+    let attendanceRecord = await Attendance.findOne({ employeeId });
+    let adminId = attendanceRecord?.adminId;
+    let companyId = attendanceRecord?.companyId;
+    let employeeName = attendanceRecord?.employeeName;
+
     if (!attendanceRecord) {
-      return res.status(404).json({ message: "Employee attendance record not found." });
+      const scope = await resolveAttendanceScope(req, employeeId);
+      adminId = scope.adminId;
+      companyId = scope.companyId;
+      const suppAdmin = await SupportAdmin.findOne({
+        $or: [
+          { supportAdminId: employeeId },
+          { _id: employeeId.match(/^[0-9a-fA-F]{24}$/) ? employeeId : null }
+        ].filter(Boolean)
+      });
+      const emp = await Employee.findOne({ employeeId });
+      employeeName = suppAdmin?.name || emp?.name || req.user?.name || "User";
+    }
+
+    if (!adminId || !companyId) {
+      return res.status(400).json({ message: "Unable to resolve company for attendance request." });
     }
 
     // Check if a pending request already exists for this date
@@ -1988,9 +2006,9 @@ router.post("/request-correction-advanced", protect, async (req, res) => {
 
     const newRequest = await AttendanceRequest.create({
       employeeId,
-      adminId: attendanceRecord.adminId,
-      companyId: attendanceRecord.companyId,
-      employeeName: attendanceRecord.employeeName,
+      adminId,
+      companyId,
+      employeeName,
       date,
       currentStatus,
       requestedStatus,
@@ -2003,19 +2021,19 @@ router.post("/request-correction-advanced", protect, async (req, res) => {
 
     // Real-time Notification for Admin
     const io = req.app.get("io");
-    if (attendanceRecord.adminId) {
+    if (adminId) {
       const notif = await Notification.create({
-        adminId: attendanceRecord.adminId,
-        companyId: attendanceRecord.companyId,
-        userId: attendanceRecord.adminId,
+        adminId,
+        companyId,
+        userId: adminId,
         userType: "Admin",
         title: "New Attendance Correction Request",
-        message: `${attendanceRecord.employeeName} requested correction for ${date}`,
+        message: `${employeeName} requested correction for ${date}`,
         type: "attendance-correction-request",
         date: new Date(),
       });
-      if (io) io.to(`user_${attendanceRecord.adminId.toString()}`).emit("newNotification", notif);
-      if (io) io.to(`user_${attendanceRecord.adminId.toString()}`).emit("attendance:correctionNew", { employeeId, date });
+      if (io) io.to(`user_${adminId.toString()}`).emit("newNotification", notif);
+      if (io) io.to(`user_${adminId.toString()}`).emit("attendance:correctionNew", { employeeId, date });
     }
 
     res.json({ success: true, message: "Correction request submitted successfully.", data: newRequest });
@@ -2032,7 +2050,9 @@ router.post("/request-correction-advanced", protect, async (req, res) => {
 router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) => {
   try {
     let companyIds = [];
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const empIds = await getEmployeeAttendanceIds(req, "employee");
+    const suppIds = await getEmployeeAttendanceIds(req, "support-admin");
+    const employeeIds = [...empIds, ...suppIds];
 
     if (req.user.role === 'admin' || req.user.role === 'support-admin') {
       // Find all companies owned by this admin
@@ -2082,63 +2102,110 @@ router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => 
     let workedHours = 0;
 
     if (status === 'approved') {
-      // ⏱️ Auto Calculate Hours & Status
-      const punchInTime = new Date(`1970-01-01T${finalPunchIn}`);
-      const punchOutTime = new Date(`1970-01-01T${finalPunchOut}`);
-      workedHours = (punchOutTime - punchInTime) / (1000 * 60 * 60);
-
-      // Handle overnight shift if out time is smaller than in time
-      if (workedHours < 0) {
-        workedHours += 24;
-      }
-
-      if (workedHours >= 9) {
-        calculatedStatus = 'Full Day';
-      } else if (workedHours >= 4.5) {
-        calculatedStatus = 'Half Day';
-      } else {
-        calculatedStatus = 'Absent';
-      }
-
       // Step 1 — Find original attendance record
-      const attendance = await Attendance.findOne({ employeeId: request.employeeId });
+      let attendance = await Attendance.findOne({ employeeId: request.employeeId });
+      if (!attendance) {
+        const scope = await resolveAttendanceScope(req, request.employeeId);
+        if (scope.adminId && scope.companyId) {
+          attendance = new Attendance({
+            adminId: scope.adminId,
+            companyId: scope.companyId,
+            employeeId: request.employeeId,
+            employeeName: request.employeeName,
+            attendance: []
+          });
+        }
+      }
+
       if (attendance) {
-        const dayRecord = attendance.attendance.find(a => a.date === request.date);
-        if (dayRecord) {
-          // Calculate time for display
-          const totalSeconds = Math.max(0, workedHours * 3600);
+        let dayRecord = attendance.attendance.find(a => a.date === request.date);
+        if (!dayRecord) {
+          dayRecord = {
+            date: request.date,
+            punchIn: null,
+            punchOut: null,
+            sessions: [],
+            status: "NOT_STARTED",
+            workedHours: 0,
+            workedMinutes: 0,
+            workedSeconds: 0,
+            displayTime: "0h 0m 0s"
+          };
+          attendance.attendance.push(dayRecord);
+          dayRecord = attendance.attendance[attendance.attendance.length - 1];
+        }
+
+        const isCurrentlyWorking = !finalPunchOut && (
+          dayRecord.status === "WORKING" ||
+          !dayRecord.isFinalPunchOut ||
+          request.date === new Date().toISOString().split("T")[0]
+        );
+
+        if (finalPunchIn) {
+          const actualPunchIn = new Date(`${request.date}T${finalPunchIn}:00`);
+          dayRecord.punchIn = actualPunchIn;
+          if (dayRecord.sessions && dayRecord.sessions.length > 0) {
+            dayRecord.sessions[0].punchIn = actualPunchIn;
+          } else {
+            dayRecord.sessions = [{ punchIn: actualPunchIn, punchOut: null }];
+          }
+        }
+
+        if (finalPunchOut) {
+          const actualPunchOut = new Date(`${request.date}T${finalPunchOut}:00`);
+          dayRecord.punchOut = actualPunchOut;
+          dayRecord.isFinalPunchOut = true;
+
+          const punchInTime = new Date(`1970-01-01T${finalPunchIn || '09:00'}`);
+          const punchOutTime = new Date(`1970-01-01T${finalPunchOut}`);
+          let hrs = (punchOutTime - punchInTime) / (1000 * 60 * 60);
+          if (hrs < 0) hrs += 24;
+          workedHours = Math.max(0, hrs);
+
+          if (workedHours >= 9) calculatedStatus = 'Full Day';
+          else if (workedHours >= 4.5) calculatedStatus = 'Half Day';
+          else calculatedStatus = 'Absent';
+
+          const totalSeconds = Math.max(0, Math.floor(workedHours * 3600));
           const h = Math.floor(totalSeconds / 3600);
           const m = Math.floor((totalSeconds % 3600) / 60);
           const s = Math.floor(totalSeconds % 60);
-
-          // Step 2 — Replace ALL fields with admin approved values
-          // Note: using the same date context for Date objects
-          const actualPunchIn = new Date(`${request.date}T${finalPunchIn}:00`);
-          const actualPunchOut = new Date(`${request.date}T${finalPunchOut}:00`);
-
-
-          dayRecord.punchIn = actualPunchIn;
-          dayRecord.punchOut = actualPunchOut;
 
           dayRecord.workedHours = h;
           dayRecord.workedMinutes = m;
           dayRecord.workedSeconds = s;
           dayRecord.displayTime = `${h}h ${m}m ${s}s`;
-
           dayRecord.workedStatus = calculatedStatus;
           dayRecord.status = calculatedStatus === "Absent" ? "ABSENT" : "PRESENT";
           dayRecord.attendanceCategory = calculatedStatus;
+        } else if (isCurrentlyWorking) {
+          dayRecord.status = "WORKING";
+          dayRecord.workedStatus = "Working";
+          dayRecord.isFinalPunchOut = false;
 
-          dayRecord.isAdminCorrected = true;
-          dayRecord.correctedAt = new Date();
-          dayRecord.correctedPunchIn = finalPunchIn;
-          dayRecord.correctedPunchOut = finalPunchOut;
-          dayRecord.isFinalPunchOut = true;
+          if (dayRecord.punchIn) {
+            const now = new Date();
+            const elapsedMs = Math.max(0, now - new Date(dayRecord.punchIn));
+            const totalSec = Math.floor(elapsedMs / 1000);
+            const h = Math.floor(totalSec / 3600);
+            const m = Math.floor((totalSec % 3600) / 60);
+            const s = totalSec % 60;
 
-          if (dayRecord.fullDayRequest) dayRecord.fullDayRequest.hasRequest = false;
-
-          await attendance.save({ validateBeforeSave: false });
+            dayRecord.workedHours = h;
+            dayRecord.workedMinutes = m;
+            dayRecord.workedSeconds = s;
+            dayRecord.displayTime = `${h}h ${m}m ${s}s`;
+          }
         }
+
+        dayRecord.isAdminCorrected = true;
+        dayRecord.correctedAt = new Date();
+        dayRecord.correctedPunchIn = finalPunchIn;
+        if (finalPunchOut) dayRecord.correctedPunchOut = finalPunchOut;
+
+        if (dayRecord.fullDayRequest) dayRecord.fullDayRequest.hasRequest = false;
+
+        await attendance.save({ validateBeforeSave: false });
       }
     }
 
@@ -2205,7 +2272,9 @@ router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => 
  */
 router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const empIds = await getEmployeeAttendanceIds(req, "employee");
+    const suppIds = await getEmployeeAttendanceIds(req, "support-admin");
+    const employeeIds = [...empIds, ...suppIds];
 
     const pendingRequests = await Attendance.aggregate([
       { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },

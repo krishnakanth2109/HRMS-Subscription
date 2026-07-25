@@ -218,7 +218,14 @@ const ScheduleModal = ({ isOpen, onClose, employee, onSave }) => {
                   <input
                     type="date"
                     value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
+                    max={toDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFromDate(val);
+                      if (toDate && val > toDate) {
+                        setToDate(val);
+                      }
+                    }}
                     className="w-full p-2 border rounded-lg text-sm"
                   />
                 </div>
@@ -229,7 +236,14 @@ const ScheduleModal = ({ isOpen, onClose, employee, onSave }) => {
                   <input
                     type="date"
                     value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
+                    min={fromDate || undefined}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setToDate(val);
+                      if (fromDate && val < fromDate) {
+                        setFromDate(val);
+                      }
+                    }}
                     className="w-full p-2 border rounded-lg text-sm"
                   />
                 </div>
