@@ -15,7 +15,14 @@ import {
   getPayrollRules,
   savePayrollRules,
   getOfferLetterTemplates,
-  uploadOfferLetterTemplate
+  uploadOfferLetterTemplate,
+  getPayrollGroups,
+  createPayrollGroup,
+  updatePayrollGroup,
+  deletePayrollGroup,
+  getPayrollOverrides,
+  bulkSavePayrollOverrides,
+  bulkDeletePayrollOverrides
 } from '../api';
 
 // --- DEFAULT RULES ---
@@ -30,8 +37,6 @@ const DEFAULT_RULES = {
   medical: 1250,
   travellingAllowanceValueType: 'fixed',
   travellingAllowance: 800,
-  otherAllowanceValueType: 'fixed',
-  otherAllowance: 1000,
   // PF Defaults
   pfCalculationMethod: 'percentage', // 'percentage' | 'fixed'
   pfPercentage: 12,
@@ -382,486 +387,476 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
       </div>
 
       <div className="space-y-4 overflow-y-auto pr-2 flex-1">
-          <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-green-800 text-sm uppercase">Earnings Structure</h4>
-              <button
-                type="button"
-                onClick={handleAddCustomField}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
-              >
-                ➕ Add Field
-              </button>
+        <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-bold text-green-800 text-sm uppercase">Earnings Structure</h4>
+            <button
+              type="button"
+              onClick={handleAddCustomField}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
+            >
+              ➕ Add Field
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Standard Fields */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-gray-700">Basic Salary</label>
+                <select name="basicValueType" value={rules.basicValueType || 'percentage'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                  <option value="percentage">% of Total</option>
+                  <option value="fixed">Fixed ₹</option>
+                </select>
+              </div>
+              <input type="number" name="basicPercentage" value={rules.basicPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              {/* Standard Fields */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Basic Salary</label>
-                  <select name="basicValueType" value={rules.basicValueType || 'percentage'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
-                    <option value="percentage">% of Total</option>
-                    <option value="fixed">Fixed ₹</option>
-                  </select>
-                </div>
-                <input type="number" name="basicPercentage" value={rules.basicPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-gray-700">HRA</label>
+                <select name="hraValueType" value={rules.hraValueType || 'percentage'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                  <option value="percentage">% of Basic</option>
+                  <option value="fixed">Fixed ₹</option>
+                </select>
               </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-700">HRA</label>
-                  <select name="hraValueType" value={rules.hraValueType || 'percentage'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
-                    <option value="percentage">% of Basic</option>
-                    <option value="fixed">Fixed ₹</option>
-                  </select>
-                </div>
-                <input type="number" name="hraPercentage" value={rules.hraPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+              <input type="number" name="hraPercentage" value={rules.hraPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-gray-700">Conveyance</label>
+                <select name="conveyanceValueType" value={rules.conveyanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                  <option value="percentage">% of Basic</option>
+                  <option value="fixed">Fixed ₹</option>
+                </select>
               </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Conveyance</label>
-                  <select name="conveyanceValueType" value={rules.conveyanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
-                    <option value="percentage">% of Basic</option>
-                    <option value="fixed">Fixed ₹</option>
-                  </select>
-                </div>
-                <input type="number" name="conveyance" value={rules.conveyance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+              <input type="number" name="conveyance" value={rules.conveyance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-gray-700">Medical</label>
+                <select name="medicalValueType" value={rules.medicalValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                  <option value="percentage">% of Basic</option>
+                  <option value="fixed">Fixed ₹</option>
+                </select>
               </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Medical</label>
-                  <select name="medicalValueType" value={rules.medicalValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
-                    <option value="percentage">% of Basic</option>
-                    <option value="fixed">Fixed ₹</option>
-                  </select>
-                </div>
-                <input type="number" name="medical" value={rules.medical} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+              <input type="number" name="medical" value={rules.medical} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-gray-700">Travelling Allowance</label>
+                <select name="travellingAllowanceValueType" value={rules.travellingAllowanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
+                  <option value="percentage">% of Basic</option>
+                  <option value="fixed">Fixed ₹</option>
+                </select>
               </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Travelling Allowance</label>
-                  <select name="travellingAllowanceValueType" value={rules.travellingAllowanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
-                    <option value="percentage">% of Basic</option>
-                    <option value="fixed">Fixed ₹</option>
-                  </select>
-                </div>
-                <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-semibold text-gray-700">Other Allowance</label>
-                  <select name="otherAllowanceValueType" value={rules.otherAllowanceValueType || 'fixed'} onChange={handleChange} className="text-[10px] font-bold bg-white border border-green-200 text-green-700 py-0.5 px-1.5 rounded-md outline-none hover:bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all cursor-pointer shadow-sm">
-                    <option value="percentage">% of Basic</option>
-                    <option value="fixed">Fixed ₹</option>
-                  </select>
-                </div>
-                <input type="number" name="otherAllowance" value={rules.otherAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-              </div>
+              <input type="number" name="travellingAllowance" value={rules.travellingAllowance} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border border-gray-200 rounded p-2 focus:ring-1 focus:ring-green-500 focus:border-green-500 outline-none transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            </div>
 
-              {/* Dynamic Custom Fields */}
-              {rules.customFields && rules.customFields.map((cf, idx) => {
-                if (cf.isEditing) {
-                  return (
-                    <div key={idx} className="border border-green-200 p-3 rounded-lg bg-green-50/50 relative group col-span-2 shadow-sm">
-                      <div className="mb-2">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Field Name</label>
+            {/* Dynamic Custom Fields */}
+            {rules.customFields && rules.customFields.map((cf, idx) => {
+              if (cf.isEditing) {
+                return (
+                  <div key={idx} className="border border-green-200 p-3 rounded-lg bg-green-50/50 relative group col-span-2 shadow-sm">
+                    <div className="mb-2">
+                      <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Field Name</label>
+                      <input
+                        type="text"
+                        value={cf.name}
+                        onChange={(e) => handleUpdateCustomFieldName(idx, e.target.value)}
+                        className="w-full border-b border-gray-300 focus:border-green-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
+                        placeholder="e.g. Food Coupons"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">
+                          {cf.valueType === 'percentage' ? 'Value (%)' : 'Amount (₹)'}
+                        </label>
                         <input
-                          type="text"
-                          value={cf.name}
-                          onChange={(e) => handleUpdateCustomFieldName(idx, e.target.value)}
-                          className="w-full border-b border-gray-300 focus:border-green-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
-                          placeholder="e.g. Food Coupons"
+                          type="number"
+                          value={cf.value}
+                          onChange={(e) => handleUpdateCustomFieldValue(idx, e.target.value)}
+                          onWheel={(e) => e.target.blur()}
+                          className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
 
-                      <div className="flex gap-2 items-center">
-                        <div className="flex-1">
-                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">
-                            {cf.valueType === 'percentage' ? 'Value (%)' : 'Amount (₹)'}
-                          </label>
-                          <input
-                            type="number"
-                            value={cf.value}
-                            onChange={(e) => handleUpdateCustomFieldValue(idx, e.target.value)}
-                            onWheel={(e) => e.target.blur()}
-                            className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
+                      <div className="w-20">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Type</label>
+                        <select
+                          value={cf.valueType}
+                          onChange={(e) => handleUpdateCustomFieldValueType(idx, e.target.value)}
+                          className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
+                        >
+                          <option value="fixed">Fixed</option>
+                          <option value="percentage">Percent</option>
+                        </select>
+                      </div>
 
+                      {cf.valueType === 'percentage' && (
                         <div className="w-20">
-                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Type</label>
+                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Of</label>
                           <select
-                            value={cf.valueType}
-                            onChange={(e) => handleUpdateCustomFieldValueType(idx, e.target.value)}
+                            value={cf.percentageOf}
+                            onChange={(e) => handleUpdateCustomFieldPercentageOf(idx, e.target.value)}
                             className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
                           >
-                            <option value="fixed">Fixed</option>
-                            <option value="percentage">Percent</option>
+                            <option value="total">Gross</option>
+                            <option value="basic">Basic</option>
                           </select>
                         </div>
-
-                        {cf.valueType === 'percentage' && (
-                          <div className="w-20">
-                            <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Of</label>
-                            <select
-                              value={cf.percentageOf}
-                              onChange={(e) => handleUpdateCustomFieldPercentageOf(idx, e.target.value)}
-                              className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
-                            >
-                              <option value="total">Gross</option>
-                              <option value="basic">Basic</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCustomField(idx)}
-                          className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
-                        >
-                          ✕ Reject
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDoneCustomField(idx)}
-                          className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
-                        >
-                          ✓ Done
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  );
-                }
 
-                const labelText = cf.name + (cf.valueType === 'percentage' ? ` (% of ${cf.percentageOf === 'basic' ? 'Basic' : 'Total'})` : ' (Fixed ₹)');
-                return (
-                  <div key={idx} className="relative group">
-                    <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <button
-                        type="button"
-                        onClick={() => handleEditCustomField(idx)}
-                        className="text-green-600 hover:text-green-800 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
-                        title="Edit Configuration"
-                      >
-                        ✏️
-                      </button>
+                    <div className="mt-3 flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => handleDeleteCustomField(idx)}
-                        className="text-red-500 hover:text-red-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
-                        title="Delete Field"
+                        className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
                       >
-                        🗑️
+                        ✕ Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDoneCustomField(idx)}
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
+                      >
+                        ✓ Done
                       </button>
                     </div>
-
-                    <label className="text-xs font-semibold text-gray-600 block">{labelText}</label>
-                    <input
-                      type="number"
-                      value={cf.value}
-                      onChange={(e) => handleUpdateCustomFieldValue(idx, e.target.value)}
-                      onWheel={(e) => e.target.blur()}
-                      className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
                   </div>
                 );
-              })}
+              }
+
+              const labelText = cf.name + (cf.valueType === 'percentage' ? ` (% of ${cf.percentageOf === 'basic' ? 'Basic' : 'Total'})` : ' (Fixed ₹)');
+              return (
+                <div key={idx} className="relative group">
+                  <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button
+                      type="button"
+                      onClick={() => handleEditCustomField(idx)}
+                      className="text-green-600 hover:text-green-800 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                      title="Edit Configuration"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomField(idx)}
+                      className="text-red-500 hover:text-red-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                      title="Delete Field"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+
+                  <label className="text-xs font-semibold text-gray-600 block">{labelText}</label>
+                  <input
+                    type="number"
+                    value={cf.value}
+                    onChange={(e) => handleUpdateCustomFieldValue(idx, e.target.value)}
+                    onWheel={(e) => e.target.blur()}
+                    className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="bg-red-50 p-3 rounded-lg border border-red-100">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-bold text-red-800 text-sm uppercase">Deductions (PF & PT)</h4>
+            <button
+              type="button"
+              onClick={handleAddCustomDeduction}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
+            >
+              ➕ Add Field
+            </button>
+          </div>
+
+          {/* PF METHOD SELECTION */}
+          <div className="mb-4">
+            <label className="text-xs font-bold text-gray-700 block mb-2">PF Calculation Method:</label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="pfCalculationMethod"
+                  value="percentage"
+                  checked={rules.pfCalculationMethod === 'percentage'}
+                  onChange={handleChange}
+                  className="accent-blue-600"
+                />
+                <span className="text-sm">Percentage Based</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="pfCalculationMethod"
+                  value="fixed"
+                  checked={rules.pfCalculationMethod === 'fixed'}
+                  onChange={handleChange}
+                  className="accent-blue-600"
+                />
+                <span className="text-sm">Fixed Amount</span>
+              </label>
             </div>
           </div>
 
-          <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-bold text-red-800 text-sm uppercase">Deductions (PF & PT)</h4>
-              <button
-                type="button"
-                onClick={handleAddCustomDeduction}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2.5 rounded-lg text-[10px] transition flex items-center gap-1 active:scale-95 shadow-sm"
-              >
-                ➕ Add Field
-              </button>
-            </div>
-
-            {/* PF METHOD SELECTION */}
-            <div className="mb-4">
-              <label className="text-xs font-bold text-gray-700 block mb-2">PF Calculation Method:</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="pfCalculationMethod"
-                    value="percentage"
-                    checked={rules.pfCalculationMethod === 'percentage'}
-                    onChange={handleChange}
-                    className="accent-blue-600"
-                  />
-                  <span className="text-sm">Percentage Based</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="pfCalculationMethod"
-                    value="fixed"
-                    checked={rules.pfCalculationMethod === 'fixed'}
-                    onChange={handleChange}
-                    className="accent-blue-600"
-                  />
-                  <span className="text-sm">Fixed Amount</span>
-                </label>
-              </div>
-            </div>
-
-            {/* CONDITIONAL PF INPUTS */}
-            {rules.pfCalculationMethod === 'percentage' ? (
-              <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">PF Employee (% of Basic)</label>
-                  <input type="number" name="pfPercentage" value={rules.pfPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">PF Employer (% of Basic)</label>
-                  <input type="number" name="employerPfPercentage" value={rules.employerPfPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">PF Fixed Employee (₹)</label>
-                  <input type="number" name="pfFixedAmountEmployee" value={rules.pfFixedAmountEmployee} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-600">PF Fixed Employer (₹)</label>
-                  <input type="number" name="pfFixedAmountEmployer" value={rules.pfFixedAmountEmployer} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+          {/* CONDITIONAL PF INPUTS */}
+          {rules.pfCalculationMethod === 'percentage' ? (
+            <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
               <div>
-                <label className="text-xs font-semibold text-gray-600">PT Slab 1 (&gt;15k) Amount (₹)</label>
-                <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <label className="text-xs font-semibold text-gray-600">PF Employee (% of Basic)</label>
+                <input type="number" name="pfPercentage" value={rules.pfPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
               <div>
-                <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
-                <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <label className="text-xs font-semibold text-gray-600">PF Employer (% of Basic)</label>
+                <input type="number" name="employerPfPercentage" value={rules.employerPfPercentage} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
               </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 mb-4 bg-white p-2 rounded border">
+              <div>
+                <label className="text-xs font-semibold text-gray-600">PF Fixed Employee (₹)</label>
+                <input type="number" name="pfFixedAmountEmployee" value={rules.pfFixedAmountEmployee} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">PF Fixed Employer (₹)</label>
+                <input type="number" name="pfFixedAmountEmployer" value={rules.pfFixedAmountEmployer} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+              </div>
+            </div>
+          )}
 
-              {/* Dynamic Custom Deductions */}
-              {rules.customDeductions && rules.customDeductions.map((cf, idx) => {
-                if (cf.isEditing) {
-                  return (
-                    <div key={idx} className="border border-red-200 p-3 rounded-lg bg-red-50/50 relative group col-span-2 shadow-sm">
-                      <div className="mb-2">
-                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Deduction Name</label>
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+            <div>
+              <label className="text-xs font-semibold text-gray-600">PT Slab 1 (&gt;15k) Amount (₹)</label>
+              <input type="number" name="ptSlab1Amount" value={rules.ptSlab1Amount} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-600">PT Slab 2 (&gt;20k) Amount (₹)</label>
+              <input type="number" name="ptSlab2Amount" value={rules.ptSlab2Amount} onChange={handleChange} onWheel={(e) => e.target.blur()} className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+            </div>
+
+            {/* Dynamic Custom Deductions */}
+            {rules.customDeductions && rules.customDeductions.map((cf, idx) => {
+              if (cf.isEditing) {
+                return (
+                  <div key={idx} className="border border-red-200 p-3 rounded-lg bg-red-50/50 relative group col-span-2 shadow-sm">
+                    <div className="mb-2">
+                      <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Deduction Name</label>
+                      <input
+                        type="text"
+                        value={cf.name}
+                        onChange={(e) => handleUpdateCustomDeductionName(idx, e.target.value)}
+                        className="w-full border-b border-gray-300 focus:border-red-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
+                      />
+                    </div>
+
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">
+                          {cf.valueType === 'percentage' ? 'Value (%)' : 'Amount (₹)'}
+                        </label>
                         <input
-                          type="text"
-                          value={cf.name}
-                          onChange={(e) => handleUpdateCustomDeductionName(idx, e.target.value)}
-                          className="w-full border-b border-gray-300 focus:border-red-500 focus:outline-none text-xs font-bold text-gray-700 bg-white px-2 py-1 rounded"
+                          type="number"
+                          value={cf.value}
+                          onChange={(e) => handleUpdateCustomDeductionValue(idx, e.target.value)}
+                          onWheel={(e) => e.target.blur()}
+                          className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
 
-                      <div className="flex gap-2 items-center">
-                        <div className="flex-1">
-                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">
-                            {cf.valueType === 'percentage' ? 'Value (%)' : 'Amount (₹)'}
-                          </label>
-                          <input
-                            type="number"
-                            value={cf.value}
-                            onChange={(e) => handleUpdateCustomDeductionValue(idx, e.target.value)}
-                            onWheel={(e) => e.target.blur()}
-                            className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
+                      <div className="w-20">
+                        <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Type</label>
+                        <select
+                          value={cf.valueType}
+                          onChange={(e) => handleUpdateCustomDeductionValueType(idx, e.target.value)}
+                          className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
+                        >
+                          <option value="fixed">Fixed</option>
+                          <option value="percentage">Percent</option>
+                        </select>
+                      </div>
 
+                      {cf.valueType === 'percentage' && (
                         <div className="w-20">
-                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Type</label>
+                          <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Of</label>
                           <select
-                            value={cf.valueType}
-                            onChange={(e) => handleUpdateCustomDeductionValueType(idx, e.target.value)}
+                            value={cf.percentageOf}
+                            onChange={(e) => handleUpdateCustomDeductionPercentageOf(idx, e.target.value)}
                             className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
                           >
-                            <option value="fixed">Fixed</option>
-                            <option value="percentage">Percent</option>
+                            <option value="total">Gross</option>
+                            <option value="basic">Basic</option>
                           </select>
                         </div>
-
-                        {cf.valueType === 'percentage' && (
-                          <div className="w-20">
-                            <label className="text-[10px] font-bold text-gray-400 block uppercase mb-0.5">Of</label>
-                            <select
-                              value={cf.percentageOf}
-                              onChange={(e) => handleUpdateCustomDeductionPercentageOf(idx, e.target.value)}
-                              className="w-full border rounded px-1 py-1.5 text-xs font-bold text-gray-700 bg-white"
-                            >
-                              <option value="total">Gross</option>
-                              <option value="basic">Basic</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-3 flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCustomDeduction(idx)}
-                          className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
-                        >
-                          ✕ Reject
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDoneCustomDeduction(idx)}
-                          className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
-                        >
-                          ✓ Done
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  );
-                }
 
-                const labelText = cf.name + (cf.valueType === 'percentage' ? ` (% of ${cf.percentageOf === 'basic' ? 'Basic' : 'Total'})` : ' (Fixed ₹)');
-                return (
-                  <div key={idx} className="relative group">
-                    <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <button
-                        type="button"
-                        onClick={() => handleEditCustomDeduction(idx)}
-                        className="text-blue-500 hover:text-blue-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
-                        title="Edit Configuration"
-                      >
-                        ✏️
-                      </button>
+                    <div className="mt-3 flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => handleDeleteCustomDeduction(idx)}
-                        className="text-red-500 hover:text-red-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
-                        title="Delete Field"
+                        className="bg-red-100 hover:bg-red-200 text-red-700 font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
                       >
-                        🗑️
+                        ✕ Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDoneCustomDeduction(idx)}
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2.5 rounded text-[10px] transition active:scale-95 flex items-center gap-0.5"
+                      >
+                        ✓ Done
                       </button>
                     </div>
-
-                    <label className="text-xs font-semibold text-gray-600 block">{labelText}</label>
-                    <input
-                      type="number"
-                      value={cf.value}
-                      onChange={(e) => handleUpdateCustomDeductionValue(idx, e.target.value)}
-                      onWheel={(e) => e.target.blur()}
-                      className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
                   </div>
                 );
-              })}
-            </div>
+              }
 
-            {/* LATE PENALTY SECTION */}
-            <div className="mt-4 pt-3 border-t border-red-200">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Late Penalty</label>
-                {/* Toggle */}
-                <label className="relative inline-flex items-center cursor-pointer">
+              const labelText = cf.name + (cf.valueType === 'percentage' ? ` (% of ${cf.percentageOf === 'basic' ? 'Basic' : 'Total'})` : ' (Fixed ₹)');
+              return (
+                <div key={idx} className="relative group">
+                  <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button
+                      type="button"
+                      onClick={() => handleEditCustomDeduction(idx)}
+                      className="text-blue-500 hover:text-blue-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                      title="Edit Configuration"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomDeduction(idx)}
+                      className="text-red-500 hover:text-red-700 bg-white/80 p-1 rounded border shadow-sm text-[10px]"
+                      title="Delete Field"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+
+                  <label className="text-xs font-semibold text-gray-600 block">{labelText}</label>
                   <input
-                    type="checkbox"
-                    name="latePenaltyEnabled"
-                    checked={!!rules.latePenaltyEnabled}
-                    onChange={handleChange}
-                    className="sr-only peer"
+                    type="number"
+                    value={cf.value}
+                    onChange={(e) => handleUpdateCustomDeductionValue(idx, e.target.value)}
+                    onWheel={(e) => e.target.blur()}
+                    className="w-full border rounded p-2 mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
-                  <div className="w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:bg-red-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                  <span className="ml-2 text-xs font-semibold text-gray-600">{rules.latePenaltyEnabled ? 'ON' : 'OFF'}</span>
-                </label>
-              </div>
-
-              {rules.latePenaltyEnabled && (
-                <div className="bg-white border border-red-100 rounded-lg p-3 space-y-3">
-                  {/* Threshold */}
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600">
-                      Apply penalty after how many late logins?
-                    </label>
-                    <input
-                      type="number"
-                      name="latePenaltyThreshold"
-                      min="1"
-                      value={rules.latePenaltyThreshold ?? 3}
-                      onChange={handleChange}
-                      onWheel={(e) => e.target.blur()}
-                      className="w-full border rounded p-2 mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      placeholder="e.g. 3"
-                    />
-                    <p className="text-[10px] text-gray-400 mt-0.5">
-                      e.g. 3 means penalty is applied for every 3 late logins
-                    </p>
-                  </div>
-
-                  {/* Penalty Type */}
-                  <div>
-                    <label className="text-xs font-semibold text-gray-600 block mb-2">Penalty Amount per occurrence:</label>
-                    <div className="flex flex-col gap-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="latePenaltyType"
-                          value="halfDay"
-                          checked={rules.latePenaltyType === 'halfDay'}
-                          onChange={handleChange}
-                          className="accent-red-500"
-                        />
-                        <span className="text-sm text-gray-700">Half Day Salary deduction per late occurrence</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="latePenaltyType"
-                          value="fullDay"
-                          checked={rules.latePenaltyType === 'fullDay'}
-                          onChange={handleChange}
-                          className="accent-red-500"
-                        />
-                        <span className="text-sm text-gray-700">Full Day Salary deduction per late occurrence</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="latePenaltyType"
-                          value="manual"
-                          checked={rules.latePenaltyType === 'manual'}
-                          onChange={handleChange}
-                          className="accent-red-500"
-                        />
-                        <span className="text-sm text-gray-700">Manual fixed amount per late occurrence</span>
-                      </label>
-                    </div>
-
-                    {rules.latePenaltyType === 'manual' && (
-                      <div className="mt-2">
-                        <label className="text-xs font-semibold text-gray-600">Fixed Penalty Amount (₹) per occurrence</label>
-                        <input
-                          type="number"
-                          name="latePenaltyManualAmount"
-                          min="0"
-                          value={rules.latePenaltyManualAmount ?? 0}
-                          onChange={handleChange}
-                          onWheel={(e) => e.target.blur()}
-                          className="w-full border rounded p-2 mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          placeholder="e.g. 500"
-                        />
-                      </div>
-                    )}
-                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
 
-          <div className="flex gap-3 mt-6">
-            <button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">Save Changes</button>
-            <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold">Cancel</button>
+          {/* LATE PENALTY SECTION */}
+          <div className="mt-4 pt-3 border-t border-red-200">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">Late Penalty</label>
+              {/* Toggle */}
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="latePenaltyEnabled"
+                  checked={!!rules.latePenaltyEnabled}
+                  onChange={handleChange}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:bg-red-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                <span className="ml-2 text-xs font-semibold text-gray-600">{rules.latePenaltyEnabled ? 'ON' : 'OFF'}</span>
+              </label>
+            </div>
+
+            {rules.latePenaltyEnabled && (
+              <div className="bg-white border border-red-100 rounded-lg p-3 space-y-3">
+                {/* Threshold */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">
+                    Apply penalty after how many late logins?
+                  </label>
+                  <input
+                    type="number"
+                    name="latePenaltyThreshold"
+                    min="1"
+                    value={rules.latePenaltyThreshold ?? 3}
+                    onChange={handleChange}
+                    onWheel={(e) => e.target.blur()}
+                    className="w-full border rounded p-2 mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    placeholder="e.g. 3"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    e.g. 3 means penalty is applied for every 3 late logins
+                  </p>
+                </div>
+
+                {/* Penalty Type */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 block mb-2">Penalty Amount per occurrence:</label>
+                  <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="latePenaltyType"
+                        value="halfDay"
+                        checked={rules.latePenaltyType === 'halfDay'}
+                        onChange={handleChange}
+                        className="accent-red-500"
+                      />
+                      <span className="text-sm text-gray-700">Half Day Salary deduction per late occurrence</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="latePenaltyType"
+                        value="fullDay"
+                        checked={rules.latePenaltyType === 'fullDay'}
+                        onChange={handleChange}
+                        className="accent-red-500"
+                      />
+                      <span className="text-sm text-gray-700">Full Day Salary deduction per late occurrence</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="latePenaltyType"
+                        value="manual"
+                        checked={rules.latePenaltyType === 'manual'}
+                        onChange={handleChange}
+                        className="accent-red-500"
+                      />
+                      <span className="text-sm text-gray-700">Manual fixed amount per late occurrence</span>
+                    </label>
+                  </div>
+
+                  {rules.latePenaltyType === 'manual' && (
+                    <div className="mt-2">
+                      <label className="text-xs font-semibold text-gray-600">Fixed Penalty Amount (₹) per occurrence</label>
+                      <input
+                        type="number"
+                        name="latePenaltyManualAmount"
+                        min="0"
+                        value={rules.latePenaltyManualAmount ?? 0}
+                        onChange={handleChange}
+                        onWheel={(e) => e.target.blur()}
+                        className="w-full border rounded p-2 mt-1 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        placeholder="e.g. 500"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      </ModalWrapper>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition">Save Changes</button>
+          <button onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-semibold">Cancel</button>
+        </div>
+      </div>
+    </ModalWrapper>
   );
 };
 
@@ -1076,8 +1071,8 @@ const LetterheadPickerModal = ({ onSelect, onClose, selectedIds, periodStart, pe
           <body>
             <main class="stage">
               ${isImage
-                ? `<img src="${blobUrl}" alt="${safeTitle}" />`
-                : `<iframe src="${blobUrl}" title="${safeTitle}"></iframe>`}
+          ? `<img src="${blobUrl}" alt="${safeTitle}" />`
+          : `<iframe src="${blobUrl}" title="${safeTitle}"></iframe>`}
             </main>
           </body>
         </html>
@@ -1451,18 +1446,110 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
 
 // --- PAYSLIP MODAL COMPONENT ---
 const PAYSLIP_LAYOUTS = [
-  { id: 'classic',    label: 'Classic',    icon: '📄', desc: 'Clean document style' },
-  { id: 'modern',     label: 'Modern',     icon: '🎨', desc: 'Card-based with color accents' },
-  { id: 'corporate',  label: 'Corporate',  icon: '🏢', desc: 'Bold header, professional' },
-  { id: 'minimal',    label: 'Minimal',    icon: '✨', desc: 'Ultra-clean, stripe rows' },
-  { id: 'executive',  label: 'Executive',  icon: '💼', desc: 'Dark header, premium feel' },
+  { id: 'classic', label: 'Classic', icon: '📄', desc: 'Clean document style' },
+  { id: 'modern', label: 'Modern', icon: '🎨', desc: 'Card-based with color accents' },
+  { id: 'corporate', label: 'Corporate', icon: '🏢', desc: 'Bold header, professional' },
+  { id: 'minimal', label: 'Minimal', icon: '✨', desc: 'Ultra-clean, stripe rows' },
+  { id: 'executive', label: 'Executive', icon: '💼', desc: 'Dark header, premium feel' },
 ];
 
-const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
+const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateOverride }) => {
   const [companyData, setCompanyData] = useState(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState('classic');
+  const [showOverridePanel, setShowOverridePanel] = useState(false);
+  const [localOverride, setLocalOverride] = useState({
+    // Earnings
+    basicValueType: employee.appliedRules.basicValueType || 'percentage', basicPercentage: employee.appliedRules.basicPercentage || 40,
+    hraValueType: employee.appliedRules.hraValueType || 'percentage', hraPercentage: employee.appliedRules.hraPercentage || 40,
+    conveyanceValueType: employee.appliedRules.conveyanceValueType || 'fixed', conveyance: employee.appliedRules.conveyance || 1600,
+    medicalValueType: employee.appliedRules.medicalValueType || 'fixed', medical: employee.appliedRules.medical || 1250,
+    travellingAllowanceValueType: employee.appliedRules.travellingAllowanceValueType || 'fixed', travellingAllowance: employee.appliedRules.travellingAllowance || 800,
+    // PF
+    pfCalculationMethod: employee.appliedRules.pfCalculationMethod || 'percentage',
+    pfPercentage: employee.appliedRules.pfPercentage || 12,
+    employerPfPercentage: employee.appliedRules.employerPfPercentage || 12,
+    pfFixedAmountEmployee: employee.appliedRules.pfFixedAmountEmployee || 0,
+    pfFixedAmountEmployer: employee.appliedRules.pfFixedAmountEmployer || 0,
+    // PT
+    ptSlab1Amount: employee.appliedRules.ptSlab1Amount || 150,
+    ptSlab2Amount: employee.appliedRules.ptSlab2Amount || 200,
+    // Late Penalty
+    latePenaltyEnabled: employee.appliedRules.latePenaltyEnabled || false,
+    latePenaltyThreshold: employee.appliedRules.latePenaltyThreshold || 3,
+    latePenaltyType: employee.appliedRules.latePenaltyType || 'halfDay',
+    latePenaltyManualAmount: employee.appliedRules.latePenaltyManualAmount || 0,
+    // Bonus
+    bonusAmount: employee.appliedRules.bonusAmount || 0,
+    // Custom Fields
+    customFields: employee.appliedRules.customFields || [],
+    customDeductions: employee.appliedRules.customDeductions || [],
+  });
+
+  const handleAddLocalCustomField = () => {
+    setLocalOverride(prev => ({
+      ...prev,
+      customFields: [...(prev.customFields || []), { name: '', value: 0, valueType: 'fixed', percentageOf: 'total', isEditing: true }]
+    }));
+  };
+
+  const handleUpdateLocalCustomField = (index, field, value) => {
+    setLocalOverride(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleDoneLocalCustomField = (index) => {
+    setLocalOverride(prev => {
+      const updated = [...(prev.customFields || [])];
+      if (!updated[index].name.trim()) updated[index].name = `Custom Field ${index + 1}`;
+      updated[index].isEditing = false;
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleDeleteLocalCustomField = (index) => {
+    setLocalOverride(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated.splice(index, 1);
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleAddLocalCustomDeduction = () => {
+    setLocalOverride(prev => ({
+      ...prev,
+      customDeductions: [...(prev.customDeductions || []), { name: '', value: 0, valueType: 'fixed', percentageOf: 'total', isEditing: true }]
+    }));
+  };
+
+  const handleUpdateLocalCustomDeduction = (index, field, value) => {
+    setLocalOverride(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleDoneLocalCustomDeduction = (index) => {
+    setLocalOverride(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      if (!updated[index].name.trim()) updated[index].name = `Custom Deduction ${index + 1}`;
+      updated[index].isEditing = false;
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleDeleteLocalCustomDeduction = (index) => {
+    setLocalOverride(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated.splice(index, 1);
+      return { ...prev, customDeductions: updated };
+    });
+  };
 
   // ✅ Fetch company details dynamically — employee.companyId holds emp.company (ObjectId)
   useEffect(() => {
@@ -1523,8 +1610,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   const buildPayslipHTML = useCallback((pfLabel, employerPfLabel) => {
     // ── shared helpers ────────────────────────────────────────────────
     const numToWords = (num) => {
-      const a = ['','One ','Two ','Three ','Four ','Five ','Six ','Seven ','Eight ','Nine ','Ten ','Eleven ','Twelve ','Thirteen ','Fourteen ','Fifteen ','Sixteen ','Seventeen ','Eighteen ','Nineteen '];
-      const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+      const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
       let val = Math.floor(num);
       if (val === 0) return 'Zero';
       if ((val = val.toString()).length > 9) return '';
@@ -1544,9 +1631,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
       { name: 'Conveyance', val: employee.monthlyBreakdown.conveyance },
       { name: 'Medical', val: employee.monthlyBreakdown.medical },
       { name: 'Travelling Allowance', val: employee.monthlyBreakdown.travellingAllowance },
-      { name: 'Other Allowance', val: employee.monthlyBreakdown.otherAllowance },
-      ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value })),
-      { name: 'Special', val: employee.monthlyBreakdown.special }
+      ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value }))
     ].filter(i => i.val > 0);
 
     const deductList = [
@@ -1554,7 +1639,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
       { name: employerPfLabel, val: employee.breakdown.employerPf },
       { name: 'Professional Tax', val: employee.breakdown.pt },
       { name: `LOP Deduction (${employee.lopDays} days)`, val: employee.lopDeduction },
-      { name: (() => {
+      {
+        name: (() => {
           const r = employee.appliedRules;
           if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
           const type = r?.latePenaltyType || 'halfDay';
@@ -1562,7 +1648,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           if (type === 'halfDay') return `Late Penalty (${late} late × 0.5d)`;
           if (type === 'fullDay') return `Late Penalty (${late} late × 1d)`;
           return `Late Penalty (${late} × ₹${r?.latePenaltyManualAmount || 0})`;
-        })(), val: employee.lateDeduction },
+        })(), val: employee.lateDeduction
+      },
       ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
     ].filter(i => i.val > 0);
 
@@ -2068,9 +2155,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
                   { label: "Conveyance", val: employee.monthlyBreakdown.conveyance },
                   { label: "Medical", val: employee.monthlyBreakdown.medical },
                   { label: "Travelling Allowance", val: employee.monthlyBreakdown.travellingAllowance },
-                  { label: "Other Allowance", val: employee.monthlyBreakdown.otherAllowance },
-                  ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ label: cf.name, val: cf.value })),
-                  { label: "Special", val: employee.monthlyBreakdown.special },
+                  ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ label: cf.name, val: cf.value }))
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-xs sm:text-sm py-1 border-b border-gray-50 last:border-0">
                     <span className="text-gray-600 font-medium">{item.label}</span>
@@ -2115,6 +2200,242 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
           <div className="bg-gray-900 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-0 shadow-xl border border-gray-800">
             <span className="text-xs sm:text-sm font-bold text-gray-400 uppercase tracking-widest">Net Salary Payable</span>
             <span className="font-black text-xl sm:text-3xl text-blue-400">{formatCurrency(employee.netPayableSalary)}</span>
+          </div>
+
+          {/* ✅ PER-EMPLOYEE OVERRIDE PANEL */}
+          <div className="border border-amber-200 rounded-2xl overflow-hidden mb-2">
+            <button
+              onClick={() => setShowOverridePanel(v => !v)}
+              className="w-full flex justify-between items-center px-4 py-3 bg-amber-50 hover:bg-amber-100 transition text-left"
+            >
+              <span className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                Override Settings (this employee only)
+              </span>
+              {employee.hasOverride && <span className="text-[10px] font-bold bg-amber-500 text-white px-2 py-0.5 rounded-full">OVERRIDDEN</span>}
+              <svg className={`w-4 h-4 text-amber-600 transition-transform ${showOverridePanel ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+
+            {showOverridePanel && (
+              <div className="p-4 bg-white space-y-4">
+                <p className="text-xs text-gray-400 italic">Changes here only affect <strong>{employee.employeeName}</strong>. Global rules remain unchanged for other employees.</p>
+
+                <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                  {/* EARNINGS */}
+                  <div className="bg-green-50 rounded-xl p-3 border border-green-100 space-y-3">
+                    <h4 className="font-bold text-green-800 text-xs uppercase">Earnings</h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-700 mb-1">Basic Salary</label>
+                        <div className="flex gap-1">
+                          <select value={localOverride.basicValueType} onChange={e => setLocalOverride(p => ({ ...p, basicValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
+                            <option value="percentage">%</option><option value="fixed">₹</option>
+                          </select>
+                          <input type="number" value={localOverride.basicPercentage} onChange={e => setLocalOverride(p => ({ ...p, basicPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-700 mb-1">HRA</label>
+                        <div className="flex gap-1">
+                          <select value={localOverride.hraValueType} onChange={e => setLocalOverride(p => ({ ...p, hraValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
+                            <option value="percentage">%</option><option value="fixed">₹</option>
+                          </select>
+                          <input type="number" value={localOverride.hraPercentage} onChange={e => setLocalOverride(p => ({ ...p, hraPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-700 mb-1">Conveyance</label>
+                        <div className="flex gap-1">
+                          <select value={localOverride.conveyanceValueType} onChange={e => setLocalOverride(p => ({ ...p, conveyanceValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
+                            <option value="percentage">%</option><option value="fixed">₹</option>
+                          </select>
+                          <input type="number" value={localOverride.conveyance} onChange={e => setLocalOverride(p => ({ ...p, conveyance: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-700 mb-1">Medical</label>
+                        <div className="flex gap-1">
+                          <select value={localOverride.medicalValueType} onChange={e => setLocalOverride(p => ({ ...p, medicalValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
+                            <option value="percentage">%</option><option value="fixed">₹</option>
+                          </select>
+                          <input type="number" value={localOverride.medical} onChange={e => setLocalOverride(p => ({ ...p, medical: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[10px] font-bold text-gray-700 mb-1">Travelling Allowance</label>
+                        <div className="flex gap-1">
+                          <select value={localOverride.travellingAllowanceValueType} onChange={e => setLocalOverride(p => ({ ...p, travellingAllowanceValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
+                            <option value="percentage">%</option><option value="fixed">₹</option>
+                          </select>
+                          <input type="number" value={localOverride.travellingAllowance} onChange={e => setLocalOverride(p => ({ ...p, travellingAllowance: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Custom Fields Override */}
+                    <div className="pt-2 border-t border-green-100 mt-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <h5 className="font-bold text-green-800 text-[9px] uppercase">Custom Earnings</h5>
+                        <button type="button" onClick={handleAddLocalCustomField} className="bg-green-600 hover:bg-green-700 text-white font-bold py-0.5 px-1.5 rounded text-[9px] shadow-sm">➕ Add</button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(localOverride.customFields || []).map((cf, idx) => (
+                          cf.isEditing ? (
+                            <div key={idx} className="border border-green-200 p-1.5 rounded bg-white shadow-sm">
+                              <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomField(idx, 'name', e.target.value)} placeholder="Name" className="w-full border-b mb-1 text-[10px] font-bold p-0.5" />
+                              <div className="flex gap-1 mb-1">
+                                <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomField(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-0.5 text-[10px]" />
+                                <select value={cf.valueType} onChange={e => handleUpdateLocalCustomField(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
+                                  <option value="fixed">₹</option><option value="percentage">%</option>
+                                </select>
+                                {cf.valueType === 'percentage' && (
+                                  <select value={cf.percentageOf} onChange={e => handleUpdateLocalCustomField(idx, 'percentageOf', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
+                                    <option value="total">Gross</option><option value="basic">Basic</option>
+                                  </select>
+                                )}
+                              </div>
+                              <div className="flex justify-end gap-1">
+                                <button onClick={() => handleDeleteLocalCustomField(idx)} className="text-[9px] text-red-600 font-bold">Cancel</button>
+                                <button onClick={() => handleDoneLocalCustomField(idx)} className="text-[9px] bg-green-600 text-white px-1.5 py-0.5 rounded font-bold">Done</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={idx} className="flex justify-between items-center bg-white p-1 border rounded shadow-sm group">
+                              <div>
+                                <span className="text-[10px] font-bold text-gray-700">{cf.name}</span>
+                                <span className="text-[9px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                                <button onClick={() => handleUpdateLocalCustomField(idx, 'isEditing', true)} className="text-blue-500 text-[9px]">✏️</button>
+                                <button onClick={() => handleDeleteLocalCustomField(idx)} className="text-red-500 text-[9px]">🗑️</button>
+                              </div>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DEDUCTIONS */}
+                  <div className="bg-red-50 rounded-xl p-3 border border-red-100 space-y-3">
+                    <h4 className="font-bold text-red-800 text-xs uppercase">PF & PT</h4>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-700 mb-1">PF Method</label>
+                      <div className="flex gap-1">
+                        {['percentage', 'fixed'].map(m => (
+                          <button key={m} onClick={() => setLocalOverride(p => ({ ...p, pfCalculationMethod: m }))} className={`flex-1 p-1 text-[10px] font-bold border rounded ${localOverride.pfCalculationMethod === m ? 'bg-red-500 text-white border-red-500' : 'bg-white text-gray-600'}`}>{m === 'percentage' ? '%' : '₹'}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {localOverride.pfCalculationMethod === 'percentage' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Emp PF %</label><input type="number" value={localOverride.pfPercentage} onChange={e => setLocalOverride(p => ({ ...p, pfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Empr PF %</label><input type="number" value={localOverride.employerPfPercentage} onChange={e => setLocalOverride(p => ({ ...p, employerPfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Emp PF ₹</label><input type="number" value={localOverride.pfFixedAmountEmployee} onChange={e => setLocalOverride(p => ({ ...p, pfFixedAmountEmployee: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Empr PF ₹</label><input type="number" value={localOverride.pfFixedAmountEmployer} onChange={e => setLocalOverride(p => ({ ...p, pfFixedAmountEmployer: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-red-100">
+                      <div><label className="block text-[10px] font-bold text-gray-600 mb-1">PT S1 (&gt;15k)</label><input type="number" value={localOverride.ptSlab1Amount} onChange={e => setLocalOverride(p => ({ ...p, ptSlab1Amount: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-600 mb-1">PT S2 (&gt;20k)</label><input type="number" value={localOverride.ptSlab2Amount} onChange={e => setLocalOverride(p => ({ ...p, ptSlab2Amount: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                    </div>
+
+                    {/* Custom Deductions Override */}
+                    <div className="pt-2 border-t border-red-100 mt-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <h5 className="font-bold text-red-800 text-[9px] uppercase">Custom Deductions</h5>
+                        <button type="button" onClick={handleAddLocalCustomDeduction} className="bg-red-600 hover:bg-red-700 text-white font-bold py-0.5 px-1.5 rounded text-[9px] shadow-sm">➕ Add</button>
+                      </div>
+                      <div className="space-y-1.5">
+                        {(localOverride.customDeductions || []).map((cf, idx) => (
+                          cf.isEditing ? (
+                            <div key={idx} className="border border-red-200 p-1.5 rounded bg-white shadow-sm">
+                              <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomDeduction(idx, 'name', e.target.value)} placeholder="Name" className="w-full border-b mb-1 text-[10px] font-bold p-0.5" />
+                              <div className="flex gap-1 mb-1">
+                                <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomDeduction(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-0.5 text-[10px]" />
+                                <select value={cf.valueType} onChange={e => handleUpdateLocalCustomDeduction(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
+                                  <option value="fixed">₹</option><option value="percentage">%</option>
+                                </select>
+                                {cf.valueType === 'percentage' && (
+                                  <select value={cf.percentageOf} onChange={e => handleUpdateLocalCustomDeduction(idx, 'percentageOf', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
+                                    <option value="total">Gross</option><option value="basic">Basic</option>
+                                  </select>
+                                )}
+                              </div>
+                              <div className="flex justify-end gap-1">
+                                <button onClick={() => handleDeleteLocalCustomDeduction(idx)} className="text-[9px] text-gray-600 font-bold">Cancel</button>
+                                <button onClick={() => handleDoneLocalCustomDeduction(idx)} className="text-[9px] bg-red-600 text-white px-1.5 py-0.5 rounded font-bold">Done</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={idx} className="flex justify-between items-center bg-white p-1 border rounded shadow-sm group">
+                              <div>
+                                <span className="text-[10px] font-bold text-gray-700">{cf.name}</span>
+                                <span className="text-[9px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                                <button onClick={() => handleUpdateLocalCustomDeduction(idx, 'isEditing', true)} className="text-blue-500 text-[9px]">✏️</button>
+                                <button onClick={() => handleDeleteLocalCustomDeduction(idx)} className="text-red-500 text-[9px]">🗑️</button>
+                              </div>
+                            </div>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* LATE PENALTY */}
+                  <div className="bg-amber-50 rounded-xl p-3 border border-amber-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-amber-800 text-xs uppercase">Late Penalty</h4>
+                      <input type="checkbox" checked={localOverride.latePenaltyEnabled} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyEnabled: e.target.checked }))} className="accent-amber-500" />
+                    </div>
+                    {localOverride.latePenaltyEnabled && (
+                      <div className="space-y-2">
+                        <div><label className="block text-[10px] font-bold text-gray-700 mb-1">Threshold</label><input type="number" value={localOverride.latePenaltyThreshold} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyThreshold: parseInt(e.target.value) || 1 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-700 mb-1">Type</label>
+                          <select value={localOverride.latePenaltyType} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyType: e.target.value }))} className="w-full p-1 border rounded text-xs bg-white">
+                            <option value="halfDay">Half Day</option><option value="fullDay">Full Day</option><option value="manual">Manual ₹</option>
+                          </select>
+                        </div>
+                        {localOverride.latePenaltyType === 'manual' && (
+                          <div><label className="block text-[10px] font-bold text-gray-700 mb-1">Amount ₹</label><input type="number" value={localOverride.latePenaltyManualAmount} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyManualAmount: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* BONUS */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">One-Time Bonus / Incentive (₹)</label>
+                    <input type="number" min="0" value={localOverride.bonusAmount} onChange={e => setLocalOverride(prev => ({ ...prev, bonusAmount: parseFloat(e.target.value) || 0 }))} className="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="e.g. 500" />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => { onUpdateOverride && onUpdateOverride(employee.employeeId, localOverride); setShowOverridePanel(false); }}
+                    className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm rounded-xl shadow-sm"
+                  >
+                    ✅ Apply Override
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reset = {};
+                      setLocalOverride(reset);
+                      onUpdateOverride && onUpdateOverride(employee.employeeId, {});
+                    }}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm rounded-xl"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Layout Template Picker */}
@@ -2175,6 +2496,716 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd }) => {
   );
 };
 
+// --- BULK OVERRIDE MODAL ---
+const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, employeeOverrides, onApplyBulkOverride }) => {
+  const [targetType, setTargetType] = useState('all'); // 'all' | 'group' | 'specific'
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [selectedEmpIds, setSelectedEmpIds] = useState([]);
+  const [empSearch, setEmpSearch] = useState('');
+  const [override, setOverride] = useState({
+    // Earnings
+    basicValueType: 'percentage', basicPercentage: 40,
+    hraValueType: 'percentage', hraPercentage: 40,
+    conveyanceValueType: 'fixed', conveyance: 1600,
+    medicalValueType: 'fixed', medical: 1250,
+    travellingAllowanceValueType: 'fixed', travellingAllowance: 800,
+    // PF
+    pfCalculationMethod: 'percentage',
+    pfPercentage: 12,
+    employerPfPercentage: 12,
+    pfFixedAmountEmployee: 0,
+    pfFixedAmountEmployer: 0,
+    // PT
+    ptSlab1Amount: 150,
+    ptSlab2Amount: 200,
+    // Late Penalty
+    latePenaltyEnabled: false,
+    latePenaltyThreshold: 3,
+    latePenaltyType: 'halfDay',
+    latePenaltyManualAmount: 0,
+    // Bonus
+    bonusAmount: 0,
+    // Custom Fields
+    customFields: [],
+    customDeductions: [],
+  });
+
+  const handleAddCustomField = () => {
+    setOverride(prev => ({
+      ...prev,
+      customFields: [
+        ...(prev.customFields || []),
+        { name: '', value: 0, valueType: 'fixed', percentageOf: 'total', isEditing: true }
+      ]
+    }));
+  };
+
+  const handleUpdateCustomField = (index, field, value) => {
+    setOverride(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleDoneCustomField = (index) => {
+    setOverride(prev => {
+      const updated = [...(prev.customFields || [])];
+      if (!updated[index].name.trim()) updated[index].name = `Custom Field ${index + 1}`;
+      updated[index].isEditing = false;
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleDeleteCustomField = (index) => {
+    setOverride(prev => {
+      const updated = [...(prev.customFields || [])];
+      updated.splice(index, 1);
+      return { ...prev, customFields: updated };
+    });
+  };
+
+  const handleAddCustomDeduction = () => {
+    setOverride(prev => ({
+      ...prev,
+      customDeductions: [
+        ...(prev.customDeductions || []),
+        { name: '', value: 0, valueType: 'fixed', percentageOf: 'total', isEditing: true }
+      ]
+    }));
+  };
+
+  const handleUpdateCustomDeduction = (index, field, value) => {
+    setOverride(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleDoneCustomDeduction = (index) => {
+    setOverride(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      if (!updated[index].name.trim()) updated[index].name = `Custom Deduction ${index + 1}`;
+      updated[index].isEditing = false;
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  const handleDeleteCustomDeduction = (index) => {
+    setOverride(prev => {
+      const updated = [...(prev.customDeductions || [])];
+      updated.splice(index, 1);
+      return { ...prev, customDeductions: updated };
+    });
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      setTargetType('all');
+      setSelectedGroupId('');
+      setSelectedEmpIds([]);
+      setEmpSearch('');
+    }
+  }, [isOpen]);
+
+  const getTargetIds = () => {
+    if (targetType === 'all') return allEmployees.map(e => e.employeeId);
+    if (targetType === 'group') {
+      const g = payrollGroups.find(g => g._id === selectedGroupId);
+      return g ? g.employees : [];
+    }
+    return selectedEmpIds;
+  };
+
+  const toggleEmp = (id) => {
+    setSelectedEmpIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const filteredEmps = allEmployees.filter(e =>
+    !empSearch.trim() ||
+    e.name.toLowerCase().includes(empSearch.toLowerCase()) ||
+    e.employeeId.toLowerCase().includes(empSearch.toLowerCase())
+  );
+
+  const handleApply = () => {
+    const ids = getTargetIds();
+    if (!ids.length) return Swal.fire('No Employees', 'No employees match your selection.', 'warning');
+    onApplyBulkOverride(ids, override);
+    onClose();
+    Swal.fire({ icon: 'success', title: `Override Applied`, text: `Calculation overrides applied to ${ids.length} employee(s).`, timer: 2000, showConfirmButton: false });
+  };
+
+  const handleReset = () => {
+    const ids = getTargetIds();
+    if (!ids.length) return Swal.fire('No Employees', 'No employees match your selection.', 'warning');
+    onApplyBulkOverride(ids, null); // null = clear override
+    onClose();
+    Swal.fire({ icon: 'info', title: `Overrides Cleared`, text: `${ids.length} employee(s) will use global rules again.`, timer: 2000, showConfirmButton: false });
+  };
+
+  if (!isOpen) return null;
+
+  const targetIds = getTargetIds();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50 to-indigo-50">
+          <div>
+            <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
+              <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+              Override Calculations
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Apply custom PF/Bonus rules to selected employees without changing global settings.</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-100 hover:text-red-500 flex items-center justify-center text-gray-500 transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+
+          {/* Step 1: Target Selection */}
+          <div>
+            <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Step 1 — Who to Apply To?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'all', label: 'All Employees', icon: '👥', count: allEmployees.length },
+                { id: 'group', label: 'By Group', icon: '🏷️', count: payrollGroups.length + ' groups' },
+                { id: 'specific', label: 'Pick Specific', icon: '🎯', count: 'Manual' },
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setTargetType(opt.id)}
+                  className={`p-3 rounded-xl border-2 text-center transition ${
+                    targetType === opt.id
+                      ? 'border-violet-500 bg-violet-50 shadow-sm'
+                      : 'border-gray-200 bg-white hover:border-violet-300'
+                  }`}
+                >
+                  <div className="text-2xl mb-1">{opt.icon}</div>
+                  <div className="text-xs font-black text-gray-800">{opt.label}</div>
+                  <div className="text-[10px] text-gray-400 font-medium mt-0.5">{opt.count}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Group Picker */}
+            {targetType === 'group' && (
+              <div className="mt-3">
+                <label className="block text-xs font-bold text-gray-600 mb-1">Select Group</label>
+                {payrollGroups.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No payroll groups created yet. Use the Groups button to create one.</p>
+                ) : (
+                  <div className="grid gap-2">
+                    {payrollGroups.map(g => (
+                      <button
+                        key={g._id}
+                        onClick={() => setSelectedGroupId(g._id)}
+                        className={`flex justify-between items-center p-3 rounded-xl border-2 text-left transition ${
+                          selectedGroupId === g._id
+                            ? 'border-violet-500 bg-violet-50'
+                            : 'border-gray-100 hover:border-violet-200'
+                        }`}
+                      >
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{g.groupName}</p>
+                          <p className="text-xs text-gray-400">{g.employees?.length || 0} members</p>
+                        </div>
+                        {selectedGroupId === g._id && (
+                          <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Specific Employee Picker */}
+            {targetType === 'specific' && (
+              <div className="mt-3">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-bold text-gray-600">Select Employees</label>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSelectedEmpIds(allEmployees.map(e => e.employeeId))} className="text-[10px] font-bold text-violet-600 hover:underline">Select All</button>
+                    <span className="text-gray-300">|</span>
+                    <button onClick={() => setSelectedEmpIds([])} className="text-[10px] font-bold text-gray-400 hover:underline">Clear</button>
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={empSearch}
+                  onChange={e => setEmpSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs mb-2"
+                />
+                <div className="max-h-44 overflow-y-auto border border-gray-100 rounded-xl divide-y divide-gray-50">
+                  {filteredEmps.map(emp => {
+                    const selected = selectedEmpIds.includes(emp.employeeId);
+                    const hasOverride = !!employeeOverrides[emp.employeeId] && Object.keys(employeeOverrides[emp.employeeId]).length > 0;
+                    return (
+                      <div
+                        key={emp.employeeId}
+                        onClick={() => toggleEmp(emp.employeeId)}
+                        className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition ${
+                          selected ? 'bg-violet-50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${
+                          selected ? 'bg-violet-600 border-violet-600' : 'border-gray-300 bg-white'
+                        }`}>
+                          {selected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-800 truncate">{emp.name}</p>
+                          <p className="text-[10px] text-gray-400 font-mono">{emp.employeeId}</p>
+                        </div>
+                        {hasOverride && <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full uppercase">Custom</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-violet-600 font-bold mt-1.5">{selectedEmpIds.length} selected</p>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Override Values */}
+          <div>
+            <p className="text-xs font-black text-gray-500 uppercase tracking-wider mb-3">Step 2 — What to Override?</p>
+
+            <div className="space-y-4">
+              
+              {/* EARNINGS */}
+              <div className="bg-green-50 rounded-xl p-4 border border-green-100 space-y-4">
+                <h4 className="font-bold text-green-800 text-xs uppercase">Earnings Structure</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Basic Salary</label>
+                    <div className="flex gap-1">
+                      <select value={override.basicValueType} onChange={e => setOverride(p => ({ ...p, basicValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
+                        <option value="percentage">%</option><option value="fixed">₹</option>
+                      </select>
+                      <input type="number" value={override.basicPercentage} onChange={e => setOverride(p => ({ ...p, basicPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">HRA</label>
+                    <div className="flex gap-1">
+                      <select value={override.hraValueType} onChange={e => setOverride(p => ({ ...p, hraValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
+                        <option value="percentage">%</option><option value="fixed">₹</option>
+                      </select>
+                      <input type="number" value={override.hraPercentage} onChange={e => setOverride(p => ({ ...p, hraPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Conveyance</label>
+                    <div className="flex gap-1">
+                      <select value={override.conveyanceValueType} onChange={e => setOverride(p => ({ ...p, conveyanceValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
+                        <option value="percentage">%</option><option value="fixed">₹</option>
+                      </select>
+                      <input type="number" value={override.conveyance} onChange={e => setOverride(p => ({ ...p, conveyance: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Medical</label>
+                    <div className="flex gap-1">
+                      <select value={override.medicalValueType} onChange={e => setOverride(p => ({ ...p, medicalValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
+                        <option value="percentage">%</option><option value="fixed">₹</option>
+                      </select>
+                      <input type="number" value={override.medical} onChange={e => setOverride(p => ({ ...p, medical: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Travelling Allowance</label>
+                    <div className="flex gap-1">
+                      <select value={override.travellingAllowanceValueType} onChange={e => setOverride(p => ({ ...p, travellingAllowanceValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
+                        <option value="percentage">%</option><option value="fixed">₹</option>
+                      </select>
+                      <input type="number" value={override.travellingAllowance} onChange={e => setOverride(p => ({ ...p, travellingAllowance: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-green-700 mb-1">One-Time Bonus (₹)</label>
+                    <input type="number" min="0" value={override.bonusAmount} onChange={e => setOverride(p => ({ ...p, bonusAmount: parseFloat(e.target.value) || 0 }))} placeholder="e.g. 500" className="w-full px-3 py-1.5 border border-green-300 rounded-lg text-sm" />
+                  </div>
+                </div>
+
+                {/* Custom Fields Override */}
+                <div className="pt-3 border-t border-green-100 mt-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <h5 className="font-bold text-green-800 text-[10px] uppercase">Custom Earnings</h5>
+                    <button type="button" onClick={handleAddCustomField} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-[10px] shadow-sm">➕ Add Custom Field</button>
+                  </div>
+                  <div className="space-y-2">
+                    {(override.customFields || []).map((cf, idx) => (
+                      cf.isEditing ? (
+                        <div key={idx} className="border border-green-200 p-2 rounded bg-white shadow-sm">
+                          <input type="text" value={cf.name} onChange={e => handleUpdateCustomField(idx, 'name', e.target.value)} placeholder="Field Name" className="w-full border-b mb-2 text-xs font-bold p-1" />
+                          <div className="flex gap-2 mb-2">
+                            <input type="number" value={cf.value} onChange={e => handleUpdateCustomField(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-1 text-xs" />
+                            <select value={cf.valueType} onChange={e => handleUpdateCustomField(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
+                              <option value="fixed">₹</option><option value="percentage">%</option>
+                            </select>
+                            {cf.valueType === 'percentage' && (
+                              <select value={cf.percentageOf} onChange={e => handleUpdateCustomField(idx, 'percentageOf', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
+                                <option value="total">Gross</option><option value="basic">Basic</option>
+                              </select>
+                            )}
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleDeleteCustomField(idx)} className="text-[10px] text-red-600 font-bold">Cancel</button>
+                            <button onClick={() => handleDoneCustomField(idx)} className="text-[10px] bg-green-600 text-white px-2 py-1 rounded font-bold">Done</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={idx} className="flex justify-between items-center bg-white p-2 border rounded shadow-sm group">
+                          <div>
+                            <span className="text-xs font-bold text-gray-700">{cf.name}</span>
+                            <span className="text-[10px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                            <button onClick={() => handleUpdateCustomField(idx, 'isEditing', true)} className="text-blue-500 text-[10px]">✏️</button>
+                            <button onClick={() => handleDeleteCustomField(idx)} className="text-red-500 text-[10px]">🗑️</button>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* DEDUCTIONS */}
+              <div className="bg-red-50 rounded-xl p-4 border border-red-100 space-y-4">
+                <h4 className="font-bold text-red-800 text-xs uppercase">Deductions (PF & PT)</h4>
+                
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-2">PF Calculation Method</label>
+                  <div className="flex gap-2">
+                    {[{ val: 'percentage', label: '% of Basic' }, { val: 'fixed', label: 'Fixed ₹' }].map(m => (
+                      <button key={m.val} onClick={() => setOverride(p => ({ ...p, pfCalculationMethod: m.val }))} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${override.pfCalculationMethod === m.val ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-600 border-gray-200'}`}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {override.pfCalculationMethod === 'percentage' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Employee PF %</label>
+                      <input type="number" min="0" max="100" value={override.pfPercentage} onChange={e => setOverride(p => ({ ...p, pfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Employer PF %</label>
+                      <input type="number" min="0" max="100" value={override.employerPfPercentage} onChange={e => setOverride(p => ({ ...p, employerPfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Employee PF (₹)</label>
+                      <input type="number" min="0" value={override.pfFixedAmountEmployee} onChange={e => setOverride(p => ({ ...p, pfFixedAmountEmployee: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-600 mb-1">Employer PF (₹)</label>
+                      <input type="number" min="0" value={override.pfFixedAmountEmployer} onChange={e => setOverride(p => ({ ...p, pfFixedAmountEmployer: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-red-100">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">PT Slab 1 (&gt;15k) ₹</label>
+                    <input type="number" min="0" value={override.ptSlab1Amount} onChange={e => setOverride(p => ({ ...p, ptSlab1Amount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-600 mb-1">PT Slab 2 (&gt;20k) ₹</label>
+                    <input type="number" min="0" value={override.ptSlab2Amount} onChange={e => setOverride(p => ({ ...p, ptSlab2Amount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                  </div>
+                </div>
+
+                {/* Custom Deductions Override */}
+                <div className="pt-3 border-t border-red-100 mt-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <h5 className="font-bold text-red-800 text-[10px] uppercase">Custom Deductions</h5>
+                    <button type="button" onClick={handleAddCustomDeduction} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-[10px] shadow-sm">➕ Add Custom Deduction</button>
+                  </div>
+                  <div className="space-y-2">
+                    {(override.customDeductions || []).map((cf, idx) => (
+                      cf.isEditing ? (
+                        <div key={idx} className="border border-red-200 p-2 rounded bg-white shadow-sm">
+                          <input type="text" value={cf.name} onChange={e => handleUpdateCustomDeduction(idx, 'name', e.target.value)} placeholder="Field Name" className="w-full border-b mb-2 text-xs font-bold p-1" />
+                          <div className="flex gap-2 mb-2">
+                            <input type="number" value={cf.value} onChange={e => handleUpdateCustomDeduction(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-1 text-xs" />
+                            <select value={cf.valueType} onChange={e => handleUpdateCustomDeduction(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
+                              <option value="fixed">₹</option><option value="percentage">%</option>
+                            </select>
+                            {cf.valueType === 'percentage' && (
+                              <select value={cf.percentageOf} onChange={e => handleUpdateCustomDeduction(idx, 'percentageOf', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
+                                <option value="total">Gross</option><option value="basic">Basic</option>
+                              </select>
+                            )}
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => handleDeleteCustomDeduction(idx)} className="text-[10px] text-gray-600 font-bold">Cancel</button>
+                            <button onClick={() => handleDoneCustomDeduction(idx)} className="text-[10px] bg-red-600 text-white px-2 py-1 rounded font-bold">Done</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={idx} className="flex justify-between items-center bg-white p-2 border rounded shadow-sm group">
+                          <div>
+                            <span className="text-xs font-bold text-gray-700">{cf.name}</span>
+                            <span className="text-[10px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                            <button onClick={() => handleUpdateCustomDeduction(idx, 'isEditing', true)} className="text-blue-500 text-[10px]">✏️</button>
+                            <button onClick={() => handleDeleteCustomDeduction(idx)} className="text-red-500 text-[10px]">🗑️</button>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* LATE PENALTY */}
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-amber-800 text-xs uppercase">Late Penalty</h4>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={override.latePenaltyEnabled} onChange={e => setOverride(p => ({ ...p, latePenaltyEnabled: e.target.checked }))} className="sr-only peer" />
+                    <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                  </label>
+                </div>
+                
+                {override.latePenaltyEnabled && (
+                  <div className="space-y-3 pt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Apply after how many late logins?</label>
+                      <input type="number" min="1" value={override.latePenaltyThreshold} onChange={e => setOverride(p => ({ ...p, latePenaltyThreshold: parseInt(e.target.value) || 1 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1">Penalty Amount per occurrence</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[{ val: 'halfDay', label: 'Half Day' }, { val: 'fullDay', label: 'Full Day' }, { val: 'manual', label: 'Manual ₹' }].map(m => (
+                          <button key={m.val} onClick={() => setOverride(p => ({ ...p, latePenaltyType: m.val }))} className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition ${override.latePenaltyType === m.val ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-200'}`}>
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {override.latePenaltyType === 'manual' && (
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Manual Amount (₹)</label>
+                        <input type="number" min="0" value={override.latePenaltyManualAmount} onChange={e => setOverride(p => ({ ...p, latePenaltyManualAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+          <div className="text-xs text-gray-500">
+            Applying to <span className="font-black text-violet-700">{targetIds.length} employee{targetIds.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleReset} className="px-4 py-2 bg-white border border-red-200 text-red-600 font-bold text-sm rounded-xl hover:bg-red-50 transition">
+              Clear Overrides
+            </button>
+            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 font-bold text-sm rounded-xl hover:bg-gray-300 transition">Cancel</button>
+            <button onClick={handleApply} className="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm rounded-xl shadow transition active:scale-95">
+              ✅ Apply to {targetIds.length} Employee{targetIds.length !== 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- PAYROLL GROUP MANAGEMENT MODAL ---
+const PayrollGroupModal = ({ isOpen, onClose, payrollGroups, onSave, onDelete, allEmployees }) => {
+  const [activeTab, setActiveTab] = useState('list'); // 'list', 'create', 'edit'
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupName, setGroupName] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedEmps, setSelectedEmps] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab('list');
+      resetForm();
+    }
+  }, [isOpen]);
+
+  const resetForm = () => {
+    setEditingGroup(null);
+    setGroupName('');
+    setDescription('');
+    setSelectedEmps([]);
+  };
+
+  const handleEdit = (group) => {
+    setEditingGroup(group);
+    setGroupName(group.groupName);
+    setDescription(group.description || '');
+    setSelectedEmps(group.employees || []);
+    setActiveTab('edit');
+  };
+
+  const handleSave = async () => {
+    if (!groupName.trim()) return Swal.fire('Error', 'Group Name is required', 'error');
+    setLoading(true);
+    try {
+      const payload = { groupName, description, employees: selectedEmps };
+      await onSave(editingGroup ? editingGroup._id : null, payload);
+      setActiveTab('list');
+      resetForm();
+    } catch (e) {
+      console.error(e);
+      Swal.fire('Error', 'Failed to save group', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleDelete = async (id) => {
+    const confirm = await Swal.fire({
+      title: 'Delete Group?',
+      text: 'Are you sure you want to delete this payroll group?',
+      icon: 'warning',
+      showCancelButton: true
+    });
+    if (confirm.isConfirmed) {
+      await onDelete(id);
+    }
+  };
+
+  const toggleEmp = (empId) => {
+    if (selectedEmps.includes(empId)) {
+      setSelectedEmps(selectedEmps.filter(id => id !== empId));
+    } else {
+      setSelectedEmps([...selectedEmps, empId]);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
+          <h2 className="text-xl font-bold text-gray-800">
+            {activeTab === 'list' ? 'Manage Payroll Groups' : (editingGroup ? 'Edit Group' : 'Create New Group')}
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 transition-colors">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          {activeTab === 'list' ? (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-gray-500">Create groups to easily manage bulk payroll releases.</p>
+                <button
+                  onClick={() => { resetForm(); setActiveTab('create'); }}
+                  className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 shadow-sm"
+                >
+                  + New Group
+                </button>
+              </div>
+              {payrollGroups.length === 0 ? (
+                <div className="text-center py-10 text-gray-400">No payroll groups found. Create one!</div>
+              ) : (
+                <div className="grid gap-3">
+                  {payrollGroups.map(g => (
+                    <div key={g._id} className="flex justify-between items-center p-4 border border-gray-100 rounded-xl hover:bg-gray-50">
+                      <div>
+                        <h4 className="font-bold text-gray-800">{g.groupName}</h4>
+                        <p className="text-xs text-gray-500">{g.description || 'No description'}</p>
+                        <p className="text-xs font-bold text-indigo-500 mt-1">{g.employees?.length || 0} Members</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleEdit(g)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">Edit</button>
+                        <button onClick={() => handleDelete(g._id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Group Name</label>
+                <input type="text" value={groupName} onChange={e => setGroupName(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl" placeholder="e.g. Contract Workers" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                <input type="text" value={description} onChange={e => setDescription(e.target.value)} className="w-full p-2.5 border border-gray-200 rounded-xl" placeholder="Optional" />
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-bold text-gray-700">Select Employees</label>
+                  <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">{selectedEmps.length} Selected</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3 bg-gray-50/50">
+                  {allEmployees.map(emp => {
+                    const isSelected = selectedEmps.includes(emp.employeeId);
+                    return (
+                      <div
+                        key={emp.employeeId}
+                        onClick={() => toggleEmp(emp.employeeId)}
+                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer border transition-colors ${isSelected ? 'border-indigo-500 bg-indigo-50/50' : 'border-transparent hover:bg-gray-100'}`}
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
+                          {isSelected && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">{emp.name}</p>
+                          <p className="text-[10px] text-gray-500 font-mono">{emp.employeeId}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+          {activeTab !== 'list' ? (
+            <>
+              <button onClick={() => setActiveTab('list')} className="px-4 py-2 text-gray-600 font-bold hover:bg-gray-200 rounded-xl">Cancel</button>
+              <button onClick={handleSave} disabled={loading} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700">
+                {loading ? 'Saving...' : 'Save Group'}
+              </button>
+            </>
+          ) : (
+            <button onClick={onClose} className="px-6 py-2 bg-gray-800 text-white font-bold rounded-xl shadow-md hover:bg-gray-900">Close</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 const PayrollManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -2183,6 +3214,64 @@ const PayrollManagement = () => {
   const [showReleaseModal, setShowReleaseModal] = useState(false);
   const [payrollRules, setPayrollRules] = useState(DEFAULT_RULES);
   const [saving, setSaving] = useState(false); // Loading state for saving
+
+  // ✅ PAYROLL GROUP STATE
+  const [payrollGroups, setPayrollGroups] = useState([]);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedGroupFilter, setSelectedGroupFilter] = useState("ALL");
+
+  // ✅ PER-EMPLOYEE OVERRIDE STATE: { [employeeId]: { pfCalculationMethod, pfPercentage, employerPfPercentage, pfFixedAmountEmployee, pfFixedAmountEmployer, bonusAmount } }
+  const [employeeOverrides, setEmployeeOverrides] = useState({});
+
+  const handleUpdateOverride = async (employeeId, overrideFields) => {
+    try {
+      if (!overrideFields || Object.keys(overrideFields).length === 0) {
+        await bulkDeletePayrollOverrides([employeeId]);
+        setEmployeeOverrides(prev => {
+          const updated = { ...prev };
+          delete updated[employeeId];
+          return updated;
+        });
+      } else {
+        await bulkSavePayrollOverrides([{ employeeId, ...overrideFields }]);
+        setEmployeeOverrides(prev => ({
+          ...prev,
+          [employeeId]: { ...(prev[employeeId] || {}), ...overrideFields }
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to update override:", e);
+      Swal.fire('Error', 'Failed to save override', 'error');
+    }
+  };
+
+  const handleApplyBulkOverride = async (employeeIds, overrideFields) => {
+    try {
+      if (!overrideFields || Object.keys(overrideFields).length === 0) {
+        await bulkDeletePayrollOverrides(employeeIds);
+        setEmployeeOverrides(prev => {
+          const updated = { ...prev };
+          employeeIds.forEach(id => { delete updated[id]; });
+          return updated;
+        });
+      } else {
+        const payload = employeeIds.map(id => ({ employeeId: id, ...overrideFields }));
+        await bulkSavePayrollOverrides(payload);
+        setEmployeeOverrides(prev => {
+          const updated = { ...prev };
+          employeeIds.forEach(id => {
+            updated[id] = { ...(updated[id] || {}), ...overrideFields };
+          });
+          return updated;
+        });
+      }
+    } catch (e) {
+      console.error("Failed to apply bulk override:", e);
+      Swal.fire('Error', 'Failed to save overrides', 'error');
+    }
+  };
+
+  const [showBulkOverride, setShowBulkOverride] = useState(false);
 
   // ✅ MONTH SELECTION LOGIC
   const today = new Date();
@@ -2227,12 +3316,14 @@ const PayrollManagement = () => {
           }
         } catch (e) { console.error("Rules fetch error", e); }
 
-        const [leavesRes, empRes, attRes, holidayRes, shiftRes] = await Promise.all([
+        const [leavesRes, empRes, attRes, holidayRes, shiftRes, groupRes, overrideRes] = await Promise.all([
           getLeaveRequests(),
           getEmployees(),
           getAttendanceByDateRange(summaryStartDate, summaryEndDate),
           getHolidays(),
-          getAllShifts()
+          getAllShifts(),
+          getPayrollGroups().catch(() => []),
+          getPayrollOverrides().catch(() => ({}))
         ]);
 
         // ✅ FILTER: Only include active AND Full Time employees in payroll
@@ -2253,6 +3344,8 @@ const PayrollManagement = () => {
           end: normalizeDate(h.endDate || h.startDate)
         })));
         setShifts(Array.isArray(shiftRes) ? shiftRes : shiftRes.data || []);
+        setPayrollGroups(groupRes || []);
+        setEmployeeOverrides(overrideRes || {});
 
       } catch (error) {
         console.error("Error loading payroll data:", error);
@@ -2271,6 +3364,22 @@ const PayrollManagement = () => {
     } catch (e) {
       Swal.fire('Error', 'Failed to save rules', 'error');
     }
+  };
+
+  const handleSaveGroup = async (id, data) => {
+    if (id) {
+      await updatePayrollGroup(id, data);
+    } else {
+      await createPayrollGroup(data);
+    }
+    const res = await getPayrollGroups();
+    setPayrollGroups(res || []);
+  };
+
+  const handleDeleteGroup = async (id) => {
+    await deletePayrollGroup(id);
+    const res = await getPayrollGroups();
+    setPayrollGroups(res || []);
   };
 
   // ✅ CORE PAYROLL CALCULATION (UPDATED WITH NEW PF LOGIC)
@@ -2390,36 +3499,38 @@ const PayrollManagement = () => {
       const att = attSummary[emp.employeeId] || { fullDays: 0, halfDays: 0, workedDays: 0, lateCount: 0, absentDays: 0 };
       const leaves = leaveSummary[emp.employeeId] || { totalLeaveDays: 0, absentDays: 0, paidLeaveCredit: 0, extraLeaves: 0 };
 
-      const ruleBasic = Number(payrollRules.basicPercentage) || 0;
-      const ruleHra = Number(payrollRules.hraPercentage) || 0;
-      const ruleConv = Number(payrollRules.conveyance) || 0;
-      const ruleMed = Number(payrollRules.medical) || 0;
-      const ruleTravelling = Number(payrollRules.travellingAllowance) || 0;
-      const ruleOther = Number(payrollRules.otherAllowance) || 0;
+      // ✅ PER-EMPLOYEE OVERRIDE: Merge global rules with any employee-specific overrides
+      const override = employeeOverrides[emp.employeeId] || {};
+      const effectiveRules = { ...payrollRules, ...override };
 
-      const rulePtSlab1Amount = Number(payrollRules.ptSlab1Amount) || 0;
-      const rulePtSlab2Amount = Number(payrollRules.ptSlab2Amount) || 0;
+      const ruleBasic = Number(effectiveRules.basicPercentage) || 0;
+      const ruleHra = Number(effectiveRules.hraPercentage) || 0;
+      const ruleConv = Number(effectiveRules.conveyance) || 0;
+      const ruleMed = Number(effectiveRules.medical) || 0;
+      const ruleTravelling = Number(effectiveRules.travellingAllowance) || 0;
+
+      const rulePtSlab1Amount = Number(effectiveRules.ptSlab1Amount) || 0;
+      const rulePtSlab2Amount = Number(effectiveRules.ptSlab2Amount) || 0;
       const thresholdSlab1 = 15000;
       const thresholdSlab2 = 20000;
 
       const monthlyTotal = baseSalary;
-      const monthlyBasic = (payrollRules.basicValueType === 'fixed') 
-        ? ruleBasic 
+      const monthlyBasic = (effectiveRules.basicValueType === 'fixed')
+        ? ruleBasic
         : monthlyTotal * (ruleBasic / 100);
-      const monthlyHRA = (payrollRules.hraValueType === 'fixed') 
-        ? ruleHra 
+      const monthlyHRA = (effectiveRules.hraValueType === 'fixed')
+        ? ruleHra
         : monthlyBasic * (ruleHra / 100);
 
       const calcAllowance = (val, type) => (type === 'percentage') ? monthlyBasic * (val / 100) : val;
 
-      const monthlyConv = calcAllowance(ruleConv, payrollRules.conveyanceValueType || 'fixed');
-      const monthlyMed = calcAllowance(ruleMed, payrollRules.medicalValueType || 'fixed');
-      const monthlyTravelling = calcAllowance(ruleTravelling, payrollRules.travellingAllowanceValueType || 'fixed');
-      const monthlyOther = calcAllowance(ruleOther, payrollRules.otherAllowanceValueType || 'fixed');
+      const monthlyConv = calcAllowance(ruleConv, effectiveRules.conveyanceValueType || 'fixed');
+      const monthlyMed = calcAllowance(ruleMed, effectiveRules.medicalValueType || 'fixed');
+      const monthlyTravelling = calcAllowance(ruleTravelling, effectiveRules.travellingAllowanceValueType || 'fixed');
 
       // --- DYNAMIC CUSTOM FIELDS CALCULATION ---
       let customEarningsTotal = 0;
-      const computedCustomFields = (payrollRules.customFields || []).map(cf => {
+      const computedCustomFields = (effectiveRules.customFields || []).map(cf => {
         let val = 0;
         if (cf.valueType === 'percentage') {
           if (cf.percentageOf === 'basic') {
@@ -2434,7 +3545,8 @@ const PayrollManagement = () => {
         return { name: cf.name, value: val, valueType: cf.valueType, percentageOf: cf.percentageOf, rate: cf.value };
       });
 
-      const monthlySpecial = Math.max(0, monthlyTotal - (monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + monthlyOther + customEarningsTotal));
+      // --- GROSS EARNINGS = sum of all components shown to user ---
+      const earningsSum = monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + customEarningsTotal;
 
       const perDaySalary = monthlyTotal / totalDaysInMonth;
       const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
@@ -2449,11 +3561,11 @@ const PayrollManagement = () => {
       let latePenaltyDays = 0;
       let latePenaltyOccurrences = 0;
       let lateDeduction = 0;
-      if (payrollRules.latePenaltyEnabled) {
+      if (effectiveRules.latePenaltyEnabled) {
         const penaltyOccurrences = att.lateCount; // each late login = 1 occurrence, no threshold division
         latePenaltyOccurrences = penaltyOccurrences;
         if (penaltyOccurrences > 0) {
-          const penaltyType = payrollRules.latePenaltyType || 'halfDay';
+          const penaltyType = effectiveRules.latePenaltyType || 'halfDay';
           if (penaltyType === 'halfDay') {
             latePenaltyDays = penaltyOccurrences * 0.5;
             lateDeduction = latePenaltyDays * perDaySalary;
@@ -2462,19 +3574,19 @@ const PayrollManagement = () => {
             lateDeduction = latePenaltyDays * perDaySalary;
           } else if (penaltyType === 'manual') {
             latePenaltyDays = penaltyOccurrences;
-            lateDeduction = penaltyOccurrences * (Number(payrollRules.latePenaltyManualAmount) || 0);
+            lateDeduction = penaltyOccurrences * (Number(effectiveRules.latePenaltyManualAmount) || 0);
           }
         }
       }
 
       let pfDeduction = 0;
       let employerPfAmount = 0;
-      if (payrollRules.pfCalculationMethod === 'fixed') {
-        pfDeduction = Number(payrollRules.pfFixedAmountEmployee) || 0;
-        employerPfAmount = Number(payrollRules.pfFixedAmountEmployer) || 0;
+      if (effectiveRules.pfCalculationMethod === 'fixed') {
+        pfDeduction = Number(effectiveRules.pfFixedAmountEmployee) || 0;
+        employerPfAmount = Number(effectiveRules.pfFixedAmountEmployer) || 0;
       } else {
-        const rulePf = Number(payrollRules.pfPercentage) || 0;
-        const ruleEmployerPf = Number(payrollRules.employerPfPercentage) || 0;
+        const rulePf = Number(effectiveRules.pfPercentage) || 0;
+        const ruleEmployerPf = Number(effectiveRules.employerPfPercentage) || 0;
         pfDeduction = monthlyBasic * (rulePf / 100);
         employerPfAmount = monthlyBasic * (ruleEmployerPf / 100);
       }
@@ -2486,9 +3598,12 @@ const PayrollManagement = () => {
         ptDeduction = rulePtSlab1Amount;
       }
 
+      // --- BONUS (per-employee) ---
+      const bonusAmount = Number(override.bonusAmount) || 0;
+
       // --- DYNAMIC CUSTOM DEDUCTIONS CALCULATION ---
       let customDeductionsTotal = 0;
-      const computedCustomDeductions = (payrollRules.customDeductions || []).map(cf => {
+      const computedCustomDeductions = (effectiveRules.customDeductions || []).map(cf => {
         let val = 0;
         if (cf.valueType === 'percentage') {
           if (cf.percentageOf === 'basic') {
@@ -2504,7 +3619,7 @@ const PayrollManagement = () => {
       });
 
       const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction + customDeductionsTotal;
-      const netPayableSalary = Math.max(0, calculatedSalary - totalDeductions);
+      const netPayableSalary = Math.max(0, calculatedSalary + bonusAmount - totalDeductions);
 
       return {
         employeeId: emp.employeeId,
@@ -2526,16 +3641,16 @@ const PayrollManagement = () => {
         latePenaltyOccurrences,
         perDaySalary,
         calculatedSalary,
-        appliedRules: payrollRules,
+        bonusAmount,
+        appliedRules: effectiveRules,
+        hasOverride: Object.keys(override).length > 0,
         monthlyBreakdown: {
           basic: monthlyBasic,
           hra: monthlyHRA,
           conveyance: monthlyConv,
           medical: monthlyMed,
           travellingAllowance: monthlyTravelling,
-          otherAllowance: monthlyOther,
-          special: monthlySpecial,
-          total: monthlyTotal,
+          total: earningsSum,
           customFields: computedCustomFields,
           customDeductions: computedCustomDeductions
         },
@@ -2545,9 +3660,7 @@ const PayrollManagement = () => {
           conveyance: monthlyConv,
           medical: monthlyMed,
           travellingAllowance: monthlyTravelling,
-          otherAllowance: monthlyOther,
-          special: monthlySpecial,
-          gross: monthlyTotal,
+          gross: earningsSum,
           pf: pfDeduction,
           employerPf: employerPfAmount,
           pt: ptDeduction,
@@ -2560,13 +3673,23 @@ const PayrollManagement = () => {
         netPayableSalary
       };
     });
-  }, [allEmployees, shifts, attendanceData, leaveRequests, holidays, summaryStartDate, summaryEndDate, payrollRules]);
+  }, [allEmployees, shifts, attendanceData, leaveRequests, holidays, summaryStartDate, summaryEndDate, payrollRules, employeeOverrides]);
 
   const filteredPayroll = useMemo(() => {
-    if (!searchQuery.trim()) return processedPayroll;
+    let result = processedPayroll;
+    
+    // 1. Group Filter
+    if (selectedGroupFilter !== "ALL") {
+      const group = payrollGroups.find(g => g._id === selectedGroupFilter);
+      if (group) {
+        result = result.filter(emp => group.employees.includes(emp.employeeId));
+      }
+    }
+
+    if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase();
-    return processedPayroll.filter(emp => emp.employeeId.toLowerCase().includes(query) || emp.employeeName.toLowerCase().includes(query));
-  }, [processedPayroll, searchQuery]);
+    return result.filter(emp => emp.employeeId.toLowerCase().includes(query) || emp.employeeName.toLowerCase().includes(query));
+  }, [processedPayroll, searchQuery, selectedGroupFilter, payrollGroups]);
 
   const totals = useMemo(() => {
     return filteredPayroll.reduce((acc, curr) => ({
@@ -2768,6 +3891,28 @@ const PayrollManagement = () => {
                 />
               </div>
 
+              {/* Group Selector */}
+              <div className="relative">
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 cursor-pointer group-focus-within:ring-2 group-focus-within:ring-blue-500">
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <select
+                    value={selectedGroupFilter}
+                    onChange={e => setSelectedGroupFilter(e.target.value)}
+                    className="bg-transparent border-none p-0 text-sm font-medium text-gray-700 focus:ring-0 cursor-pointer appearance-none pr-6"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`, backgroundPosition: 'right 0 center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25rem' }}
+                  >
+                    <option value="ALL">All Groups</option>
+                    {payrollGroups.map(group => (
+                      <option key={group._id} value={group._id}>
+                        {group.groupName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Month Selector */}
               <div className="relative">
                 <div className="flex items-center gap-2 px-4 py-2 bg-gray-50/80 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all duration-200 cursor-pointer group-focus-within:ring-2 group-focus-within:ring-blue-500">
@@ -2802,6 +3947,31 @@ const PayrollManagement = () => {
 
             {/* Right: Action Buttons */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
+              {/* Override Calculations Button */}
+              <button
+                onClick={() => setShowBulkOverride(true)}
+                className="group relative px-4 py-2.5 bg-white border border-gray-200 hover:border-violet-400 rounded-xl text-sm font-bold text-gray-700 hover:text-violet-700 transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2 active:scale-95"
+              >
+                <svg className="w-4 h-4 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                <span>Override</span>
+                {Object.keys(employeeOverrides).length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 text-white text-[9px] font-black rounded-full flex items-center justify-center">
+                    {Object.keys(employeeOverrides).length}
+                  </span>
+                )}
+              </button>
+
+              {/* Manage Groups Button */}
+              <button
+                onClick={() => setShowGroupModal(true)}
+                className="group relative px-4 py-2.5 bg-white border border-gray-200 hover:border-indigo-400 rounded-xl text-sm font-bold text-gray-700 hover:text-indigo-700 transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2 active:scale-95"
+              >
+                <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Groups</span>
+              </button>
+
               {/* Manage Rules Button */}
               <button
                 onClick={() => setShowConfig(true)}
@@ -2998,6 +4168,24 @@ const PayrollManagement = () => {
 
       </div>
 
+      <BulkOverrideModal
+        isOpen={showBulkOverride}
+        onClose={() => setShowBulkOverride(false)}
+        allEmployees={allEmployees}
+        payrollGroups={payrollGroups}
+        employeeOverrides={employeeOverrides}
+        onApplyBulkOverride={handleApplyBulkOverride}
+      />
+
+      <PayrollGroupModal
+        isOpen={showGroupModal}
+        onClose={() => setShowGroupModal(false)}
+        payrollGroups={payrollGroups}
+        onSave={handleSaveGroup}
+        onDelete={handleDeleteGroup}
+        allEmployees={allEmployees}
+      />
+
       <PayrollConfigModal
         isOpen={showConfig}
         onClose={() => setShowConfig(false)}
@@ -3009,7 +4197,7 @@ const PayrollManagement = () => {
       <ReleasePayslipModal
         isOpen={showReleaseModal}
         onClose={() => setShowReleaseModal(false)}
-        payrollData={processedPayroll}
+        payrollData={filteredPayroll}
         periodStart={summaryStartDate}
         periodEnd={summaryEndDate}
         onConfirmRelease={handleConfirmRelease}
@@ -3021,6 +4209,7 @@ const PayrollManagement = () => {
           onClose={() => setSelectedEmployee(null)}
           periodStart={summaryStartDate}
           periodEnd={summaryEndDate}
+          onUpdateOverride={handleUpdateOverride}
         />
       )}
     </div>

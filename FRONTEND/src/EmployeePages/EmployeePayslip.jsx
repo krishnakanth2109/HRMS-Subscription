@@ -206,9 +206,7 @@ const EmployeePayslip = () => {
     { name: 'Conveyance', val: breakdown.conveyance },
     { name: 'Medical', val: breakdown.medical },
     { name: 'Travelling Allowance', val: breakdown.travellingAllowance },
-    { name: 'Other Allowance', val: breakdown.otherAllowance },
-    ...(breakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value })),
-    { name: 'Special Allowance', val: breakdown.special }
+    ...(breakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value }))
   ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
 
   const deductionsList = [

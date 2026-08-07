@@ -10,7 +10,7 @@ const payrollRecordSchema = new mongoose.Schema(
     employeeId: { type: String, required: true },
     employeeName: { type: String, required: true },
     role: { type: String },
-    
+
     payPeriod: {
       startDate: { type: Date, required: true },
       endDate: { type: Date, required: true },
@@ -32,7 +32,7 @@ const payrollRecordSchema = new mongoose.Schema(
     salaryDetails: {
       perDaySalary: Number,
       calculatedSalary: Number,
-      grossEarned: Number, 
+      grossEarned: Number,
       totalDeductions: Number,
       netPayableSalary: Number,
       lopDeduction: Number,
@@ -46,8 +46,6 @@ const payrollRecordSchema = new mongoose.Schema(
       conveyance: Number,
       medical: Number,
       travellingAllowance: Number,
-      otherAllowance: Number,
-      special: Number,
       gross: Number,
       pf: Number,
       employerPf: Number,
@@ -71,15 +69,13 @@ const payrollRecordSchema = new mongoose.Schema(
         }
       ]
     },
-    
+
     monthlyBreakdown: {
       basic: Number,
       hra: Number,
       conveyance: Number,
       medical: Number,
       travellingAllowance: Number,
-      otherAllowance: Number,
-      special: Number,
       total: Number,
       customFields: [
         {

@@ -288,7 +288,7 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
       rules = {
         basicPercentage: 40, hraPercentage: 40,
         conveyance: 1600, medical: 1250,
-        travellingAllowance: 800, otherAllowance: 1000,
+        travellingAllowance: 800,
         pfCalculationMethod: 'percentage', pfPercentage: 12,
         ptSlab1Limit: 15000, ptSlab2Limit: 20000,
         ptSlab1Amount: 150, ptSlab2Amount: 200
@@ -306,11 +306,10 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     let conveyance = (rules.conveyance ?? 1600) * 12;
     let medical = (rules.medical ?? 1250) * 12;
     let travel = (rules.travellingAllowance ?? 0) * 12;
-    let other = (rules.otherAllowance ?? 0) * 12;
 
     let special = 0;
 
-    let gross = basic + hra + conveyance + medical + travel + other + special;
+    let gross = basic + hra + conveyance + medical + travel + special;
     if (gross === 0) gross = ctc;
 
     if (pf === 0 && basic > 0) {

@@ -119,7 +119,7 @@ router.post('/live-status', async (req, res) => {
 // ------------------------------------------
 router.get('/live-status', async (req, res) => {
   try {
-    const date = new Date().toISOString().split('T')[0];
+    const date = req.query.date || new Date().toISOString().split('T')[0];
     const allDocs = await LiveTracking.find({});
 
     const liveArray = [];

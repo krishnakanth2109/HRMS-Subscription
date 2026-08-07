@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import api, { getEmployees, getIdleTimeForEmployeeByDate, getAttendanceByDateRange } from ".././api";
 import {
     FaUserFriends, FaRegClock,
@@ -39,6 +39,7 @@ const AdminLiveTracking = () => {
     // Modal State
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
     const [reportData, setReportData] = useState(null);
     const [yesterdayIdle, setYesterdayIdle] = useState(0);
     const [reportLoading, setReportLoading] = useState(false);
@@ -110,11 +111,11 @@ const AdminLiveTracking = () => {
         loadEmployees();
     }, []);
 
-    const fetchLiveData = async (isBackground = false) => {
+    const fetchLiveData = useCallback(async (isBackground = false, dateToFetch = filterDate) => {
         if (!isBackground) setLoading(true);
         try {
             // Added cache-busting timestamp to guarantee fresh data
-            const response = await api.get(`/api/idletime/live-status?t=${new Date().getTime()}`);
+            const response = await api.get(`/api/idletime/live-status?date=${dateToFetch}&t=${new Date().getTime()}`);
             const data = response.data || [];
             setLiveData(data);
             setError(null);
@@ -126,16 +127,16 @@ const AdminLiveTracking = () => {
         } finally {
             if (!isBackground) setLoading(false);
         }
-    };
+    }, [filterDate]);
 
     // Main fetch interval (10 seconds)
     useEffect(() => {
-        fetchLiveData(false);
+        fetchLiveData(false, filterDate);
         const interval = setInterval(() => {
-            fetchLiveData(true);
+            fetchLiveData(true, filterDate);
         }, 10000);
         return () => clearInterval(interval);
-    }, []);
+    }, [filterDate, fetchLiveData]);
 
     // Countdown visual timer interval (1 second)
     useEffect(() => {
@@ -619,7 +620,17 @@ const AdminLiveTracking = () => {
                     </p>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-lg shadow-sm">
+                        <FaCalendarAlt className="text-slate-400" />
+                        <input
+                            type="date"
+                            value={filterDate}
+                            onChange={(e) => setFilterDate(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
+                            className="text-sm bg-transparent outline-none text-slate-700 font-medium cursor-pointer"
+                        />
+                    </div>
                     <div className="flex items-center gap-2 bg-white px-3 py-2 border border-slate-200 rounded-lg shadow-sm">
                         <FaCamera className="text-slate-400" />
                         <span className="text-sm font-medium text-slate-600">Screenshot Interval:</span>
@@ -640,7 +651,7 @@ const AdminLiveTracking = () => {
                     <button
                         onClick={() => {
                             setLoading(true);
-                            fetchLiveData(false);
+                            fetchLiveData(false, filterDate);
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-indigo-600 border border-indigo-200 rounded-lg shadow-sm transition-all font-medium"
                     >
@@ -912,11 +923,11 @@ const AdminLiveTracking = () => {
 
             {/* Modal for Details & Report */}
             {selectedEmployee && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
                     onClick={closeReportModal}
                 >
-                    <div 
+                    <div
                         className="bg-white border border-slate-200 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col relative"
                         onClick={(e) => e.stopPropagation()}
                     >

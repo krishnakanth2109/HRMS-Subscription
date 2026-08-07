@@ -747,6 +747,47 @@ export const getEmployeePayroll = (employeeId, month) =>
   api.get(`/api/payroll/record/${employeeId}?month=${month}`);
 
 /* =============================================================================
+   PAYROLL GROUPS
+============================================================================= */
+export const getPayrollGroups = async () => {
+  const res = await api.get("/api/payroll-groups");
+  return res.data;
+};
+
+export const createPayrollGroup = async (data) => {
+  const res = await api.post("/api/payroll-groups", data);
+  return res.data;
+};
+
+export const updatePayrollGroup = async (id, data) => {
+  const res = await api.put(`/api/payroll-groups/${id}`, data);
+  return res.data;
+};
+
+
+export const deletePayrollGroup = async (id) => {
+  const res = await api.delete(`/api/payroll-groups/${id}`);
+  return res.data;
+};
+
+// --- PAYROLL OVERRIDES ---
+export const getPayrollOverrides = async () => {
+  const res = await api.get('/api/payroll-overrides');
+  return res.data; // { [employeeId]: overrideData }
+};
+
+export const bulkSavePayrollOverrides = async (overrides) => {
+  const res = await api.post('/api/payroll-overrides/bulk', { overrides });
+  return res.data;
+};
+
+export const bulkDeletePayrollOverrides = async (employeeIds) => {
+  const res = await api.delete('/api/payroll-overrides/bulk', { data: { employeeIds } });
+  return res.data;
+};
+
+
+/* =============================================================================
    COMPANY MANAGEMENT
 ============================================================================= */
 export const getAllCompanies = async () => {

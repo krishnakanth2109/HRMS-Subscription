@@ -12,7 +12,6 @@ const payrollRuleSchema = new mongoose.Schema(
     conveyance: { type: Number, required: true, default: 1600 },
     medical: { type: Number, required: true, default: 1250 },
     travellingAllowance: { type: Number, required: true, default: 800 },
-    otherAllowance: { type: Number, required: true, default: 1000 },
 
     // --- CUSTOMIZABLE FIELD LABELS ---
     customLabels: {
@@ -21,7 +20,6 @@ const payrollRuleSchema = new mongoose.Schema(
       conveyance: { type: String, default: "Conveyance" },
       medical: { type: String, default: "Medical" },
       travellingAllowance: { type: String, default: "Travelling Allowance" },
-      otherAllowance: { type: String, default: "Other Allowance" },
     },
 
     // --- DYNAMIC CUSTOM FIELDS ---
