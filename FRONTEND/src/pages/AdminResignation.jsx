@@ -459,6 +459,17 @@ const AdminResignation = () => {
     setResignations(prev => prev.map(r => r._id === updated._id ? updated : r));
   };
 
+  const handleDeleteResignation = async (id) => {
+    if (!window.confirm("Are you sure you want to completely delete this resignation record? This cannot be undone.")) return;
+    try {
+      await api.delete(`/api/resignations/admin/${id}`);
+      setResignations(prev => prev.filter(r => r._id !== id));
+      if (expanded === id) setExpanded(null);
+    } catch (e) {
+      alert("Error deleting resignation: " + (e.response?.data?.message || e.message));
+    }
+  };
+
   const isNoticePeriodCompleted = (r) => r.noticePeriodEndDate && new Date() >= new Date(r.noticePeriodEndDate);
   const showExitFormalities = (r) =>
     r.status === "Exit Formalities" ||
@@ -612,6 +623,10 @@ const AdminResignation = () => {
                         📦 Start Exit Formalities
                       </button>
                     )}
+                    <button onClick={() => handleDeleteResignation(r._id)}
+                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 ml-auto">
+                      🗑 Delete
+                    </button>
                   </div>
 
                   {/* Exit formalities panel */}

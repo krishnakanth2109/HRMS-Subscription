@@ -2282,7 +2282,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                         {(localOverride.customFields || []).map((cf, idx) => (
                           cf.isEditing ? (
                             <div key={idx} className="border border-green-200 p-1.5 rounded bg-white shadow-sm">
-                              <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomField(idx, 'name', e.target.value)} placeholder="Name" className="w-full border-b mb-1 text-[10px] font-bold p-0.5" />
+                              <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomField(idx, 'name', e.target.value)} placeholder="Enter Field Name..." className="w-full border border-gray-300 rounded mb-1.5 text-[10px] font-bold p-1.5 focus:outline-none focus:border-green-500" />
                               <div className="flex gap-1 mb-1">
                                 <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomField(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-0.5 text-[10px]" />
                                 <select value={cf.valueType} onChange={e => handleUpdateLocalCustomField(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
@@ -2353,7 +2353,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                         {(localOverride.customDeductions || []).map((cf, idx) => (
                           cf.isEditing ? (
                             <div key={idx} className="border border-red-200 p-1.5 rounded bg-white shadow-sm">
-                              <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomDeduction(idx, 'name', e.target.value)} placeholder="Name" className="w-full border-b mb-1 text-[10px] font-bold p-0.5" />
+                              <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomDeduction(idx, 'name', e.target.value)} placeholder="Enter Deduction Name..." className="w-full border border-gray-300 rounded mb-1.5 text-[10px] font-bold p-1.5 focus:outline-none focus:border-red-500" />
                               <div className="flex gap-1 mb-1">
                                 <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomDeduction(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-0.5 text-[10px]" />
                                 <select value={cf.valueType} onChange={e => handleUpdateLocalCustomDeduction(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
@@ -2844,7 +2844,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                     {(override.customFields || []).map((cf, idx) => (
                       cf.isEditing ? (
                         <div key={idx} className="border border-green-200 p-2 rounded bg-white shadow-sm">
-                          <input type="text" value={cf.name} onChange={e => handleUpdateCustomField(idx, 'name', e.target.value)} placeholder="Field Name" className="w-full border-b mb-2 text-xs font-bold p-1" />
+                          <input type="text" value={cf.name} onChange={e => handleUpdateCustomField(idx, 'name', e.target.value)} placeholder="Enter Field Name..." className="w-full border border-gray-300 rounded mb-2 text-xs font-bold p-2 focus:outline-none focus:border-green-500" />
                           <div className="flex gap-2 mb-2">
                             <input type="number" value={cf.value} onChange={e => handleUpdateCustomField(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-1 text-xs" />
                             <select value={cf.valueType} onChange={e => handleUpdateCustomField(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
@@ -2938,7 +2938,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                     {(override.customDeductions || []).map((cf, idx) => (
                       cf.isEditing ? (
                         <div key={idx} className="border border-red-200 p-2 rounded bg-white shadow-sm">
-                          <input type="text" value={cf.name} onChange={e => handleUpdateCustomDeduction(idx, 'name', e.target.value)} placeholder="Field Name" className="w-full border-b mb-2 text-xs font-bold p-1" />
+                          <input type="text" value={cf.name} onChange={e => handleUpdateCustomDeduction(idx, 'name', e.target.value)} placeholder="Enter Deduction Name..." className="w-full border border-gray-300 rounded mb-2 text-xs font-bold p-2 focus:outline-none focus:border-red-500" />
                           <div className="flex gap-2 mb-2">
                             <input type="number" value={cf.value} onChange={e => handleUpdateCustomDeduction(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-1 text-xs" />
                             <select value={cf.valueType} onChange={e => handleUpdateCustomDeduction(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-1 text-xs">

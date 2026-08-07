@@ -639,4 +639,16 @@ router.post("/system/check-countdowns", async (req, res) => {
   }
 });
 
+// DELETE /api/resignations/admin/:id
+// ============================================================
+router.delete("/admin/:id", protect, onlyAdmin, async (req, res) => {
+  try {
+    const resignation = await Resignation.findByIdAndDelete(req.params.id);
+    if (!resignation) return res.status(404).json({ message: "Resignation not found" });
+    res.status(200).json({ message: "Resignation deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
