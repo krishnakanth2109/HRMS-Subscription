@@ -1631,6 +1631,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       { name: 'Conveyance', val: employee.monthlyBreakdown.conveyance },
       { name: 'Medical', val: employee.monthlyBreakdown.medical },
       { name: 'Travelling Allowance', val: employee.monthlyBreakdown.travellingAllowance },
+      { name: 'Special Allowance', val: employee.monthlyBreakdown.specialAllowance },
       ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value }))
     ].filter(i => i.val > 0);
 
@@ -2231,7 +2232,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           <select value={localOverride.basicValueType} onChange={e => setLocalOverride(p => ({ ...p, basicValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
                             <option value="percentage">%</option><option value="fixed">₹</option>
                           </select>
-                          <input type="number" value={localOverride.basicPercentage} onChange={e => setLocalOverride(p => ({ ...p, basicPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                          <input type="number" value={localOverride.basicPercentage} onChange={e => setLocalOverride(p => ({ ...p, basicPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
                         </div>
                       </div>
                       <div>
@@ -2240,7 +2241,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           <select value={localOverride.hraValueType} onChange={e => setLocalOverride(p => ({ ...p, hraValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
                             <option value="percentage">%</option><option value="fixed">₹</option>
                           </select>
-                          <input type="number" value={localOverride.hraPercentage} onChange={e => setLocalOverride(p => ({ ...p, hraPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                          <input type="number" value={localOverride.hraPercentage} onChange={e => setLocalOverride(p => ({ ...p, hraPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
                         </div>
                       </div>
                       <div>
@@ -2249,7 +2250,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           <select value={localOverride.conveyanceValueType} onChange={e => setLocalOverride(p => ({ ...p, conveyanceValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
                             <option value="percentage">%</option><option value="fixed">₹</option>
                           </select>
-                          <input type="number" value={localOverride.conveyance} onChange={e => setLocalOverride(p => ({ ...p, conveyance: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                          <input type="number" value={localOverride.conveyance} onChange={e => setLocalOverride(p => ({ ...p, conveyance: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
                         </div>
                       </div>
                       <div>
@@ -2258,7 +2259,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           <select value={localOverride.medicalValueType} onChange={e => setLocalOverride(p => ({ ...p, medicalValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
                             <option value="percentage">%</option><option value="fixed">₹</option>
                           </select>
-                          <input type="number" value={localOverride.medical} onChange={e => setLocalOverride(p => ({ ...p, medical: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                          <input type="number" value={localOverride.medical} onChange={e => setLocalOverride(p => ({ ...p, medical: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
                         </div>
                       </div>
                       <div className="col-span-2">
@@ -2267,7 +2268,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           <select value={localOverride.travellingAllowanceValueType} onChange={e => setLocalOverride(p => ({ ...p, travellingAllowanceValueType: e.target.value }))} className="p-1 border rounded-l text-xs bg-gray-50">
                             <option value="percentage">%</option><option value="fixed">₹</option>
                           </select>
-                          <input type="number" value={localOverride.travellingAllowance} onChange={e => setLocalOverride(p => ({ ...p, travellingAllowance: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
+                          <input type="number" value={localOverride.travellingAllowance} onChange={e => setLocalOverride(p => ({ ...p, travellingAllowance: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border border-l-0 rounded-r text-xs" />
                         </div>
                       </div>
                     </div>
@@ -2284,7 +2285,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                             <div key={idx} className="border border-green-200 p-1.5 rounded bg-white shadow-sm">
                               <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomField(idx, 'name', e.target.value)} placeholder="Enter Field Name..." className="w-full border border-gray-300 rounded mb-1.5 text-[10px] font-bold p-1.5 focus:outline-none focus:border-green-500" />
                               <div className="flex gap-1 mb-1">
-                                <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomField(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-0.5 text-[10px]" />
+                                <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomField(idx, 'value', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-1/2 border rounded p-0.5 text-[10px]" />
                                 <select value={cf.valueType} onChange={e => handleUpdateLocalCustomField(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
                                   <option value="fixed">₹</option><option value="percentage">%</option>
                                 </select>
@@ -2329,18 +2330,18 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                     </div>
                     {localOverride.pfCalculationMethod === 'percentage' ? (
                       <div className="grid grid-cols-2 gap-2">
-                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Emp PF %</label><input type="number" value={localOverride.pfPercentage} onChange={e => setLocalOverride(p => ({ ...p, pfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
-                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Empr PF %</label><input type="number" value={localOverride.employerPfPercentage} onChange={e => setLocalOverride(p => ({ ...p, employerPfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Emp PF %</label><input type="number" value={localOverride.pfPercentage} onChange={e => setLocalOverride(p => ({ ...p, pfPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Empr PF %</label><input type="number" value={localOverride.employerPfPercentage} onChange={e => setLocalOverride(p => ({ ...p, employerPfPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-2">
-                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Emp PF ₹</label><input type="number" value={localOverride.pfFixedAmountEmployee} onChange={e => setLocalOverride(p => ({ ...p, pfFixedAmountEmployee: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
-                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Empr PF ₹</label><input type="number" value={localOverride.pfFixedAmountEmployer} onChange={e => setLocalOverride(p => ({ ...p, pfFixedAmountEmployer: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Emp PF ₹</label><input type="number" value={localOverride.pfFixedAmountEmployee} onChange={e => setLocalOverride(p => ({ ...p, pfFixedAmountEmployee: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-600 mb-1">Empr PF ₹</label><input type="number" value={localOverride.pfFixedAmountEmployer} onChange={e => setLocalOverride(p => ({ ...p, pfFixedAmountEmployer: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2 pt-1 border-t border-red-100">
-                      <div><label className="block text-[10px] font-bold text-gray-600 mb-1">PT S1 (&gt;15k)</label><input type="number" value={localOverride.ptSlab1Amount} onChange={e => setLocalOverride(p => ({ ...p, ptSlab1Amount: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
-                      <div><label className="block text-[10px] font-bold text-gray-600 mb-1">PT S2 (&gt;20k)</label><input type="number" value={localOverride.ptSlab2Amount} onChange={e => setLocalOverride(p => ({ ...p, ptSlab2Amount: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-600 mb-1">PT S1 (&gt;15k)</label><input type="number" value={localOverride.ptSlab1Amount} onChange={e => setLocalOverride(p => ({ ...p, ptSlab1Amount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
+                      <div><label className="block text-[10px] font-bold text-gray-600 mb-1">PT S2 (&gt;20k)</label><input type="number" value={localOverride.ptSlab2Amount} onChange={e => setLocalOverride(p => ({ ...p, ptSlab2Amount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
                     </div>
 
                     {/* Custom Deductions Override */}
@@ -2355,7 +2356,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                             <div key={idx} className="border border-red-200 p-1.5 rounded bg-white shadow-sm">
                               <input type="text" value={cf.name} onChange={e => handleUpdateLocalCustomDeduction(idx, 'name', e.target.value)} placeholder="Enter Deduction Name..." className="w-full border border-gray-300 rounded mb-1.5 text-[10px] font-bold p-1.5 focus:outline-none focus:border-red-500" />
                               <div className="flex gap-1 mb-1">
-                                <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomDeduction(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-0.5 text-[10px]" />
+                                <input type="number" value={cf.value} onChange={e => handleUpdateLocalCustomDeduction(idx, 'value', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-1/2 border rounded p-0.5 text-[10px]" />
                                 <select value={cf.valueType} onChange={e => handleUpdateLocalCustomDeduction(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-0.5 text-[10px]">
                                   <option value="fixed">₹</option><option value="percentage">%</option>
                                 </select>
@@ -2395,7 +2396,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                     </div>
                     {localOverride.latePenaltyEnabled && (
                       <div className="space-y-2">
-                        <div><label className="block text-[10px] font-bold text-gray-700 mb-1">Threshold</label><input type="number" value={localOverride.latePenaltyThreshold} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyThreshold: parseInt(e.target.value) || 1 }))} className="w-full p-1 border rounded text-xs" /></div>
+                        <div><label className="block text-[10px] font-bold text-gray-700 mb-1">Threshold</label><input type="number" value={localOverride.latePenaltyThreshold} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyThreshold: e.target.value === '' ? '' : parseInt(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
                         <div>
                           <label className="block text-[10px] font-bold text-gray-700 mb-1">Type</label>
                           <select value={localOverride.latePenaltyType} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyType: e.target.value }))} className="w-full p-1 border rounded text-xs bg-white">
@@ -2403,7 +2404,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           </select>
                         </div>
                         {localOverride.latePenaltyType === 'manual' && (
-                          <div><label className="block text-[10px] font-bold text-gray-700 mb-1">Amount ₹</label><input type="number" value={localOverride.latePenaltyManualAmount} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyManualAmount: parseFloat(e.target.value) || 0 }))} className="w-full p-1 border rounded text-xs" /></div>
+                          <div><label className="block text-[10px] font-bold text-gray-700 mb-1">Amount ₹</label><input type="number" value={localOverride.latePenaltyManualAmount} onChange={e => setLocalOverride(p => ({ ...p, latePenaltyManualAmount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1 border rounded text-xs" /></div>
                         )}
                       </div>
                     )}
@@ -2412,7 +2413,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                   {/* BONUS */}
                   <div>
                     <label className="block text-xs font-bold text-gray-600 mb-1">One-Time Bonus / Incentive (₹)</label>
-                    <input type="number" min="0" value={localOverride.bonusAmount} onChange={e => setLocalOverride(prev => ({ ...prev, bonusAmount: parseFloat(e.target.value) || 0 }))} className="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="e.g. 500" />
+                    <input type="number" min="0" value={localOverride.bonusAmount} onChange={e => setLocalOverride(prev => ({ ...prev, bonusAmount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="e.g. 500" />
                   </div>
                 </div>
 
@@ -2789,7 +2790,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                       <select value={override.basicValueType} onChange={e => setOverride(p => ({ ...p, basicValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
                         <option value="percentage">%</option><option value="fixed">₹</option>
                       </select>
-                      <input type="number" value={override.basicPercentage} onChange={e => setOverride(p => ({ ...p, basicPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                      <input type="number" value={override.basicPercentage} onChange={e => setOverride(p => ({ ...p, basicPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
                     </div>
                   </div>
                   <div>
@@ -2798,7 +2799,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                       <select value={override.hraValueType} onChange={e => setOverride(p => ({ ...p, hraValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
                         <option value="percentage">%</option><option value="fixed">₹</option>
                       </select>
-                      <input type="number" value={override.hraPercentage} onChange={e => setOverride(p => ({ ...p, hraPercentage: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                      <input type="number" value={override.hraPercentage} onChange={e => setOverride(p => ({ ...p, hraPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
                     </div>
                   </div>
                   <div>
@@ -2807,7 +2808,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                       <select value={override.conveyanceValueType} onChange={e => setOverride(p => ({ ...p, conveyanceValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
                         <option value="percentage">%</option><option value="fixed">₹</option>
                       </select>
-                      <input type="number" value={override.conveyance} onChange={e => setOverride(p => ({ ...p, conveyance: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                      <input type="number" value={override.conveyance} onChange={e => setOverride(p => ({ ...p, conveyance: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
                     </div>
                   </div>
                   <div>
@@ -2816,7 +2817,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                       <select value={override.medicalValueType} onChange={e => setOverride(p => ({ ...p, medicalValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
                         <option value="percentage">%</option><option value="fixed">₹</option>
                       </select>
-                      <input type="number" value={override.medical} onChange={e => setOverride(p => ({ ...p, medical: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                      <input type="number" value={override.medical} onChange={e => setOverride(p => ({ ...p, medical: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
                     </div>
                   </div>
                   <div>
@@ -2825,12 +2826,12 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                       <select value={override.travellingAllowanceValueType} onChange={e => setOverride(p => ({ ...p, travellingAllowanceValueType: e.target.value }))} className="p-1.5 border rounded-l-lg text-xs bg-gray-50 font-bold">
                         <option value="percentage">%</option><option value="fixed">₹</option>
                       </select>
-                      <input type="number" value={override.travellingAllowance} onChange={e => setOverride(p => ({ ...p, travellingAllowance: parseFloat(e.target.value) || 0 }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
+                      <input type="number" value={override.travellingAllowance} onChange={e => setOverride(p => ({ ...p, travellingAllowance: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full p-1.5 border border-l-0 rounded-r-lg text-sm" />
                     </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-green-700 mb-1">One-Time Bonus (₹)</label>
-                    <input type="number" min="0" value={override.bonusAmount} onChange={e => setOverride(p => ({ ...p, bonusAmount: parseFloat(e.target.value) || 0 }))} placeholder="e.g. 500" className="w-full px-3 py-1.5 border border-green-300 rounded-lg text-sm" />
+                    <input type="number" min="0" value={override.bonusAmount} onChange={e => setOverride(p => ({ ...p, bonusAmount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} placeholder="e.g. 500" className="w-full px-3 py-1.5 border border-green-300 rounded-lg text-sm" />
                   </div>
                 </div>
 
@@ -2846,7 +2847,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                         <div key={idx} className="border border-green-200 p-2 rounded bg-white shadow-sm">
                           <input type="text" value={cf.name} onChange={e => handleUpdateCustomField(idx, 'name', e.target.value)} placeholder="Enter Field Name..." className="w-full border border-gray-300 rounded mb-2 text-xs font-bold p-2 focus:outline-none focus:border-green-500" />
                           <div className="flex gap-2 mb-2">
-                            <input type="number" value={cf.value} onChange={e => handleUpdateCustomField(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-1 text-xs" />
+                            <input type="number" value={cf.value} onChange={e => handleUpdateCustomField(idx, 'value', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-1/2 border rounded p-1 text-xs" />
                             <select value={cf.valueType} onChange={e => handleUpdateCustomField(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
                               <option value="fixed">₹</option><option value="percentage">%</option>
                             </select>
@@ -2897,22 +2898,22 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1">Employee PF %</label>
-                      <input type="number" min="0" max="100" value={override.pfPercentage} onChange={e => setOverride(p => ({ ...p, pfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      <input type="number" min="0" max="100" value={override.pfPercentage} onChange={e => setOverride(p => ({ ...p, pfPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1">Employer PF %</label>
-                      <input type="number" min="0" max="100" value={override.employerPfPercentage} onChange={e => setOverride(p => ({ ...p, employerPfPercentage: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      <input type="number" min="0" max="100" value={override.employerPfPercentage} onChange={e => setOverride(p => ({ ...p, employerPfPercentage: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                     </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1">Employee PF (₹)</label>
-                      <input type="number" min="0" value={override.pfFixedAmountEmployee} onChange={e => setOverride(p => ({ ...p, pfFixedAmountEmployee: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      <input type="number" min="0" value={override.pfFixedAmountEmployee} onChange={e => setOverride(p => ({ ...p, pfFixedAmountEmployee: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-600 mb-1">Employer PF (₹)</label>
-                      <input type="number" min="0" value={override.pfFixedAmountEmployer} onChange={e => setOverride(p => ({ ...p, pfFixedAmountEmployer: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      <input type="number" min="0" value={override.pfFixedAmountEmployer} onChange={e => setOverride(p => ({ ...p, pfFixedAmountEmployer: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                     </div>
                   </div>
                 )}
@@ -2920,11 +2921,11 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-red-100">
                   <div>
                     <label className="block text-xs font-bold text-gray-600 mb-1">PT Slab 1 (&gt;15k) ₹</label>
-                    <input type="number" min="0" value={override.ptSlab1Amount} onChange={e => setOverride(p => ({ ...p, ptSlab1Amount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    <input type="number" min="0" value={override.ptSlab1Amount} onChange={e => setOverride(p => ({ ...p, ptSlab1Amount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-600 mb-1">PT Slab 2 (&gt;20k) ₹</label>
-                    <input type="number" min="0" value={override.ptSlab2Amount} onChange={e => setOverride(p => ({ ...p, ptSlab2Amount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                    <input type="number" min="0" value={override.ptSlab2Amount} onChange={e => setOverride(p => ({ ...p, ptSlab2Amount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                   </div>
                 </div>
 
@@ -2940,7 +2941,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                         <div key={idx} className="border border-red-200 p-2 rounded bg-white shadow-sm">
                           <input type="text" value={cf.name} onChange={e => handleUpdateCustomDeduction(idx, 'name', e.target.value)} placeholder="Enter Deduction Name..." className="w-full border border-gray-300 rounded mb-2 text-xs font-bold p-2 focus:outline-none focus:border-red-500" />
                           <div className="flex gap-2 mb-2">
-                            <input type="number" value={cf.value} onChange={e => handleUpdateCustomDeduction(idx, 'value', parseFloat(e.target.value) || 0)} className="w-1/2 border rounded p-1 text-xs" />
+                            <input type="number" value={cf.value} onChange={e => handleUpdateCustomDeduction(idx, 'value', e.target.value === '' ? '' : parseFloat(e.target.value))} className="w-1/2 border rounded p-1 text-xs" />
                             <select value={cf.valueType} onChange={e => handleUpdateCustomDeduction(idx, 'valueType', e.target.value)} className="w-1/4 border rounded p-1 text-xs">
                               <option value="fixed">₹</option><option value="percentage">%</option>
                             </select>
@@ -2986,7 +2987,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                   <div className="space-y-3 pt-2">
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">Apply after how many late logins?</label>
-                      <input type="number" min="1" value={override.latePenaltyThreshold} onChange={e => setOverride(p => ({ ...p, latePenaltyThreshold: parseInt(e.target.value) || 1 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                      <input type="number" min="1" value={override.latePenaltyThreshold} onChange={e => setOverride(p => ({ ...p, latePenaltyThreshold: e.target.value === '' ? '' : parseInt(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">Penalty Amount per occurrence</label>
@@ -3001,7 +3002,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                     {override.latePenaltyType === 'manual' && (
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1">Manual Amount (₹)</label>
-                        <input type="number" min="0" value={override.latePenaltyManualAmount} onChange={e => setOverride(p => ({ ...p, latePenaltyManualAmount: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
+                        <input type="number" min="0" value={override.latePenaltyManualAmount} onChange={e => setOverride(p => ({ ...p, latePenaltyManualAmount: e.target.value === '' ? '' : parseFloat(e.target.value) }))} className="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm" />
                       </div>
                     )}
                   </div>
@@ -3546,7 +3547,9 @@ const PayrollManagement = () => {
       });
 
       // --- GROSS EARNINGS = sum of all components shown to user ---
-      const earningsSum = monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + customEarningsTotal;
+      const staticEarnings = monthlyBasic + monthlyHRA + monthlyConv + monthlyMed + monthlyTravelling + customEarningsTotal;
+      const specialAllowance = Math.max(0, monthlyTotal - staticEarnings);
+      const earningsSum = staticEarnings + specialAllowance;
 
       const perDaySalary = monthlyTotal / totalDaysInMonth;
       const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
@@ -3650,6 +3653,7 @@ const PayrollManagement = () => {
           conveyance: monthlyConv,
           medical: monthlyMed,
           travellingAllowance: monthlyTravelling,
+          specialAllowance: specialAllowance,
           total: earningsSum,
           customFields: computedCustomFields,
           customDeductions: computedCustomDeductions
@@ -3660,6 +3664,7 @@ const PayrollManagement = () => {
           conveyance: monthlyConv,
           medical: monthlyMed,
           travellingAllowance: monthlyTravelling,
+          specialAllowance: specialAllowance,
           gross: earningsSum,
           pf: pfDeduction,
           employerPf: employerPfAmount,
