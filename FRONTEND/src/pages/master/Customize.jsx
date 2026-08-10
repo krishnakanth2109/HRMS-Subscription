@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
+import Swal from "sweetalert2";
 import { 
   Search, 
   Filter, 
@@ -16,7 +17,8 @@ import {
   RefreshCw,
   Crown,
   Users,
-  Sliders
+  Sliders,
+  Upload
 } from "lucide-react";
 
 const Customize = () => {
@@ -35,6 +37,34 @@ const Customize = () => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const fileInputRef = React.useRef(null);
+  const [selectedAdminIdForLogo, setSelectedAdminIdForLogo] = useState(null);
+
+  const handleLogoClick = (e, adminId) => {
+    e.stopPropagation();
+    setSelectedAdminIdForLogo(adminId);
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedAdminIdForLogo) return;
+    const formData = new FormData();
+    formData.append("logo", file);
+    try {
+      await api.patch(`/api/master/admins/${selectedAdminIdForLogo}/upload-logo`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      Swal.fire({ icon: "success", title: "Success", text: "Sidebar logo updated!", timer: 1500, showConfirmButton: false });
+      fetchData();
+    } catch (err) {
+      Swal.fire({ icon: "error", title: "Error", text: "Failed to upload logo." });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setSelectedAdminIdForLogo(null);
+    }
+  };
 
   // Fetch all admins and plans
   const fetchData = async () => {
@@ -113,6 +143,15 @@ const Customize = () => {
   return (
     <div className="space-y-6 animate-[fadeIn_0.35s_ease-out] max-w-7xl mx-auto">
       
+      {/* Hidden File Input for Logo Upload */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/png,image/jpeg,image/webp" 
+        onChange={handleLogoUpload} 
+      />
+
       {/* Page Title & Meta Info */}
       <div className="flex justify-between items-center pb-1">
         <div>
@@ -275,8 +314,8 @@ const Customize = () => {
                     </div>
                   </div>
 
-                  {/* Status Badge */}
-                  <div className="shrink-0">
+                  {/* Status Badge & Logo Upload */}
+                  <div className="shrink-0 flex flex-col items-end gap-2">
                     {isExpired ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-500/[0.04] text-rose-700 text-[10px] font-bold rounded-lg border border-rose-500/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -288,6 +327,14 @@ const Customize = () => {
                         Active
                       </span>
                     )}
+                    <button 
+                      onClick={(e) => handleLogoClick(e, admin._id || admin.id)}
+                      className="inline-flex items-center gap-1 text-[9px] font-bold text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 px-2 py-1 rounded border border-slate-200 hover:border-blue-200 transition-colors"
+                      title="Upload Sidebar Logo"
+                    >
+                      <Upload className="w-3 h-3" />
+                      Logo
+                    </button>
                   </div>
                 </div>
 
