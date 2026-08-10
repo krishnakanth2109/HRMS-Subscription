@@ -25,6 +25,13 @@ import {
   FaSignOutAlt,
   FaCalendarAlt,
   FaPen,
+  FaChartLine,
+  FaBullhorn,
+  FaChartPie,
+  FaClipboardList,
+  FaClock,
+  FaCheck,
+  FaTimes,
 } from "react-icons/fa";
 import {
   BarChart,
@@ -53,12 +60,16 @@ import api, {
   getProfilePic,
   deleteProfilePic,
   getShiftByEmployeeId,
+  getHolidays,
+  getAdminWorkRecords,
+  getFieldTrackingEmployees,
+  getRecentFieldTrips,
+  requestCorrectionAdvanced,
 } from "../../api";
 import { AuthContext } from "../../context/AuthContext";
 import Swal from "sweetalert2";
 import ImageCropModal from "../../EmployeePages/ImageCropModal";
-import { QrCode } from "lucide-react";
-import EmployeeQRCodeModal from "../../components/employee/EmployeeQRCodeModal";
+import ModalWrapper from "../../components/ModalWrapper";
 
 const getDeptRole = (emp) => {
   const exp = Array.isArray(emp.experienceDetails)
@@ -98,18 +109,28 @@ const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
 };
 
 const renderActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, value } = props;
   return (
-    <Sector
-      cx={cx}
-      cy={cy}
-      innerRadius={innerRadius}
-      outerRadius={outerRadius + 3}
-      startAngle={startAngle}
-      endAngle={endAngle}
-      fill={fill}
-      cornerRadius={10}
-    />
+    <g style={{ cursor: 'pointer' }}>
+      <circle cx={cx} cy={cy} r={innerRadius - 6} fill="#ffffff" style={{ filter: "drop-shadow(0px 4px 10px rgba(0, 0, 0, 0.12))" }} />
+      <text x={cx} y={cy - 2} textAnchor="middle" fill="#2B3674" style={{ fontSize: "18px", fontWeight: "900" }}>
+        {value}
+      </text>
+      <text x={cx} y={cy + 16} textAnchor="middle" fill="#A3AED0" style={{ fontSize: "10px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        {payload?.name ? (payload.name.length > 11 ? payload.name.slice(0, 9) + "..." : payload.name) : "Staff"}
+      </text>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius - 4}
+        outerRadius={outerRadius + 14}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        cornerRadius={6}
+        style={{ filter: "drop-shadow(0px 8px 16px rgba(0, 0, 0, 0.2))" }}
+      />
+    </g>
   );
 };
 
@@ -119,6 +140,85 @@ const SupportAdminDashboard = () => {
   const { getDashboardData } = useContext(AttendanceContext);
   const { leaveRequests: ctxLeaveRequests } = useContext(LeaveRequestContext);
   const navigate = useNavigate();
+
+  const [allowedRoutes, setAllowedRoutes] = useState(null);
+  const [isOwnerPlan, setIsOwnerPlan] = useState(true);
+
+  useEffect(() => {
+    const fetchPlanFeatures = async () => {
+      try {
+        const res = await api.get("/api/admin/my-plan-features");
+        const routes = res.data?.allowedRoutes || [];
+        const ownerFlag = res.data?.isOwnerPlan || false;
+        setIsOwnerPlan(ownerFlag);
+        setAllowedRoutes(ownerFlag ? [] : routes);
+      } catch (err) {
+        console.error("Could not fetch plan features:", err);
+        setAllowedRoutes([]);
+      }
+    };
+    fetchPlanFeatures();
+  }, []);
+
+  const isQuickActionVisible = useCallback(
+    (path) => {
+      const rawUser = sessionStorage.getItem("hrmsUser");
+      let currentUser = user;
+      if (rawUser) {
+        try {
+          currentUser = { ...currentUser, ...JSON.parse(rawUser) };
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (!currentUser || currentUser.role !== "support-admin") return true;
+
+      const MANDATORY_ROUTES = [
+        "/support-admin/dashboard",
+        "/admin/dashboard",
+        "/support-admin/my-attendance",
+        "/admin/holiday-calendar",
+        "/support-admin/leave-requests",
+        "/admin/notices",
+        "/admin/setup-face",
+      ];
+
+      if (MANDATORY_ROUTES.includes(path)) return true;
+
+      if (!isOwnerPlan && allowedRoutes !== null && Array.isArray(allowedRoutes)) {
+        if (!allowedRoutes.includes(path)) return false;
+      }
+
+      if (
+        currentUser.assignedFeatures !== undefined &&
+        currentUser.assignedFeatures !== null
+      ) {
+        const assigned = Array.isArray(currentUser.assignedFeatures)
+          ? currentUser.assignedFeatures
+          : [];
+        if (!assigned.includes(path)) return false;
+      }
+
+      return true;
+    },
+    [user, allowedRoutes, isOwnerPlan]
+  );
+
+  const visibleQuickActions = useMemo(() => {
+    const actions = [
+      { icon: FaUsers, label: "Employee Management", bg: "bg-blue-500", path: "/employees" },
+      { icon: FaChartLine, label: "Leave Summary", bg: "bg-purple-500", path: "/admin/leave-summary" },
+      { icon: FaUserClock, label: "Employees Attendance", bg: "bg-green-500", path: "/attendance" },
+      { icon: FaCalendarCheck, label: "Leave Approvals", bg: "bg-yellow-500", path: "/admin/admin-Leavemanage" },
+      { icon: FaFileAlt, label: "Payroll", bg: "bg-red-500", path: "/admin/payroll" },
+      { icon: FaBullhorn, label: "Announcements", bg: "bg-indigo-500", path: "/admin/notices" },
+      { icon: FaCalendarAlt, label: "Holiday Calendar", bg: "bg-teal-500", path: "/admin/holiday-calendar" },
+      { icon: FaChartPie, label: "Shift Management", bg: "bg-pink-500", path: "/admin/settings" },
+    ];
+    return actions.filter((a) => isQuickActionVisible(a.path));
+  }, [isQuickActionVisible]);
+
   // Profile & Attendance States for Support Admin Personal Section
   const [profileImage, setProfileImage] = useState(
     sessionStorage.getItem("profileImage_supportAdmin") || null
@@ -140,7 +240,15 @@ const SupportAdminDashboard = () => {
   const [breakTime, setBreakTime] = useState(0);
 
   const [adminProfile, setAdminProfile] = useState(null);
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  // Late Login Request Modal States
+  const [showLateLoginModal, setShowLateLoginModal] = useState(false);
+  const [lateModalData, setLateModalData] = useState({
+    date: new Date().toISOString().split("T")[0],
+    reason: "",
+    requestedPunchIn: "10:00",
+  });
+  const [submittingLateReq, setSubmittingLateReq] = useState(false);
 
   const dropdownRef = useRef(null);
   const breakDropdownRef = useRef(null);
@@ -150,6 +258,49 @@ const SupportAdminDashboard = () => {
   const displayAdministrationId = adminProfile?.supportAdminId || user?.supportAdminId || targetEmployeeId;
   const displayRoleName = adminProfile?.positionName || user?.positionName || "Support Admin";
   const todayIso = new Date().toISOString().split("T")[0];
+
+  const handleLateLoginSubmit = async () => {
+    if (!lateModalData.reason.trim()) {
+      return Swal.fire({
+        icon: "warning",
+        title: "Reason Required",
+        text: "Please enter a reason for your late login request.",
+      });
+    }
+    setSubmittingLateReq(true);
+    try {
+      const empId = targetEmployeeId || adminProfile?.supportAdminId || adminProfile?._id || user?.id;
+      await requestCorrectionAdvanced({
+        employeeId: empId,
+        date: lateModalData.date,
+        reason: lateModalData.reason,
+        requestedStatus: "Full Day",
+        requestedPunchIn: lateModalData.requestedPunchIn || "10:00",
+        currentStatus: "Absent",
+      });
+      Swal.fire({
+        icon: "success",
+        title: "Request Submitted!",
+        text: "Your late login request has been sent to the Admin for approval.",
+        timer: 3000,
+        showConfirmButton: false,
+      });
+      setShowLateLoginModal(false);
+      setLateModalData({ date: new Date().toISOString().split("T")[0], reason: "", requestedPunchIn: "10:00" });
+      if (getAttendanceForEmployeeLocal && empId) {
+        getAttendanceForEmployeeLocal(empId);
+      }
+    } catch (err) {
+      console.error("Late login request error:", err);
+      Swal.fire({
+        icon: "error",
+        title: "Submission Failed",
+        text: err.response?.data?.message || "Failed to submit late login request.",
+      });
+    } finally {
+      setSubmittingLateReq(false);
+    }
+  };
 
   const speak = (text) => {
     if ('speechSynthesis' in window) {
@@ -384,23 +535,16 @@ const SupportAdminDashboard = () => {
     try {
       const location = await getCurrentLocation();
       setPunchStatus("PUNCHING");
+      await api.post('/api/attendance/punch-break', {
+        employeeId: targetEmployeeId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      });
+      const name = adminProfile?.name || user?.name || "Support Admin";
       if (todayLog?.isOnBreak) {
-        await api.post('/api/attendance/punch-in', {
-          employeeId: targetEmployeeId,
-          employeeName: adminProfile?.name || user?.name || "Support Admin",
-          latitude: location.latitude,
-          longitude: location.longitude,
-        });
-        const name = adminProfile?.name || user?.name || "Support Admin";
         speak(`${name}, break ended`);
         Swal.fire({ icon: 'success', title: 'Welcome Back!', text: 'Break ended. Work session resumed.' });
       } else {
-        await api.post('/api/attendance/punch-break', {
-          employeeId: targetEmployeeId,
-          latitude: location.latitude,
-          longitude: location.longitude,
-        });
-        const name = adminProfile?.name || user?.name || "Support Admin";
         speak(`${name}, break started`);
         Swal.fire({ icon: 'info', title: 'Break Started! ☕', text: 'Your session is paused. Click Continue to resume work.' });
       }
@@ -479,34 +623,90 @@ const SupportAdminDashboard = () => {
   const isShiftCompleted = todayLog?.punchIn && todayLog?.punchOut && todayLog?.isFinalPunchOut === true;
 
   const displayLoginStatusContent = useMemo(() => {
-    if (!todayLog?.punchIn) return <span className="text-gray-400 font-medium text-xs">--</span>;
-    if (todayLog.loginStatus === "ON_TIME") {
+    if (!todayLog?.punchIn) {
       return (
-        <span className="px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase border-2 bg-green-50 text-green-600 border-green-200 shadow-sm">
-          On Time
+        <span className="text-gray-400 font-medium text-xs">
+          --
         </span>
       );
     }
-    return (
+
+    let status = todayLog.loginStatus || "ON_TIME";
+
+    if (shiftTimings?.shiftStartTime) {
+      const punchTime = new Date(todayLog.punchIn);
+
+      const [hour, minute] = shiftTimings.shiftStartTime
+        .split(":")
+        .map(Number);
+
+      const shiftTime = new Date(punchTime);
+      shiftTime.setHours(hour, minute, 0, 0);
+
+      const grace = Number(shiftTimings.lateGracePeriod || 15);
+      shiftTime.setMinutes(shiftTime.getMinutes() + grace);
+
+      status = punchTime > shiftTime ? "LATE" : "ON_TIME";
+    }
+
+    return status === "ON_TIME" ? (
+      <span className="px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase border-2 bg-green-50 text-green-600 border-green-200 shadow-sm">
+        On Time
+      </span>
+    ) : (
       <span className="px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase border-2 bg-red-50 text-red-600 border-red-200 shadow-sm">
         Late Login
       </span>
     );
-  }, [todayLog]);
+  }, [todayLog, shiftTimings]);
 
   const workedStatusBadge = useMemo(() => {
-    if (!todayLog?.punchIn) return { label: "--", color: "text-gray-500" };
-     if (todayLog.status === "WORKING" || todayLog.status === "ON_BREAK") {
-      return { label: "Working", color: "bg-indigo-50 text-indigo-600 border-indigo-200" };
+    if (!todayLog?.punchIn) {
+      return {
+        label: "--",
+        color: "text-gray-500",
+      };
     }
-    if (todayLog.workedStatus === "FULL_DAY" || todayLog.workedStatus === "Full Day") {
-      return { label: "Full Day", color: "bg-green-50 text-green-600 border-green-200" };
+
+    // ✅ Employee is currently working
+    if (todayLog?.status === "WORKING" && !todayLog?.isOnBreak) {
+      return {
+        label: "Working",
+        color: "bg-blue-100 text-blue-700 border border-blue-200 animate-pulse",
+      };
     }
-    if (todayLog.workedStatus === "HALF_DAY" || todayLog.workedStatus === "Half Day") {
-      return { label: "Half Day", color: "bg-amber-50 text-amber-600 border-amber-200" };
+
+    // ✅ Employee is on break
+    if (todayLog?.isOnBreak) {
+      return {
+        label: "On Break",
+        color: "bg-amber-100 text-amber-700 border border-amber-200",
+      };
     }
-    return { label: "Absent", color: "bg-red-50 text-red-600 border-red-200" };
-  }, [todayLog]);
+
+    const workedHours = workedTime / 3600;
+    const fullDay = Number(shiftTimings?.fullDayHours || 9);
+    const halfDay = Number(shiftTimings?.halfDayHours || 4.5);
+
+    if (workedHours >= fullDay) {
+      return {
+        label: "Full Day",
+        color: "bg-green-50 text-green-600 border-green-200",
+      };
+    }
+
+    if (workedHours >= halfDay) {
+      return {
+        label: "Half Day",
+        color: "bg-yellow-50 text-yellow-600 border-yellow-200",
+      };
+    }
+
+    return {
+      label: "Absent",
+      color: "bg-red-50 text-red-600 border-red-200",
+    };
+  }, [todayLog, workedTime, shiftTimings]);
 
   const formatWorkedTime = (totalSeconds) => {
     if (isNaN(totalSeconds) || totalSeconds < 0) return "0h 0m 0s";
@@ -571,6 +771,208 @@ const SupportAdminDashboard = () => {
   const [chartRawData, setChartRawData] = useState([]);
   const [loadingGraph, setLoadingGraph] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [holidays, setHolidays] = useState([]);
+  const [todayWorkRecords, setTodayWorkRecords] = useState([]);
+  const [trackingEmployees, setTrackingEmployees] = useState([]);
+  const [fieldTrips, setFieldTrips] = useState([]);
+  const [allAttendanceRecords, setAllAttendanceRecords] = useState([]);
+  const [loadingWork, setLoadingWork] = useState(false);
+  const [loadingField, setLoadingField] = useState(false);
+  const [loadingLate, setLoadingLate] = useState(false);
+
+  const activeEmployees = useMemo(
+    () => allEmployees.filter((e) => e.isActive !== false && (e.status || "").toLowerCase() !== "deactive"),
+    [allEmployees]
+  );
+
+  const empMap = useMemo(() => {
+    const m = {};
+    allEmployees.forEach((e) => { m[e.employeeId] = e; });
+    return m;
+  }, [allEmployees]);
+
+  const todayPresent = useMemo(
+    () => todayAttendance.filter((a) => !!a.punchIn),
+    [todayAttendance]
+  );
+
+  // Work Tracker Summary Metrics
+  const workTrackerStats = useMemo(() => {
+    const expected = activeEmployees.length;
+    const morning = todayWorkRecords.length;
+    const evening = todayWorkRecords.filter(r => r.evening_time || r.evening_description).length;
+    const pending = todayWorkRecords.filter(r => r.status === "pending").length;
+    const completionPct = expected > 0 ? Math.round((morning / expected) * 100) : 0;
+
+    return { expected, morning, evening, pending, completionPct };
+  }, [todayWorkRecords, activeEmployees]);
+
+  // Attendance vs Reports Metrics
+  const comparisonStats = useMemo(() => {
+    const attendance = todayPresent.length;
+    const reports = todayWorkRecords.length;
+    const missing = Math.max(0, attendance - reports);
+    const completionPct = attendance > 0 ? Math.round((reports / attendance) * 100) : 0;
+
+    return { attendance, reports, missing, completionPct };
+  }, [todayPresent, todayWorkRecords]);
+
+  // Field Work Status Metrics
+  const fieldWorkStats = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const active = trackingEmployees.filter(emp => emp.isFieldLive).length;
+    const completed = fieldTrips.filter(trip => {
+      if (trip.status !== "completed") return false;
+      const tripDate = trip.startedAt ? new Date(trip.startedAt).toISOString().split('T')[0] : "";
+      return tripDate === today;
+    }).length;
+    const pending = Math.max(0, trackingEmployees.length - active - completed);
+
+    return { active, completed, pending };
+  }, [trackingEmployees, fieldTrips]);
+
+  // Late Correction Requests Metrics
+  const lateRequestsStats = useMemo(() => {
+    let pending = 0;
+    let approvedToday = 0;
+    let rejectedToday = 0;
+    const today = new Date().toISOString().split("T")[0];
+
+    allAttendanceRecords.forEach(emp => {
+      if (emp.attendance) {
+        emp.attendance.forEach(day => {
+          if (day.lateCorrectionRequest?.hasRequest) {
+            const reqStatus = day.lateCorrectionRequest.status;
+            if (reqStatus === "PENDING") {
+              pending++;
+            } else if (reqStatus === "APPROVED" && day.date === today) {
+              approvedToday++;
+            } else if (reqStatus === "REJECTED" && day.date === today) {
+              rejectedToday++;
+            }
+          }
+        });
+      }
+    });
+
+    return { pending, approvedToday, rejectedToday };
+  }, [allAttendanceRecords]);
+
+  // List of all Late Correction Requests
+  const allLateRequestsList = useMemo(() => {
+    const list = [];
+    allAttendanceRecords.forEach(emp => {
+      if (emp.attendance) {
+        emp.attendance.forEach(day => {
+          if (day.lateCorrectionRequest?.hasRequest) {
+            const empInfo = activeEmployees.find(e => e.employeeId === emp.employeeId) || {};
+            list.push({
+              employeeId: emp.employeeId,
+              name: empInfo.name || emp.employeeId,
+              date: day.date,
+              reason: day.lateCorrectionRequest.reason || "Late punch-in correction",
+              status: day.lateCorrectionRequest.status,
+              requestedAt: day.lateCorrectionRequest.requestedAt,
+              dayLog: day
+            });
+          }
+        });
+      }
+    });
+    return list.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [allAttendanceRecords, activeEmployees]);
+
+  const hasWorkReportAccess = useMemo(() => {
+    return isQuickActionVisible("/admin/daily-work-report") || isQuickActionVisible("/work-report") || isQuickActionVisible("/admin/setup-work-report") || isQuickActionVisible("/daily-work-report");
+  }, [isQuickActionVisible]);
+
+  const hasFieldTrackAccess = useMemo(() => {
+    return isQuickActionVisible("/admin/field-tracking") || isQuickActionVisible("/field-tracking");
+  }, [isQuickActionVisible]);
+
+  const hasLateRequestAccess = useMemo(() => {
+    return isQuickActionVisible("/admin/late-requests") || isQuickActionVisible("/late-requests") || isQuickActionVisible("/attendance");
+  }, [isQuickActionVisible]);
+
+  const getInitials = (name) => {
+    if (!name) return "E";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0].slice(0, 2).toUpperCase();
+  };
+
+  const pickColor = (name) => {
+    const colors = [
+      "bg-blue-500", "bg-purple-500", "bg-emerald-500",
+      "bg-rose-500", "bg-amber-500", "bg-indigo-500", "bg-teal-500"
+    ];
+    let hash = 0;
+    for (let i = 0; i < (name || "").length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  const { todayBirthdays, upcomingBirthdays } = useMemo(() => {
+    const todayM = new Date().getMonth();
+    const todayD = new Date().getDate();
+
+    const birthdayEmployees = activeEmployees
+      .filter((e) => e.personalDetails?.dob || e.dob)
+      .map((e) => {
+        const dobStr = e.personalDetails?.dob || e.dob;
+        const dob = new Date(dobStr);
+        const { role } = getDeptRole(e);
+        return {
+          name: e.name,
+          role,
+          month: dob.getMonth(),
+          day: dob.getDate(),
+          dob: dobStr,
+        };
+      });
+
+    const todayB = birthdayEmployees.filter(
+      (b) => b.month === todayM && b.day === todayD
+    );
+
+    const upcoming = birthdayEmployees
+      .filter((b) => {
+        const thisYear = new Date().getFullYear();
+        let bdDate = new Date(thisYear, b.month, b.day);
+        if (bdDate <= new Date()) bdDate.setFullYear(thisYear + 1);
+        const diff = bdDate - new Date();
+        return diff > 0 && diff <= 30 * 24 * 60 * 60 * 1000;
+      })
+      .sort((a, b) => {
+        const yr = new Date().getFullYear();
+        const da = new Date(yr, a.month, a.day);
+        const db = new Date(yr, b.month, b.day);
+        if (da < new Date()) da.setFullYear(yr + 1);
+        if (db < new Date()) db.setFullYear(yr + 1);
+        return da - db;
+      })
+      .slice(0, 5);
+
+    return { todayBirthdays: todayB, upcomingBirthdays: upcoming };
+  }, [activeEmployees]);
+
+  const upcomingHolidays = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    return holidays
+      .map((h) => {
+        const hDate = new Date(h.startDate || h.date);
+        hDate.setHours(0, 0, 0, 0);
+        const diffTime = hDate - now;
+        const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { ...h, daysRemaining, dateObj: hDate };
+      })
+      .filter((h) => h.daysRemaining >= 0)
+      .sort((a, b) => a.daysRemaining - b.daysRemaining)
+      .slice(0, 5);
+  }, [holidays]);
 
   const onPieEnter = (_, index) => {
     setActiveIndex(index);
@@ -587,16 +989,33 @@ const SupportAdminDashboard = () => {
   const fetchDashboardData = useCallback(async () => {
     try {
       const today = new Date().toISOString().split("T")[0];
+      setLoadingWork(true);
+      setLoadingField(true);
+      setLoadingLate(true);
 
-      const [todayAtt, leavesData, empData] = await Promise.all([
+      const [todayAtt, leavesData, empData, holidaysData, workRes, trackingRes, tripsRes, lateRes] = await Promise.all([
         getAttendanceByDateRange(today, today).catch(() => []),
         getLeaveRequests().catch(() => []),
         getEmployees().catch(() => []),
+        getHolidays().catch(() => []),
+        getAdminWorkRecords({ start_date: today, end_date: today }).catch(() => ({ data: [] })),
+        getFieldTrackingEmployees({ page: 1, limit: 100 }).catch(() => ({ data: [] })),
+        getRecentFieldTrips(100).catch(() => ({ data: [] })),
+        api.get("/api/attendance/all").catch(() => ({ data: { data: [] } })),
       ]);
 
       setTodayAttendance(Array.isArray(todayAtt) ? todayAtt : []);
       setAllLeaves(Array.isArray(leavesData) ? leavesData : []);
       setAllEmployees(Array.isArray(empData) ? empData : []);
+      setHolidays(Array.isArray(holidaysData) ? holidaysData : (holidaysData?.data || []));
+      setTodayWorkRecords(workRes?.data || []);
+      setTrackingEmployees(trackingRes?.data || []);
+      setFieldTrips(tripsRes?.data || []);
+      setAllAttendanceRecords(lateRes?.data?.data || []);
+
+      setLoadingWork(false);
+      setLoadingField(false);
+      setLoadingLate(false);
 
       try {
         const { data } = await api.get("/api/admin/settings/employees-modes");
@@ -612,22 +1031,15 @@ const SupportAdminDashboard = () => {
       }
     } catch (err) {
       console.error("SupportAdminDashboard fetch error:", err);
+      setLoadingWork(false);
+      setLoadingField(false);
+      setLoadingLate(false);
     }
   }, []);
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
-
-  const activeEmployees = useMemo(
-    () => allEmployees.filter((e) => e.isActive !== false && (e.status || "").toLowerCase() !== "deactive"), [allEmployees]
-  );
-
-  const empMap = useMemo(() => {
-    const m = {};
-    allEmployees.forEach((e) => { m[e.employeeId] = e; });
-    return m;
-  }, [allEmployees]);
 
   const weekDates = useMemo(() => {
     const formatDate = (date) => {
@@ -751,10 +1163,6 @@ const SupportAdminDashboard = () => {
     return data;
   }, [chartRawData, activeEmployees, allLeaves, weekDates, viewMode]);
 
-  const todayPresent = useMemo(
-    () => todayAttendance.filter((a) => !!a.punchIn),
-    [todayAttendance]
-  );
   const presentIds = useMemo(() => new Set(todayAttendance.map((a) => a.employeeId)), [todayAttendance]);
 
   const onLeaveTodayList = useMemo(() => {
@@ -862,7 +1270,14 @@ const SupportAdminDashboard = () => {
                 )}
               </div>
             </div>
-            <input id="profile-upload" type="file" className="hidden" onChange={handleImageSelect} disabled={uploadingImage} />
+            <input
+              id="profile-upload"
+              type="file"
+              className="hidden"
+              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+              onChange={handleImageSelect}
+              disabled={uploadingImage}
+            />
           </div>
 
           <div className="flex-1 w-full">
@@ -871,13 +1286,6 @@ const SupportAdminDashboard = () => {
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-800 flex flex-col md:flex-row items-center gap-2 justify-center md:justify-start">
                   <FaUserCircle className="text-indigo-500 hidden md:block" />
                   {adminProfile?.name || user?.name || "Support Admin"}
-                  <button 
-                    onClick={() => setIsQrModalOpen(true)}
-                    className="p-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full transition-colors cursor-pointer ml-2"
-                    title="Show QR Code"
-                  >
-                    <QrCode size={20} />
-                  </button>
                 </h3>
                 <div className="mt-3 mb-4 flex flex-col items-center md:items-start gap-2">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs uppercase tracking-wider font-bold shadow-sm border bg-indigo-50 text-indigo-700 border-indigo-200">
@@ -979,7 +1387,15 @@ const SupportAdminDashboard = () => {
               <div className="bg-indigo-50 p-2 rounded-lg text-indigo-600"><FaRegClock size={18} /></div>
               <h2 className="font-bold text-lg text-gray-800">Daily Attendance</h2>
             </div>
-            <button onClick={() => navigate("/support-admin/my-attendance")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition shadow-sm">View History →</button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowLateLoginModal(true)}
+                className="text-xs font-bold text-orange-700 hover:text-orange-900 bg-orange-50 hover:bg-orange-100 px-3.5 py-1.5 rounded-lg border border-orange-200 transition shadow-sm flex items-center gap-1.5"
+              >
+                <FaUserClock className="text-orange-500" /> Request Late Login
+              </button>
+              <button onClick={() => navigate("/support-admin/my-attendance")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 transition shadow-sm">View History →</button>
+            </div>
           </div>
 
           {/* Desktop Table View */}
@@ -1219,9 +1635,20 @@ const SupportAdminDashboard = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Total Employees */}
-          <div className="bg-white rounded-[20px] p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-[130px] transition-all hover:shadow-md">
-            <div className="w-11 h-11 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl">
-              <FaUsers />
+          <div
+            onClick={() => isQuickActionVisible("/employees") && navigate("/employees")}
+            className={`bg-white rounded-[20px] p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-[130px] transition-all ${isQuickActionVisible("/employees")
+              ? "cursor-pointer hover:border-indigo-200 hover:shadow-md active:scale-[0.99]"
+              : ""
+              }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 text-xl">
+                <FaUsers />
+              </div>
+              {isQuickActionVisible("/employees") && (
+                <FaChevronRight className="text-gray-300 text-xs" />
+              )}
             </div>
             <div>
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Managed Employees</p>
@@ -1232,9 +1659,20 @@ const SupportAdminDashboard = () => {
           </div>
 
           {/* Today Present */}
-          <div className="bg-white rounded-[20px] p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-[130px] transition-all hover:shadow-md">
-            <div className="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center text-green-600 text-xl">
-              <FaLaptopCode />
+          <div
+            onClick={() => isQuickActionVisible("/attendance") && navigate("/attendance")}
+            className={`bg-white rounded-[20px] p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-[130px] transition-all ${isQuickActionVisible("/attendance")
+              ? "cursor-pointer hover:border-green-200 hover:shadow-md active:scale-[0.99]"
+              : ""
+              }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center text-green-600 text-xl">
+                <FaLaptopCode />
+              </div>
+              {isQuickActionVisible("/attendance") && (
+                <FaChevronRight className="text-gray-300 text-xs" />
+              )}
             </div>
             <div>
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Today Present</p>
@@ -1245,9 +1683,20 @@ const SupportAdminDashboard = () => {
           </div>
 
           {/* Today Absent */}
-          <div className="bg-white rounded-[20px] p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-[130px] transition-all hover:shadow-md">
-            <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center text-red-600 text-xl">
-              <FaFileAlt />
+          <div
+            onClick={() => isQuickActionVisible("/attendance") && navigate("/attendance")}
+            className={`bg-white rounded-[20px] p-5 shadow-sm border border-gray-100 flex flex-col justify-between h-[130px] transition-all ${isQuickActionVisible("/attendance")
+              ? "cursor-pointer hover:border-red-200 hover:shadow-md active:scale-[0.99]"
+              : ""
+              }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center text-red-600 text-xl">
+                <FaFileAlt />
+              </div>
+              {isQuickActionVisible("/attendance") && (
+                <FaChevronRight className="text-gray-300 text-xs" />
+              )}
             </div>
             <div>
               <p className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Today Absent</p>
@@ -1258,17 +1707,17 @@ const SupportAdminDashboard = () => {
           </div>
         </div>
 
-        {/* Charts & Distribution */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Attendance Graph */}
-          <div className="lg:col-span-2 bg-[#111C44] rounded-[24px] p-6 shadow-xl flex flex-col">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        {/* ROW 1: CHARTS ROW (BAR GRAPH & PIE CHART IN A SINGLE ROW WITH EQUAL HEIGHT) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch mb-6">
+          {/* Attendance Graph (Span 2) */}
+          <div className="lg:col-span-2 bg-[#111C44] rounded-[24px] p-4 sm:p-6 shadow-xl flex flex-col justify-between h-full">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
               <div>
-                <h3 className="text-white font-bold text-lg">
+                <h3 className="text-white font-bold text-base sm:text-lg">
                   {viewMode === 'week' ? "Weekly Attendance" : "Monthly Attendance"}
                 </h3>
                 {!loadingGraph && weeklyChartData.length > 0 && (
-                  <p className="text-[#39B8FF] text-[10px] font-bold uppercase tracking-wider mt-1">
+                  <p className="text-[#39B8FF] text-[10px] font-bold uppercase tracking-wider mt-0.5">
                     Peak {viewMode === 'week' ? "Day" : "Date"}: {
                       weeklyChartData.reduce((prev, current) => (prev.Present >= current.Present) ? prev : current).name
                     }
@@ -1276,31 +1725,31 @@ const SupportAdminDashboard = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={viewMode}
                   onChange={(e) => setViewMode(e.target.value)}
-                  className="bg-[#1B254B] text-white text-xs border-none rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                  className="bg-[#1B254B] text-white text-xs border-none rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
                 >
                   <option value="week">Weekly</option>
                   <option value="month">Monthly</option>
                 </select>
 
                 {viewMode === 'week' ? (
-                  <div className="flex items-center gap-2 bg-[#1B254B] rounded-lg p-1">
+                  <div className="flex items-center gap-1.5 bg-[#1B254B] rounded-lg p-1">
                     <button
                       onClick={() => setCurrentWeek(currentWeek - 1)}
-                      className="p-1.5 text-white hover:text-indigo-300"
+                      className="p-1 text-white hover:text-indigo-300"
                     >
                       <FaChevronLeft size={10} />
                     </button>
-                    <span className="text-white text-[10px] min-w-[120px] text-center font-medium">
+                    <span className="text-white text-[9px] sm:text-[10px] min-w-[95px] sm:min-w-[120px] text-center font-medium truncate">
                       {formatWeekRange(weekDates.start, weekDates.end)}
                     </span>
                     <button
                       onClick={() => setCurrentWeek(currentWeek + 1)}
                       disabled={currentWeek >= 0}
-                      className={`p-1.5 ${currentWeek >= 0 ? 'text-gray-600 cursor-not-allowed' : 'text-white hover:text-indigo-300'}`}
+                      className={`p-1 ${currentWeek >= 0 ? 'text-gray-600 cursor-not-allowed' : 'text-white hover:text-indigo-300'}`}
                     >
                       <FaChevronRight size={10} />
                     </button>
@@ -1311,20 +1760,20 @@ const SupportAdminDashboard = () => {
                     value={selectedMonth}
                     onChange={(e) => setSelectedMonth(e.target.value)}
                     max={new Date().toISOString().slice(0, 7)}
-                    className="bg-[#1B254B] text-white text-xs border-none rounded-lg px-3 py-1.5 outline-none"
+                    className="bg-[#1B254B] text-white text-xs border-none rounded-lg px-2.5 py-1.5 outline-none"
                   />
                 )}
               </div>
             </div>
 
-            <div className="h-[250px] w-full">
+            <div className="h-[220px] sm:h-[250px] w-full flex-1 min-h-[200px]">
               {loadingGraph ? (
                 <div className="flex items-center justify-center h-full text-white opacity-50 text-sm">Loading Data...</div>
               ) : weeklyChartData.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-white opacity-50 text-sm">No data available</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyChartData}>
+                  <BarChart data={weeklyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="pGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#86DBFF" />
@@ -1336,8 +1785,14 @@ const SupportAdminDashboard = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#fff", fontSize: 10 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: "#fff", fontSize: 10 }} />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#fff", fontSize: 9 }}
+                      interval={viewMode === 'month' ? 'preserveStartEnd' : 0}
+                    />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: "#fff", fontSize: 9 }} />
                     <Tooltip
                       cursor={{ fill: "rgba(255,255,255,0.05)" }}
                       contentStyle={{
@@ -1348,52 +1803,462 @@ const SupportAdminDashboard = () => {
                         borderRadius: "8px",
                       }}
                     />
-                    <Bar dataKey="Present" fill="url(#pGrad)" radius={[4, 4, 0, 0]} barSize={12} />
-                    <Bar dataKey="Absent" fill="url(#aGrad)" radius={[4, 4, 0, 0]} barSize={12} />
+                    <Bar dataKey="Present" fill="url(#pGrad)" radius={[4, 4, 0, 0]} barSize={viewMode === 'week' ? 10 : 5} />
+                    <Bar dataKey="Absent" fill="url(#aGrad)" radius={[4, 4, 0, 0]} barSize={viewMode === 'week' ? 10 : 5} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </div>
           </div>
 
-          {/* Department distribution */}
-          <div className="bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 flex flex-col justify-between">
-            <h3 className="text-slate-800 font-bold text-lg mb-4">
-              Team Distribution
-            </h3>
-            <div className="flex justify-center h-[180px] relative">
+          {/* Department distribution Pie Chart (Span 1) */}
+          <div className="lg:col-span-1 bg-white rounded-[24px] p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-full hover:shadow-md transition-all">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-slate-800 font-bold text-lg">
+                Team Distribution
+              </h3>
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100">
+                {departmentData.length} Departments
+              </span>
+            </div>
+
+            <div className="flex justify-center h-[170px] relative my-1">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={departmentData}
-                    innerRadius={60}
-                    outerRadius={80}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={65}
                     dataKey="value"
                     startAngle={90}
                     endAngle={-270}
+                    paddingAngle={4}
+                    cornerRadius={4}
                     activeIndex={activeIndex}
                     activeShape={renderActiveShape}
                     onMouseEnter={onPieEnter}
                     onMouseLeave={onPieLeave}
+                    isAnimationActive={true}
+                    animationBegin={0}
+                    animationDuration={800}
+                    animationEasing="ease-out"
                   >
                     {departmentData.map((_, i) => (
-                      <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />
+                      <Cell
+                        key={`cell-${i}`}
+                        fill={COLORS[i % COLORS.length]}
+                        stroke="rgba(255,255,255,0.9)"
+                        strokeWidth={2}
+                      />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-4 max-h-[100px] overflow-y-auto no-scrollbar">
+
+            <div className="grid grid-cols-2 gap-2 mt-1 max-h-[100px] overflow-y-auto custom-scrollbar pt-2 border-t border-gray-100">
               {departmentData.map((dept, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                  <span className="text-xs text-gray-600 truncate">{dept.name}</span>
+                <div
+                  key={i}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onMouseLeave={() => setActiveIndex(-1)}
+                  className={`flex items-center justify-between p-1.5 rounded-xl border text-xs cursor-pointer transition-all duration-200 ${activeIndex === i ? 'bg-indigo-50 border-indigo-200 shadow-sm scale-[1.02]' : 'bg-gray-50/70 border-gray-100 hover:bg-gray-50'}`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 transition-transform ${activeIndex === i ? 'scale-125' : ''}`}
+                      style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                    />
+                    <span className={`font-semibold truncate text-[11px] ${activeIndex === i ? 'text-indigo-900 font-bold' : 'text-gray-700'}`}>
+                      {dept.name}
+                    </span>
+                  </div>
+                  <span className="font-mono font-extrabold text-gray-900 text-[11px] shrink-0 ml-1">
+                    {dept.value}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
+        {/* ROW 2: QUICK ACTIONS & OPERATIONS (MOBILE RESPONSIBLY ORDERED) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          {/* QUICK ACTIONS (Renders FIRST on mobile right after Pie Chart, and RIGHT COLUMN on desktop) */}
+          <div className="lg:col-span-1 lg:col-start-3 lg:row-start-1">
+            {visibleQuickActions.length > 0 && (
+              <div className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100/80 rounded-[24px] p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
+                <h3 className="text-[#2B3674] font-bold text-lg mb-4 sm:mb-6">Quick Actions</h3>
+                <div className="flex flex-col gap-3">
+                  {visibleQuickActions.map((action, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => navigate(action.path)}
+                      className="flex items-center justify-between w-full p-3 rounded-xl border border-slate-100/60 hover:border-slate-200/80 hover:bg-slate-50/50 transition duration-150 bg-white cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <div
+                          className={`w-9 h-9 rounded-lg ${action.bg} flex items-center justify-center text-white text-sm shrink-0 group-hover:scale-105 transition-transform`}
+                        >
+                          <action.icon />
+                        </div>
+                        <span className="text-xs sm:text-sm font-semibold text-gray-700 truncate group-hover:text-[#2B3674]">
+                          {action.label}
+                        </span>
+                      </div>
+                      <FaChevronRight className="text-gray-300 text-xs shrink-0 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* LEFT COLUMN (Span 2): Operations, Late Requests, Birthdays & Holidays (Renders AFTER Quick Actions on mobile, LEFT COLUMN on desktop) */}
+          <div className="lg:col-span-2 lg:col-start-1 lg:row-start-1 flex flex-col gap-6">
+            {/* OPERATIONS & TRACKER SUMMARY - GATED BY ACCESS */}
+            {(hasWorkReportAccess || hasFieldTrackAccess) && (
+              <div className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100/80 rounded-[24px] p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
+                <h3 className="text-[#2B3674] font-bold text-lg mb-6 flex items-center gap-2">
+                  <FaClipboardList className="text-[#4318FF]" /> Operations & Tracker Summary
+                </h3>
+
+                <div className={`grid grid-cols-1 ${(hasWorkReportAccess && hasFieldTrackAccess) ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-6`}>
+                  {/* Sub-Widget 1: Daily Work Reports */}
+                  {hasWorkReportAccess && (
+                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Work Tracker</span>
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                            {workTrackerStats.completionPct}% Complete
+                          </span>
+                        </div>
+                        <p className="text-sm font-black text-slate-800 mb-4">Daily Work Reports</p>
+                      </div>
+
+                      {loadingWork ? (
+                        <div className="animate-pulse space-y-3">
+                          <div className="h-2.5 bg-slate-200 rounded w-full"></div>
+                          <div className="h-2.5 bg-slate-200 rounded w-full"></div>
+                        </div>
+                      ) : todayWorkRecords.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center text-xs text-slate-400">
+                          <span className="text-2xl mb-1">📬</span>
+                          <p className="font-bold text-slate-700">No Reports Submitted</p>
+                          <p className="text-[10px] text-slate-400">Encourage team to log report.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+                              <span>Morning Reports</span>
+                              <span>{workTrackerStats.morning} / {workTrackerStats.expected}</span>
+                            </div>
+                            <div className="w-full bg-slate-200/60 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-indigo-500 h-full rounded-full transition-all duration-300"
+                                style={{ width: `${Math.min(100, (workTrackerStats.morning / (workTrackerStats.expected || 1)) * 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+                              <span>Evening Reports</span>
+                              <span>{workTrackerStats.evening} / {workTrackerStats.expected}</span>
+                            </div>
+                            <div className="w-full bg-slate-200/60 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                                style={{ width: `${Math.min(100, (workTrackerStats.evening / (workTrackerStats.expected || 1)) * 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Sub-Widget 2: Attendance vs Reports */}
+                  {hasWorkReportAccess && (
+                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sync Ratio</span>
+                          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            {comparisonStats.completionPct}% Synced
+                          </span>
+                        </div>
+                        <p className="text-sm font-black text-slate-800 mb-4">Attendance vs Reports</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                          <span className="text-xs text-slate-500 font-semibold">Morning Attendance</span>
+                          <span className="text-xs font-extrabold text-[#2B3674] bg-indigo-50 px-2.5 py-0.5 rounded-md">{comparisonStats.attendance}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                          <span className="text-xs text-slate-500 font-semibold">Morning Reports</span>
+                          <span className="text-xs font-extrabold text-[#2B3674] bg-emerald-50 px-2.5 py-0.5 rounded-md">{comparisonStats.reports}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1.5">
+                          <span className="text-xs text-slate-500 font-semibold">Missing Reports</span>
+                          <span className={`text-xs font-extrabold px-2.5 py-0.5 rounded-md ${comparisonStats.missing > 0 ? "text-rose-600 bg-rose-50 border border-rose-100" : "text-emerald-600 bg-emerald-50"}`}>
+                            {comparisonStats.missing}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sub-Widget 3: Field Work Status */}
+                  {hasFieldTrackAccess && (
+                    <div
+                      onClick={() => isQuickActionVisible("/admin/field-tracking") && navigate("/admin/field-tracking")}
+                      className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 flex flex-col justify-between cursor-pointer hover:border-indigo-200 transition-all duration-200 group"
+                    >
+                      <div>
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Field Tracking</span>
+                          <span className="text-xs font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
+                            Manage →
+                          </span>
+                        </div>
+                        <p className="text-sm font-black text-slate-800 mb-4">Field Work Status</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-100/80">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span className="text-xs font-bold text-[#047857]">Active Trips</span>
+                          </div>
+                          <span className="text-sm font-black text-emerald-900">{fieldWorkStats.active}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100/80">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                            <span className="text-xs font-bold text-indigo-800">Completed Today</span>
+                          </div>
+                          <span className="text-sm font-black text-indigo-900">{fieldWorkStats.completed}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/60 border border-amber-100/80">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                            <span className="text-xs font-bold text-amber-800">Pending Trips</span>
+                          </div>
+                          <span className="text-sm font-black text-amber-900">{fieldWorkStats.pending}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LATE LOGIN REQUESTS - GATED BY ACCESS */}
+            {hasLateRequestAccess && (
+              <div className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100/80 rounded-[24px] p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-[#2B3674] font-bold text-lg flex items-center gap-2">
+                    <FaClock className="text-[#4318FF]" /> Late Login Requests
+                  </h3>
+                  <button
+                    onClick={() => isQuickActionVisible("/admin/late-requests") && navigate("/admin/late-requests")}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition cursor-pointer"
+                  >
+                    View All →
+                  </button>
+                </div>
+
+                {loadingLate ? (
+                  <div className="animate-pulse space-y-3">
+                    <div className="h-12 bg-slate-200 rounded-xl"></div>
+                    <div className="h-12 bg-slate-200 rounded-xl"></div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Stats summary block */}
+                    <div className="lg:col-span-1 flex flex-col justify-between bg-slate-50/50 p-4 rounded-2xl border border-slate-100/80">
+                      <div>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">Request Stats</span>
+                        <p className="text-sm font-black text-slate-800 mb-4">Today's Summary</p>
+                      </div>
+                      <div className="flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between bg-[#FFF9E6] border border-[#FFEBA6] px-3.5 py-2 rounded-xl">
+                          <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pending</span>
+                          <span className="text-sm font-black text-amber-700">{lateRequestsStats.pending}</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-[#EBFBF5] border border-[#B3F3D8] px-3.5 py-2 rounded-xl">
+                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Approved</span>
+                          <span className="text-sm font-black text-emerald-700">{lateRequestsStats.approvedToday}</span>
+                        </div>
+                        <div className="flex items-center justify-between bg-[#FFF0F0] border border-[#FFCCD3] px-3.5 py-2 rounded-xl">
+                          <span className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Rejected</span>
+                          <span className="text-sm font-black text-rose-700">{lateRequestsStats.rejectedToday}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recent requests list block */}
+                    <div className="lg:col-span-2">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">Recent Requests</span>
+                      {allLateRequestsList.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center text-xs text-slate-400 bg-slate-50/30 rounded-2xl border border-slate-100/50 h-[140px]">
+                          <p className="font-bold">No Late Requests Found</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {allLateRequestsList.slice(0, 3).map((req, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 bg-[#F9FAFD] border border-gray-100 rounded-xl hover:border-indigo-100 transition duration-150">
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-[#2B3674] truncate">{req.name}</p>
+                                <p className="text-[10px] text-slate-400 font-semibold truncate">
+                                  Date: {req.date} | {req.reason}
+                                </p>
+                              </div>
+                              <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shrink-0 ${req.status === "PENDING" ? "bg-amber-50 text-amber-600 border border-amber-100" :
+                                req.status === "APPROVED" ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                                  "bg-rose-50 text-rose-600 border border-rose-100"
+                                }`}>
+                                {req.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* BIRTHDAYS & HOLIDAYS - IN LEFT COLUMN */}
+            {(isQuickActionVisible("/employees") || isQuickActionVisible("/admin/holiday-calendar")) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* BIRTHDAYS CARD */}
+                {isQuickActionVisible("/employees") && (
+                  <div className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100/80 rounded-[24px] p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-[#2B3674] font-bold text-sm flex items-center gap-2 uppercase tracking-wide">
+                        🎂 Employee Birthdays
+                      </h3>
+                    </div>
+
+                    <div className="mb-4">
+                      <h4 className="text-xs font-bold text-slate-500 mb-2">
+                        Today Birthdays ({todayBirthdays.length})
+                      </h4>
+                      {todayBirthdays.length === 0 ? (
+                        <p className="text-xs text-gray-400">No birthdays today</p>
+                      ) : (
+                        todayBirthdays.map((b, i) => (
+                          <div
+                            key={i}
+                            className="bg-gradient-to-r from-amber-400 to-rose-400 rounded-xl p-3 flex items-center justify-between mb-2 shadow-sm text-white"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`w-8 h-8 rounded-full ${pickColor(b.name)} text-white font-bold flex items-center justify-center text-xs shadow-sm ring-2 ring-white`}
+                              >
+                                {getInitials(b.name)}
+                              </div>
+                              <div className="text-left">
+                                <p className="text-xs font-bold">
+                                  {b.name}{" "}
+                                  <span className="font-normal opacity-80">({b.role})</span>
+                                </p>
+                              </div>
+                            </div>
+                            <span className="bg-white/20 text-white text-[10px] font-extrabold py-1 px-2.5 rounded-lg backdrop-blur-xs">
+                              🎉 Today!
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-500 mb-2">
+                        Upcoming Birthdays ({upcomingBirthdays.length})
+                      </h4>
+                      {upcomingBirthdays.length === 0 ? (
+                        <p className="text-xs text-gray-400">No upcoming birthdays in 30 days</p>
+                      ) : (
+                        <div className="flex items-center ml-2 pt-1">
+                          {upcomingBirthdays.map((b, i) => (
+                            <div
+                              key={i}
+                              className={`w-9 h-9 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold -ml-2 first:ml-0 ${pickColor(b.name)} shadow-sm`}
+                              title={`${b.name} — ${b.role}`}
+                            >
+                              {getInitials(b.name)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* UPCOMING HOLIDAYS CARD */}
+                {isQuickActionVisible("/admin/holiday-calendar") && (
+                  <div className="bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] border border-slate-100/80 rounded-[24px] p-4 sm:p-6 transition-all duration-200 hover:shadow-md">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-[#2B3674] font-bold text-sm flex items-center gap-2 uppercase tracking-wide">
+                        <FaCalendarAlt className="text-[#4318FF] text-xs" /> Upcoming Holidays
+                      </h3>
+                      <button
+                        onClick={() => navigate("/admin/holiday-calendar")}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition cursor-pointer"
+                      >
+                        View Calendar →
+                      </button>
+                    </div>
+
+                    {upcomingHolidays.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 text-center text-xs text-slate-400 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                        <span className="text-2xl mb-1">📭</span>
+                        <p className="font-bold">No Upcoming Holidays</p>
+                        <p className="text-[10px] opacity-80">Enjoy your work week.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {upcomingHolidays.map((hol, idx) => {
+                          const dateObj = new Date(hol.startDate || hol.date);
+                          const dayStr = dateObj.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+                          return (
+                            <div
+                              key={hol._id || hol.id || idx}
+                              className="flex items-center justify-between p-2.5 bg-slate-50/70 border border-slate-100 rounded-xl hover:border-indigo-100 hover:bg-slate-100/40 transition duration-150"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 truncate">{hol.name}</p>
+                                <p className="text-[9px] text-slate-400 font-semibold">{hol.description || "Holiday"}</p>
+                              </div>
+                              <div className="text-right shrink-0 flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                                  {dayStr}
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-500">
+                                  {hol.daysRemaining === 0 ? "Today" : `${hol.daysRemaining} days left`}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       {showCropModal && imageToCrop && (
         <ImageCropModal
@@ -1407,13 +2272,59 @@ const SupportAdminDashboard = () => {
         />
       )}
 
-      <EmployeeQRCodeModal 
-        isOpen={isQrModalOpen}
-        onClose={() => setIsQrModalOpen(false)}
-        qrCodeUrl={adminProfile?.qrCodeUrl}
-        portfolioUrl={`https://vwsync.com/portfolio/${adminProfile?.supportAdminId || adminProfile?._id}`}
-        employeeName={adminProfile?.name || user?.name}
-      />
+      {/* Request Late Login Modal */}
+      {showLateLoginModal && (
+        <ModalWrapper isOpen={showLateLoginModal} onClose={() => setShowLateLoginModal(false)} title="Request Late Login to Admin">
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Select Date</label>
+              <input
+                type="date"
+                value={lateModalData.date}
+                onChange={(e) => setLateModalData({ ...lateModalData, date: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-medium text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Expected / Requested Punch In Time</label>
+              <input
+                type="time"
+                value={lateModalData.requestedPunchIn}
+                onChange={(e) => setLateModalData({ ...lateModalData, requestedPunchIn: e.target.value })}
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 font-medium text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 uppercase mb-1">Reason for Late Login *</label>
+              <textarea
+                rows="3"
+                value={lateModalData.reason}
+                onChange={(e) => setLateModalData({ ...lateModalData, reason: e.target.value })}
+                placeholder="E.g., Traffic delay, personal emergency, medical appointment..."
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-none"
+              ></textarea>
+            </div>
+
+            <div className="pt-3 flex gap-3">
+              <button
+                onClick={() => setShowLateLoginModal(false)}
+                className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLateLoginSubmit}
+                disabled={submittingLateReq}
+                className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-amber-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:shadow-none transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {submittingLateReq ? "Submitting..." : "Submit to Admin"}
+              </button>
+            </div>
+          </div>
+        </ModalWrapper>
+      )}
     </div>
   );
 };
