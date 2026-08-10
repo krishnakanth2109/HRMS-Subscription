@@ -400,4 +400,53 @@ export const removeFavicon = async (req, res) => {
   }
 };
 
+// @desc    Get master profile
+// @route   GET /api/master/profile
+// @access  Private (Master Only)
+export const getProfile = async (req, res) => {
+  try {
+    const master = await MasterAdmin.findById(req.master._id);
+    if (!master) {
+      return res.status(404).json({ message: "Master not found." });
+    }
+    res.json({
+      _id: master._id,
+      email: master.email,
+      role: master.role
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update master profile (email and/or password)
+// @route   PUT /api/master/profile
+// @access  Private (Master Only)
+export const updateProfile = async (req, res) => {
+  try {
+    const master = await MasterAdmin.findById(req.master._id);
+    if (!master) {
+      return res.status(404).json({ message: "Master not found." });
+    }
+
+    if (req.body.email) {
+      master.email = req.body.email;
+    }
+    if (req.body.password) {
+      master.password = req.body.password;
+    }
+
+    await master.save();
+
+    res.json({
+      _id: master._id,
+      email: master.email,
+      role: master.role,
+      message: "Profile updated successfully."
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // --- END OF FILE controllers/masterController.js ---

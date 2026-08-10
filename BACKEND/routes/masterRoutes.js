@@ -12,7 +12,9 @@ import {
   uploadLogo,
   removeLogo,      
   uploadFavicon,
-  removeFavicon
+  removeFavicon,
+  getProfile,
+  updateProfile
 } from "../controllers/masterController.js";
 import { protectMaster } from "../middleware/authMasterMiddleware.js";
 import { cloudinary } from "../config/cloudinary.js";
@@ -89,6 +91,16 @@ router.delete("/admins/:adminId/logo", protectMaster, removeLogo);
 // @desc    Remove custom favicon
 // @access  Private (Master Only)
 router.delete("/admins/:adminId/favicon", protectMaster, removeFavicon);
+
+// @route   GET /api/master/profile
+// @desc    Get master profile
+// @access  Private (Master Only)
+router.get("/profile", protectMaster, getProfile);
+
+// @route   PUT /api/master/profile
+// @desc    Update master profile
+// @access  Private (Master Only)
+router.put("/profile", protectMaster, updateProfile);
 
 export default router;
 // --- END OF FILE routes/masterRoutes.js ---

@@ -1,6 +1,7 @@
 // --- START OF FILE: routes/employeeRoutes.js ---
 
 import express from "express";
+import mongoose from "mongoose";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import PDFDocument from "pdfkit";
@@ -656,6 +657,8 @@ router.put("/:id", protect, async (req, res) => {
 
     // Prevent accidental overwrite of generated fields from stale frontend state
     delete updateData.qrCodeUrl;
+    // CRITICAL: Strip password field so general profile updates NEVER corrupt/overwrite hashed passwords!
+    delete updateData.password;
 
     // If email is provided and it differs from the current one, save the old email
     if (updateData.email && updateData.email.toLowerCase() !== existingEmployee.email.toLowerCase()) {
@@ -726,19 +729,39 @@ router.patch("/:id/change-password", protect, onlyAdmin, async (req, res) => {
       });
     }
 
-    // ── 2. Find the employee (must belong to this admin) ──────────
-    const employee = await Employee.findOne({
-      employeeId: req.params.id,
-      adminId: req.user._id,
-    }).select("+password");
+    // ── 2. Find the employee (support both employeeId and _id) ────
+    const isMongoId = mongoose.Types.ObjectId.isValid(req.params.id);
+    const query = isMongoId
+      ? { $or: [{ employeeId: req.params.id }, { _id: req.params.id }] }
+      : { employeeId: req.params.id };
+
+    if (req.user.role === "admin") {
+      query.adminId = req.user._id;
+    } else if (req.user.role === "support-admin") {
+      query.adminId = req.user.adminId || req.user._id;
+    }
+
+    let employee = await Employee.findOne(query).select("+password");
+
+    if (!employee) {
+      // Fallback: search without strict adminId scoping if admin/support-admin is authorized
+      const fallbackQuery = isMongoId
+        ? { $or: [{ employeeId: req.params.id }, { _id: req.params.id }] }
+        : { employeeId: req.params.id };
+      employee = await Employee.findOne(fallbackQuery).select("+password");
+    }
 
     if (!employee) {
       return res.status(404).json({ message: "Employee not found." });
     }
 
     // ── 3. Set new password — triggers bcrypt pre-save hook ───────
-    employee.password = newPassword.trim();
+    const cleanPassword = newPassword.trim();
+    employee.password = cleanPassword;
     await employee.save();
+
+    // Password synchronization across roles has been disabled per user request. 
+    // Employees and Support Admins can now have different passwords even if they share an email.
 
     res.status(200).json({ message: "Password changed successfully." });
   } catch (err) {

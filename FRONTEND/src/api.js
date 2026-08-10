@@ -91,13 +91,31 @@ api.interceptors.response.use(
 /* =============================================================================
    🔥 MASTER ADMIN API FUNCTIONS (NEW)
 ============================================================================= */
-
+// ===================== MASTER AUTH =====================
 export const loginMaster = async (email, password) => {
   try {
-    const response = await api.post("/api/master/login", { email, password });
-    return response.data;
+    const res = await api.post("/api/master/login", { email, password });
+    return res.data;
   } catch (error) {
-    throw error.response?.data?.message || "Master Login Failed";
+    throw error.response?.data?.message || "Master Login failed";
+  }
+};
+
+export const getMasterProfile = async () => {
+  try {
+    const res = await api.get("/api/master/profile");
+    return res.data;
+  } catch (error) {
+    throw error.response?.data?.message || "Failed to fetch master profile";
+  }
+};
+
+export const updateMasterProfile = async (data) => {
+  try {
+    const res = await api.put("/api/master/profile", data);
+    return res.data;
+  } catch (error) {
+    throw error.response?.data?.message || "Failed to update master profile";
   }
 };
 

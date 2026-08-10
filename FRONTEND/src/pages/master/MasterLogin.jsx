@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   Lock, 
@@ -228,6 +228,11 @@ const MasterLogin = () => {
                   )}
                 </button>
               </div>
+            </div>
+            <div className="flex justify-end -mt-2">
+              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+                Forgot Password?
+              </Link>
             </div>
 
             {/* Gradient Submit Button */}

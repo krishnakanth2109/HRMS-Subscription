@@ -634,12 +634,13 @@ const Login = () => {
                   <label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gray-500">
                     Password
                   </label>
-                  {/* <button 
+                  <button 
                     type="button" 
+                    onClick={() => navigate('/forgot-password')}
                     className="text-[10px] sm:text-[11px] font-bold text-purple-600 hover:text-purple-700 transition-colors"
                   >
                     Forgot? &rarr;
-                  </button> */}
+                  </button>
                 </div>
                 <div className="relative group">
                   <MdLock className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg sm:text-xl group-hover:text-purple-500 transition-colors" />

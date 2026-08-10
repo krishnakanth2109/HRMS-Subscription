@@ -13,6 +13,7 @@ import LayoutMaster from "./components/master/LayoutMaster";
 import MasterDashboard from "./pages/master/MasterDashboard";
 import MasterAdminUsers from "./pages/master/MasterAdminUsers";
 import MasterSettings from "./pages/master/MasterSettings";
+import MasterProfile from "./pages/master/MasterProfile";
 // Pages
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -241,6 +242,7 @@ function App() {
         <Route path="manage-issues" element={<SuperAdminIssues />} />
         <Route path="manage-demo-requests" element={<AdminDemoRequests />} />
         <Route path="domain-settings" element={<DomainSettings />} />
+        <Route path="profile" element={<MasterProfile />} />
 
       </Route>
 
