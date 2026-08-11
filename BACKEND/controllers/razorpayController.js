@@ -3,6 +3,7 @@ import crypto from "crypto";
 import PlanSetting from "../models/planSettingModel.js";
 import Admin from "../models/adminModel.js";
 import { getBillableEmployeesCount } from "../utils/billingHelper.js";
+import { sendBrevoEmail } from "../Services/emailService.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -273,6 +274,35 @@ export const verifyPayment = async (req, res) => {
       });
       console.log("✅ Paid admin created:", email);
     }
+
+    // --- SEND EMAIL NOTIFICATION ---
+    const emailSubject = "Payment Successful - Subscription Activated";
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #10b981; text-align: center;">Payment Successful! 🎉</h2>
+        <p>Dear <strong>${name}</strong>,</p>
+        <p>Thank you for subscribing to the <strong>${planName}</strong> plan. Your payment has been successfully processed and your subscription is now active.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #334155;">Transaction Details</h4>
+          <p style="margin: 5px 0; color: #475569;"><strong>Transaction ID:</strong> ${razorpay_payment_id}</p>
+          <p style="margin: 5px 0; color: #475569;"><strong>Plan:</strong> ${planName}</p>
+          <p style="margin: 5px 0; color: #475569;"><strong>Amount Paid:</strong> ₹${Number(notes.amount) || 0}</p>
+        </div>
+        
+        <p>You can now login to your dashboard and start managing your organization.</p>
+        <br/>
+        <p>Best Regards,</p>
+        <p><strong>HRMS Admin Team</strong></p>
+      </div>
+    `;
+    
+    // Fire and forget email
+    sendBrevoEmail({
+      to: [{ name: name, email: email }],
+      subject: emailSubject,
+      htmlContent: emailHtml
+    });
 
     return res.status(200).json({
       success: true,

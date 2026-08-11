@@ -4,6 +4,8 @@ import { useLocation } from "react-router-dom";
 import api, { getAllCompanies } from "../api";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import html2pdf from "html2pdf.js";
+import logoImg from "../assets/logo.png";
 import {
   FaUser, FaEnvelope, FaPhone, FaBuilding,
   FaCrown, FaCalendarAlt, FaCheckCircle, FaTimesCircle,
@@ -142,130 +144,151 @@ const AdminProfile = () => {
   };
 
   const downloadReceiptPdf = (bill) => {
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
+    const totalAmount = bill.amount || 0;
+    const subtotal = (totalAmount / 1.18).toFixed(2);
+    const cgst = (subtotal * 0.09).toFixed(2);
+    const sgst = (subtotal * 0.09).toFixed(2);
+    const unitPrice = bill.employeeCount ? (subtotal / bill.employeeCount).toFixed(2) : subtotal;
 
-    const primaryColor = [79, 70, 229];
-    const darkColor = [31, 41, 55];
-    const greyColor = [107, 114, 128];
-    const lightGreyColor = [243, 244, 246];
-    const successColor = [16, 185, 129];
+    const invoiceHtml = `
+<div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 40px; box-sizing: border-box;">
+  <!-- Header -->
+  <div style="text-align: center; margin-bottom: 40px;">
+    <img src="${logoImg}" alt="Arah Infotech" style="height: 60px; object-fit: contain;" />
+  </div>
 
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, 210, 40, "F");
+  <!-- Date -->
+  <div style="margin-bottom: 40px;">
+    <div style="border-left: 4px solid #1e3a8a; padding-left: 10px; height: 30px; display: flex; align-items: center;">
+      <span style="color: #1e3a8a; font-size: 16px; font-weight: bold;">
+        ${new Date(bill.date).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
+      </span>
+    </div>
+  </div>
 
-    const activeCompany = companies.find(c => c._id === selectedCompanyId) || companies[0];
-    const companyHeader = activeCompany?.name || "Company";
+  <!-- Invoice Title -->
+  <h2 style="color: #1e3a8a; font-size: 18px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">
+    INVOICE #${(bill.paymentId || '0000').slice(-6).toUpperCase()}
+  </h2>
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text(companyHeader.toUpperCase(), 20, 22);
+  <!-- Bill To / Ship To -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
+    <thead>
+      <tr style="background-color: #dbeafe; color: #1e3a8a; font-size: 13px;">
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Bill to</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Ship to</th>
+      </tr>
+    </thead>
+    <tbody style="font-size: 12px;">
+      <tr>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Customer</td><td style="padding-bottom: 5px;">${profile?.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px;">Customer ID#</td><td style="padding-bottom: 5px;">${(profile?._id || '0000').slice(-5).toUpperCase()}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
+            <tr><td style="font-weight: bold;">Phone</td><td>${profile?.phone || "N/A"}</td></tr>
+          </table>
+        </td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Recipient</td><td style="padding-bottom: 5px;">${profile?.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
+            <tr><td style="font-weight: bold;">Phone</td><td>${profile?.phone || "N/A"}</td></tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Payment Due</td><td style="padding-bottom: 5px;">${new Date(bill.date).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px;">Salesperson</td><td style="padding-bottom: 5px;">System</td></tr>
+            <tr><td style="font-weight: bold;">Payment Terms</td><td>Online</td></tr>
+          </table>
+        </td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold;">Delivery Date</td><td>${new Date(bill.date).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("PAYMENT RECEIPT", 140, 22);
+  <!-- Items Table -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
+    <thead>
+      <tr style="background-color: #dbeafe; color: #1e3a8a; font-weight: bold; font-size: 12px;">
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 6%;">Qty.</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 10%;">Item#</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 34%;">Description</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 20%;">Unit price</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Discount</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Line total</th>
+      </tr>
+    </thead>
+    <tbody style="font-size: 12px;">
+      <tr>
+        <td style="padding: 10px; border: 1px solid #bfdbfe;">${bill.employeeCount || 1}</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe;">123</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe;">V-SYNC - ${bill.plan} ${bill.isAddon ? '(Add-on)' : ''}</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${unitPrice} Rs</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Total Discount</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Subtotal</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">CGST<br/><span style="font-size:9px">(9%)</span></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${cgst} Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">SGST<br/><span style="font-size:9px">(9%)</span></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${sgst} Rs</td>
+      </tr>
+      <tr style="background-color: #93c5fd; font-weight: bold;">
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Total</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${totalAmount} Rs</td>
+      </tr>
+    </tbody>
+  </table>
 
-    doc.setTextColor(...darkColor);
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Receipt Details:", 20, 55);
+  <!-- Thank You -->
+  <div style="color: #0284c7; font-size: 18px; font-weight: bold; margin-top: 30px; margin-bottom: 50px;">
+    Thank you for your business!
+  </div>
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...greyColor);
-    doc.text(`Receipt Date: ${new Date(bill.date).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}`, 20, 62);
-    doc.text(`Payment ID: ${bill.paymentId}`, 20, 68);
-    doc.text(`Order ID: ${bill.orderId || "N/A"}`, 20, 74);
+  <!-- Footer -->
+  <div style="font-size: 12px; color: #374151; line-height: 1.5;">
+    <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 5px; font-size: 13px;">ARAH INFOTECH PVT.LTD</div>
+    <div style="margin-bottom: 10px;">320 Fifth Floor, East Avenue, Ayyappa Society Main Rd, near YSR Statue, SBH Officers Colony, Mega Hills,<br/>Madhapur, Hyderabad, Telangana 500081</div>
+    <a href="https://arahinfotech.net/" style="color: #0ea5e9; text-decoration: underline; display: block;">https://arahinfotech.net/</a>
+    <div style="margin-top: 5px;">9063222383</div>
+    <div>support@vsync.com</div>
+  </div>
+</div>
+    `;
 
-    doc.setTextColor(...darkColor);
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Billed To:", 130, 55);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...greyColor);
-    doc.text(`Admin Name: ${profile?.name || "N/A"}`, 130, 62);
-    doc.text(`Email: ${profile?.email || "N/A"}`, 130, 68);
-    doc.text(`Phone: ${profile?.phone || "N/A"}`, 130, 74);
-
-    doc.setDrawColor(229, 231, 235);
-    doc.setLineWidth(0.5);
-    doc.line(20, 82, 190, 82);
-
-    const headers = [["Billing Item", "Details", "Quantity", "Amount Paid"]];
-    const unitPrice = bill.employeeCount ? (bill.amount / bill.employeeCount).toFixed(2) : bill.amount.toFixed(2);
-    const tableData = [
-      ["Plan Subscription", `${bill.plan} (${bill.billingCycle})`, "1", ""],
-      ["Per-Person User Seats", `INR ${unitPrice} per employee`, `${bill.employeeCount} seats`, `INR ${bill.amount.toFixed(2)}`],
-    ];
-
-    autoTable(doc, {
-      startY: 90,
-      head: headers,
-      body: tableData,
-      theme: "striped",
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: [255, 255, 255],
-        fontSize: 10,
-        fontStyle: "bold",
-      },
-      columnStyles: {
-        0: { cellWidth: 55 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 30, halign: "center" },
-        3: { cellWidth: 30, halign: "right" },
-      },
-      styles: {
-        fontSize: 9,
-        cellPadding: 4,
-      },
-      margin: { left: 20, right: 20 },
-    });
-
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.setFillColor(...lightGreyColor);
-    doc.rect(120, finalY, 70, 30, "F");
-
-    doc.setTextColor(...darkColor);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("Total Paid:", 125, finalY + 10);
-    doc.setFontSize(14);
-    doc.setTextColor(...primaryColor);
-    doc.text(`INR ${bill.amount.toFixed(2)}`, 148, finalY + 10);
-
-    doc.setFontSize(8);
-    doc.setTextColor(...greyColor);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Payment Method: ${bill.method.toUpperCase()}`, 125, finalY + 20);
-    doc.text("Status: Captured/Paid", 125, finalY + 25);
-
-    doc.setDrawColor(...successColor);
-    doc.setLineWidth(1);
-    doc.setFillColor(255, 255, 255);
-    doc.rect(20, finalY, 40, 15);
-    doc.setTextColor(...successColor);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text("PAID", 32, finalY + 10);
-
-    doc.setDrawColor(229, 231, 235);
-    doc.setLineWidth(0.5);
-    doc.line(20, 260, 190, 260);
-
-    doc.setFontSize(8);
-    doc.setTextColor(...greyColor);
-    doc.setFont("helvetica", "normal");
-    doc.text("This is a computer-generated transaction receipt and does not require a physical signature.", 20, 266);
-    doc.text("For any support queries, please reach out to our team at ops@arahinfotech.com.", 20, 272);
-
-    doc.save(`receipt-${bill.paymentId}.pdf`);
+    const element = document.createElement('div');
+    element.innerHTML = invoiceHtml;
+    
+    html2pdf().set({
+      margin: 10,
+      filename: `Invoice_${bill.paymentId || Date.now()}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(element).save();
   };
 
   const downloadAllBillingHistoryPdf = () => {

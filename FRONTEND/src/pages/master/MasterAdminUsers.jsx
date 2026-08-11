@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
 import api from "../../api"; // Import the configured axios instance
+import Swal from "sweetalert2";
+import html2pdf from "html2pdf.js";
+import logoImg from "../../assets/logo.png";
 
 const AdminMonitoring = () => {
   const location = useLocation();
@@ -39,6 +42,214 @@ const AdminMonitoring = () => {
   useEffect(() => {
     fetchAdmins();
   }, []);
+
+  const handleSendEmail = async (admin) => {
+    const { value: formValues } = await Swal.fire({
+      title: `<div class="text-left text-2xl font-black text-gray-800 flex items-center gap-3">
+                <span class="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100 shadow-sm">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                </span>
+                Dispatch Email
+              </div>`,
+      html: `
+        <div class="mt-4 text-left font-sans">
+          <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">You are drafting a secure message directly to <span class="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${admin.name}</span>.</p>
+          <div class="mb-5">
+            <label class="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Email Subject</label>
+            <input id="swal-input1" class="w-full bg-gray-50/50 border border-gray-200 text-gray-900 text-sm font-semibold rounded-xl focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 block p-3.5 transition-all outline-none" placeholder="Enter subject line here...">
+          </div>
+          <div>
+            <label class="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Message Content</label>
+            <textarea id="swal-input2" class="w-full bg-gray-50/50 border border-gray-200 text-gray-900 text-sm font-medium rounded-xl focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 block p-3.5 transition-all outline-none leading-relaxed" placeholder="Type your message..." style="height: 160px; resize: none;"></textarea>
+          </div>
+        </div>
+      `,
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border border-gray-100 !p-8 max-w-lg',
+        confirmButton: 'bg-indigo-600 text-white font-bold rounded-xl px-7 py-3 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-100 transition-all ml-3 shadow-lg shadow-indigo-200/50',
+        cancelButton: 'bg-white text-gray-600 border border-gray-200 font-bold rounded-xl px-7 py-3 hover:bg-gray-50 hover:text-gray-900 focus:ring-4 focus:ring-gray-50 transition-all'
+      },
+      buttonsStyling: false,
+      showCancelButton: true,
+      confirmButtonText: 'Send Message',
+      cancelButtonText: 'Cancel',
+      focusConfirm: false,
+      preConfirm: () => {
+        return {
+          subject: document.getElementById('swal-input1').value,
+          message: document.getElementById('swal-input2').value
+        }
+      }
+    });
+
+    if (formValues) {
+      if (!formValues.subject || !formValues.message) {
+        Swal.fire('Error', 'Subject and Message are required', 'error');
+        return;
+      }
+      try {
+        Swal.fire({ title: 'Sending...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+        await api.post('/api/admin/send-subscriber-email', {
+          email: admin.email,
+          name: admin.name,
+          subject: formValues.subject,
+          message: formValues.message
+        });
+        Swal.fire('Sent!', 'Email has been sent successfully.', 'success');
+      } catch (err) {
+        Swal.fire('Error', 'Failed to send email.', 'error');
+      }
+    }
+  };
+
+  const handleDownloadInvoice = (admin) => {
+    const totalAmount = admin.planDetails?.lastPaymentAmount || admin.planDetails?.price || 0;
+    const subtotal = (totalAmount / 1.18).toFixed(2);
+    const cgst = (subtotal * 0.09).toFixed(2);
+    const sgst = (subtotal * 0.09).toFixed(2);
+    const maxUsers = admin.planDetails?.maxUsers || 1;
+    const unitPrice = admin.planDetails?.maxUsers ? (subtotal / admin.planDetails.maxUsers).toFixed(2) : subtotal;
+
+    const invoiceHtml = `
+<div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 40px; box-sizing: border-box;">
+  <!-- Header -->
+  <div style="text-align: center; margin-bottom: 40px;">
+    <img src="${logoImg}" alt="Arah Infotech" style="height: 60px; object-fit: contain;" />
+  </div>
+
+  <!-- Date -->
+  <div style="margin-bottom: 40px;">
+    <div style="border-left: 4px solid #1e3a8a; padding-left: 10px; height: 30px; display: flex; align-items: center;">
+      <span style="color: #1e3a8a; font-size: 16px; font-weight: bold;">
+        ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
+      </span>
+    </div>
+  </div>
+
+  <!-- Invoice Title -->
+  <h2 style="color: #1e3a8a; font-size: 18px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">
+    INVOICE #${(admin.planDetails?.razorpayPaymentId || '0000').slice(-6).toUpperCase()}
+  </h2>
+
+  <!-- Bill To / Ship To -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
+    <thead>
+      <tr style="background-color: #dbeafe; color: #1e3a8a; font-size: 13px;">
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Bill to</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Ship to</th>
+      </tr>
+    </thead>
+    <tbody style="font-size: 12px;">
+      <tr>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Customer</td><td style="padding-bottom: 5px;">${admin.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px;">Customer ID#</td><td style="padding-bottom: 5px;">${(admin._id || '0000').slice(-5).toUpperCase()}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
+            <tr><td style="font-weight: bold;">Phone</td><td>${admin.phone || "N/A"}</td></tr>
+          </table>
+        </td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Recipient</td><td style="padding-bottom: 5px;">${admin.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
+            <tr><td style="font-weight: bold;">Phone</td><td>${admin.phone || "N/A"}</td></tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Payment Due</td><td style="padding-bottom: 5px;">${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px;">Salesperson</td><td style="padding-bottom: 5px;">System</td></tr>
+            <tr><td style="font-weight: bold;">Payment Terms</td><td>Online</td></tr>
+          </table>
+        </td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr><td style="width: 110px; font-weight: bold;">Delivery Date</td><td>${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Items Table -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
+    <thead>
+      <tr style="background-color: #dbeafe; color: #1e3a8a; font-weight: bold; font-size: 12px;">
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 6%;">Qty.</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 10%;">Item#</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 34%;">Description</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 20%;">Unit price</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Discount</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Line total</th>
+      </tr>
+    </thead>
+    <tbody style="font-size: 12px;">
+      <tr>
+        <td style="padding: 10px; border: 1px solid #bfdbfe;">${maxUsers}</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe;">123</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe;">V-SYNC - ${admin.planDetails?.planName || admin.plan}</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${unitPrice} Rs</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Total Discount</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Subtotal</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">CGST<br/><span style="font-size:9px">(9%)</span></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${cgst} Rs</td>
+      </tr>
+      <tr>
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">SGST<br/><span style="font-size:9px">(9%)</span></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${sgst} Rs</td>
+      </tr>
+      <tr style="background-color: #93c5fd; font-weight: bold;">
+        <td colspan="4" style="border: 1px solid #bfdbfe; border-top: none;"></td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Total</td>
+        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${totalAmount} Rs</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Thank You -->
+  <div style="color: #0284c7; font-size: 18px; font-weight: bold; margin-top: 30px; margin-bottom: 50px;">
+    Thank you for your business!
+  </div>
+
+  <!-- Footer -->
+  <div style="font-size: 12px; color: #374151; line-height: 1.5;">
+    <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 5px; font-size: 13px;">ARAH INFOTECH PVT.LTD</div>
+    <div style="margin-bottom: 10px;">320 Fifth Floor, East Avenue, Ayyappa Society Main Rd, near YSR Statue, SBH Officers Colony, Mega Hills,<br/>Madhapur, Hyderabad, Telangana 500081</div>
+    <a href="https://arahinfotech.net/" style="color: #0ea5e9; text-decoration: underline; display: block;">https://arahinfotech.net/</a>
+    <div style="margin-top: 5px;">9063222383</div>
+    <div>support@vsync.com</div>
+  </div>
+</div>
+    `;
+
+    const element = document.createElement('div');
+    element.innerHTML = invoiceHtml;
+    
+    html2pdf().set({
+      margin: 10,
+      filename: `Invoice_${admin.name.replace(/\s+/g, '_')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).from(element).save();
+  };
 
   // 3. Helper: Calculate Time Left
   const getTimeRemaining = (expiryDate) => {
@@ -286,6 +497,7 @@ const AdminMonitoring = () => {
                 <th className="p-5 font-bold text-slate-400 border-b border-slate-100 text-[10px] uppercase tracking-wider">Activation Date</th>
                 <th className="p-5 font-bold text-slate-400 border-b border-slate-100 text-[10px] uppercase tracking-wider">Expiry Date</th>
                 <th className="p-5 font-bold text-blue-600 border-b border-slate-100 text-[10px] uppercase tracking-wider text-right">Countdown (Live)</th>
+                <th className="p-5 font-bold text-slate-400 border-b border-slate-100 text-[10px] uppercase tracking-wider text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -354,6 +566,22 @@ const AdminMonitoring = () => {
                           <span className="text-indigo-500 animate-pulse">{String(time.seconds).padStart(2, '0')}s</span>
                         </div>
                       )}
+                    </td>
+                    <td className="p-5 text-center flex flex-col gap-2 justify-center items-center h-full">
+                      <button 
+                        onClick={() => handleSendEmail(admin)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 border border-blue-100 hover:border-blue-600"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        Email
+                      </button>
+                      <button 
+                        onClick={() => handleDownloadInvoice(admin)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 hover:bg-slate-700 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 border border-slate-200 hover:border-slate-700"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Invoice
+                      </button>
                     </td>
                   </tr>
                 );

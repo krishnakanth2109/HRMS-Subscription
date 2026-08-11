@@ -8,6 +8,7 @@ import Company from "../models/CompanyModel.js";
 import jwt from "jsonwebtoken";
 import { getExpiredSubscriptionPayload } from "../utils/subscriptionAccess.js";
 import { generateAndUploadQRCode } from "../utils/qrCodeHelper.js";
+import { sendBrevoEmail } from "../Services/emailService.js";
 
 /* ==================== JWT SIGN ==================== */
 const signToken = (id, role) => {
@@ -1101,5 +1102,40 @@ export const freeUpgradeToOwner = async (req, res) => {
   } catch (error) {
     console.error("❌ FREE UPGRADE TO OWNER ERROR:", error);
     res.status(500).json({ message: "Failed to upgrade plan. Server error." });
+  }
+};
+
+// --- NEW METHOD FOR SENDING MANUAL EMAILS TO SUBSCRIBERS ---
+export const sendSubscriberEmail = async (req, res) => {
+  try {
+    const { email, name, subject, message } = req.body;
+    
+    if (!email || !subject || !message) {
+      return res.status(400).json({ success: false, message: "Missing required fields" });
+    }
+
+    const emailHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <h2 style="color: #3b82f6; text-align: center;">Message from V-Sync HRMS Team</h2>
+        <p>Dear <strong>${name || 'Subscriber'}</strong>,</p>
+        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3b82f6; white-space: pre-wrap;">
+          ${message}
+        </div>
+        <br/>
+        <p>Best Regards,</p>
+        <p><strong>HRMS Support Team</strong></p>
+      </div>
+    `;
+
+    await sendBrevoEmail({
+      to: [{ name: name || "Subscriber", email: email }],
+      subject: subject,
+      htmlContent: emailHtml
+    });
+
+    res.status(200).json({ success: true, message: "Email sent successfully" });
+  } catch (error) {
+    console.error("Error sending subscriber email:", error);
+    res.status(500).json({ success: false, message: "Failed to send email" });
   }
 };

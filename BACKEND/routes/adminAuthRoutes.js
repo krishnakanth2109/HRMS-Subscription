@@ -24,7 +24,8 @@ import {
     deleteSupportAdmin,
     registerSupportAdmin,
     updateSupportAdmin,
-    freeUpgradeToOwner
+    freeUpgradeToOwner,
+    sendSubscriberEmail
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -57,5 +58,6 @@ router.get("/all-features", protect, getAllFeatures);
 router.get("/my-plan-features", protect, getMyPlanFeatures);
 router.patch("/change-password/:adminId", changeAdminPassword);
 router.delete("/delete-admin/:adminId", deleteAdmin);
+router.post("/send-subscriber-email", sendSubscriberEmail);
 
 export default router;
