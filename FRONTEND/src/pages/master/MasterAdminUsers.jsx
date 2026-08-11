@@ -102,72 +102,118 @@ const AdminMonitoring = () => {
     }
   };
 
-  const handleDownloadInvoice = (admin) => {
+  const handleDownloadInvoice = async (admin) => {
+    const { value: formValues } = await Swal.fire({
+      title: `<div class="text-left text-2xl font-black text-gray-800 flex items-center gap-3">
+                <span class="p-2.5 bg-blue-50 text-blue-600 rounded-xl border border-blue-100 shadow-sm">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </span>
+                Generate Invoice
+              </div>`,
+      html: `
+        <div class="mt-4 text-left font-sans">
+          <p class="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Prepare an official invoice document for <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">${admin.name}</span>.</p>
+          <div class="mb-5">
+            <label class="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Company Name (Recipient)</label>
+            <input id="invoice-company" class="w-full bg-gray-50/50 border border-gray-200 text-gray-900 text-sm font-semibold rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 block p-3.5 transition-all outline-none" placeholder="Enter Company Name" value="${admin.name || ''}">
+          </div>
+          <div class="mb-5">
+            <label class="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Salesperson</label>
+            <input id="invoice-salesperson" class="w-full bg-gray-50/50 border border-gray-200 text-gray-900 text-sm font-semibold rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 block p-3.5 transition-all outline-none" placeholder="Enter Salesperson Name" value="System">
+          </div>
+          <div>
+            <label class="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Recipient Address</label>
+            <textarea id="invoice-address" class="w-full bg-gray-50/50 border border-gray-200 text-gray-900 text-sm font-medium rounded-xl focus:ring-4 focus:ring-blue-50 focus:border-blue-500 block p-3.5 transition-all outline-none leading-relaxed" placeholder="Enter precise billing address..." style="height: 100px; resize: none;"></textarea>
+          </div>
+        </div>
+      `,
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border border-gray-100 !p-8 max-w-lg',
+        confirmButton: 'bg-blue-600 text-white font-bold rounded-xl px-7 py-3 hover:bg-blue-700 focus:ring-4 focus:ring-blue-100 transition-all ml-3 shadow-lg shadow-blue-200/50',
+        cancelButton: 'bg-white text-gray-600 border border-gray-200 font-bold rounded-xl px-7 py-3 hover:bg-gray-50 hover:text-gray-900 focus:ring-4 focus:ring-gray-50 transition-all'
+      },
+      buttonsStyling: false,
+      showCancelButton: true,
+      confirmButtonText: 'Generate PDF',
+      cancelButtonText: 'Cancel',
+      focusConfirm: false,
+      preConfirm: () => {
+        return {
+          companyName: document.getElementById('invoice-company').value,
+          address: document.getElementById('invoice-address').value,
+          salesperson: document.getElementById('invoice-salesperson').value
+        }
+      }
+    });
+
+    if (!formValues) return; // User cancelled
+
     const totalAmount = admin.planDetails?.lastPaymentAmount || admin.planDetails?.price || 0;
     const subtotal = (totalAmount / 1.18).toFixed(2);
     const cgst = (subtotal * 0.09).toFixed(2);
     const sgst = (subtotal * 0.09).toFixed(2);
     const maxUsers = admin.planDetails?.maxUsers || 1;
     const unitPrice = admin.planDetails?.maxUsers ? (subtotal / admin.planDetails.maxUsers).toFixed(2) : subtotal;
+    const billToAddress = "Manjula Nilayam 2, 602, 6th Floor, Ayyappa Society, Main Road, Madhapur, Hyderabad, Telangana - 500081";
 
     const invoiceHtml = `
-<div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 40px; box-sizing: border-box;">
+<div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 15px; box-sizing: border-box; min-height: 281mm; position: relative;">
   <!-- Header -->
-  <div style="text-align: center; margin-bottom: 40px;">
-    <img src="${logoImg}" alt="Arah Infotech" style="height: 60px; object-fit: contain;" />
+  <div style="margin-bottom: 15px; width: 100%; display: flex; justify-content: center; text-align: center;">
+    <img src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png" alt="V-SYNC" style="display: block; margin: 0 auto; height: 70px; object-fit: contain;" crossorigin="anonymous" />
   </div>
 
   <!-- Date -->
-  <div style="margin-bottom: 40px;">
-    <div style="border-left: 4px solid #1e3a8a; padding-left: 10px; height: 30px; display: flex; align-items: center;">
-      <span style="color: #1e3a8a; font-size: 16px; font-weight: bold;">
+  <div style="margin-bottom: 15px;">
+    <div style="border-left: 4px solid #1e3a8a; padding-left: 10px; height: 26px; display: flex; align-items: center;">
+      <span style="color: #1e3a8a; font-size: 15px; font-weight: bold;">
         ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
       </span>
     </div>
   </div>
 
   <!-- Invoice Title -->
-  <h2 style="color: #1e3a8a; font-size: 18px; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">
+  <h2 style="color: #1e3a8a; font-size: 16px; font-weight: bold; margin-bottom: 12px; text-transform: uppercase;">
     INVOICE #${(admin.planDetails?.razorpayPaymentId || '0000').slice(-6).toUpperCase()}
   </h2>
 
   <!-- Bill To / Ship To -->
-  <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #bfdbfe;">
     <thead>
-      <tr style="background-color: #dbeafe; color: #1e3a8a; font-size: 13px;">
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Bill to</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Ship to</th>
+      <tr style="background-color: #dbeafe; color: #1e3a8a; font-size: 12px;">
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Bill to</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Ship to</th>
       </tr>
     </thead>
-    <tbody style="font-size: 12px;">
+    <tbody style="font-size: 11px;">
       <tr>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+        <td style="padding: 8px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Customer</td><td style="padding-bottom: 5px;">${admin.name || "N/A"}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 5px;">Customer ID#</td><td style="padding-bottom: 5px;">${(admin._id || '0000').slice(-5).toUpperCase()}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
+            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Customer</td><td style="padding-bottom: 4px;">${admin.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px;">Customer ID#</td><td style="padding-bottom: 4px;">${(admin._id || '0000').slice(-5).toUpperCase()}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px; vertical-align: top;">Address</td><td style="padding-bottom: 4px; line-height: 1.4;">${billToAddress}</td></tr>
             <tr><td style="font-weight: bold;">Phone</td><td>${admin.phone || "N/A"}</td></tr>
           </table>
         </td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+        <td style="padding: 8px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Recipient</td><td style="padding-bottom: 5px;">${admin.name || "N/A"}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
+            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Recipient</td><td style="padding-bottom: 4px;">${formValues.companyName || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px; vertical-align: top;">Address</td><td style="padding-bottom: 4px; line-height: 1.4; word-wrap: break-word; word-break: break-word; max-width: 200px;">${(formValues.address || "-").replace(/\n/g, ', ')}</td></tr>
             <tr><td style="font-weight: bold;">Phone</td><td>${admin.phone || "N/A"}</td></tr>
           </table>
         </td>
       </tr>
       <tr>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+        <td style="padding: 8px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Payment Due</td><td style="padding-bottom: 5px;">${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 5px;">Salesperson</td><td style="padding-bottom: 5px;">System</td></tr>
+            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Payment Due</td><td style="padding-bottom: 4px;">${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px;">Salesperson</td><td style="padding-bottom: 4px;">${formValues.salesperson || "System"}</td></tr>
             <tr><td style="font-weight: bold;">Payment Terms</td><td>Online</td></tr>
           </table>
         </td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
+        <td style="padding: 8px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 110px; font-weight: bold;">Delivery Date</td><td>${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
+            <tr><td style="width: 90px; font-weight: bold;">Delivery Date</td><td>${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}</td></tr>
           </table>
         </td>
       </tr>
@@ -175,66 +221,77 @@ const AdminMonitoring = () => {
   </table>
 
   <!-- Items Table -->
-  <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #bfdbfe;">
     <thead>
-      <tr style="background-color: #dbeafe; color: #1e3a8a; font-weight: bold; font-size: 12px;">
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 6%;">Qty.</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 10%;">Item#</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 34%;">Description</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 20%;">Unit price</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Discount</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Line total</th>
+      <tr style="background-color: #dbeafe; color: #1e3a8a; font-weight: bold; font-size: 11px;">
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 6%;">Qty.</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 10%;">Item#</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 34%;">Description</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: right; width: 20%;">Unit price</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Discount</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: right; width: 15%;">Line total</th>
       </tr>
     </thead>
-    <tbody style="font-size: 12px;">
+    <tbody style="font-size: 11px;">
       <tr>
-        <td style="padding: 10px; border: 1px solid #bfdbfe;">${maxUsers}</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe;">123</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe;">V-SYNC - ${admin.planDetails?.planName || admin.plan}</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${unitPrice} Rs</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe;">${maxUsers}</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe;">123</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe;">V-SYNC - ${admin.planDetails?.planName || admin.plan}</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">${unitPrice} Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
       </tr>
       <tr>
         <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Total Discount</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">Total Discount</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">0 Rs</td>
       </tr>
       <tr>
         <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Subtotal</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">Subtotal</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">${subtotal} Rs</td>
       </tr>
       <tr>
         <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">CGST<br/><span style="font-size:9px">(9%)</span></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${cgst} Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">CGST <span style="font-size:10px">(9%)</span></td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">${cgst} Rs</td>
       </tr>
       <tr>
         <td colspan="4" style="border: 1px solid #bfdbfe; border-bottom: none; border-top: none;"></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">SGST<br/><span style="font-size:9px">(9%)</span></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${sgst} Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">SGST <span style="font-size:10px">(9%)</span></td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">${sgst} Rs</td>
       </tr>
       <tr style="background-color: #93c5fd; font-weight: bold;">
         <td colspan="4" style="border: 1px solid #bfdbfe; border-top: none;"></td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">Total</td>
-        <td style="padding: 10px; border: 1px solid #bfdbfe; text-align: right;">${totalAmount} Rs</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">Total</td>
+        <td style="padding: 8px; border: 1px solid #bfdbfe; text-align: right;">${totalAmount} Rs</td>
       </tr>
     </tbody>
   </table>
 
   <!-- Thank You -->
-  <div style="color: #0284c7; font-size: 18px; font-weight: bold; margin-top: 30px; margin-bottom: 50px;">
+  <div style="color: #0284c7; font-size: 13px; font-weight: bold; margin-top: 10px; margin-bottom: 10px;">
     Thank you for your business!
   </div>
 
   <!-- Footer -->
-  <div style="font-size: 12px; color: #374151; line-height: 1.5;">
-    <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 5px; font-size: 13px;">ARAH INFOTECH PVT.LTD</div>
-    <div style="margin-bottom: 10px;">320 Fifth Floor, East Avenue, Ayyappa Society Main Rd, near YSR Statue, SBH Officers Colony, Mega Hills,<br/>Madhapur, Hyderabad, Telangana 500081</div>
-    <a href="https://arahinfotech.net/" style="color: #0ea5e9; text-decoration: underline; display: block;">https://arahinfotech.net/</a>
-    <div style="margin-top: 5px;">9063222383</div>
-    <div>support@vsync.com</div>
+  <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
+    <table style="width: 100%; border-top: 1px solid #e5e7eb; padding-top: 15px; margin-top: 15px;">
+      <tr>
+        <td style="font-size: 11px; color: #374151; line-height: 1.4; text-align: left; vertical-align: bottom;">
+          <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 3px; font-size: 12px;">ARAH INFOTECH PVT.LTD</div>
+          <div style="margin-bottom: 5px;">320 Fifth Floor, East Avenue, Ayyappa Society Main Rd,<br/>Madhapur, Hyderabad, Telangana 500081</div>
+          <a href="https://arahinfotech.net/" style="color: #0ea5e9; text-decoration: underline; display: block;">https://arahinfotech.net/</a>
+          <div style="margin-top: 3px;">9063222383 | support@vsync.com</div>
+        </td>
+        <td style="text-align: right; vertical-align: bottom;">
+          <div style="font-size: 13px; font-weight: bold; color: #1e3a8a; display: inline-block;">
+            <span style="vertical-align: middle; display: inline-block; transform: translateY(1px);">Powered by</span>
+            <img src="/arah-logo.png" alt="Arah Infotech" style="height: 28px; object-fit: contain; vertical-align: middle; margin-left: 8px;" />
+          </div>
+        </td>
+      </tr>
+    </table>
   </div>
 </div>
     `;
@@ -243,11 +300,12 @@ const AdminMonitoring = () => {
     element.innerHTML = invoiceHtml;
     
     html2pdf().set({
-      margin: 10,
+      margin: [8, 8, 8, 8],
       filename: `Invoice_${admin.name.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 1.5, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all'] }
     }).from(element).save();
   };
 
