@@ -102,6 +102,27 @@ const AdminMonitoring = () => {
     }
   };
 
+  const numberToWords = (amount) => {
+    if (!amount || amount === 0) return 'Zero Only';
+    const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    const inWords = (n) => {
+      n = parseInt(n);
+      if (n === 0) return '';
+      if (n < 20) return a[n] + ' ';
+      if (n < 100) return b[Math.floor(n/10)] + (n%10 ? ' ' + a[n%10] : '') + ' ';
+      if (n < 1000) return a[Math.floor(n/100)] + ' Hundred ' + inWords(n%100);
+      if (n < 100000) return inWords(Math.floor(n/1000)) + 'Thousand ' + inWords(n%1000);
+      if (n < 10000000) return inWords(Math.floor(n/100000)) + 'Lakh ' + inWords(n%100000);
+      return inWords(Math.floor(n/10000000)) + 'Crore ' + inWords(n%10000000);
+    };
+    const whole = Math.floor(amount);
+    const paise = Math.round((amount - whole) * 100);
+    let result = 'Rupees ' + inWords(whole).trim();
+    if (paise > 0) result += ' and ' + inWords(paise).trim() + ' Paise';
+    return result + ' Only';
+  };
+
   const handleDownloadInvoice = async (admin) => {
     const { value: formValues } = await Swal.fire({
       title: `<div class="text-left text-2xl font-black text-gray-800 flex items-center gap-3">
@@ -158,46 +179,61 @@ const AdminMonitoring = () => {
 
     const invoiceHtml = `
 <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 15px; box-sizing: border-box; min-height: 281mm; position: relative;">
-  <!-- Header -->
-  <div style="margin-bottom: 15px; width: 100%; display: flex; justify-content: center; text-align: center;">
-    <img src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png" alt="V-SYNC" style="display: block; margin: 0 auto; height: 70px; object-fit: contain;" crossorigin="anonymous" />
-  </div>
-
-  <!-- Date -->
-  <div style="margin-bottom: 15px;">
-    <div style="border-left: 4px solid #1e3a8a; padding-left: 10px; height: 26px; display: flex; align-items: center;">
-      <span style="color: #1e3a8a; font-size: 15px; font-weight: bold;">
-        ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-US", { month: 'long', day: 'numeric', year: 'numeric' })}
-      </span>
+  <!-- Professional Header: Logo left | Company centre | TAX INVOICE right -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px;">
+    <!-- Left: Arah Infotech Logo -->
+    <div style="flex: 0 0 auto;">
+      <img src="https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png" alt="Arah Infotech" style="height: 64px; object-fit: contain;" crossorigin="anonymous" />
+    </div>
+    <!-- Centre: Company Info -->
+    <div style="flex: 1; text-align: center; padding: 0 15px;">
+      <div style="font-size: 17px; font-weight: 900; color: #1e3a8a; letter-spacing: 0.5px;">ARAH INFOTECH PVT. LTD.</div>
+      <div style="font-size: 11px; font-weight: bold; color: #374151; margin: 2px 0;">VSync – HRMS &amp; Workforce Management Platform</div>
+      <div style="font-size: 9.5px; color: #6b7280; line-height: 1.5;">
+        Manjula Nilayam 2, 602, 6th Floor, Ayyappa Society, Main Road, Madhapur, Hyderabad, TG – 500081<br/>
+        GSTIN: 36ABCDE1234F1Z5 &nbsp;|&nbsp; Email: support@vsync.com &nbsp;|&nbsp; Phone: +91 90632 22383<br/>
+        Website: <span style="color:#0ea5e9;">https://arahinfotech.net/</span>
+      </div>
+    </div>
+    <!-- Right: TAX INVOICE label -->
+    <div style="flex: 0 0 auto; text-align: right;">
+      <div style="font-size: 20px; font-weight: 900; color: #1e3a8a; letter-spacing: 2px; border: 2px solid #1e3a8a; padding: 6px 14px; border-radius: 4px;">TAX INVOICE</div>
     </div>
   </div>
 
-  <!-- Invoice Title -->
-  <h2 style="color: #1e3a8a; font-size: 16px; font-weight: bold; margin-bottom: 12px; text-transform: uppercase;">
-    INVOICE #${(admin.planDetails?.razorpayPaymentId || '0000').slice(-6).toUpperCase()}
-  </h2>
+  <!-- Invoice Meta Row -->
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 10.5px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
+    <tr>
+      <td style="padding: 6px 10px; border-right: 1px solid #e2e8f0;"><strong>Invoice No.:</strong> ARAH/VSYNC/2026-27/${(admin.planDetails?.razorpayPaymentId || '000').slice(-4).toUpperCase()}</td>
+      <td style="padding: 6px 10px; border-right: 1px solid #e2e8f0;"><strong>Invoice Date:</strong> ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+      <td style="padding: 6px 10px; border-right: 1px solid #e2e8f0;"><strong>Payment Status:</strong> <span style="color:#16a34a; font-weight:bold;">PAID</span></td>
+      <td style="padding: 6px 10px; border-right: 1px solid #e2e8f0;"><strong>Payment Date:</strong> ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+      <td style="padding: 6px 10px;"><strong>Payment Mode:</strong> Razorpay</td>
+    </tr>
+  </table>
 
   <!-- Bill To / Ship To -->
   <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; border: 1px solid #bfdbfe;">
     <thead>
       <tr style="background-color: #dbeafe; color: #1e3a8a; font-size: 12px;">
-        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Bill to</th>
-        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Ship to</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">From</th>
+        <th style="padding: 8px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">To</th>
       </tr>
     </thead>
     <tbody style="font-size: 11px;">
       <tr>
         <td style="padding: 8px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Customer</td><td style="padding-bottom: 4px;">${admin.name || "N/A"}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 4px;">Customer ID#</td><td style="padding-bottom: 4px;">${(admin._id || '0000').slice(-5).toUpperCase()}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 4px; vertical-align: top;">Address</td><td style="padding-bottom: 4px; line-height: 1.4;">${billToAddress}</td></tr>
-            <tr><td style="font-weight: bold;">Phone</td><td>${admin.phone || "N/A"}</td></tr>
+            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Company</td><td style="padding-bottom: 4px;">ARAH INFOTECH PVT. LTD.</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px; vertical-align: top;">Address</td><td style="padding-bottom: 4px; line-height: 1.4;">Manjula Nilayam 2, 602, 6th Floor, Ayyappa Society, Main Road, Madhapur, Hyderabad, Telangana - 500081</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px;">GSTIN</td><td style="padding-bottom: 4px;">36ABCDE1234F1Z5</td></tr>
+            <tr><td style="font-weight: bold;">Phone</td><td>+91 90632 22383</td></tr>
           </table>
         </td>
         <td style="padding: 8px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Recipient</td><td style="padding-bottom: 4px;">${formValues.companyName || "N/A"}</td></tr>
+            <tr><td style="width: 90px; font-weight: bold; padding-bottom: 4px;">Customer Name</td><td style="padding-bottom: 4px;">${admin.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 4px;">Company Name</td><td style="padding-bottom: 4px;">${formValues.companyName || "N/A"}</td></tr>
             <tr><td style="font-weight: bold; padding-bottom: 4px; vertical-align: top;">Address</td><td style="padding-bottom: 4px; line-height: 1.4; word-wrap: break-word; word-break: break-word; max-width: 200px;">${(formValues.address || "-").replace(/\n/g, ', ')}</td></tr>
             <tr><td style="font-weight: bold;">Phone</td><td>${admin.phone || "N/A"}</td></tr>
           </table>
@@ -269,6 +305,34 @@ const AdminMonitoring = () => {
     </tbody>
   </table>
 
+  <!-- Subscription Info -->
+  <div style="margin-top: 10px; margin-bottom: 10px; font-size: 11px; color: #374151; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 12px; display: flex; gap: 20px;">
+    <span><strong>Subscription Period:</strong> ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })} &ndash; ${new Date(admin.planExpiresAt || Date.now()).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+    <span><strong>Plan:</strong> ${admin.planDetails?.planName || admin.plan || 'N/A'}</span>
+    <span><strong>Employee Licenses:</strong> ${maxUsers}</span>
+  </div>
+
+  <!-- Amount Payable + Amount in Words -->
+  <div style="margin-bottom: 10px; font-size: 11px; color: #374151; border: 1px solid #e2e8f0; border-radius: 4px; padding: 8px 12px; background: #fff;">
+    <div><strong>Amount Payable:</strong> &#8377;${totalAmount} Rs</div>
+    <div style="margin-top: 4px;"><strong>Amount in Words:</strong> <em style="color: #1e3a8a;">${numberToWords(totalAmount)}</em></div>
+  </div>
+
+  <!-- Payment Details -->
+  <div style="margin-bottom: 12px; border: 1px solid #bfdbfe; border-radius: 4px; overflow: hidden; font-size: 11px;">
+    <div style="background-color: #dbeafe; color: #1e3a8a; font-weight: bold; padding: 6px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Payment Details</div>
+    <table style="width: 100%; border-collapse: collapse;">
+      <tr>
+        <td style="padding: 5px 10px; border-bottom: 1px solid #e2e8f0; width: 50%;"><strong>Payment Status:</strong> <span style="color: #16a34a; font-weight: bold;">PAID</span></td>
+        <td style="padding: 5px 10px; border-bottom: 1px solid #e2e8f0;"><strong>Payment Date:</strong> ${new Date(admin.planDetails?.lastPaymentAt || admin.planActivatedAt || Date.now()).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+      </tr>
+      <tr>
+        <td style="padding: 5px 10px;"><strong>Transaction / Payment Reference:</strong> ${admin.planDetails?.razorpayPaymentId || 'N/A'}</td>
+        <td style="padding: 5px 10px;"><strong>Payment Gateway / Bank:</strong> Razorpay</td>
+      </tr>
+    </table>
+  </div>
+
   <!-- Thank You -->
   <div style="color: #0284c7; font-size: 13px; font-weight: bold; margin-top: 10px; margin-bottom: 10px;">
     Thank you for your business!
@@ -280,7 +344,7 @@ const AdminMonitoring = () => {
       <tr>
         <td style="font-size: 11px; color: #374151; line-height: 1.4; text-align: left; vertical-align: bottom;">
           <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 3px; font-size: 12px;">ARAH INFOTECH PVT.LTD</div>
-          <div style="margin-bottom: 5px;">320 Fifth Floor, East Avenue, Ayyappa Society Main Rd,<br/>Madhapur, Hyderabad, Telangana 500081</div>
+          <div style="margin-bottom: 5px;">Manjula Nilayam 2, 602, 6th Floor, Ayyappa Society, Main Road,<br/>Madhapur, Hyderabad, Telangana - 500081</div>
           <a href="https://arahinfotech.net/" style="color: #0ea5e9; text-decoration: underline; display: block;">https://arahinfotech.net/</a>
           <div style="margin-top: 3px;">9063222383 | support@vsync.com</div>
         </td>
@@ -298,7 +362,7 @@ const AdminMonitoring = () => {
 
     const element = document.createElement('div');
     element.innerHTML = invoiceHtml;
-    
+
     html2pdf().set({
       margin: [8, 8, 8, 8],
       filename: `Invoice_${admin.name.replace(/\s+/g, '_')}.pdf`,
@@ -364,7 +428,7 @@ const AdminMonitoring = () => {
           </h1>
           <p className="text-slate-550 text-sm mt-1">Live tracking of company subscription plan statuses and countdown expirations.</p>
         </div>
-        <button 
+        <button
           onClick={fetchAdmins}
           className="flex items-center gap-2 bg-white text-slate-700 border border-slate-200 hover:border-slate-300 px-5 py-2.5 rounded-xl shadow-sm hover:shadow active:scale-95 transition-all font-bold text-sm"
         >
@@ -376,27 +440,25 @@ const AdminMonitoring = () => {
       </div>
 
       {/* --- INTERACTIVE FILTER CARDS --- */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8"> 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
 
         {/* Total Companies Card (Filter All) */}
-        <div 
+        <div
           onClick={() => setStatusFilter("all")}
-          className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group relative flex items-center justify-between ${
-            statusFilter === "all"
-              ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20 shadow-md -translate-y-0.5"
-              : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200/80 hover:-translate-y-0.5"
-          }`}
+          className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group relative flex items-center justify-between ${statusFilter === "all"
+            ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20 shadow-md -translate-y-0.5"
+            : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200/80 hover:-translate-y-0.5"
+            }`}
         >
           <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl transition-all duration-300 ${
-              statusFilter === "all"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white"
-            }`}>
-              <svg xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5" 
+            <div className={`p-3 rounded-xl transition-all duration-300 ${statusFilter === "all"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white"
+              }`}>
+              <svg xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" 
+                <path strokeLinecap="round" strokeLinejoin="round"
                   d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
               </svg>
             </div>
@@ -416,24 +478,22 @@ const AdminMonitoring = () => {
         </div>
 
         {/* Active Plans Card (Filter Active) */}
-        <div 
+        <div
           onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
-          className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group relative flex items-center justify-between ${
-            statusFilter === "active"
-              ? "bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-500/20 shadow-md -translate-y-0.5"
-              : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200/80 hover:-translate-y-0.5"
-          }`}
+          className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group relative flex items-center justify-between ${statusFilter === "active"
+            ? "bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-500/20 shadow-md -translate-y-0.5"
+            : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200/80 hover:-translate-y-0.5"
+            }`}
         >
           <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl transition-all duration-300 ${
-              statusFilter === "active"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white"
-            }`}>
-              <svg xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5" 
+            <div className={`p-3 rounded-xl transition-all duration-300 ${statusFilter === "active"
+              ? "bg-emerald-600 text-white shadow-sm"
+              : "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white"
+              }`}>
+              <svg xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" 
+                <path strokeLinecap="round" strokeLinejoin="round"
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -453,24 +513,22 @@ const AdminMonitoring = () => {
         </div>
 
         {/* Expired Plans Card (Filter Expired) */}
-        <div 
+        <div
           onClick={() => setStatusFilter(statusFilter === "expired" ? "all" : "expired")}
-          className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group relative flex items-center justify-between ${
-            statusFilter === "expired"
-              ? "bg-rose-50/80 border-rose-300 ring-2 ring-rose-500/20 shadow-md -translate-y-0.5"
-              : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200/80 hover:-translate-y-0.5"
-          }`}
+          className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer select-none group relative flex items-center justify-between ${statusFilter === "expired"
+            ? "bg-rose-50/80 border-rose-300 ring-2 ring-rose-500/20 shadow-md -translate-y-0.5"
+            : "bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200/80 hover:-translate-y-0.5"
+            }`}
         >
           <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl transition-all duration-300 ${
-              statusFilter === "expired"
-                ? "bg-rose-600 text-white shadow-sm"
-                : "bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white"
-            }`}>
-              <svg xmlns="http://www.w3.org/2000/svg" 
-                className="h-5 w-5" 
+            <div className={`p-3 rounded-xl transition-all duration-300 ${statusFilter === "expired"
+              ? "bg-rose-600 text-white shadow-sm"
+              : "bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white"
+              }`}>
+              <svg xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" 
+                <path strokeLinecap="round" strokeLinejoin="round"
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
@@ -503,18 +561,16 @@ const AdminMonitoring = () => {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(statusFilter === tab.id && tab.id !== "all" ? "all" : tab.id)}
-              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                statusFilter === tab.id
-                  ? "bg-white text-slate-900 shadow-sm border border-slate-200/40"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${statusFilter === tab.id
+                ? "bg-white text-slate-900 shadow-sm border border-slate-200/40"
+                : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               {tab.label}
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                statusFilter === tab.id
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-200 text-slate-600"
-              }`}>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${statusFilter === tab.id
+                ? "bg-slate-900 text-white"
+                : "bg-slate-200 text-slate-600"
+                }`}>
                 {tab.count}
               </span>
             </button>
@@ -577,11 +633,10 @@ const AdminMonitoring = () => {
                       </div>
                     </td>
                     <td className="p-5 text-center">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${
-                        admin.plan === 'Premium' ? 'bg-amber-50 text-amber-700 border-amber-100' : 
-                        admin.plan === 'Free' ? 'bg-slate-50 text-slate-600 border-slate-200' : 
-                        'bg-blue-50 text-blue-755 border-blue-100'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${admin.plan === 'Premium' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                        admin.plan === 'Free' ? 'bg-slate-50 text-slate-600 border-slate-200' :
+                          'bg-blue-50 text-blue-755 border-blue-100'
+                        }`}>
                         {admin.plan}
                       </span>
                     </td>
@@ -626,14 +681,14 @@ const AdminMonitoring = () => {
                       )}
                     </td>
                     <td className="p-5 text-center flex flex-col gap-2 justify-center items-center h-full">
-                      <button 
+                      <button
                         onClick={() => handleSendEmail(admin)}
                         className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 border border-blue-100 hover:border-blue-600"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                         Email
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDownloadInvoice(admin)}
                         className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-600 hover:bg-slate-700 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors duration-200 border border-slate-200 hover:border-slate-700"
                       >

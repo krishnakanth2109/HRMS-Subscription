@@ -85,6 +85,7 @@ const AdminProfile = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [expandedPlans, setExpandedPlans] = useState({});
 
   const featureLabels = {
     "/admin/dashboard": "Dashboard",
@@ -153,7 +154,7 @@ const AdminProfile = () => {
     const invoiceHtml = `
 <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; padding: 40px; box-sizing: border-box;">
   <!-- Header -->
-  <div style="text-align: center; margin-bottom: 40px;">
+  <div style="display: flex; justify-content: flex-start; align-items: center; margin-bottom: 40px;">
     <img src="${logoImg}" alt="Arah Infotech" style="height: 60px; object-fit: contain;" />
   </div>
 
@@ -175,23 +176,24 @@ const AdminProfile = () => {
   <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; border: 1px solid #bfdbfe;">
     <thead>
       <tr style="background-color: #dbeafe; color: #1e3a8a; font-size: 13px;">
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Bill to</th>
-        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">Ship to</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">From</th>
+        <th style="padding: 10px; border: 1px solid #bfdbfe; text-align: left; width: 50%; font-weight: bold;">To</th>
       </tr>
     </thead>
     <tbody style="font-size: 12px;">
       <tr>
         <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Customer</td><td style="padding-bottom: 5px;">${profile?.name || "N/A"}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 5px;">Customer ID#</td><td style="padding-bottom: 5px;">${(profile?._id || '0000').slice(-5).toUpperCase()}</td></tr>
-            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
-            <tr><td style="font-weight: bold;">Phone</td><td>${profile?.phone || "N/A"}</td></tr>
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Company</td><td style="padding-bottom: 5px;">ARAH INFOTECH PVT. LTD.</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px; line-height: 1.4;">Manjula Nilayam 2, 602, 6th Floor, Ayyappa Society, Main Road, Madhapur, Hyderabad, Telangana - 500081</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px;">GSTIN</td><td style="padding-bottom: 5px;">36ABCDE1234F1Z5</td></tr>
+            <tr><td style="font-weight: bold;">Phone</td><td>+91 90632 22383</td></tr>
           </table>
         </td>
         <td style="padding: 10px; border: 1px solid #bfdbfe; vertical-align: top;">
           <table style="width: 100%; border-collapse: collapse;">
-            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Recipient</td><td style="padding-bottom: 5px;">${profile?.name || "N/A"}</td></tr>
+            <tr><td style="width: 110px; font-weight: bold; padding-bottom: 5px;">Customer Name</td><td style="padding-bottom: 5px;">${profile?.name || "N/A"}</td></tr>
+            <tr><td style="font-weight: bold; padding-bottom: 5px;">Company Name</td><td style="padding-bottom: 5px;">${profile?.companyName || profile?.name || "N/A"}</td></tr>
             <tr><td style="font-weight: bold; padding-bottom: 5px; vertical-align: top;">Address</td><td style="padding-bottom: 5px;">-</td></tr>
             <tr><td style="font-weight: bold;">Phone</td><td>${profile?.phone || "N/A"}</td></tr>
           </table>
@@ -271,7 +273,7 @@ const AdminProfile = () => {
   <!-- Footer -->
   <div style="font-size: 12px; color: #374151; line-height: 1.5;">
     <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 5px; font-size: 13px;">ARAH INFOTECH PVT.LTD</div>
-    <div style="margin-bottom: 10px;">320 Fifth Floor, East Avenue, Ayyappa Society Main Rd, near YSR Statue, SBH Officers Colony, Mega Hills,<br/>Madhapur, Hyderabad, Telangana 500081</div>
+    <div style="margin-bottom: 10px;">Manjula Nilayam 2, 602, 6th Floor, Ayyappa Society, Main Road,<br/>Madhapur, Hyderabad, Telangana - 500081</div>
     <a href="https://arahinfotech.net/" style="color: #0ea5e9; text-decoration: underline; display: block;">https://arahinfotech.net/</a>
     <div style="margin-top: 5px;">9063222383</div>
     <div>support@vsync.com</div>
@@ -281,7 +283,7 @@ const AdminProfile = () => {
 
     const element = document.createElement('div');
     element.innerHTML = invoiceHtml;
-    
+
     html2pdf().set({
       margin: 10,
       filename: `Invoice_${bill.paymentId || Date.now()}.pdf`,
@@ -1253,7 +1255,6 @@ const AdminProfile = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="text-lg font-bold text-gray-900 capitalize">{plan.planName}</h4>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{plan.durationDays} Days</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-black text-purple-600">{Number(plan.price) === 0 ? "Free" : `₹${plan.price}`}</p>
@@ -1262,16 +1263,21 @@ const AdminProfile = () => {
                   <ul className="space-y-2 mb-6 flex-grow">
                     <li className="flex items-center gap-2 text-xs text-gray-600">
                       <FaCheckCircle className="text-emerald-500 shrink-0" size={12} />
-                      <span>{plan.maxUsers === null ? "Unlimited Users" : `${plan.maxUsers} Users`}</span>
+                      <span>{plan.maxUsers === null ? "Unlimited Users" : `30 Users`}</span>
                     </li>
-                    {plan.features?.slice(0, 3).map((feature, idx) => (
+                    {(expandedPlans[plan._id] ? plan.features : plan.features?.slice(0, 3)).map((feature, idx) => (
                       <li key={idx} className="flex items-center gap-2 text-xs text-gray-600">
                         <FaCheckCircle className="text-emerald-500 shrink-0" size={12} />
                         <span className="truncate">{featureLabels[feature] || feature.split('/').pop().replace(/-/g, ' ')}</span>
                       </li>
                     ))}
                     {plan.features?.length > 3 && (
-                      <li className="text-[10px] text-gray-400 italic ml-5">+{plan.features.length - 3} more features</li>
+                      <li
+                        className="text-[11px] text-purple-600 font-bold ml-5 cursor-pointer hover:underline inline-block mt-1"
+                        onClick={() => setExpandedPlans(prev => ({ ...prev, [plan._id]: !prev[plan._id] }))}
+                      >
+                        {expandedPlans[plan._id] ? "Show less" : `+${plan.features.length - 3} more features`}
+                      </li>
                     )}
                   </ul>
                   <button
