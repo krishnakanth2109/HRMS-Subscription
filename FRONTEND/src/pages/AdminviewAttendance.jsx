@@ -23,7 +23,29 @@ const formatDecimalHours = (decimalHours) => { if (decimalHours === undefined ||
 const getCurrentRole = (employee) => { if (employee.currentRole) return employee.currentRole; if (employee && Array.isArray(employee.experienceDetails)) { const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present"); return currentExp?.role || "N/A"; } return "N/A"; };
 const getWorkedStatus = (punchIn, punchOut, apiStatus, fullDayThreshold, halfDayThreshold) => { const statusUpper = (apiStatus || "").toUpperCase(); if (statusUpper === "LEAVE") return "Leave"; if (statusUpper === "HOLIDAY") return "Holiday"; if (statusUpper === "ABSENT" && !punchIn) return "Absent"; if (punchIn && !punchOut) return "Working.."; if (!punchIn) return "Absent"; const workedMilliseconds = new Date(punchOut) - new Date(punchIn); const workedHours = workedMilliseconds / (1000 * 60 * 60); if (workedHours >= fullDayThreshold) return "Full Day"; if (workedHours >= halfDayThreshold) return "Half Day"; return "Absent"; };
 const LocationViewButton = ({ location }) => { if (!location || !location.latitude || !location.longitude) return <span className="text-gray-400 text-xs font-medium">No Loc</span>; const mapUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`; return (<a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-[11px] font-semibold mt-1 bg-blue-50 px-2 py-0.5 rounded-full transition-colors" title={location.address || 'View on Google Maps'}><FaMapMarkerAlt size={10} /> View Map</a>); };
-const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => { if (!punchInTime) return "--"; if (apiStatus === "LATE") return "LATE"; if (shiftData && shiftData.shiftStartTime) { try { const punchDate = new Date(punchInTime); const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number); const shiftDate = new Date(punchDate); shiftDate.setHours(sHour, sMin, 0, 0); const grace = shiftData.lateGracePeriod || 15; shiftDate.setMinutes(shiftDate.getMinutes() + grace); if (punchDate > shiftDate) return "LATE"; } catch (e) { console.error("Date calc error", e); } } return "ON_TIME"; };
+const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => { 
+  if (!punchInTime) return "--"; 
+  if (shiftData && shiftData.shiftStartTime) { 
+    try { 
+      const punchDate = new Date(punchInTime); 
+      const istOptions = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false };
+      const istTimeStr = punchDate.toLocaleTimeString('en-US', istOptions);
+      let [pIstHour, pIstMin] = istTimeStr.split(':').map(Number);
+      if (pIstHour === 24) pIstHour = 0;
+      const punchMinutes = pIstHour * 60 + pIstMin;
+
+      const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number); 
+      const grace = shiftData.lateGracePeriod !== undefined ? Number(shiftData.lateGracePeriod) : 15; 
+      const shiftMinutes = sHour * 60 + sMin + grace;
+
+      if (punchMinutes > shiftMinutes) return "LATE"; 
+      return "ON_TIME"; 
+    } catch (e) { 
+      console.error("Date calc error", e); 
+    } 
+  } 
+  return apiStatus || "ON_TIME"; 
+};
 const normalizeDateStr = (dateInput) => { const d = new Date(dateInput); return d.toISOString().split('T')[0]; };
 const formatBreakDuration = (seconds) => { if (!seconds || seconds <= 0) return "0m 0s"; const h = Math.floor(seconds / 3600); const m = Math.floor((seconds % 3600) / 60); const s = Math.floor(seconds % 60); if (h > 0) return `${h}h ${m}m ${s}s`; return `${m}m ${s}s`; };
 const calcTotalBreakSeconds = (breakSessions) => { if (!Array.isArray(breakSessions) || breakSessions.length === 0) return 0; const now = new Date(); return breakSessions.reduce((total, brk) => { if (!brk.from) return total; const from = new Date(brk.from); const to = brk.to ? new Date(brk.to) : now; const diff = (to - from) / 1000; return total + (diff > 0 ? diff : 0); }, 0); };

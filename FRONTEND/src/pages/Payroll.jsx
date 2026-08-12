@@ -130,23 +130,28 @@ const getWorkedStatus = (punchIn, punchOut, status, fullDayThreshold = 9, halfDa
   return "Absent";
 };
 
-const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
-  if (!punchInTime) return "--";
-  if (apiStatus === "LATE") return "LATE";
-  if (shiftData && shiftData.shiftStartTime) {
-    try {
-      const punchDate = new Date(punchInTime);
-      const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number);
-      const shiftDate = new Date(punchDate);
-      shiftDate.setHours(sHour, sMin, 0, 0);
-      const grace = shiftData.lateGracePeriod || 15;
-      shiftDate.setMinutes(shiftDate.getMinutes() + grace);
-      if (punchDate > shiftDate) return "LATE";
-    } catch (e) {
-      console.error("Date calc error", e);
-    }
-  }
-  return "ON_TIME";
+const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => { 
+  if (!punchInTime) return "--"; 
+  if (shiftData && shiftData.shiftStartTime) { 
+    try { 
+      const punchDate = new Date(punchInTime); 
+      const istOptions = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false };
+      const istTimeStr = punchDate.toLocaleTimeString('en-US', istOptions);
+      let [pIstHour, pIstMin] = istTimeStr.split(':').map(Number);
+      if (pIstHour === 24) pIstHour = 0;
+      const punchMinutes = pIstHour * 60 + pIstMin;
+
+      const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number); 
+      const grace = shiftData.lateGracePeriod !== undefined ? Number(shiftData.lateGracePeriod) : 15; 
+      const shiftMinutes = sHour * 60 + sMin + grace;
+
+      if (punchMinutes > shiftMinutes) return "LATE"; 
+      return "ON_TIME"; 
+    } catch (e) { 
+      console.error("Date calc error", e); 
+    } 
+  } 
+  return apiStatus || "ON_TIME"; 
 };
 
 // ✅ Get total days in the month

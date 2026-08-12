@@ -96,32 +96,28 @@ const LiveTimer = ({ startTime }) => {
 };
 
 // Calculate login status
-const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => {
-  if (!punchInTime) return { status: "--", isLate: false };
+const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => { 
+  if (!punchInTime) return { status: "--", isLate: false }; 
+  if (shiftData && shiftData.shiftStartTime) { 
+    try { 
+      const punchDate = new Date(punchInTime); 
+      const istOptions = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false };
+      const istTimeStr = punchDate.toLocaleTimeString('en-US', istOptions);
+      let [pIstHour, pIstMin] = istTimeStr.split(':').map(Number);
+      if (pIstHour === 24) pIstHour = 0;
+      const punchMinutes = pIstHour * 60 + pIstMin;
 
-  const statusUpper = (apiStatus || "").toUpperCase();
-  if (statusUpper === "LATE") {
-    return { status: "LATE", isLate: true };
-  }
+      const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number); 
+      const grace = shiftData.lateGracePeriod !== undefined ? Number(shiftData.lateGracePeriod) : 15; 
+      const shiftMinutes = sHour * 60 + sMin + grace;
 
-  if (shiftData && shiftData.shiftStartTime) {
-    try {
-      const punchDate = new Date(punchInTime);
-      const [sHour, sMin] = shiftData.shiftStartTime.split(':').map(Number);
-      const shiftDate = new Date(punchDate);
-      shiftDate.setHours(sHour, sMin, 0, 0);
-      const grace = shiftData.lateGracePeriod || 15;
-      shiftDate.setMinutes(shiftDate.getMinutes() + grace);
-
-      if (punchDate > shiftDate) {
-        return { status: "LATE", isLate: true };
-      }
-    } catch (e) {
-      console.error("Date calc error", e);
-    }
-  }
-
-  return { status: "ON TIME", isLate: false };
+      if (punchMinutes > shiftMinutes) return { status: "LATE", isLate: true }; 
+      return { status: "ON TIME", isLate: false }; 
+    } catch (e) { 
+      console.error("Date calc error", e); 
+    } 
+  } 
+  return { status: apiStatus || "ON TIME", isLate: apiStatus === "LATE" }; 
 };
 
 // --- Components ---

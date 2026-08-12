@@ -15,6 +15,7 @@ import {
   stopFieldWorkTrip,
   updateFieldTrackingSetting,
   uploadBreakPhoto,
+  snapToRoads,
 } from "../controllers/fieldTrackingController.js";
 
 // Configure Cloudinary
@@ -63,5 +64,5 @@ router.post("/employee/trips/:tripId/location", postFieldWorkLocation);
 router.post("/employee/location", postFieldWorkLocation);
 router.post("/employee/trips/:tripId/stop", stopFieldWorkTrip);
 router.post("/employee/trips/:tripId/break-photo", upload.single("image"), uploadBreakPhoto);
-
+router.post("/snap-to-roads", snapToRoads);
 export default router;

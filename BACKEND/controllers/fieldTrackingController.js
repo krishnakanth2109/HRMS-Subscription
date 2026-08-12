@@ -181,6 +181,7 @@ export const getFieldTrackingSetting = async (req, res) => {
     return res.json({
       enabled: Boolean(setting?.enabled),
       updatedAt: setting?.updatedAt || null,
+      googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || "",
     });
   } catch (error) {
     console.error("Error fetching field tracking setting:", error);
@@ -568,5 +569,43 @@ export const uploadBreakPhoto = async (req, res) => {
   } catch (error) {
     console.error("Error uploading break photo:", error);
     return res.status(500).json({ message: "Failed to upload break photo." });
+  }
+};
+
+export const snapToRoads = async (req, res) => {
+  try {
+    const { waypoints } = req.body;
+    if (!waypoints || !Array.isArray(waypoints) || waypoints.length < 2) {
+      return res.status(400).json({ message: "Invalid waypoints array. Need at least 2 points." });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ message: "Google Maps API Key not configured." });
+    }
+
+    const pathString = waypoints.map((p) => `${p.lat},${p.lng}`).join("|");
+    const url = `https://roads.googleapis.com/v1/snapToRoads?path=${pathString}&interpolate=true&key=${apiKey}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Google Roads API Error:", errorText);
+      return res.status(500).json({ message: "Failed to snap to roads." });
+    }
+
+    const data = await response.json();
+    if (data.snappedPoints) {
+      const snappedPoints = data.snappedPoints.map((p) => ({
+        lat: p.location.latitude,
+        lng: p.location.longitude,
+      }));
+      return res.json({ snappedPoints });
+    }
+
+    return res.json({ snappedPoints: waypoints });
+  } catch (error) {
+    console.error("SnapToRoads Proxy Error:", error);
+    return res.status(500).json({ message: "Internal server error during snapToRoads." });
   }
 };

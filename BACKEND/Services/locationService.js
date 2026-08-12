@@ -8,31 +8,26 @@ import axios from "axios";
  */
 export const reverseGeocode = async (latitude, longitude) => {
   try {
-    const apiKey = process.env.LOCATIONIQ_API_KEY;
-    
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
-      console.error("LocationIQ API key not found in environment variables");
+      console.error("Google Maps API key not found in environment variables");
       return "Address unavailable (API key missing)";
     }
 
-    const url = `https://us1.locationiq.com/v1/reverse.php?key=${apiKey}&lat=${latitude}&lon=${longitude}&format=json`;
-    
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`;
     const response = await axios.get(url);
     
-    if (response.data && response.data.display_name) {
-      return response.data.display_name;
+    if (response.data?.status === "OK" && response.data.results?.[0]) {
+      return response.data.results[0].formatted_address;
     }
     
     return "Address not found";
   } catch (error) {
     console.error("Reverse geocoding error:", error.message);
-    
     if (error.response) {
-      // LocationIQ API returned an error
-      console.error("LocationIQ API error:", error.response.data);
-      return `Address lookup failed: ${error.response.data.error || 'Unknown error'}`;
+      console.error("Google Geocoding API error:", error.response.data);
+      return `Address lookup failed: ${error.response.data.error_message || 'Unknown error'}`;
     }
-    
     return "Address lookup failed";
   }
 };

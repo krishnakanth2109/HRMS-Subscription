@@ -12,10 +12,7 @@ import {
   UserRound,
   Coffee,
 } from "lucide-react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { io } from "socket.io-client";
 import ModalWrapper from "../../components/ModalWrapper";
 import Pagination from "../../components/Pagination";
@@ -122,396 +119,322 @@ const toLatLng = (point) => {
   return [lat, lng];
 };
 
-const stopPinIcon = L.divIcon({
-  className: "",
-  html: renderToStaticMarkup(
-    <div
-      style={{
-        alignItems: "center",
-        background: "#ef4444",
-        border: "3px solid #ffffff",
-        borderRadius: "9999px",
-        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
-        color: "#ffffff",
-        display: "flex",
-        height: "34px",
-        justifyContent: "center",
-        width: "34px",
-      }}
-    >
-      <MapPin size={21} strokeWidth={3} />
-    </div>
-  ),
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-  popupAnchor: [0, -17],
-});
+// ==========================================
+// GOOGLE MAPS LOADER (singleton)
+// ==========================================
+const GOOGLE_MAPS_KEY_FALLBACK = import.meta.env.VITE_GOOGLE_MAPS_KEY || "";
+let _adminGoogleApi = null;
 
-const breakPinIcon = L.divIcon({
-  className: "",
-  html: renderToStaticMarkup(
-    <div
-      style={{
-        alignItems: "center",
-        background: "#f59e0b",
-        border: "3px solid #ffffff",
-        borderRadius: "9999px",
-        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
-        color: "#ffffff",
-        display: "flex",
-        height: "34px",
-        justifyContent: "center",
-        width: "34px",
-      }}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 8h1a4 4 0 1 1 0 8h-1" />
-        <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
-        <line x1="6" x2="6" y1="2" y2="4" />
-        <line x1="10" x2="10" y1="2" y2="4" />
-        <line x1="14" x2="14" y1="2" y2="4" />
-      </svg>
-    </div>
-  ),
-  iconSize: [34, 34],
-  iconAnchor: [17, 17],
-  popupAnchor: [0, -17],
-});
-
-const intermediatePinIcon = L.divIcon({
-  className: "",
-  html: renderToStaticMarkup(
-    <div
-      style={{
-        alignItems: "center",
-        background: "#10b981",
-        border: "2px solid #ffffff",
-        borderRadius: "9999px",
-        boxShadow: "0 2px 4px rgba(0, 0, 0, 0.3)",
-        display: "flex",
-        height: "12px",
-        width: "12px",
-      }}
-    />
-  ),
-  iconSize: [12, 12],
-  iconAnchor: [6, 6],
-  popupAnchor: [0, -6],
-});
-
-const createMapPinIcon = (background) =>
-  L.divIcon({
-    className: "",
-    html: renderToStaticMarkup(
-      <div
-        style={{
-          alignItems: "center",
-          background,
-          border: "3px solid #ffffff",
-          borderRadius: "9999px",
-          boxShadow: "0 8px 18px rgba(15, 23, 42, 0.28)",
-          color: "#ffffff",
-          display: "flex",
-          height: "34px",
-          justifyContent: "center",
-          width: "34px",
-        }}
-      >
-        <MapPin size={21} strokeWidth={3} />
-      </div>
-    ),
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-    popupAnchor: [0, -17],
+const getGoogleMapsApi = async (key) => {
+  if (_adminGoogleApi) return _adminGoogleApi;
+  const apiKey = key || GOOGLE_MAPS_KEY_FALLBACK;
+  if (!apiKey) throw new Error("Google Maps API key is missing.");
+  
+  setOptions({
+    key: apiKey,
+    version: "weekly"
   });
-
-const startPinIcon = createMapPinIcon("#16a34a");
-const currentPinIcon = createMapPinIcon("#2563eb");
-const endPinIcon = createMapPinIcon("#f97316");
-
-const createArrowIcon = (angle) =>
-  L.divIcon({
-    className: "",
-    html: `<div style="
-      transform: rotate(${angle}deg);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      background-color: #10B981;
-      border: 2px solid #ffffff;
-      border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    ">
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-        <polyline points="12 5 19 12 12 19"></polyline>
-      </svg>
-    </div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-  });
-
-const MapViewController = ({ positions, focusedLocation }) => {
-  const map = useMap();
-  const hasInitialized = useRef(false);
-
-  useEffect(() => {
-    const observer = new ResizeObserver(() => map.invalidateSize());
-    observer.observe(map.getContainer());
-    return () => observer.disconnect();
-  }, [map]);
-
-  useEffect(() => {
-    const timers = [100, 300, 800, 1500].map((delay) =>
-      window.setTimeout(() => {
-        map.invalidateSize({ debounceStart: true });
-      }, delay)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [map, positions, focusedLocation]);
-
-  useEffect(() => {
-    if (focusedLocation) {
-      map.setView(focusedLocation, 17);
-      hasInitialized.current = false; // Reset so that when focus is cleared, it fits bounds again
-    } else {
-      if (!positions.length) return;
-
-      if (!hasInitialized.current) {
-        if (positions.length === 1) {
-          map.setView(positions[0], 16);
-        } else {
-          map.fitBounds(positions, { maxZoom: 16, padding: [36, 36] });
-        }
-        hasInitialized.current = true;
-      }
-    }
-  }, [map, positions, focusedLocation]);
-
-  return null;
+  
+  await importLibrary("maps");
+  await importLibrary("marker");
+  
+  _adminGoogleApi = window.google;
+  return _adminGoogleApi;
 };
 
-const TripRouteMap = ({ routePoints, stopPoints, breaks = [], isActiveTrip = false, focusedLocation, setFocusedLocation }) => {
-  const routePositions = useMemo(() => routePoints.map((point) => point.position), [routePoints]);
-  const stopPositions = stopPoints.map((point) => point.position);
-  const breakPositions = useMemo(() => breaks.map((b) => toLatLng(b)).filter(Boolean), [breaks]);
+// ==========================================
+// SNAP-TO-ROADS PROXY
+// ==========================================
+const callSnapToRoads = async (waypoints) => {
+  if (!waypoints || waypoints.length < 2) return waypoints;
+  try {
+    const response = await api.post("/api/field-tracking/snap-to-roads", {
+      waypoints: waypoints.slice(0, 100),
+    });
+    const snapped = response.data?.snappedPoints;
+    if (Array.isArray(snapped) && snapped.length >= 2) return snapped;
+  } catch (err) {
+    console.warn("[AdminFieldTracking:snapToRoads] fallback to raw GPS:", err.message);
+  }
+  return waypoints;
+};
 
-  const [osrmPath, setOsrmPath] = useState([]);
+// ==========================================
+// SVG MARKER HELPERS
+// ==========================================
+const makePinSvg = (fill, label) =>
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+      <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0z"
+            fill="${fill}" stroke="#fff" stroke-width="2"/>
+      <circle cx="18" cy="18" r="8" fill="#fff" fill-opacity="0.9"/>
+      <text x="18" y="22" text-anchor="middle" font-size="9" font-weight="700" fill="${fill}">${label}</text>
+    </svg>`
+  );
 
-  // Sample routePoints every 15 seconds based on recordedAt
-  const sampledPoints = useMemo(() => {
-    if (routePoints.length === 0) return [];
+const makeCircleSvg = (fill) =>
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14">
+      <circle cx="7" cy="7" r="5" fill="${fill}" stroke="#fff" stroke-width="2"/>
+    </svg>`
+  );
+
+const ICONS = {
+  start:   { url: makePinSvg("#16a34a", "S"), size: [36, 44], anchor: [18, 44] },
+  end:     { url: makePinSvg("#f97316", "E"), size: [36, 44], anchor: [18, 44] },
+  current: { url: makePinSvg("#2563eb", "L"), size: [36, 44], anchor: [18, 44] },
+  stop:    { url: makePinSvg("#ef4444", "!"), size: [36, 44], anchor: [18, 44] },
+  brk:     { url: makePinSvg("#f59e0b", "B"), size: [36, 44], anchor: [18, 44] },
+  dot:     { url: makeCircleSvg("#10b981"), size: [14, 14], anchor: [7, 7] },
+};
+
+const makeIcon = (google, key) => ({
+  url: ICONS[key].url,
+  scaledSize: new google.maps.Size(...ICONS[key].size),
+  anchor: new google.maps.Point(...ICONS[key].anchor),
+});
+
+// ==========================================
+// GOOGLE MAPS TRIP ROUTE COMPONENT
+// ==========================================
+const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoint = null, isActiveTrip = false }) => {
+  const mapDivRef = useRef(null);
+  const mapRef = useRef(null);
+  const infoWindowRef = useRef(null);
+  const markersRef = useRef([]);
+  const polylineRef = useRef(null);
+  const currentMarkerRef = useRef(null);
+
+  const routePoints = useMemo(
+    () => path.filter((p) => Number.isFinite(Number(p.latitude)) && Number.isFinite(Number(p.longitude))),
+    [path]
+  );
+
+  const stopPoints = useMemo(
+    () => stops.filter((s) => Number.isFinite(Number(s.latitude)) && Number.isFinite(Number(s.longitude))),
+    [stops]
+  );
+
+  const waypoints = useMemo(() => {
+    if (routePoints.length < 2) return [];
     const sampled = [];
-    let lastTime = 0;
+    let lastT = 0;
     for (let i = 0; i < routePoints.length; i++) {
       const pt = routePoints[i];
-      let time = pt.recordedAt ? new Date(pt.recordedAt).getTime() : NaN;
-      if (Number.isNaN(time)) {
-        time = i * 3000; // 3 seconds fallback interval
-      }
-      if (i === 0) {
-        sampled.push(pt);
-        lastTime = time;
-      } else if (i === routePoints.length - 1) {
-        if (sampled[sampled.length - 1] !== pt) {
-          sampled.push(pt);
-        }
-      } else {
-        if (time - lastTime >= LOCATION_INTERVAL_MS) {
-          sampled.push(pt);
-          lastTime = time;
-        }
+      const t = pt.recordedAt ? new Date(pt.recordedAt).getTime() : i * 3000;
+      if (i === 0 || i === routePoints.length - 1 || t - lastT >= LOCATION_INTERVAL_MS) {
+        sampled.push({ lat: pt.latitude, lng: pt.longitude });
+        lastT = t;
       }
     }
-    return sampled;
+    if (sampled.length <= 100) return sampled;
+    const step = (sampled.length - 1) / 99;
+    return Array.from({ length: 100 }, (_, i) => sampled[Math.round(i * step)]);
   }, [routePoints]);
 
-  // Capped waypoints for OSRM to avoid URL length limit (max 60 points)
-  const osrmWaypoints = useMemo(() => {
-    if (sampledPoints.length <= 60) {
-      return sampledPoints.map((p) => p.position);
-    }
-    const waypoints = [];
-    const step = (sampledPoints.length - 1) / 59;
-    for (let i = 0; i < 60; i++) {
-      const idx = Math.round(i * step);
-      waypoints.push(sampledPoints[idx].position);
-    }
-    return waypoints;
-  }, [sampledPoints]);
-
-  const pathKey = useMemo(() => {
-    return osrmWaypoints.map((pos) => `${pos[0]},${pos[1]}`).join(";");
-  }, [osrmWaypoints]);
+  const waypointsKey = waypoints.map((p) => `${p.lat},${p.lng}`).join(";");
 
   useEffect(() => {
-    if (osrmWaypoints.length < 2) {
-      setOsrmPath([]);
-      return;
-    }
-
-    let active = true;
-    const fetchRoute = async () => {
-      try {
-        const coordsString = osrmWaypoints.map((p) => `${p[1]},${p[0]}`).join(";");
-        const url = `https://router.project-osrm.org/route/v1/driving/${coordsString}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error("OSRM route fetch failed");
-        }
-        const data = await res.json();
-        if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
-          const snapped = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-          if (active) {
-            setOsrmPath(snapped);
-          }
-        }
-      } catch (err) {
-        console.error("OSRM Routing failed, falling back to straight breadcrumbs:", err);
-      }
-    };
-
-    fetchRoute();
-    return () => {
-      active = false;
-    };
-  }, [pathKey, osrmWaypoints]);
-
-  const polylinePositions = osrmPath.length > 0 ? osrmPath : routePositions;
-
-  const arrowMarkers = useMemo(() => {
-    if (polylinePositions.length < 2) return [];
-    const markers = [];
-    const step = Math.max(5, Math.floor(polylinePositions.length / 8));
-    for (let i = 0; i < polylinePositions.length - 1; i += step) {
-      const current = polylinePositions[i];
-      const nextIndex = Math.min(i + 1, polylinePositions.length - 1);
-      const next = polylinePositions[nextIndex];
-      const latDiff = next[0] - current[0];
-      const lngDiff = next[1] - current[1];
-      if (Math.abs(latDiff) > 1e-7 || Math.abs(lngDiff) > 1e-7) {
-        const angle = -Math.atan2(latDiff, lngDiff) * 180 / Math.PI;
-        markers.push({
-          position: current,
-          angle,
-          key: `arrow-${i}`
+    if (!mapDivRef.current || !mapsKey) return;
+    let cancelled = false;
+    getGoogleMapsApi(mapsKey).then((google) => {
+      if (cancelled || !mapDivRef.current) return;
+      if (!mapRef.current) {
+        mapRef.current = new google.maps.Map(mapDivRef.current, {
+          center: { lat: 20.5937, lng: 78.9629 },
+          zoom: 13,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          gestureHandling: "greedy",
         });
+        infoWindowRef.current = new google.maps.InfoWindow();
       }
-    }
-    return markers;
-  }, [polylinePositions]);
+    }).catch(console.error);
+    return () => { cancelled = true; };
+  }, [mapsKey]);
 
-  const allPositions = [...routePositions, ...stopPositions, ...breakPositions];
-  const center = allPositions[0] || [20.5937, 78.9629];
-  const startPoint = routePoints[0];
-  const endPoint = routePoints[routePoints.length - 1];
+  const clearOverlays = useCallback(() => {
+    markersRef.current.forEach((m) => m.setMap(null));
+    markersRef.current = [];
+    polylineRef.current?.setMap(null);
+    polylineRef.current = null;
+    infoWindowRef.current?.close();
+  }, []);
+
+  useEffect(() => {
+    if (!routePoints.length) { clearOverlays(); return; }
+    let cancelled = false;
+
+    const draw = async () => {
+      if (!mapsKey) return;
+      const google = await getGoogleMapsApi(mapsKey);
+      if (cancelled || !mapRef.current) return;
+      clearOverlays();
+      
+      const map = mapRef.current;
+      const iw = infoWindowRef.current;
+      const newMarkers = [];
+
+      const snapped = waypoints.length >= 2
+        ? await callSnapToRoads(waypoints)
+        : routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+      if (cancelled) return;
+
+      const poly = new google.maps.Polyline({
+        path: snapped,
+        geodesic: true,
+        strokeColor: "#10B981",
+        strokeOpacity: 0.9,
+        strokeWeight: 5,
+      });
+      poly.setMap(map);
+      polylineRef.current = poly;
+
+      routePoints.forEach((pt, i) => {
+        if (i === 0 || i === routePoints.length - 1 || i % 3 !== 0) return;
+        newMarkers.push(new google.maps.Marker({
+          position: { lat: pt.latitude, lng: pt.longitude },
+          map,
+          icon: makeIcon(google, "dot"),
+          title: `Point ${i + 1}`,
+          optimized: true,
+        }));
+      });
+
+      const start = routePoints[0];
+      const startM = new google.maps.Marker({
+        position: { lat: start.latitude, lng: start.longitude },
+        map,
+        icon: makeIcon(google, "start"),
+        title: "Start",
+        zIndex: 10,
+      });
+      startM.addListener("click", () => {
+        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${formatDateTime(start.recordedAt)}</span>`);
+        iw.open(map, startM);
+      });
+      newMarkers.push(startM);
+
+      stopPoints.forEach((stop, i) => {
+        const m = new google.maps.Marker({
+          position: { lat: stop.latitude, lng: stop.longitude },
+          map,
+          icon: makeIcon(google, "stop"),
+          title: `Stop ${i + 1}`,
+          zIndex: 8,
+        });
+        m.addListener("click", () => {
+          iw.setContent(
+            `<b style="color:#ef4444">Stop ${i + 1}</b><br/>` +
+            `<span style="font-size:12px">${formatDateTime(stop.stoppedAt)}</span><br/>` +
+            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span>`
+          );
+          iw.open(map, m);
+        });
+        newMarkers.push(m);
+      });
+
+      breaks.forEach((b, i) => {
+        const lat = Number(b.latitude); const lng = Number(b.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        const m = new google.maps.Marker({
+          position: { lat, lng },
+          map,
+          icon: makeIcon(google, "brk"),
+          title: `Break ${i + 1}`,
+          zIndex: 8,
+        });
+        m.addListener("click", () => {
+          iw.setContent(
+            `<b style="color:#f59e0b">Break ${i + 1}</b><br/>` +
+            `<span style="font-size:12px">${formatDateTime(b.startedAt)}</span><br/>` +
+            `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span>` +
+            (b.description ? `<br/><i style="font-size:11px">"${b.description}"</i>` : "") +
+            (b.photoUrl ? `<br/><a href="${b.photoUrl}" target="_blank"><img src="${b.photoUrl}" style="max-height:80px;margin-top:6px;border-radius:6px"/></a>` : "")
+          );
+          iw.open(map, m);
+        });
+        newMarkers.push(m);
+      });
+
+      markersRef.current = newMarkers;
+
+      const allLL = [
+        ...routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude })),
+        ...stopPoints.map((s) => ({ lat: s.latitude, lng: s.longitude })),
+        ...breaks.map((b) => ({ lat: Number(b.latitude), lng: Number(b.longitude) })).filter((ll) => Number.isFinite(ll.lat) && Number.isFinite(ll.lng)),
+      ];
+      if (allLL.length === 1) { map.setCenter(allLL[0]); map.setZoom(16); }
+      else if (allLL.length > 1) {
+        const bounds = new google.maps.LatLngBounds();
+        allLL.forEach((ll) => bounds.extend(ll));
+        map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+      }
+    };
+
+    draw();
+    return () => { cancelled = true; };
+  }, [routePoints, stopPoints, breaks, waypointsKey, mapsKey]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const lat = Number(currentPoint?.latitude);
+    const lng = Number(currentPoint?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    
+    let cancelled = false;
+    if (!mapsKey) return;
+
+    getGoogleMapsApi(mapsKey).then((google) => {
+      if (cancelled || !mapRef.current) return;
+      const map = mapRef.current;
+      const pos = { lat, lng };
+
+      if (!currentMarkerRef.current) {
+        currentMarkerRef.current = new google.maps.Marker({
+          position: pos,
+          map,
+          icon: makeIcon(google, isActiveTrip ? "current" : "end"),
+          title: isActiveTrip ? "Live Location" : "End",
+          zIndex: 20,
+        });
+      } else {
+        currentMarkerRef.current.setPosition(pos);
+        currentMarkerRef.current.setIcon(makeIcon(google, isActiveTrip ? "current" : "end"));
+      }
+
+      if (isActiveTrip) {
+        map.panTo(pos);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [currentPoint?.latitude, currentPoint?.longitude, isActiveTrip, mapsKey]);
+
+  useEffect(() => {
+    return () => {
+      currentMarkerRef.current?.setMap(null);
+      currentMarkerRef.current = null;
+    };
+  }, []);
 
   return (
-    <MapContainer center={center} zoom={13} className="h-[520px] w-full" scrollWheelZoom>
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <MapViewController positions={allPositions} focusedLocation={focusedLocation} />
-
-      {polylinePositions.length > 1 && (
-        <Polyline positions={polylinePositions} pathOptions={{ color: "#10B981", weight: 5, opacity: 0.8 }} />
-      )}
-
-      {arrowMarkers.map((arrow) => (
-        <Marker
-          key={arrow.key}
-          position={arrow.position}
-          icon={createArrowIcon(arrow.angle)}
-          interactive={false}
-        />
-      ))}
-
-      <div className="leaflet-top leaflet-right flex flex-col gap-2 m-3 items-end">
-        <div className="rounded-xl bg-white/95 px-3 py-2 text-xs font-black text-slate-700 shadow select-none">
-          Captured GPS route
+    <div style={{ position: "relative", height: "450px", width: "100%" }}>
+      <div ref={mapDivRef} style={{ height: "100%", width: "100%", borderRadius: "12px" }} />
+      {!mapsKey && (
+        <div style={{
+          position: "absolute", inset: 0, display: "flex", alignItems: "center",
+          justifyContent: "center", background: "#f1f5f9", borderRadius: 12,
+          flexDirection: "column", gap: 8,
+        }}>
+          <MapPin size={40} style={{ color: "#94a3b8" }} />
+          <p style={{ fontWeight: 700, color: "#475569" }}>Google Maps key not configured.</p>
         </div>
-        {focusedLocation && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              setFocusedLocation(null);
-            }}
-            className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-black shadow transition pointer-events-auto"
-          >
-            Show Full Route
-          </button>
-        )}
-      </div>
-
-      {startPoint && (
-        <Marker position={startPoint.position} icon={startPinIcon}>
-          <Popup>
-            <div className="text-xs font-semibold text-slate-700">
-              <p className="font-black text-slate-900">Start</p>
-              <p>{formatDateTime(startPoint.recordedAt)}</p>
-            </div>
-          </Popup>
-        </Marker>
       )}
-
-      {endPoint && (
-        <Marker position={endPoint.position} icon={isActiveTrip ? currentPinIcon : endPinIcon}>
-          <Popup>
-            <div className="text-xs font-semibold text-slate-700">
-              <p className="font-black text-slate-900">{isActiveTrip ? "Current Location" : "End Location"}</p>
-              <p>{formatDateTime(endPoint.recordedAt)}</p>
-            </div>
-          </Popup>
-        </Marker>
-      )}
-
-      {stopPoints.map((stop, index) => (
-        <Marker
-          key={`stop-${stop.stoppedAt || index}-${index}`}
-          position={stop.position}
-          icon={stopPinIcon}
-        >
-          <Popup>
-            <div className="text-xs font-semibold text-slate-700">
-              <p className="font-black text-red-700">Stop {index + 1}</p>
-              <p>{formatDateTime(stop.stoppedAt)}</p>
-              <p>Duration: {formatDuration(stop.durationSeconds)}</p>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-
-      {breaks.map((b, index) => {
-        const pos = toLatLng(b);
-        if (!pos) return null;
-        return (
-          <Marker key={`break-${b.startedAt || index}-${index}`} position={pos} icon={breakPinIcon}>
-            <Popup>
-              <div className="text-xs font-semibold text-slate-700">
-                <p className="font-black text-amber-700">Break {index + 1}</p>
-                <p>{b.startedAt ? new Date(b.startedAt).toLocaleTimeString("en-IN") : "--"}</p>
-                <p>Duration: {formatDuration(b.durationSeconds)}</p>
-                {b.description && (
-                  <p className="mt-1 font-bold text-slate-600 italic">"{b.description}"</p>
-                )}
-                {b.photoUrl && (
-                  <div className="mt-2 overflow-hidden rounded border border-slate-100">
-                    <a href={b.photoUrl} target="_blank" rel="noopener noreferrer" className="block">
-                      <img src={b.photoUrl} alt="Break Proof" className="max-h-[100px] w-full object-cover cursor-zoom-in" />
-                    </a>
-                  </div>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
-    </MapContainer>
+    </div>
   );
 };
 
@@ -519,6 +442,7 @@ const AdminFieldTracking = () => {
   const [trackingEnabled, setTrackingEnabled] = useState(false);
   const [settingLoading, setSettingLoading] = useState(true);
   const [savingSetting, setSavingSetting] = useState(false);
+  const [mapsKey, setMapsKey] = useState("");
 
   const [employeeModalOpen, setEmployeeModalOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
@@ -592,6 +516,7 @@ const AdminFieldTracking = () => {
       setSettingLoading(true);
       const data = await getFieldTrackingSetting();
       setTrackingEnabled(Boolean(data.enabled));
+      if (data.googleMapsKey) setMapsKey(data.googleMapsKey);
     } catch (error) {
       console.error("Failed to load field tracking setting:", error);
     } finally {
@@ -851,9 +776,8 @@ const AdminFieldTracking = () => {
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <span
-                className={`rounded-full px-4 py-2 text-sm font-black ${
-                  trackingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
-                }`}
+                className={`rounded-full px-4 py-2 text-sm font-black ${trackingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                  }`}
               >
                 {settingLoading ? "Checking..." : trackingEnabled ? "Tracking On" : "Tracking Off"}
               </span>
@@ -861,9 +785,8 @@ const AdminFieldTracking = () => {
                 type="button"
                 onClick={handleToggle}
                 disabled={savingSetting || settingLoading}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-black text-white shadow-lg transition disabled:opacity-60 ${
-                  trackingEnabled ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-black text-white shadow-lg transition disabled:opacity-60 ${trackingEnabled ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
               >
                 <Power size={18} />
                 {savingSetting ? "Saving..." : trackingEnabled ? "Turn Off" : "Turn On"}
@@ -965,13 +888,16 @@ const AdminFieldTracking = () => {
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                   {routePoints.length ? (
                     <TripRouteMap
-                      key={selectedTrip._id}
-                      routePoints={routePoints}
-                      stopPoints={stopPoints}
-                      breaks={selectedTrip?.breaks || []}
+                      mapsKey={mapsKey}
+                      path={selectedTrip.path}
+                      stops={selectedTrip.stops}
+                      breaks={selectedTrip.breaks || []}
+                      currentPoint={
+                        selectedTrip.status === "active"
+                          ? selectedTrip.path?.[selectedTrip.path.length - 1]
+                          : selectedTrip.path?.[selectedTrip.path.length - 1]
+                      }
                       isActiveTrip={selectedTrip.status === "active"}
-                      focusedLocation={focusedLocation}
-                      setFocusedLocation={setFocusedLocation}
                     />
                   ) : (
                     <div className="flex h-[520px] items-center justify-center text-sm font-bold text-slate-500">
@@ -1052,11 +978,10 @@ const AdminFieldTracking = () => {
                                   setFocusedLocation(stop.position);
                                 }
                               }}
-                              className={`w-full text-left rounded-xl border p-3 transition-all ${
-                                isFocused
+                              className={`w-full text-left rounded-xl border p-3 transition-all ${isFocused
                                   ? "border-red-400 bg-red-100/50 shadow-sm"
                                   : "border-red-100 bg-white hover:bg-red-50/50 hover:border-red-200"
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-xs font-black text-red-500">Stop {index + 1}</span>
@@ -1097,11 +1022,10 @@ const AdminFieldTracking = () => {
                                   setFocusedLocation(pos);
                                 }
                               }}
-                              className={`w-full text-left rounded-xl border p-3 transition-all ${
-                                isFocused
+                              className={`w-full text-left rounded-xl border p-3 transition-all ${isFocused
                                   ? "border-amber-400 bg-amber-100/50 shadow-sm"
                                   : "border-amber-100 bg-white hover:bg-amber-50/50 hover:border-amber-200"
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <span className="text-xs font-black text-amber-500">Break {index + 1}</span>
@@ -1221,22 +1145,20 @@ const AdminFieldTracking = () => {
                 <button
                   type="button"
                   onClick={() => setEmployeeStatusFilter("all")}
-                  className={`rounded-lg px-3 py-2 text-xs font-black transition ${
-                    employeeStatusFilter === "all"
+                  className={`rounded-lg px-3 py-2 text-xs font-black transition ${employeeStatusFilter === "all"
                       ? "bg-slate-900 text-white shadow-sm"
                       : "text-slate-600 hover:bg-white hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   All
                 </button>
                 <button
                   type="button"
                   onClick={() => setEmployeeStatusFilter("live")}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition ${
-                    employeeStatusFilter === "live"
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition ${employeeStatusFilter === "live"
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "text-slate-600 hover:bg-white hover:text-emerald-700"
-                  }`}
+                    }`}
                 >
                   <span className="h-2 w-2 rounded-full bg-emerald-400" />
                   Live
@@ -1246,11 +1168,10 @@ const AdminFieldTracking = () => {
                 <button
                   type="button"
                   onClick={() => setEmployeeViewMode("list")}
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black transition ${
-                    employeeViewMode === "list"
+                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black transition ${employeeViewMode === "list"
                       ? "bg-slate-900 text-white shadow-sm"
                       : "text-slate-600 hover:bg-white hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   <List size={15} />
                   List
@@ -1258,11 +1179,10 @@ const AdminFieldTracking = () => {
                 <button
                   type="button"
                   onClick={() => setEmployeeViewMode("grid")}
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black transition ${
-                    employeeViewMode === "grid"
+                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-black transition ${employeeViewMode === "grid"
                       ? "bg-slate-900 text-white shadow-sm"
                       : "text-slate-600 hover:bg-white hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   <Grid2X2 size={15} />
                   Grid
@@ -1298,9 +1218,8 @@ const AdminFieldTracking = () => {
                   key={employee._id}
                   type="button"
                   onClick={() => chooseEmployee(employee)}
-                  className={`flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-blue-50 ${
-                    index !== visibleEmployees.length - 1 ? "border-b border-slate-100" : ""
-                  }`}
+                  className={`flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-blue-50 ${index !== visibleEmployees.length - 1 ? "border-b border-slate-100" : ""
+                    }`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-black text-blue-700">
@@ -1369,7 +1288,7 @@ const AdminFieldTracking = () => {
           <p className="text-xs font-semibold text-slate-500">
             Below is the list of all GPS coordinates captured for this trip. Click "Focus" to center the map on a specific point.
           </p>
-          
+
           <div className="max-h-[400px] overflow-y-auto rounded-xl border border-slate-200">
             <table className="w-full border-collapse text-left text-xs font-semibold text-slate-600">
               <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400 border-b border-slate-200 sticky top-0">
