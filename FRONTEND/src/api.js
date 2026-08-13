@@ -1281,7 +1281,7 @@ export const editEveningWork = async (
   const formData = new FormData();
   formData.append("description", description);
   formData.append("employee_submitted_percentage", employee_submitted_percentage);
-  
+
   imagesToDelete.forEach((imageId) => {
     formData.append("imagesToDelete", imageId);
   });
