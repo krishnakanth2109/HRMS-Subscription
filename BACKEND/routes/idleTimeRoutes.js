@@ -119,26 +119,43 @@ router.post('/live-status', async (req, res) => {
 // ------------------------------------------
 router.get('/live-status', async (req, res) => {
   try {
-    const date = req.query.date || new Date().toISOString().split('T')[0];
+    const { date, startDate, endDate } = req.query;
+    let targetDates = [];
+
+    if (startDate && endDate) {
+      let current = new Date(startDate);
+      const end = new Date(endDate);
+      while (current <= end) {
+        targetDates.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
+    } else {
+      targetDates.push(date || new Date().toISOString().split('T')[0]);
+    }
+
     const allDocs = await LiveTracking.find({});
 
     const liveArray = [];
     allDocs.forEach((doc) => {
-      if (doc.dates && doc.dates.has(date)) {
-        const todayData = doc.dates.get(date);
-        liveArray.push({
-          _id: `${doc._id}_${date}`,
-          employeeId: doc.employeeId,
-          date: date,
-          currentStatus: todayData.currentStatus,
-          lastPing: todayData.lastPing,
-          idleSince: todayData.idleSince,
-          activeWindow: todayData.activeWindow || null,
-          idleTimeline: todayData.idleTimeline || [],
-          trackedWorkSeconds: todayData.trackedWorkSeconds || 0,
-          trackedIdleSeconds: todayData.trackedIdleSeconds || 0,
-          currentIdleScreenshot: todayData.currentIdleScreenshot || null,
-          screenshotCapturedAt: todayData.screenshotCapturedAt || null
+      if (doc.dates) {
+        targetDates.forEach(tDate => {
+          if (doc.dates.has(tDate)) {
+            const todayData = doc.dates.get(tDate);
+            liveArray.push({
+              _id: `${doc._id}_${tDate}`,
+              employeeId: doc.employeeId,
+              date: tDate,
+              currentStatus: todayData.currentStatus,
+              lastPing: todayData.lastPing,
+              idleSince: todayData.idleSince,
+              activeWindow: todayData.activeWindow || null,
+              idleTimeline: todayData.idleTimeline || [],
+              trackedWorkSeconds: todayData.trackedWorkSeconds || 0,
+              trackedIdleSeconds: todayData.trackedIdleSeconds || 0,
+              currentIdleScreenshot: todayData.currentIdleScreenshot || null,
+              screenshotCapturedAt: todayData.screenshotCapturedAt || null
+            });
+          }
         });
       }
     });

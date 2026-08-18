@@ -1,3 +1,4 @@
+
 // --- START OF FILE Paste February 23, 2026 - 4:15PM ---
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -9,6 +10,7 @@ import api from '../api';
 import {
   getLeaveRequests,
   getEmployees,
+  getSupportAdmins,
   getAttendanceByDateRange,
   getHolidays,
   getAllShifts,
@@ -1456,6 +1458,11 @@ const PAYSLIP_LAYOUTS = [
   { id: 'corporate', label: 'Corporate', icon: '🏢', desc: 'Bold header, professional' },
   { id: 'minimal', label: 'Minimal', icon: '✨', desc: 'Ultra-clean, stripe rows' },
   { id: 'executive', label: 'Executive', icon: '💼', desc: 'Dark header, premium feel' },
+  { id: 'elegant', label: 'Elegant', icon: '🏛️', desc: 'Sophisticated, gold accents' },
+  { id: 'startup', label: 'Startup', icon: '🚀', desc: 'Vibrant, tech-focused' },
+  { id: 'compact', label: 'Compact', icon: '📊', desc: 'Dense, space-saving' },
+  { id: 'invoice', label: 'Invoice', icon: '🧾', desc: 'Classic bill format' },
+  { id: 'monochrome', label: 'Monochrome', icon: '⚫', desc: 'High-contrast, bold lines' },
 ];
 
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateOverride }) => {
@@ -1612,7 +1619,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
   };
 
   // Builds the raw payslip HTML (used both for print and PDF)
-  const buildPayslipHTML = useCallback((pfLabel, employerPfLabel) => {
+  const buildPayslipHTML = useCallback((pfLabel, employerPfLabel, isCustomTemplate = false) => {
     // ── shared helpers ────────────────────────────────────────────────
     const numToWords = (num) => {
       const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -1660,7 +1667,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
     ].filter(i => i.val > 0);
 
     const maxLen = Math.max(earnList.length, deductList.length);
-    const SIGN = `"https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png"`;
+    const SIGN = `"/api/offer-letters/templates/fetch?url=${encodeURIComponent('https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png')}"`;
     const fc = formatCurrency;
     const nw = numToWords(employee.netPayableSalary);
     const period = `${formatDateDMY(periodStart)} – ${formatDateDMY(periodEnd)}`;
@@ -1679,6 +1686,10 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
         </div>`;
       }
       return `<div style="font-family:'Inter','Segoe UI',Arial,sans-serif;color:#1e293b;font-size:11px;line-height:1.5;padding:24px;background:transparent;">
+        ${!isCustomTemplate ? `<div style="text-align:center;border-bottom:2px solid #000;padding-bottom:10px;margin-bottom:14px;">
+          <h1 style="font-size:20px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin:0;">${companyName}</h1>
+          <p style="font-size:10px;color:#555;margin-top:3px;">${companyAddress}</p>
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
         <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px;">EMPLOYEE SUMMARY</div>
         
         <div style="display:flex;gap:24px;margin-bottom:20px;">
@@ -1747,20 +1758,43 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
 
     // ── TEMPLATE 2 : Modern (rounded corners, blue accent, no outer cell borders) ──
     if (selectedLayout === 'modern') {
+      const isCustom = isCustomTemplate;
+      // Define styles based on whether it's a custom template (transparent) or not
+      const thBg = isCustom ? 'transparent' : '#1d4ed8';
+      const thColor = isCustom ? '#111827' : '#fff';
+      const thBorder = isCustom ? '1px solid #111827' : 'none';
+      const thPadding = isCustom ? '16px 20px' : '6px 10px';
+      
+      const rowBgOdd = isCustom ? 'transparent' : '#f0f6ff';
+      const rowBgEven = isCustom ? 'transparent' : '#fff';
+      const cellPadding = isCustom ? '12px 20px' : '7px 10px';
+      const cellDivider = isCustom ? 'none' : '2px solid #dbeafe';
+      
+      const tblBorder = isCustom ? 'none' : '1px solid #dbeafe';
+      const tblMargin = isCustom ? '36px' : '14px';
+      
+      const grossBg = isCustom ? 'transparent' : '#dbeafe';
+      const grossBorderTop = isCustom ? '1px solid #111827' : '1px solid #bfdbfe';
+      
+      const totalBg = isCustom ? 'transparent' : 'linear-gradient(135deg,#1d4ed8,#3b82f6)';
+      const totalBorder = isCustom ? '1px solid #111827' : 'none';
+      const totalColorMain = isCustom ? '#111827' : '#fff';
+      const totalColorSub = isCustom ? '#6b7280' : '#bfdbfe';
+
       let tRows = '';
       for (let i = 0; i < maxLen; i++) {
         const e = earnList[i] || { name: '', val: null };
         const d = deductList[i] || { name: '', val: null };
-        const bg = i % 2 === 0 ? '#f0f6ff' : '#fff';
+        const bg = i % 2 === 0 ? rowBgOdd : rowBgEven;
         tRows += `<tr style="background:${bg};">
-          <td style="padding:5px 10px;font-size:11px;color:#374151;word-break:break-word;white-space:normal;border:none;">${e.name}</td>
-          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#1d4ed8;border:none;">${e.val !== null ? fc(e.val) : ''}</td>
-          <td style="padding:5px 10px;font-size:11px;color:#374151;border:none;border-left:2px solid #dbeafe;word-break:break-word;white-space:normal;">${d.name}</td>
-          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#dc2626;border:none;">${d.val !== null ? fc(d.val) : ''}</td>
+          <td style="padding:${cellPadding};font-size:12px;color:#374151;word-break:break-word;white-space:normal;border:none !important;"><div style="padding:4px 0;">${e.name}</div></td>
+          <td style="padding:${cellPadding};font-size:12px;text-align:right;font-weight:700;color:${isCustom?'#111827':'#1d4ed8'};border:none !important;"><div style="padding:4px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:${cellPadding};font-size:12px;color:#374151;border:none !important;border-left:${cellDivider} !important;word-break:break-word;white-space:normal;"><div style="padding:4px 0;">${d.name}</div></td>
+          <td style="padding:${cellPadding};font-size:12px;text-align:right;font-weight:700;color:#dc2626;border:none !important;"><div style="padding:4px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
         </tr>`;
       }
       return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:14px 22px;background:transparent;color:#111;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        ${!isCustom ? `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div>
             <div style="font-size:17px;font-weight:900;color:#1d4ed8;">${companyName}</div>
             <div style="font-size:10px;color:#6b7280;margin-top:1px;">${companyAddress}</div>
@@ -1769,68 +1803,82 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
             <div style="background:#1d4ed8;color:#fff;font-weight:800;font-size:10px;letter-spacing:2px;padding:3px 12px;border-radius:20px;display:inline-block;">PAYSLIP</div>
             <div style="font-size:10px;color:#6b7280;margin-top:3px;">${period}</div>
           </div>
-        </div>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:10px;border:1px solid #dbeafe;">
-          <tr style="background:#eff6ff;">
-            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;width:20%;border:none;border-bottom:1px solid #dbeafe;">NAME</td>
-            <td style="padding:5px 10px;font-size:11px;font-weight:700;width:30%;border:none;border-bottom:1px solid #dbeafe;">${employee.employeeName}</td>
-            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;width:20%;border:none;border-bottom:1px solid #dbeafe;border-left:1px solid #dbeafe;">ID</td>
-            <td style="padding:5px 10px;font-size:11px;font-weight:700;width:30%;border:none;border-bottom:1px solid #dbeafe;">${employee.employeeId}</td>
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-radius:${isCustom?'0':'8px'};overflow:hidden;margin-bottom:${tblMargin};border:${tblBorder};background:transparent;">
+          <tr style="background:${isCustom ? 'transparent' : '#eff6ff'}; border:none !important;">
+            <td style="padding:10px 14px;font-size:11px;color:${isCustom?'#6b7280':'#3b82f6'};font-weight:700;width:20%;border:none !important;border-top:${isCustom?'1px solid #111827 !important':'none !important'};border-bottom:${isCustom?'none !important':'1px solid #dbeafe !important'};"><div style="padding:6px 0;">NAME</div></td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#111827;width:30%;border:none !important;border-top:${isCustom?'1px solid #111827 !important':'none !important'};border-bottom:${isCustom?'none !important':'1px solid #dbeafe !important'};"><div style="padding:6px 0;">${employee.employeeName}</div></td>
+            <td style="padding:10px 14px;font-size:11px;color:${isCustom?'#6b7280':'#3b82f6'};font-weight:700;width:20%;border:none !important;border-top:${isCustom?'1px solid #111827 !important':'none !important'};border-bottom:${isCustom?'none !important':'1px solid #dbeafe !important'};border-left:${isCustom?'none !important':'1px solid #dbeafe !important'};"><div style="padding:6px 0;">ID</div></td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#111827;width:30%;border:none !important;border-top:${isCustom?'1px solid #111827 !important':'none !important'};border-bottom:${isCustom?'none !important':'1px solid #dbeafe !important'};"><div style="padding:6px 0;">${employee.employeeId}</div></td>
           </tr>
-          <tr>
-            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;border:none;">DESIGNATION</td>
-            <td style="padding:5px 10px;font-size:11px;border:none;">${employee.role}</td>
-            <td style="padding:5px 10px;font-size:10px;color:#3b82f6;font-weight:700;border:none;border-left:1px solid #dbeafe;">PAID DAYS</td>
-            <td style="padding:5px 10px;font-size:11px;font-weight:700;border:none;">${employee.workedDays} <span style="color:#6b7280;font-weight:400;">of</span> ${employee.totalDaysInMonth} &nbsp;|&nbsp; LOP: <span style="color:#dc2626;">${employee.lopDays || 0}</span></td>
+          <tr style="background:transparent; border:none !important;">
+            <td style="padding:10px 14px;font-size:11px;color:${isCustom?'#6b7280':'#3b82f6'};font-weight:700;border:none !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};"><div style="padding:6px 0;">DESIGNATION</div></td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#111827;border:none !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};"><div style="padding:6px 0;">${employee.role}</div></td>
+            <td style="padding:10px 14px;font-size:11px;color:${isCustom?'#6b7280':'#3b82f6'};font-weight:700;border:none !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};border-left:${isCustom?'none !important':'1px solid #dbeafe !important'};"><div style="padding:6px 0;">PAID DAYS</div></td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#111827;border:none !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};"><div style="padding:6px 0;">${employee.workedDays} <span style="color:#6b7280;font-weight:400;">of</span> ${employee.totalDaysInMonth} &nbsp;|&nbsp; LOP: <span style="color:#dc2626;">${employee.lopDays || 0}</span></div></td>
           </tr>
         </table>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #dbeafe;border-radius:8px;overflow:hidden;margin-bottom:10px;">
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border:${tblBorder};border-radius:${isCustom?'0':'8px'};overflow:hidden;margin-bottom:28px;background:transparent;">
           <thead>
-            <tr style="background:#1d4ed8;">
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none;color:#fff;">EARNINGS</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none;color:#fff;">AMOUNT</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none;border-left:2px solid #3b82f6;color:#fff;">DEDUCTIONS</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none;color:#fff;">AMOUNT</th>
+            <tr style="background:${thBg}; border:none !important;">
+              <th style="padding:${thPadding};font-size:11px;font-weight:800;text-align:left;width:35%;border:none !important;border-top:${thBorder} !important;border-bottom:${thBorder} !important;color:${thColor};"><div style="padding:8px 0;">EARNINGS</div></th>
+              <th style="padding:${thPadding};font-size:11px;font-weight:800;text-align:right;width:15%;border:none !important;border-top:${thBorder} !important;border-bottom:${thBorder} !important;color:${thColor};"><div style="padding:8px 0;">AMOUNT</div></th>
+              <th style="padding:${thPadding};font-size:11px;font-weight:800;text-align:left;width:35%;border:none !important;border-top:${thBorder} !important;border-bottom:${thBorder} !important;border-left:${cellDivider} !important;color:${thColor};"><div style="padding:8px 0;">DEDUCTIONS</div></th>
+              <th style="padding:${thPadding};font-size:11px;font-weight:800;text-align:right;width:15%;border:none !important;border-top:${thBorder} !important;border-bottom:${thBorder} !important;color:${thColor};"><div style="padding:8px 0;">AMOUNT</div></th>
             </tr>
           </thead>
           <tbody>${tRows}
-            <tr style="background:#dbeafe;">
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;color:#1e3a8a;border:none;border-top:1px solid #bfdbfe;">Gross Earnings</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;border:none;border-top:1px solid #bfdbfe;">${fc(employee.breakdown.gross)}</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;color:#1e3a8a;border:none;border-left:2px solid #3b82f6;border-top:1px solid #bfdbfe;">Total Deductions</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;border:none;border-top:1px solid #bfdbfe;">${fc(employee.totalDeductions)}</td>
+            <tr style="background:${grossBg}; border:none !important;">
+              <td style="padding:${thPadding};font-size:12px;font-weight:800;color:${isCustom?'#111827':'#1e3a8a'};border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};"><div style="padding:8px 0;">Gross Earnings</div></td>
+              <td style="padding:${thPadding};font-size:12px;font-weight:800;text-align:right;color:#16a34a;border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};"><div style="padding:8px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:${thPadding};font-size:12px;font-weight:800;color:${isCustom?'#111827':'#1e3a8a'};border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};border-left:${cellDivider} !important;"><div style="padding:8px 0;">Total Deductions</div></td>
+              <td style="padding:${thPadding};font-size:12px;font-weight:800;text-align:right;color:#dc2626;border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'1px solid #111827 !important':'none !important'};"><div style="padding:8px 0;">${fc(employee.totalDeductions)}</div></td>
             </tr>
-          </tbody>
         </table>
-        <div style="background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="background:${totalBg};border:${totalBorder};border-radius:${isCustom?'4px':'8px'};padding:16px 20px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;box-shadow:${isCustom?'none':'0 4px 6px -1px rgba(29, 78, 216, 0.2)'};">
           <div>
-            <div style="color:#fff;font-weight:800;font-size:12px;">TOTAL NET PAYABLE</div>
-            <div style="color:#bfdbfe;font-size:10px;margin-top:2px;">Indian Rupee ${nw} Only</div>
+            <div style="color:${totalColorMain};font-weight:900;font-size:13px;letter-spacing:0.5px;">TOTAL NET PAYABLE</div>
+            <div style="color:${totalColorSub};font-size:11px;margin-top:4px;font-weight:500;">Indian Rupee ${nw} Only</div>
           </div>
-          <div style="font-size:18px;font-weight:900;color:#fff;">${fc(employee.netPayableSalary)}</div>
+          <div style="font-size:24px;font-weight:900;color:${totalColorMain};">${fc(employee.netPayableSalary)}</div>
         </div>
         <div style="display:flex;justify-content:flex-end;">
-          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+          <div style="text-align:center;"><img src=${SIGN} height="32" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#555;border-top:1px dashed #ccc;padding-top:4px;">Authorized Signatory</div></div>
         </div>
-        <div style="text-align:center;font-size:9px;color:#aaa;margin-top:8px;">-- This is a system-generated document. --</div>
+        <div style="text-align:center;font-size:9px;color:rgba(170,170,170,0.8);margin-top:16px;">-- This is a system-generated document. --</div>
       </div>`;
     }
 
     // ── TEMPLATE 3 : Corporate (dark header, thick left border accent) ──
     if (selectedLayout === 'corporate') {
+      const isCustom = isCustomTemplate;
+      const thBg = isCustom ? 'transparent' : '#1e293b';
+      const thColor = isCustom ? '#0f172a' : '#fff';
+      const thBorderBtm = isCustom ? '2px solid #0f172a' : 'none';
+      const thBorderTop = isCustom ? '2px solid #0f172a' : 'none';
+      const rowBg = isCustom ? 'transparent' : '#fff';
+      const rowBorderBtm = isCustom ? '1px dashed rgba(0,0,0,0.15)' : '1px solid #e2e8f0';
+      const cellDivider = isCustom ? 'none' : '3px solid #0f172a';
+      const grossBg = isCustom ? 'transparent' : '#e2e8f0';
+      const grossBorderTop = isCustom ? '2px solid #0f172a' : '2px solid #0f172a';
+      const totalBg = isCustom ? 'transparent' : '#0f172a';
+      const totalColorMain = isCustom ? '#0f172a' : '#fff';
+      const totalColorSub = isCustom ? '#475569' : '#94a3b8';
+
       let tRows = '';
       for (let i = 0; i < maxLen; i++) {
         const e = earnList[i] || { name: '', val: null };
         const d = deductList[i] || { name: '', val: null };
-        tRows += `<tr>
-          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;color:#334155;word-break:break-word;white-space:normal;">${e.name}</td>
-          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;">${e.val !== null ? fc(e.val) : ''}</td>
-          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;border-left:3px solid #0f172a;color:#334155;word-break:break-word;white-space:normal;">${d.name}</td>
-          <td style="padding:5px 10px;font-size:11px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:#dc2626;">${d.val !== null ? fc(d.val) : ''}</td>
+        tRows += `<tr style="background:${rowBg};">
+          <td style="padding:0 22px;font-size:11px;border:none !important;border-bottom:${rowBorderBtm} !important;color:#334155;word-break:break-word;white-space:normal;"><div style="padding:8px 0;">${e.name}</div></td>
+          <td style="padding:0 10px;font-size:11px;border:none !important;border-bottom:${rowBorderBtm} !important;text-align:right;font-weight:700;"><div style="padding:8px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 10px;font-size:11px;border:none !important;border-bottom:${rowBorderBtm} !important;border-left:${cellDivider} !important;color:#334155;word-break:break-word;white-space:normal;"><div style="padding:8px 0;">${d.name}</div></td>
+          <td style="padding:0 10px;font-size:11px;border:none !important;border-bottom:${rowBorderBtm} !important;text-align:right;font-weight:700;color:#dc2626;"><div style="padding:8px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
         </tr>`;
       }
+
       return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:0;background:transparent;color:#111;">
-        <div style="background:#0f172a;color:#fff;padding:14px 22px;">
+        ${!isCustom ? `<div style="background:#0f172a;color:#fff;padding:14px 22px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <div style="font-size:17px;font-weight:900;">${companyName}</div>
@@ -1841,146 +1889,200 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
               <div style="font-size:10px;color:#64748b;">${period}</div>
             </div>
           </div>
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
+        
+        <div style="margin: 0 22px 24px 22px; padding: 16px 0; border-top: ${isCustom ? '2px solid #0f172a' : 'none'}; border-bottom: ${isCustom ? '2px solid #0f172a' : '1px solid #cbd5e1'}; display: flex; justify-content: space-between; background: ${isCustom ? 'transparent' : '#f8fafc'};">
+          <div style="width: 48%; border-right: ${isCustom ? '1px solid #94a3b8' : '1px solid #cbd5e1'}; padding-right: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Employee Name</span>
+              <span style="font-size:11px; font-weight:800; color:#0f172a;">${employee.employeeName}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Employee ID</span>
+              <span style="font-size:11px; font-weight:800; color:#0f172a;">${employee.employeeId}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Designation</span>
+              <span style="font-size:11px; font-weight:800; color:#0f172a;">${employee.role}</span>
+            </div>
+          </div>
+          <div style="width: 48%; padding-left: 20px; padding-right: 20px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Paid Days</span>
+              <span style="font-size:11px; font-weight:800; color:#16a34a;">${employee.workedDays} / ${employee.totalDaysInMonth}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Loss of Pay</span>
+              <span style="font-size:11px; font-weight:800; color:#dc2626;">${employee.lopDays || 0} Days</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="font-size:10px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">Pay Period</span>
+              <span style="font-size:11px; font-weight:800; color:#0f172a;">${period}</span>
+            </div>
+          </div>
         </div>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;background:#f1f5f9;border-bottom:2px solid #0f172a;">
-          <tr>
-            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;width:20%;">Employee</td>
-            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#0f172a;width:30%;">${employee.employeeName}</td>
-            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;width:20%;">ID / Role</td>
-            <td style="padding:6px 10px;font-size:11px;color:#334155;width:30%;">${employee.employeeId} &nbsp;·&nbsp; ${employee.role}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;">Paid Days</td>
-            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#16a34a;">${employee.workedDays} / ${employee.totalDaysInMonth}</td>
-            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#475569;text-transform:uppercase;">LOP / Pay Date</td>
-            <td style="padding:6px 10px;font-size:11px;color:#334155;">${employee.lopDays || 0} days &nbsp;·&nbsp; ${formatDateDMY(periodEnd)}</td>
-          </tr>
-        </table>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0;">
+
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0 0 24px 0;">
           <thead>
-            <tr style="background:#1e293b;color:#fff;">
-              <th style="padding:6px 22px;font-size:10px;font-weight:700;text-align:left;width:35%;">EARNINGS</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border-left:3px solid #0f172a;">DEDUCTIONS</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+            <tr style="background:${thBg}; border:none !important;">
+              <th style="padding:0 22px;font-size:11px;font-weight:800;text-align:left;width:35%;color:${thColor};border:none !important;border-top:${thBorderTop} !important;border-bottom:${thBorderBtm} !important;text-transform:uppercase;letter-spacing:1px;"><div style="padding:10px 0;">EARNINGS</div></th>
+              <th style="padding:0 10px;font-size:11px;font-weight:800;text-align:right;width:15%;color:${thColor};border:none !important;border-top:${thBorderTop} !important;border-bottom:${thBorderBtm} !important;text-transform:uppercase;letter-spacing:1px;"><div style="padding:10px 0;">AMOUNT</div></th>
+              <th style="padding:0 10px;font-size:11px;font-weight:800;text-align:left;width:35%;border:none !important;border-top:${thBorderTop} !important;border-bottom:${thBorderBtm} !important;border-left:${cellDivider} !important;color:${thColor};text-transform:uppercase;letter-spacing:1px;"><div style="padding:10px 0;">DEDUCTIONS</div></th>
+              <th style="padding:0 10px;font-size:11px;font-weight:800;text-align:right;width:15%;color:${thColor};border:none !important;border-top:${thBorderTop} !important;border-bottom:${thBorderBtm} !important;text-transform:uppercase;letter-spacing:1px;"><div style="padding:10px 0;">AMOUNT</div></th>
             </tr>
           </thead>
-          <tbody style="background:#fff;">${tRows}
-            <tr style="background:#e2e8f0;border-top:2px solid #0f172a;">
-              <td style="padding:6px 22px;font-size:11px;font-weight:800;">GROSS EARNINGS</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;">${fc(employee.breakdown.gross)}</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;border-left:3px solid #0f172a;">TOTAL DEDUCTIONS</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;">${fc(employee.totalDeductions)}</td>
+          <tbody style="background:${rowBg};">${tRows}
+            <tr style="background:${grossBg}; border:none !important;">
+              <td style="padding:0 22px;font-size:11px;font-weight:800;color:${isCustom?'#0f172a':'#111'};border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'2px solid #0f172a !important':'none !important'};text-transform:uppercase;"><div style="padding:10px 0;">GROSS EARNINGS</div></td>
+              <td style="padding:0 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'2px solid #0f172a !important':'none !important'};"><div style="padding:10px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 10px;font-size:11px;font-weight:800;color:${isCustom?'#0f172a':'#111'};border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'2px solid #0f172a !important':'none !important'};border-left:${cellDivider} !important;text-transform:uppercase;"><div style="padding:10px 0;">TOTAL DEDUCTIONS</div></td>
+              <td style="padding:0 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;border:none !important;border-top:${grossBorderTop} !important;border-bottom:${isCustom?'2px solid #0f172a !important':'none !important'};"><div style="padding:10px 0;">${fc(employee.totalDeductions)}</div></td>
             </tr>
           </tbody>
         </table>
-        <div style="background:#0f172a;padding:10px 22px;display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="color:#fff;font-weight:800;font-size:12px;">NET SALARY PAYABLE</div>
-            <div style="color:#475569;font-size:10px;">Indian Rupee ${nw} Only</div>
+
+        <div style="display:flex;justify-content:flex-end;margin:0 22px 32px 22px;">
+          <div style="width: 50%; border-left: 4px solid #0f172a; padding: 12px 20px; background: ${totalBg};">
+            <div style="color:${totalColorSub};font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:1px;">Net Salary Payable</div>
+            <div style="font-size:24px;font-weight:900;color:${totalColorMain};margin: 4px 0;">${fc(employee.netPayableSalary)}</div>
+            <div style="color:${totalColorSub};font-size:10px;font-style:italic;">Indian Rupee ${nw} Only</div>
           </div>
-          <div style="font-size:19px;font-weight:900;color:#38bdf8;">${fc(employee.netPayableSalary)}</div>
         </div>
-        <div style="background:#fff;padding:10px 22px;display:flex;justify-content:flex-end;">
-          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+
+        <div style="background:transparent;padding:10px 22px;display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#555;border-top:1px dashed #ccc;padding-top:3px;">Authorized Signatory</div></div>
         </div>
-        <div style="text-align:center;font-size:9px;color:#aaa;padding-bottom:8px;">-- This is a system-generated document. --</div>
+        <div style="text-align:center;font-size:9px;color:rgba(170,170,170,0.8);padding-bottom:8px;">-- This is a system-generated document. --</div>
       </div>`;
     }
 
-    // ── TEMPLATE 4 : Minimal (zebra stripe, purple accent, no outer border) ──
+    // ── TEMPLATE 4 : Minimal (ultra-clean, no outer border, elegant typography) ──
     if (selectedLayout === 'minimal') {
+      const isCustom = isCustomTemplate;
+      const thBg = isCustom ? 'transparent' : '#7c3aed';
+      const thColor = isCustom ? '#4b5563' : '#fff';
+      const tblBorderTop = isCustom ? '1px solid #d1d5db' : '2px solid #7c3aed';
+      const tblBorderBtm = isCustom ? '1px solid #d1d5db' : '2px solid #7c3aed';
+      const thBorderBtm = isCustom ? '1px solid #d1d5db' : 'none';
+      const rowBorderBtm = isCustom ? '1px solid #f3f4f6' : 'none';
+      const cellDivider = isCustom ? 'none' : '1px solid #a78bfa';
+      const grossBg = isCustom ? 'transparent' : '#ede9fe';
+      const grossBorderTop = isCustom ? '1px solid #d1d5db' : '1px solid #c4b5fd';
+      const totalBorder = isCustom ? 'none' : '2px solid #7c3aed';
+      const totalColorMain = isCustom ? '#111827' : '#7c3aed';
+      const totalColorSub = isCustom ? '#6b7280' : '#5b21b6';
+      
       let tRows = '';
       for (let i = 0; i < maxLen; i++) {
         const e = earnList[i] || { name: '', val: null };
         const d = deductList[i] || { name: '', val: null };
-        const bg = i % 2 === 0 ? '#faf5ff' : '#fff';
+        const bg = isCustom ? 'transparent' : (i % 2 === 0 ? '#faf5ff' : '#fff');
         tRows += `<tr style="background:${bg};">
-          <td style="padding:5px 8px;font-size:11px;color:#4b5563;word-break:break-word;white-space:normal;">
-            ${e.name ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#7c3aed;margin-right:5px;vertical-align:middle;"></span>` : ''}${e.name}
+          <td style="padding:0 8px;font-size:11px;color:#4b5563;word-break:break-word;white-space:normal;border:none !important;border-bottom:${rowBorderBtm} !important;">
+            <div style="padding:8px 0;">${e.name ? `<span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:${isCustom?'#9ca3af':'#7c3aed'};margin-right:6px;vertical-align:middle;"></span>` : ''}${e.name}</div>
           </td>
-          <td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:700;color:#111;">${e.val !== null ? fc(e.val) : ''}</td>
-          <td style="padding:5px 8px;font-size:11px;color:#4b5563;border-left:1px solid #ede9fe;word-break:break-word;white-space:normal;">
-            ${d.name ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#ef4444;margin-right:5px;vertical-align:middle;"></span>` : ''}${d.name}
+          <td style="padding:0 8px;font-size:11px;text-align:right;font-weight:600;color:#111;border:none !important;border-bottom:${rowBorderBtm} !important;"><div style="padding:8px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 8px;font-size:11px;color:#4b5563;border:none !important;border-bottom:${rowBorderBtm} !important;border-left:${isCustom?'none !important':'1px solid #ede9fe !important'};word-break:break-word;white-space:normal;">
+            <div style="padding:8px 0;">${d.name ? `<span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:${isCustom?'#9ca3af':'#ef4444'};margin-right:6px;vertical-align:middle;"></span>` : ''}${d.name}</div>
           </td>
-          <td style="padding:5px 8px;font-size:11px;text-align:right;font-weight:700;color:#ef4444;">${d.val !== null ? fc(d.val) : ''}</td>
+          <td style="padding:0 8px;font-size:11px;text-align:right;font-weight:600;color:#ef4444;border:none !important;border-bottom:${rowBorderBtm} !important;"><div style="padding:8px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
         </tr>`;
       }
       return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:14px 22px;background:transparent;color:#111;">
-        <div style="border-left:5px solid #7c3aed;padding-left:12px;margin-bottom:12px;">
+        ${!isCustom ? `<div style="border-left:5px solid #7c3aed;padding-left:12px;margin-bottom:12px;">
           <div style="font-size:16px;font-weight:900;">${companyName}</div>
           <div style="font-size:10px;color:#6b7280;">${companyAddress}</div>
           <div style="font-size:10px;color:#7c3aed;font-weight:700;margin-top:2px;">PAYSLIP &nbsp;·&nbsp; ${period}</div>
-        </div>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin-bottom:10px;">
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin-bottom:24px;">
           <tr>
-            <td style="padding:3px 0;font-size:10px;color:#9ca3af;width:20%;">EMPLOYEE</td>
-            <td style="padding:3px 0;font-size:11px;font-weight:700;width:30%;">${employee.employeeName}</td>
-            <td style="padding:3px 0;font-size:10px;color:#9ca3af;width:20%;">EMPLOYEE ID</td>
-            <td style="padding:3px 0;font-size:11px;font-weight:600;width:30%;">${employee.employeeId}</td>
+            <td style="padding:0;font-size:10px;color:#9ca3af;width:20%;"><div style="padding:6px 0;">EMPLOYEE</div></td>
+            <td style="padding:0;font-size:11px;font-weight:700;width:30%;color:${isCustom?'#111827':'#111'};"><div style="padding:6px 0;">${employee.employeeName}</div></td>
+            <td style="padding:0;font-size:10px;color:#9ca3af;width:20%;"><div style="padding:6px 0;">EMPLOYEE ID</div></td>
+            <td style="padding:0;font-size:11px;font-weight:600;width:30%;color:${isCustom?'#374151':'#111'};"><div style="padding:6px 0;">${employee.employeeId}</div></td>
           </tr>
           <tr>
-            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">ROLE</td>
-            <td style="padding:3px 0;font-size:11px;">${employee.role}</td>
-            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">PAID DAYS</td>
-            <td style="padding:3px 0;font-size:11px;color:#7c3aed;font-weight:700;">${employee.workedDays}/${employee.totalDaysInMonth} &nbsp;(LOP: ${employee.lopDays || 0})</td>
+            <td style="padding:0;font-size:10px;color:#9ca3af;"><div style="padding:6px 0;">ROLE</div></td>
+            <td style="padding:0;font-size:11px;color:${isCustom?'#374151':'#111'};"><div style="padding:6px 0;">${employee.role}</div></td>
+            <td style="padding:0;font-size:10px;color:#9ca3af;"><div style="padding:6px 0;">PAID DAYS</div></td>
+            <td style="padding:0;font-size:11px;color:${isCustom?'#374151':'#7c3aed'};font-weight:700;"><div style="padding:6px 0;">${employee.workedDays}/${employee.totalDaysInMonth} <span style="font-weight:400;color:#9ca3af;">(LOP: ${employee.lopDays || 0})</span></div></td>
           </tr>
           <tr>
-            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">PAY DATE</td>
-            <td style="padding:3px 0;font-size:11px;">${formatDateDMY(periodEnd)}</td>
-            <td style="padding:3px 0;font-size:10px;color:#9ca3af;">NET PAY</td>
-            <td style="padding:3px 0;font-size:12px;font-weight:900;color:#7c3aed;">${fc(employee.netPayableSalary)}</td>
+            <td style="padding:0;font-size:10px;color:#9ca3af;"><div style="padding:6px 0;">PAY DATE</div></td>
+            <td style="padding:0;font-size:11px;color:${isCustom?'#374151':'#111'};"><div style="padding:6px 0;">${formatDateDMY(periodEnd)}</div></td>
+            <td style="padding:0;font-size:10px;color:#9ca3af;"><div style="padding:6px 0;"></div></td>
+            <td style="padding:0;font-size:12px;font-weight:900;color:${isCustom?'#111827':'#7c3aed'};"><div style="padding:6px 0;"></div></td>
           </tr>
         </table>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-top:2px solid #7c3aed;border-bottom:2px solid #7c3aed;margin-bottom:8px;">
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-top:${tblBorderTop};border-bottom:${tblBorderBtm};margin-bottom:24px;">
           <thead>
-            <tr style="background:#7c3aed;color:#fff;">
-              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:left;width:35%;">EARNINGS</th>
-              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
-              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:left;width:35%;border-left:1px solid #a78bfa;">DEDUCTIONS</th>
-              <th style="padding:5px 8px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+            <tr style="background:${thBg};color:${thColor};border:none !important;">
+              <th style="padding:0 8px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">EARNINGS</div></th>
+              <th style="padding:0 8px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">AMOUNT</div></th>
+              <th style="padding:0 8px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none !important;border-left:${cellDivider} !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">DEDUCTIONS</div></th>
+              <th style="padding:0 8px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">AMOUNT</div></th>
             </tr>
           </thead>
           <tbody>${tRows}
-            <tr style="background:#ede9fe;border-top:1px solid #c4b5fd;">
-              <td style="padding:5px 8px;font-size:11px;font-weight:800;color:#5b21b6;">Gross Earnings</td>
-              <td style="padding:5px 8px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;">${fc(employee.breakdown.gross)}</td>
-              <td style="padding:5px 8px;font-size:11px;font-weight:800;color:#5b21b6;border-left:1px solid #ede9fe;">Total Deductions</td>
-              <td style="padding:5px 8px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;">${fc(employee.totalDeductions)}</td>
+            <tr style="background:${grossBg};border:none !important;">
+              <td style="padding:0 8px;font-size:11px;font-weight:700;color:${isCustom?'#111827':'#5b21b6'};border:none !important;border-top:${grossBorderTop} !important;"><div style="padding:12px 0;">Gross Earnings</div></td>
+              <td style="padding:0 8px;font-size:11px;font-weight:700;text-align:right;color:#16a34a;border:none !important;border-top:${grossBorderTop} !important;"><div style="padding:12px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 8px;font-size:11px;font-weight:700;color:${isCustom?'#111827':'#5b21b6'};border:none !important;border-top:${grossBorderTop} !important;border-left:${isCustom?'none !important':'1px solid #ede9fe !important'};"><div style="padding:12px 0;">Total Deductions</div></td>
+              <td style="padding:0 8px;font-size:11px;font-weight:700;text-align:right;color:#dc2626;border:none !important;border-top:${grossBorderTop} !important;"><div style="padding:12px 0;">${fc(employee.totalDeductions)}</div></td>
             </tr>
           </tbody>
         </table>
-        <div style="border:2px solid #7c3aed;border-radius:6px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        
+        <div style="border:${totalBorder};${isCustom?'border-top:1px solid #d1d5db;border-bottom:1px solid #d1d5db;padding:12px 0;':'border-radius:6px;padding:8px 12px;'}display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
           <div>
-            <div style="font-weight:800;font-size:11px;color:#5b21b6;">NET SALARY PAYABLE</div>
-            <div style="font-size:10px;color:#9ca3af;margin-top:1px;">Indian Rupee ${nw} Only</div>
+            <div style="font-weight:800;font-size:11px;color:${totalColorSub};letter-spacing:0.5px;">NET SALARY PAYABLE</div>
+            <div style="font-size:10px;color:#9ca3af;margin-top:2px;">Indian Rupee ${nw} Only</div>
           </div>
-          <div style="font-size:17px;font-weight:900;color:#7c3aed;">${fc(employee.netPayableSalary)}</div>
+          <div style="font-size:20px;font-weight:900;color:${totalColorMain};">${fc(employee.netPayableSalary)}</div>
         </div>
+        
         <div style="display:flex;justify-content:flex-end;">
-          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:4px;">Authorized Signatory</div></div>
         </div>
-        <div style="text-align:center;font-size:9px;color:#aaa;margin-top:8px;">-- This is a system-generated document. --</div>
+        <div style="text-align:center;font-size:9px;color:#aaa;margin-top:16px;">-- This is a system-generated document. --</div>
       </div>`;
     }
 
     // ── TEMPLATE 5 : Executive (gradient header, colored cells, premium) ──
-    // (selectedLayout === 'executive')
-    {
+    if (selectedLayout === 'executive') {
+      const isCustom = isCustomTemplate;
+      const thBg = isCustom ? 'transparent' : '#1e3a8a';
+      const thColor = isCustom ? '#1e3a8a' : '#fff';
+      const tblBorderTop = isCustom ? '2px solid #1e3a8a' : '1px solid #bfdbfe';
+      const tblBorderBtm = isCustom ? '2px solid #1e3a8a' : '1px solid #bfdbfe';
+      const thBorderBtm = isCustom ? '1px solid #1e3a8a' : 'none';
+      const rowBgFn = (i) => isCustom ? 'transparent' : (i % 2 === 0 ? '#f0f4ff' : '#fff');
+      const rowBorderBtm = isCustom ? '1px solid #e2e8f0' : 'none';
+      const cellDivider = isCustom ? '1px dashed #cbd5e1' : '2px solid #3730a3';
+      const grossBg = isCustom ? 'transparent' : '#dbeafe';
+      const grossBorderTop = isCustom ? '2px solid #1e3a8a' : '2px solid #1e3a8a';
+      const totalBorderTop = isCustom ? '3px double #1e3a8a' : 'none';
+      const totalBorderBtm = isCustom ? '1px solid #1e3a8a' : 'none';
+      const totalBg = isCustom ? 'transparent' : 'linear-gradient(135deg,#1e3a8a,#3730a3)';
+      const totalColorMain = isCustom ? '#1e3a8a' : '#fff';
+      const totalColorSub = isCustom ? '#475569' : '#93c5fd';
+      
       let tRows = '';
       for (let i = 0; i < maxLen; i++) {
         const e = earnList[i] || { name: '', val: null };
         const d = deductList[i] || { name: '', val: null };
-        const bg = i % 2 === 0 ? '#f0f4ff' : '#fff';
+        const bg = rowBgFn(i);
         tRows += `<tr style="background:${bg};">
-          <td style="padding:5px 10px;font-size:11px;color:#1e3a5f;word-break:break-word;white-space:normal;">${e.name}</td>
-          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#1d4ed8;">${e.val !== null ? fc(e.val) : ''}</td>
-          <td style="padding:5px 10px;font-size:11px;color:#1e3a5f;border-left:2px solid #bfdbfe;word-break:break-word;white-space:normal;">${d.name}</td>
-          <td style="padding:5px 10px;font-size:11px;text-align:right;font-weight:700;color:#dc2626;">${d.val !== null ? fc(d.val) : ''}</td>
+          <td style="padding:0 10px;font-size:11px;color:#1e3a5f;word-break:break-word;white-space:normal;border:none !important;border-bottom:${rowBorderBtm} !important;"><div style="padding:8px 0;">${e.name}</div></td>
+          <td style="padding:0 10px;font-size:11px;text-align:right;font-weight:700;color:#1d4ed8;border:none !important;border-bottom:${rowBorderBtm} !important;"><div style="padding:8px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 10px;font-size:11px;color:#1e3a5f;border:none !important;border-bottom:${rowBorderBtm} !important;border-left:${isCustom?'none !important':cellDivider+' !important'};word-break:break-word;white-space:normal;"><div style="padding:8px 0;">${d.name}</div></td>
+          <td style="padding:0 10px;font-size:11px;text-align:right;font-weight:700;color:#dc2626;border:none !important;border-bottom:${rowBorderBtm} !important;"><div style="padding:8px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
         </tr>`;
       }
       return `<div style="font-family:'Segoe UI',Arial,sans-serif;padding:0;background:transparent;color:#111;">
-        <div style="background:linear-gradient(135deg,#1e3a8a,#3730a3);padding:14px 22px;">
+        ${!isCustom ? `<div style="background:linear-gradient(135deg,#1e3a8a,#3730a3);padding:14px 22px;">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>
               <div style="font-size:17px;font-weight:900;color:#fff;">${companyName}</div>
@@ -1991,52 +2093,424 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
               <div style="font-size:10px;color:#93c5fd;margin-top:3px;">${period}</div>
             </div>
           </div>
-        </div>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;background:#e8eef8;border-bottom:1px solid #c7d2e8;">
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;background:${isCustom?'transparent':'#e8eef8'};border-bottom:${isCustom?'2px solid #1e3a8a':'1px solid #c7d2e8'};border-top:${isCustom?'2px solid #1e3a8a':'none'};margin-bottom:24px;">
           <tr>
-            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;width:20%;">Employee</td>
-            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#0f172a;width:30%;">${employee.employeeName}</td>
-            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;width:20%;">ID / Role</td>
-            <td style="padding:6px 10px;font-size:11px;color:#334155;width:30%;">${employee.employeeId} &nbsp;·&nbsp; ${employee.role}</td>
+            <td style="padding:0 22px;font-size:9px;font-weight:800;color:${isCustom?'#1e3a8a':'#3b4f72'};text-transform:uppercase;width:20%;"><div style="padding:10px 0 6px 0;">Employee</div></td>
+            <td style="padding:0 10px;font-size:12px;font-weight:800;color:#0f172a;width:30%;"><div style="padding:10px 0 6px 0;">${employee.employeeName}</div></td>
+            <td style="padding:0 10px;font-size:9px;font-weight:800;color:${isCustom?'#1e3a8a':'#3b4f72'};text-transform:uppercase;width:20%;"><div style="padding:10px 0 6px 0;">ID / Role</div></td>
+            <td style="padding:0 10px;font-size:11px;color:#334155;width:30%;"><div style="padding:10px 0 6px 0;">${employee.employeeId} &nbsp;·&nbsp; ${employee.role}</div></td>
           </tr>
           <tr>
-            <td style="padding:6px 22px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;">Paid Days</td>
-            <td style="padding:6px 10px;font-size:12px;font-weight:800;color:#16a34a;">${employee.workedDays} / ${employee.totalDaysInMonth}</td>
-            <td style="padding:6px 10px;font-size:9px;font-weight:800;color:#3b4f72;text-transform:uppercase;">LOP / Pay Date</td>
-            <td style="padding:6px 10px;font-size:11px;color:#334155;">${employee.lopDays || 0} days &nbsp;·&nbsp; ${formatDateDMY(periodEnd)}</td>
+            <td style="padding:0 22px;font-size:9px;font-weight:800;color:${isCustom?'#1e3a8a':'#3b4f72'};text-transform:uppercase;"><div style="padding:6px 0 10px 0;">Paid Days</div></td>
+            <td style="padding:0 10px;font-size:12px;font-weight:800;color:#16a34a;"><div style="padding:6px 0 10px 0;">${employee.workedDays} / ${employee.totalDaysInMonth}</div></td>
+            <td style="padding:0 10px;font-size:9px;font-weight:800;color:${isCustom?'#1e3a8a':'#3b4f72'};text-transform:uppercase;"><div style="padding:6px 0 10px 0;">LOP / Pay Date</div></td>
+            <td style="padding:0 10px;font-size:11px;color:#334155;"><div style="padding:6px 0 10px 0;">${employee.lopDays || 0} days &nbsp;·&nbsp; ${formatDateDMY(periodEnd)}</div></td>
           </tr>
         </table>
-        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #bfdbfe;margin:0;">
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-top:${tblBorderTop};border-bottom:${tblBorderBtm};margin:0 0 24px 0;">
           <thead>
-            <tr style="background:#1e3a8a;color:#fff;">
-              <th style="padding:6px 22px;font-size:10px;font-weight:700;text-align:left;width:35%;">EARNINGS</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border-left:2px solid #3730a3;">DEDUCTIONS</th>
-              <th style="padding:6px 10px;font-size:10px;font-weight:700;text-align:right;width:15%;">AMOUNT</th>
+            <tr style="background:${thBg};color:${thColor};border:none !important;">
+              <th style="padding:0 22px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">EARNINGS</div></th>
+              <th style="padding:0 10px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">AMOUNT</div></th>
+              <th style="padding:0 10px;font-size:10px;font-weight:700;text-align:left;width:35%;border:none !important;border-left:${isCustom?'none !important':cellDivider+' !important'};border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">DEDUCTIONS</div></th>
+              <th style="padding:0 10px;font-size:10px;font-weight:700;text-align:right;width:15%;border:none !important;border-bottom:${thBorderBtm} !important;letter-spacing:0.5px;"><div style="padding:12px 0;">AMOUNT</div></th>
             </tr>
           </thead>
           <tbody>${tRows}
-            <tr style="background:#dbeafe;border-top:2px solid #1e3a8a;">
-              <td style="padding:6px 22px;font-size:11px;font-weight:800;color:#1e3a8a;">Gross Earnings</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;">${fc(employee.breakdown.gross)}</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;color:#1e3a8a;border-left:2px solid #3730a3;">Total Deductions</td>
-              <td style="padding:6px 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;">${fc(employee.totalDeductions)}</td>
+            <tr style="background:${grossBg};border:none !important;">
+              <td style="padding:0 22px;font-size:11px;font-weight:800;color:${isCustom?'#1e3a8a':'#1e3a8a'};border:none !important;border-top:${grossBorderTop} !important;"><div style="padding:12px 0;">Gross Earnings</div></td>
+              <td style="padding:0 10px;font-size:11px;font-weight:800;text-align:right;color:#16a34a;border:none !important;border-top:${grossBorderTop} !important;"><div style="padding:12px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 10px;font-size:11px;font-weight:800;color:${isCustom?'#1e3a8a':'#1e3a8a'};border:none !important;border-top:${grossBorderTop} !important;border-left:${isCustom?'none !important':cellDivider+' !important'};"><div style="padding:12px 0;">Total Deductions</div></td>
+              <td style="padding:0 10px;font-size:11px;font-weight:800;text-align:right;color:#dc2626;border:none !important;border-top:${grossBorderTop} !important;"><div style="padding:12px 0;">${fc(employee.totalDeductions)}</div></td>
             </tr>
           </tbody>
         </table>
-        <div style="background:linear-gradient(135deg,#1e3a8a,#3730a3);padding:10px 22px;display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <div style="color:#fff;font-weight:800;font-size:12px;">NET SALARY PAYABLE</div>
-            <div style="color:#93c5fd;font-size:10px;margin-top:2px;">Indian Rupee ${nw} Only</div>
+        
+        <div style="background:${totalBg};border-top:${totalBorderTop};border-bottom:${totalBorderBtm};padding:0 22px;display:flex;justify-content:space-between;align-items:center;margin:0 22px 24px 22px;">
+          <div style="padding:14px 0;">
+            <div style="color:${totalColorMain};font-weight:900;font-size:14px;letter-spacing:0.5px;">NET SALARY PAYABLE</div>
+            <div style="color:${totalColorSub};font-size:11px;margin-top:2px;">Indian Rupee ${nw} Only</div>
           </div>
-          <div style="font-size:19px;font-weight:900;color:#fff;">${fc(employee.netPayableSalary)}</div>
+          <div style="font-size:22px;font-weight:900;color:${totalColorMain};padding:14px 0;">${fc(employee.netPayableSalary)}</div>
         </div>
-        <div style="background:#fff;padding:10px 22px;display:flex;justify-content:flex-end;">
-          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
+        
+        <div style="background:transparent;padding:10px 22px;display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#555;border-top:1px solid #ccc;padding-top:3px;">Authorized Signatory</div></div>
         </div>
         <div style="text-align:center;font-size:9px;color:#aaa;padding-bottom:8px;">-- This is a system-generated document. --</div>
       </div>`;
     }
+
+    // ── TEMPLATE 6 : Elegant (Serif fonts, gold accents, boutique feel) ──
+    if (selectedLayout === 'elegant') {
+      const isCustom = isCustomTemplate;
+      const thBg = isCustom ? 'transparent' : '#fef3c7'; // amber-50
+      const thColor = isCustom ? '#92400e' : '#92400e'; // amber-800
+      const borderStyle = '1px solid #d97706'; // amber-600
+      
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        tRows += `<tr style="background:transparent;">
+          <td style="padding:0 12px;font-size:11px;color:#334155;word-break:break-word;white-space:normal;border:none !important;border-bottom:1px dashed #fcd34d !important;"><div style="padding:10px 0;">${e.name}</div></td>
+          <td style="padding:0 12px;font-size:11px;text-align:right;font-weight:700;color:#111;border:none !important;border-bottom:1px dashed #fcd34d !important;"><div style="padding:10px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 12px;font-size:11px;color:#334155;border:none !important;border-bottom:1px dashed #fcd34d !important;border-left:1px dashed #fcd34d !important;word-break:break-word;white-space:normal;"><div style="padding:10px 0;">${d.name}</div></td>
+          <td style="padding:0 12px;font-size:11px;text-align:right;font-weight:700;color:#dc2626;border:none !important;border-bottom:1px dashed #fcd34d !important;"><div style="padding:10px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Georgia',serif;padding:0;background:transparent;color:#111;">
+        ${!isCustom ? `<div style="text-align:center;padding:24px 22px;border-bottom:2px solid #d97706;background:#fffbeb;">
+          <div style="font-size:22px;font-weight:bold;color:#92400e;letter-spacing:1px;">${companyName}</div>
+          <div style="font-size:11px;color:#b45309;margin-top:4px;font-style:italic;">${companyAddress}</div>
+        </div>` : '<div style="margin-bottom:20px;"></div>'}
+        <div style="text-align:center;margin: 16px 0;font-size:14px;color:#92400e;letter-spacing:3px;text-transform:uppercase;">Payslip for ${period}</div>
+        
+        <div style="margin:0 22px 24px;border-top:${borderStyle};border-bottom:${borderStyle};padding:12px 0;display:flex;justify-content:space-between;">
+          <div style="width:48%;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:10px;color:#78350f;">Employee</span><span style="font-size:11px;font-weight:bold;color:#451a03;">${employee.employeeName}</span></div>
+            <div style="display:flex;justify-content:space-between;"><span style="font-size:10px;color:#78350f;">ID & Role</span><span style="font-size:11px;font-weight:bold;color:#451a03;">${employee.employeeId} / ${employee.role}</span></div>
+          </div>
+          <div style="width:48%;border-left:1px dashed #fcd34d;padding-left:20px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:10px;color:#78350f;">Paid Days</span><span style="font-size:11px;font-weight:bold;color:#451a03;">${employee.workedDays}/${employee.totalDaysInMonth} (LOP: ${employee.lopDays || 0})</span></div>
+            <div style="display:flex;justify-content:space-between;"><span style="font-size:10px;color:#78350f;">Pay Date</span><span style="font-size:11px;font-weight:bold;color:#451a03;">${formatDateDMY(periodEnd)}</span></div>
+          </div>
+        </div>
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-top:${borderStyle};border-bottom:${borderStyle};margin:0 0 24px 0;">
+          <thead>
+            <tr style="background:${thBg};color:${thColor};border:none !important;">
+              <th style="padding:0 12px;font-size:10px;font-weight:bold;text-align:left;width:35%;border:none !important;border-bottom:${borderStyle} !important;letter-spacing:1px;text-transform:uppercase;"><div style="padding:12px 0;">Earnings</div></th>
+              <th style="padding:0 12px;font-size:10px;font-weight:bold;text-align:right;width:15%;border:none !important;border-bottom:${borderStyle} !important;letter-spacing:1px;text-transform:uppercase;"><div style="padding:12px 0;">Amount</div></th>
+              <th style="padding:0 12px;font-size:10px;font-weight:bold;text-align:left;width:35%;border:none !important;border-left:1px dashed #fcd34d !important;border-bottom:${borderStyle} !important;letter-spacing:1px;text-transform:uppercase;"><div style="padding:12px 0;">Deductions</div></th>
+              <th style="padding:0 12px;font-size:10px;font-weight:bold;text-align:right;width:15%;border:none !important;border-bottom:${borderStyle} !important;letter-spacing:1px;text-transform:uppercase;"><div style="padding:12px 0;">Amount</div></th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr style="background:${isCustom?'transparent':'#fef3c7'};border:none !important;">
+              <td style="padding:0 12px;font-size:11px;font-weight:bold;color:#92400e;border:none !important;border-top:${borderStyle} !important;"><div style="padding:12px 0;">Gross Earnings</div></td>
+              <td style="padding:0 12px;font-size:11px;font-weight:bold;text-align:right;color:#16a34a;border:none !important;border-top:${borderStyle} !important;"><div style="padding:12px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 12px;font-size:11px;font-weight:bold;color:#92400e;border:none !important;border-top:${borderStyle} !important;border-left:1px dashed #fcd34d !important;"><div style="padding:12px 0;">Total Deductions</div></td>
+              <td style="padding:0 12px;font-size:11px;font-weight:bold;text-align:right;color:#dc2626;border:none !important;border-top:${borderStyle} !important;"><div style="padding:12px 0;">${fc(employee.totalDeductions)}</div></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="display:flex;justify-content:center;margin-bottom:32px;">
+          <div style="border:2px solid #d97706;padding:16px 32px;text-align:center;background:${isCustom?'transparent':'#fffbeb'};min-width:300px;">
+            <div style="font-size:10px;color:#b45309;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Net Salary Payable</div>
+            <div style="font-size:24px;font-weight:bold;color:#92400e;">${fc(employee.netPayableSalary)}</div>
+            <div style="font-size:10px;color:#d97706;font-style:italic;margin-top:4px;">Indian Rupee ${nw} Only</div>
+          </div>
+        </div>
+        
+        <div style="background:transparent;padding:10px 22px;display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#92400e;border-top:1px dashed #d97706;padding-top:4px;">Authorized Signatory</div></div>
+        </div>
+      </div>`;
+    }
+
+    // ── TEMPLATE 7 : Startup (Vibrant accents, tech feel) ──
+    if (selectedLayout === 'startup') {
+      const isCustom = isCustomTemplate;
+      const accent = '#0ea5e9'; // sky-500
+      const bgCard = isCustom ? 'transparent' : '#f0f9ff'; // sky-50
+      
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        tRows += `<tr style="background:transparent;">
+          <td style="padding:0 12px;font-size:11px;color:#334155;border:none !important;border-bottom:1px solid #e2e8f0 !important;"><div style="padding:10px 0;">${e.name}</div></td>
+          <td style="padding:0 12px;font-size:12px;font-family:monospace;text-align:right;font-weight:700;color:#0f172a;border:none !important;border-bottom:1px solid #e2e8f0 !important;"><div style="padding:10px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 12px;font-size:11px;color:#334155;border:none !important;border-bottom:1px solid #e2e8f0 !important;border-left:1px solid #e2e8f0 !important;"><div style="padding:10px 0;">${d.name}</div></td>
+          <td style="padding:0 12px;font-size:12px;font-family:monospace;text-align:right;font-weight:700;color:#ef4444;border:none !important;border-bottom:1px solid #e2e8f0 !important;"><div style="padding:10px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Segoe UI',sans-serif;padding:0;background:transparent;color:#0f172a;">
+        ${!isCustom ? `<div style="background:#0f172a;padding:20px 22px;display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-size:18px;font-weight:900;color:#fff;">${companyName}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div></div>
+          <div style="background:${accent};color:#fff;padding:6px 12px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;">PAYSLIP ${period}</div>
+        </div>` : `<div style="margin-bottom:16px;text-align:right;"><span style="background:${accent};color:#fff;padding:6px 12px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;">PAYSLIP ${period}</span></div>`}
+        
+        <div style="margin:0 22px 24px;background:${bgCard};${isCustom?'border:2px solid #bae6fd;':'border:none;'}border-radius:12px;padding:16px;display:flex;justify-content:space-between;">
+          <div>
+            <div style="font-size:15px;font-weight:900;color:#0f172a;margin-bottom:2px;">${employee.employeeName}</div>
+            <div style="font-size:11px;color:#64748b;">${employee.role} &nbsp;•&nbsp; ${employee.employeeId}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:2px;">Paid: <strong style="color:#0ea5e9;">${employee.workedDays}/${employee.totalDaysInMonth}</strong> (LOP: ${employee.lopDays || 0})</div>
+            <div style="font-size:11px;color:#64748b;">Pay Date: <strong style="color:#0f172a;">${formatDateDMY(periodEnd)}</strong></div>
+          </div>
+        </div>
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;margin:0 0 24px 0;">
+          <thead>
+            <tr style="background:${isCustom?'transparent':'#0f172a'};color:${isCustom?'#0ea5e9':'#fff'};border:none !important;">
+              <th style="padding:0 12px;font-size:10px;font-weight:800;text-align:left;width:35%;border:none !important;border-bottom:2px solid #0ea5e9 !important;letter-spacing:1px;"><div style="padding:10px 0;">EARNINGS</div></th>
+              <th style="padding:0 12px;font-size:10px;font-weight:800;text-align:right;width:15%;border:none !important;border-bottom:2px solid #0ea5e9 !important;letter-spacing:1px;"><div style="padding:10px 0;">AMOUNT</div></th>
+              <th style="padding:0 12px;font-size:10px;font-weight:800;text-align:left;width:35%;border:none !important;border-left:1px solid ${isCustom?'#e2e8f0':'#334155'} !important;border-bottom:2px solid #0ea5e9 !important;letter-spacing:1px;"><div style="padding:10px 0;">DEDUCTIONS</div></th>
+              <th style="padding:0 12px;font-size:10px;font-weight:800;text-align:right;width:15%;border:none !important;border-bottom:2px solid #0ea5e9 !important;letter-spacing:1px;"><div style="padding:10px 0;">AMOUNT</div></th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr style="background:${isCustom?'transparent':'#f8fafc'};border:none !important;">
+              <td style="padding:0 12px;font-size:11px;font-weight:800;color:#0ea5e9;border:none !important;border-top:2px solid #0ea5e9 !important;border-bottom:${isCustom?'2px solid #0ea5e9 !important':'none'};"><div style="padding:12px 0;">Gross Earnings</div></td>
+              <td style="padding:0 12px;font-size:12px;font-family:monospace;font-weight:800;text-align:right;color:#16a34a;border:none !important;border-top:2px solid #0ea5e9 !important;border-bottom:${isCustom?'2px solid #0ea5e9 !important':'none'};"><div style="padding:12px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 12px;font-size:11px;font-weight:800;color:#0ea5e9;border:none !important;border-top:2px solid #0ea5e9 !important;border-left:1px solid #e2e8f0 !important;border-bottom:${isCustom?'2px solid #0ea5e9 !important':'none'};"><div style="padding:12px 0;">Total Deductions</div></td>
+              <td style="padding:0 12px;font-size:12px;font-family:monospace;font-weight:800;text-align:right;color:#ef4444;border:none !important;border-top:2px solid #0ea5e9 !important;border-bottom:${isCustom?'2px solid #0ea5e9 !important':'none'};"><div style="padding:12px 0;">${fc(employee.totalDeductions)}</div></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:0 22px 24px;padding:16px;background:${bgCard};border-radius:12px;${isCustom?'border:2px solid #0ea5e9;':''}">
+          <div>
+            <div style="font-size:10px;font-weight:800;color:#0ea5e9;letter-spacing:1px;">NET SALARY PAYABLE</div>
+            <div style="font-size:10px;color:#64748b;margin-top:2px;">Rupee ${nw} Only</div>
+          </div>
+          <div style="font-size:24px;font-family:monospace;font-weight:900;color:#0f172a;">${fc(employee.netPayableSalary)}</div>
+        </div>
+        
+        <div style="background:transparent;padding:10px 22px;display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:4px;">Authorized Signatory</div></div>
+        </div>
+      </div>`;
+    }
+
+    // ── TEMPLATE 8 : Compact (Dense, space-saving, standard) ──
+    if (selectedLayout === 'compact') {
+      const isCustom = isCustomTemplate;
+      
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        tRows += `<tr style="background:transparent;">
+          <td style="padding:0 4px;font-size:10px;color:#111;border:none !important;border-bottom:1px solid #e5e7eb !important;border-right:1px solid #e5e7eb !important;"><div style="padding:4px 0;">${e.name}</div></td>
+          <td style="padding:0 4px;font-size:10px;text-align:right;font-weight:600;color:#111;border:none !important;border-bottom:1px solid #e5e7eb !important;border-right:1px solid #e5e7eb !important;"><div style="padding:4px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 4px;font-size:10px;color:#111;border:none !important;border-bottom:1px solid #e5e7eb !important;border-right:1px solid #e5e7eb !important;"><div style="padding:4px 0;">${d.name}</div></td>
+          <td style="padding:0 4px;font-size:10px;text-align:right;font-weight:600;color:#111;border:none !important;border-bottom:1px solid #e5e7eb !important;"><div style="padding:4px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Arial',sans-serif;padding:22px;background:transparent;color:#111;">
+        ${!isCustom ? `<div style="text-align:center;padding-bottom:10px;border-bottom:2px solid #111;margin-bottom:10px;">
+          <h2 style="font-size:16px;margin:0;">${companyName}</h2>
+          <div style="font-size:10px;color:#555;margin-top:2px;">${companyAddress}</div>
+        </div>` : '<div style="margin-bottom:10px;"></div>'}
+        <h3 style="text-align:center;font-size:12px;margin:0 0 10px 0;text-decoration:underline;">PAYSLIP FOR ${period.toUpperCase()}</h3>
+        
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px;">
+          <tr>
+            <td style="padding:2px 4px;font-weight:bold;width:15%;">Emp Name:</td><td style="padding:2px 4px;width:35%;">${employee.employeeName}</td>
+            <td style="padding:2px 4px;font-weight:bold;width:15%;">Emp ID:</td><td style="padding:2px 4px;width:35%;">${employee.employeeId}</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 4px;font-weight:bold;">Designation:</td><td style="padding:2px 4px;">${employee.role}</td>
+            <td style="padding:2px 4px;font-weight:bold;">Pay Date:</td><td style="padding:2px 4px;">${formatDateDMY(periodEnd)}</td>
+          </tr>
+          <tr>
+            <td style="padding:2px 4px;font-weight:bold;">Paid Days:</td><td style="padding:2px 4px;">${employee.workedDays}/${employee.totalDaysInMonth}</td>
+            <td style="padding:2px 4px;font-weight:bold;">LOP:</td><td style="padding:2px 4px;">${employee.lopDays || 0}</td>
+          </tr>
+        </table>
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #111;margin-bottom:10px;">
+          <thead>
+            <tr style="background:${isCustom?'transparent':'#f3f4f6'};">
+              <th style="padding:0 4px;font-size:10px;font-weight:bold;text-align:left;border:none !important;border-bottom:1px solid #111 !important;border-right:1px solid #111 !important;width:35%;"><div style="padding:6px 0;">EARNINGS</div></th>
+              <th style="padding:0 4px;font-size:10px;font-weight:bold;text-align:right;border:none !important;border-bottom:1px solid #111 !important;border-right:1px solid #111 !important;width:15%;"><div style="padding:6px 0;">AMOUNT</div></th>
+              <th style="padding:0 4px;font-size:10px;font-weight:bold;text-align:left;border:none !important;border-bottom:1px solid #111 !important;border-right:1px solid #111 !important;width:35%;"><div style="padding:6px 0;">DEDUCTIONS</div></th>
+              <th style="padding:0 4px;font-size:10px;font-weight:bold;text-align:right;border:none !important;border-bottom:1px solid #111 !important;width:15%;"><div style="padding:6px 0;">AMOUNT</div></th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr style="border-top:1px solid #111;">
+              <td style="padding:0 4px;font-size:10px;font-weight:bold;border:none !important;border-right:1px solid #111 !important;"><div style="padding:6px 0;">GROSS EARNINGS</div></td>
+              <td style="padding:0 4px;font-size:10px;font-weight:bold;text-align:right;border:none !important;border-right:1px solid #111 !important;"><div style="padding:6px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 4px;font-size:10px;font-weight:bold;border:none !important;border-right:1px solid #111 !important;"><div style="padding:6px 0;">TOTAL DEDUCTIONS</div></td>
+              <td style="padding:0 4px;font-size:10px;font-weight:bold;text-align:right;border:none !important;"><div style="padding:6px 0;">${fc(employee.totalDeductions)}</div></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <table style="width:100%;border-collapse:collapse;border:1px solid #111;margin-bottom:16px;">
+          <tr>
+            <td style="padding:6px;font-size:10px;font-weight:bold;width:50%;border-right:1px solid #111;">NET SALARY PAYABLE: <span style="font-size:14px;float:right;">${fc(employee.netPayableSalary)}</span></td>
+            <td style="padding:6px;font-size:10px;width:50%;">In words: Indian Rupee ${nw} Only</td>
+          </tr>
+        </table>
+        
+        <div style="display:flex;justify-content:flex-end;">
+          <div style="text-align:center;"><img src=${SIGN} height="24" style="display:block;margin:0 auto 2px;mix-blend-mode:multiply;" /><div style="font-size:9px;color:#111;border-top:1px solid #111;padding-top:2px;">Authorized Signatory</div></div>
+        </div>
+      </div>`;
+    }
+
+    // ── TEMPLATE 9 : Invoice (Classic bill format) ──
+    if (selectedLayout === 'invoice') {
+      const isCustom = isCustomTemplate;
+      
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        const bg = i % 2 === 0 ? (isCustom ? 'transparent' : '#f9fafb') : 'transparent';
+        tRows += `<tr style="background:${bg};">
+          <td style="padding:0 8px;font-size:11px;color:#374151;border:none !important;border-bottom:1px solid #e5e7eb !important;border-right:1px solid #e5e7eb !important;"><div style="padding:8px 0;">${e.name}</div></td>
+          <td style="padding:0 8px;font-size:11px;text-align:right;font-weight:600;color:#111;border:none !important;border-bottom:1px solid #e5e7eb !important;border-right:1px solid #e5e7eb !important;"><div style="padding:8px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 8px;font-size:11px;color:#374151;border:none !important;border-bottom:1px solid #e5e7eb !important;border-right:1px solid #e5e7eb !important;"><div style="padding:8px 0;">${d.name}</div></td>
+          <td style="padding:0 8px;font-size:11px;text-align:right;font-weight:600;color:#111;border:none !important;border-bottom:1px solid #e5e7eb !important;"><div style="padding:8px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;padding:0;background:transparent;color:#111;">
+        ${!isCustom ? `<div style="display:flex;justify-content:space-between;border-bottom:3px solid #1f2937;padding:24px 22px;background:#f3f4f6;">
+          <div>
+            <h1 style="margin:0;font-size:24px;color:#111;text-transform:uppercase;letter-spacing:1px;">Invoice / Payslip</h1>
+            <div style="font-size:11px;color:#4b5563;margin-top:4px;">Period: <strong>${period}</strong></div>
+          </div>
+          <div style="text-align:right;">
+            <h2 style="margin:0;font-size:16px;color:#111;">${companyName}</h2>
+            <div style="font-size:11px;color:#4b5563;margin-top:2px;">${companyAddress}</div>
+          </div>
+        </div>` : '<div style="margin-bottom:24px;border-bottom:3px solid #1f2937;"></div>'}
+        
+        <div style="display:flex;justify-content:space-between;padding:16px 22px;border-bottom:1px solid #e5e7eb;">
+          <div style="width:45%;">
+            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;margin-bottom:4px;">Bill To / Employee:</div>
+            <div style="font-size:14px;font-weight:bold;color:#111;">${employee.employeeName}</div>
+            <div style="font-size:11px;color:#4b5563;margin-top:2px;">ID: ${employee.employeeId} <br/>Role: ${employee.role}</div>
+          </div>
+          <div style="width:45%;text-align:right;">
+            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;margin-bottom:4px;">Payment Details:</div>
+            <div style="font-size:11px;color:#111;">Date: <strong>${formatDateDMY(periodEnd)}</strong></div>
+            <div style="font-size:11px;color:#111;margin-top:2px;">Days: <strong>${employee.workedDays}/${employee.totalDaysInMonth}</strong> (LOP: ${employee.lopDays || 0})</div>
+          </div>
+        </div>
+        
+        <div style="padding:0 22px;margin-top:24px;">
+          <table style="width:100%;border-collapse:collapse;border:1px solid #d1d5db;">
+            <thead>
+              <tr style="background:${isCustom?'transparent':'#1f2937'};color:${isCustom?'#111':'#fff'};">
+                <th style="padding:0 8px;font-size:10px;font-weight:bold;text-align:left;border:none !important;border-bottom:2px solid #1f2937 !important;border-right:1px solid #d1d5db !important;width:35%;"><div style="padding:10px 0;">DESCRIPTION (EARNINGS)</div></th>
+                <th style="padding:0 8px;font-size:10px;font-weight:bold;text-align:right;border:none !important;border-bottom:2px solid #1f2937 !important;border-right:1px solid #d1d5db !important;width:15%;"><div style="padding:10px 0;">AMOUNT</div></th>
+                <th style="padding:0 8px;font-size:10px;font-weight:bold;text-align:left;border:none !important;border-bottom:2px solid #1f2937 !important;border-right:1px solid #d1d5db !important;width:35%;"><div style="padding:10px 0;">DESCRIPTION (DEDUCTIONS)</div></th>
+                <th style="padding:0 8px;font-size:10px;font-weight:bold;text-align:right;border:none !important;border-bottom:2px solid #1f2937 !important;width:15%;"><div style="padding:10px 0;">AMOUNT</div></th>
+              </tr>
+            </thead>
+            <tbody>${tRows}
+              <tr style="background:${isCustom?'transparent':'#f3f4f6'};">
+                <td style="padding:0 8px;font-size:11px;font-weight:bold;color:#111;border:none !important;border-top:2px solid #1f2937 !important;border-right:1px solid #d1d5db !important;"><div style="padding:10px 0;">Subtotal (Earnings)</div></td>
+                <td style="padding:0 8px;font-size:11px;font-weight:bold;text-align:right;color:#111;border:none !important;border-top:2px solid #1f2937 !important;border-right:1px solid #d1d5db !important;"><div style="padding:10px 0;">${fc(employee.breakdown.gross)}</div></td>
+                <td style="padding:0 8px;font-size:11px;font-weight:bold;color:#111;border:none !important;border-top:2px solid #1f2937 !important;border-right:1px solid #d1d5db !important;"><div style="padding:10px 0;">Subtotal (Deductions)</div></td>
+                <td style="padding:0 8px;font-size:11px;font-weight:bold;text-align:right;color:#111;border:none !important;border-top:2px solid #1f2937 !important;"><div style="padding:10px 0;">${fc(employee.totalDeductions)}</div></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+            <table style="width:50%;border-collapse:collapse;">
+              <tr>
+                <td style="padding:8px;font-size:12px;color:#4b5563;border-bottom:1px solid #e5e7eb;">Total Earnings</td>
+                <td style="padding:8px;font-size:12px;font-weight:bold;text-align:right;border-bottom:1px solid #e5e7eb;">${fc(employee.breakdown.gross)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px;font-size:12px;color:#4b5563;border-bottom:1px solid #e5e7eb;">Total Deductions</td>
+                <td style="padding:8px;font-size:12px;font-weight:bold;text-align:right;border-bottom:1px solid #e5e7eb;">- ${fc(employee.totalDeductions)}</td>
+              </tr>
+              <tr style="background:${isCustom?'transparent':'#1f2937'};color:${isCustom?'#111':'#fff'};">
+                <td style="padding:12px 8px;font-size:14px;font-weight:bold;border-bottom:3px double #1f2937;">NET PAYABLE</td>
+                <td style="padding:12px 8px;font-size:16px;font-weight:bold;text-align:right;border-bottom:3px double #1f2937;">${fc(employee.netPayableSalary)}</td>
+              </tr>
+            </table>
+          </div>
+          <div style="text-align:right;font-size:10px;color:#6b7280;margin-top:4px;">Amount in words: Indian Rupee ${nw} Only</div>
+        </div>
+        
+        <div style="padding:10px 22px;display:flex;justify-content:flex-start;margin-top:32px;">
+          <div style="text-align:center;"><img src=${SIGN} height="26" style="display:block;margin:0 auto 3px;mix-blend-mode:multiply;" /><div style="font-size:10px;color:#111;border-top:1px solid #111;padding-top:4px;">Authorized Signature</div></div>
+        </div>
+      </div>`;
+    }
+
+    // ── TEMPLATE 10 : Monochrome (High-contrast, bold lines) ──
+    if (selectedLayout === 'monochrome') {
+      const isCustom = isCustomTemplate;
+      
+      let tRows = '';
+      for (let i = 0; i < maxLen; i++) {
+        const e = earnList[i] || { name: '', val: null };
+        const d = deductList[i] || { name: '', val: null };
+        tRows += `<tr style="background:transparent;">
+          <td style="padding:0 12px;font-size:12px;color:#000;font-weight:600;border:none !important;border-bottom:2px solid #000 !important;border-right:2px solid #000 !important;"><div style="padding:12px 0;">${e.name}</div></td>
+          <td style="padding:0 12px;font-size:12px;text-align:right;font-weight:800;color:#000;border:none !important;border-bottom:2px solid #000 !important;border-right:4px solid #000 !important;"><div style="padding:12px 0;">${e.val !== null ? fc(e.val) : ''}</div></td>
+          <td style="padding:0 12px;font-size:12px;color:#000;font-weight:600;border:none !important;border-bottom:2px solid #000 !important;border-right:2px solid #000 !important;"><div style="padding:12px 0;">${d.name}</div></td>
+          <td style="padding:0 12px;font-size:12px;text-align:right;font-weight:800;color:#000;border:none !important;border-bottom:2px solid #000 !important;"><div style="padding:12px 0;">${d.val !== null ? fc(d.val) : ''}</div></td>
+        </tr>`;
+      }
+      return `<div style="font-family:'Courier New',Courier,monospace;padding:0;background:transparent;color:#000;border:${isCustom?'none':'4px solid #000'};margin:${isCustom?'0':'12px'};">
+        ${!isCustom ? `<div style="text-align:center;padding:24px;border-bottom:4px solid #000;">
+          <h1 style="margin:0;font-size:28px;font-weight:900;text-transform:uppercase;letter-spacing:2px;">${companyName}</h1>
+          <div style="font-size:12px;font-weight:bold;margin-top:8px;">${companyAddress}</div>
+        </div>` : '<div style="margin-bottom:16px;border-bottom:4px solid #000;"></div>'}
+        
+        <div style="display:flex;border-bottom:4px solid #000;">
+          <div style="width:50%;padding:16px;border-right:4px solid #000;">
+            <div style="font-size:10px;font-weight:bold;text-transform:uppercase;margin-bottom:8px;">Employee</div>
+            <div style="font-size:18px;font-weight:900;text-transform:uppercase;">${employee.employeeName}</div>
+            <div style="font-size:12px;font-weight:bold;margin-top:4px;">ID: ${employee.employeeId} | ${employee.role}</div>
+          </div>
+          <div style="width:50%;padding:16px;">
+            <div style="font-size:10px;font-weight:bold;text-transform:uppercase;margin-bottom:8px;">Payslip Details</div>
+            <div style="font-size:12px;font-weight:bold;margin-bottom:4px;">PERIOD: <span style="font-size:14px;font-weight:900;">${period.toUpperCase()}</span></div>
+            <div style="font-size:12px;font-weight:bold;margin-bottom:4px;">PAID DAYS: ${employee.workedDays}/${employee.totalDaysInMonth} (LOP:${employee.lopDays || 0})</div>
+            <div style="font-size:12px;font-weight:bold;">PAY DATE: ${formatDateDMY(periodEnd)}</div>
+          </div>
+        </div>
+        
+        <table style="width:100%;table-layout:fixed;border-collapse:collapse;border-bottom:4px solid #000;">
+          <thead>
+            <tr>
+              <th style="padding:0 12px;font-size:14px;font-weight:900;text-align:left;border:none !important;border-bottom:4px solid #000 !important;border-right:2px solid #000 !important;width:35%;"><div style="padding:14px 0;">EARNINGS</div></th>
+              <th style="padding:0 12px;font-size:14px;font-weight:900;text-align:right;border:none !important;border-bottom:4px solid #000 !important;border-right:4px solid #000 !important;width:15%;"><div style="padding:14px 0;">AMOUNT</div></th>
+              <th style="padding:0 12px;font-size:14px;font-weight:900;text-align:left;border:none !important;border-bottom:4px solid #000 !important;border-right:2px solid #000 !important;width:35%;"><div style="padding:14px 0;">DEDUCTIONS</div></th>
+              <th style="padding:0 12px;font-size:14px;font-weight:900;text-align:right;border:none !important;border-bottom:4px solid #000 !important;width:15%;"><div style="padding:14px 0;">AMOUNT</div></th>
+            </tr>
+          </thead>
+          <tbody>${tRows}
+            <tr>
+              <td style="padding:0 12px;font-size:12px;font-weight:900;border:none !important;border-right:2px solid #000 !important;"><div style="padding:16px 0;">TOTAL EARNINGS</div></td>
+              <td style="padding:0 12px;font-size:12px;font-weight:900;text-align:right;border:none !important;border-right:4px solid #000 !important;"><div style="padding:16px 0;">${fc(employee.breakdown.gross)}</div></td>
+              <td style="padding:0 12px;font-size:12px;font-weight:900;border:none !important;border-right:2px solid #000 !important;"><div style="padding:16px 0;">TOTAL DEDUCTIONS</div></td>
+              <td style="padding:0 12px;font-size:12px;font-weight:900;text-align:right;border:none !important;"><div style="padding:16px 0;">${fc(employee.totalDeductions)}</div></td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div style="display:flex;align-items:stretch;border-bottom:4px solid #000;">
+          <div style="width:30%;padding:16px;border-right:4px solid #000;display:flex;flex-direction:column;justify-content:center;">
+            <div style="font-size:12px;font-weight:900;text-transform:uppercase;">Net Salary</div>
+            <div style="font-size:10px;font-weight:bold;margin-top:4px;">(INDIAN RUPEES)</div>
+          </div>
+          <div style="width:70%;padding:16px;display:flex;align-items:center;justify-content:flex-end;">
+            <div style="font-size:32px;font-weight:900;">${fc(employee.netPayableSalary)}</div>
+          </div>
+        </div>
+        
+        <div style="padding:16px;font-size:10px;font-weight:bold;text-transform:uppercase;border-bottom:4px solid #000;">
+          IN WORDS: RUPEE ${nw} ONLY
+        </div>
+        
+        <div style="padding:16px;display:flex;justify-content:space-between;align-items:flex-end;">
+          <div style="font-size:10px;font-weight:bold;">-- SYSTEM GENERATED --</div>
+          <div style="text-align:center;"><img src=${SIGN} height="30" style="display:block;margin:0 auto 4px;mix-blend-mode:multiply;" /><div style="font-size:12px;font-weight:900;border-top:2px solid #000;padding-top:4px;">AUTH. SIGN</div></div>
+        </div>
+      </div>`;
+    }
+
+
   }, [employee, companyName, companyAddress, periodStart, periodEnd, selectedLayout]);
   // Plain print (no template — opens browser print dialog as before)
   const downloadPayslip = () => {
@@ -2051,20 +2525,33 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
   // Template-based PDF generation
   const handleTemplateSelected = async (template) => {
     setShowTemplatePicker(false);
+    
+    // Open window immediately to prevent popup blocker
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write('<html><body><h2 style="font-family:sans-serif;color:#555;text-align:center;margin-top:20vh;">Generating Payslip PDF, please wait...</h2></body></html>');
+    }
+
     setGeneratingPdf(true);
     try {
       const { generateOfferLetterPdf } = await import('../utils/offerLetterPdfGenerator');
       const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employee PF (Fixed)' : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
       const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employer PF (Fixed)' : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
-      const htmlContent = buildPayslipHTML(pfLabel, employerPfLabel);
+      const htmlContent = buildPayslipHTML(pfLabel, employerPfLabel, true);
+      
       const dataUri = await generateOfferLetterPdf(htmlContent, template.templateUrl);
 
-      // Open PDF in new tab for printing/saving
-      const win = window.open('', '_blank');
-      win.document.write(`<!DOCTYPE html><html><head><title>Payslip – ${employee.employeeName}</title><style>*{margin:0;padding:0;}body{background:#525659;display:flex;justify-content:center;}iframe{width:100vw;height:100vh;border:none;}</style></head><body><iframe src="${dataUri}" /></body></html>`);
-      win.document.close();
+      if (win) {
+        win.document.open();
+        win.document.write(`<!DOCTYPE html><html><head><title>Payslip – ${employee.employeeName}</title><style>*{margin:0;padding:0;}body{background:#525659;display:flex;justify-content:center;}iframe{width:100vw;height:100vh;border:none;}</style></head><body><iframe src="${dataUri}" /></body></html>`);
+        win.document.close();
+      } else {
+        // If popup was blocked initially, we can't open it now, but we can try to download or show alert
+        Swal.fire('Popup Blocked', 'Please allow popups for this site to view the PDF, or try again.', 'warning');
+      }
     } catch (err) {
       console.error('Template payslip generation failed:', err);
+      if (win) win.close();
       Swal.fire('Error', 'Could not generate the payslip with the selected template.', 'error');
     } finally {
       setGeneratingPdf(false);
@@ -3322,14 +3809,15 @@ const PayrollManagement = () => {
           }
         } catch (e) { console.error("Rules fetch error", e); }
 
-        const [leavesRes, empRes, attRes, holidayRes, shiftRes, groupRes, overrideRes] = await Promise.all([
+        const [leavesRes, empRes, attRes, holidayRes, shiftRes, groupRes, overrideRes, supportAdminsRes] = await Promise.all([
           getLeaveRequests(),
           getEmployees(),
           getAttendanceByDateRange(summaryStartDate, summaryEndDate),
           getHolidays(),
           getAllShifts(),
           getPayrollGroups().catch(() => []),
-          getPayrollOverrides().catch(() => ({}))
+          getPayrollOverrides().catch(() => ({})),
+          getSupportAdmins().catch(() => [])
         ]);
 
         // ✅ FILTER: Only include active AND Full Time employees in payroll
@@ -3340,6 +3828,18 @@ const PayrollManagement = () => {
           const employmentType = getCurrentEmploymentType(emp);
           return employmentType === "Full-Time";
         });
+
+        // ✅ INJECT SUPPORT ADMINS
+        const supportAdmins = (Array.isArray(supportAdminsRes) ? supportAdminsRes : supportAdminsRes?.data || [])
+          .filter(sa => sa.isActive !== false)
+          .map(sa => ({
+            ...sa,
+            employeeId: sa.supportAdminId || sa._id,
+            role: "Support Admin"
+          }));
+
+        // Merge active full-time employees and active support admins
+        activeEmps = [...activeEmps, ...supportAdmins];
 
         setLeaveRequests(leavesRes || []);
         setAllEmployees(activeEmps);

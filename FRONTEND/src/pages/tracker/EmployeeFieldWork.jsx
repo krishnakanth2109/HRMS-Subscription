@@ -438,6 +438,9 @@ const EmployeeFieldWork = () => {
   const [isBreakActive, setIsBreakActive] = useState(false);
   const [activeBreak, setActiveBreak] = useState(null);
   const [breaks, setBreaks] = useState([]);
+  const [tripPhotos, setTripPhotos] = useState([]);
+
+
   const [breakDescription, setBreakDescription] = useState("");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState("");
@@ -458,6 +461,7 @@ const EmployeeFieldWork = () => {
   const stoppedSecondsRef = useRef(0);
   const stopsRef = useRef([]);
   const breaksRef = useRef([]);
+  const tripPhotosRef = useRef([]);
   const isBreakActiveRef = useRef(false);
   const lastRecordTimeRef = useRef(0);
 
@@ -579,6 +583,7 @@ const EmployeeFieldWork = () => {
         stoppedSeconds: getLiveStoppedSeconds(),
         stops: stopsRef.current,
         breaks: currentBreaks,
+        photos: tripPhotosRef.current,
       };
 
       const socket = socketRef.current;
@@ -696,6 +701,8 @@ const EmployeeFieldWork = () => {
         setStops(stopsRef.current);
         breaksRef.current = active.trip.breaks || [];
         setBreaks(breaksRef.current);
+        tripPhotosRef.current = active.trip.photos || [];
+        setTripPhotos(tripPhotosRef.current);
         stoppedSecondsRef.current = Number(active.trip.stoppedSeconds) || 0;
         setStoppedSeconds(stoppedSecondsRef.current);
         lastPointRef.current = active.trip.path?.[active.trip.path.length - 1] || null;
@@ -765,6 +772,8 @@ const EmployeeFieldWork = () => {
       setStops([]);
       breaksRef.current = [];
       setBreaks([]);
+      tripPhotosRef.current = [];
+      setTripPhotos([]);
       setActiveBreak(null);
       setIsBreakActive(false);
       isBreakActiveRef.current = false;
@@ -797,10 +806,12 @@ const EmployeeFieldWork = () => {
         stoppedSeconds: stoppedSecondsRef.current,
         stops: stopsRef.current,
         breaks: breaksRef.current,
+        photos: tripPhotosRef.current,
       });
       setActiveTrip(result.trip);
       setStops(result.trip?.stops || stopsRef.current);
       setBreaks(result.trip?.breaks || breaksRef.current);
+      setTripPhotos(result.trip?.photos || tripPhotosRef.current);
       setIsTracking(false);
       setIsBreakActive(false);
       isBreakActiveRef.current = false;
@@ -910,6 +921,39 @@ const EmployeeFieldWork = () => {
     } catch (err) {
       console.error("Failed to upload break photo:", err);
       alert("Failed to upload break photo. Please try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleTripPhotoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !activeTrip?._id) return;
+
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await uploadBreakPhotoApi(activeTrip._id, formData);
+      if (response?.success && response?.url) {
+        const uploadedUrl = response.url;
+        const newPhotos = [...tripPhotosRef.current, uploadedUrl];
+        tripPhotosRef.current = newPhotos;
+        setTripPhotos(newPhotos);
+        alert("Trip photo uploaded successfully!");
+
+        try {
+          const position = await getCurrentPosition();
+          const pt = positionToPoint(position);
+          await sendLocationUpdate(activeTrip._id, pt);
+        } catch (geoErr) {
+          console.warn("Could not sync location after photo upload", geoErr);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to upload trip photo:", err);
+      alert("Failed to upload trip photo. Please try again.");
     } finally {
       setUploadingPhoto(false);
     }
@@ -1106,6 +1150,42 @@ const EmployeeFieldWork = () => {
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTrip && !isBreakActive && (
+                <div className="mt-4 rounded-xl border border-indigo-100 bg-white p-4 space-y-3">
+                  <label className="block text-xs font-bold text-slate-600">
+                    Trip Photos ({tripPhotos.length})
+                  </label>
+                  
+                  {tripPhotos.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {tripPhotos.map((url, i) => (
+                        <div key={i} className="overflow-hidden rounded-lg border border-slate-200 aspect-square">
+                          <img src={url} alt="Trip photo" className="h-full w-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleTripPhotoUpload}
+                      disabled={uploadingPhoto}
+                      className="hidden"
+                      id="trip-photo-file"
+                    />
+                    <label
+                      htmlFor="trip-photo-file"
+                      className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-50 border border-indigo-200 px-4 py-3 text-xs font-black text-indigo-700 shadow-sm transition hover:bg-indigo-100"
+                    >
+                      <Camera size={16} />
+                      {uploadingPhoto ? "Uploading..." : "Take/Upload Trip Photo"}
+                    </label>
+                  </div>
                 </div>
               )}
 

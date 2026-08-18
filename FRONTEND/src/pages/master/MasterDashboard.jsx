@@ -72,7 +72,7 @@ const AdminDashboard = () => {
     const totalStaff = admins.reduce((sum, a) => sum + (a.totalEmployees || 0), 0);
     const activeStaff = admins.reduce((sum, a) => sum + (a.totalEmployees - (a.disabledEmployees || 0)), 0);
     const totalRevenue = plans.reduce((sum, plan) => sum + (plan.price || 0), 0);
-    const generatedRevenue = masterStats?.totalRevenueGenerated ?? admins.reduce((sum, admin) => sum + (admin.billPaid || 0), 0);
+    const generatedRevenue = masterStats?.totalRevenueGenerated || admins.reduce((sum, admin) => sum + (admin.billPaid || 0), 0);
 
     return { total, active, expired, blocked, totalStaff, activeStaff, totalRevenue, generatedRevenue };
   }, [admins, plans, masterStats]);
@@ -417,7 +417,7 @@ const AdminDashboard = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
             </div>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-100/50 px-2 py-1 rounded-lg uppercase tracking-wider mr-4">Plan Value</span>
+           
           </div>
           <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">₹{stats.totalRevenue.toLocaleString("en-IN")}</h3>
           <p className="text-xs font-semibold text-slate-400 mt-1.5">Total Subscription Value</p>
@@ -433,7 +433,7 @@ const AdminDashboard = () => {
         </div>
 
         {/* Collected (Restored to exact standard layout) */}
-        <div 
+        <div   
           onClick={() => {
             if (revenueRef.current) {
               revenueRef.current.scrollIntoView({ behavior: "smooth", block: "start" });

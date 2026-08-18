@@ -263,6 +263,7 @@ function App() {
         <Route path="/admin/profile" element={<AdminProfile />} />
         <Route path="/support-admin/profile" element={<SupportAdminProfile />} />
         <Route path="/support-admin/leave-requests" element={<SupportAdminLeaveRequests />} />
+        <Route path="/support-admin/payslip" element={<EmployeePayslip />} />
         <Route path="/employees" element={<EmployeeManagement />} />
         <Route path="/support-admin/management" element={<SupportAdminManagement />} />
         <Route path="/employees/add" element={<AddEmployee />} />

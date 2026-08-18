@@ -56,6 +56,7 @@ const fieldWorkTripSchema = new mongoose.Schema(
     stoppedSeconds: { type: Number, default: 0 },
     stops: { type: [stopSchema], default: [] },
     breaks: { type: [breakSchema], default: [] },
+    photos: { type: [String], default: [] },
   },
   { timestamps: true },
 );

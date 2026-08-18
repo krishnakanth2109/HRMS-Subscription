@@ -193,6 +193,15 @@ export const deleteFaceApi = async () => {
    EMPLOYEE MANAGEMENT
 ============================================================================= */
 export const getEmployees = async () => (await api.get("/api/employees")).data;
+export const getSupportAdmins = async () => {
+  try {
+    const res = await api.get("/api/admin/support-admins");
+    return res.data?.supportAdmins || res.data;
+  } catch (err) {
+    console.error("Error fetching support admins", err);
+    return [];
+  }
+};
 export const requestStatusCorrection = async (data) =>
   (await api.post("/api/attendance/request-status-correction", data)).data;
 

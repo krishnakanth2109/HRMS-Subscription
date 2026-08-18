@@ -136,6 +136,10 @@ export const recordFieldWorkLocationForEmployee = async ({
     }));
   }
 
+  if (Array.isArray(body.photos)) {
+    updateSet.photos = body.photos;
+  }
+
   const trip = await FieldWorkTrip.findOneAndUpdate(
     query,
     {
@@ -415,6 +419,7 @@ export const stopFieldWorkTrip = async (req, res) => {
           stoppedSeconds: Number(req.body.stoppedSeconds) || 0,
           stops,
           breaks,
+          ...(Array.isArray(req.body.photos) ? { photos: req.body.photos } : {}),
         },
       },
       { new: true },

@@ -67,6 +67,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     "/support-admin/my-attendance",
     "/admin/holiday-calendar",
     "/support-admin/leave-requests",
+    "/support-admin/payslip",
     "/admin/notices",
     "/admin/setup-face"
   ];
@@ -222,6 +223,13 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           route: "/support-admin/leave-requests",
           label: "My Leave Requests",
           icon: CalendarPlus,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/payslip",
+          route: "/support-admin/payslip",
+          label: "My Payroll Details",
+          icon: IndianRupee,
           alwaysAllowed: true,
         },
         {

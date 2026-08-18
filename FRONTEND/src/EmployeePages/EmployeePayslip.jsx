@@ -37,19 +37,20 @@ const EmployeePayslip = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.employeeId && selectedMonth) {
-      fetchPayslip();
+    const targetId = user?.employeeId || user?.supportAdminId || user?._id;
+    if (targetId && selectedMonth) {
+      fetchPayslip(targetId);
     }
   }, [selectedMonth, user]);
 
-  const fetchPayslip = async () => {
+  const fetchPayslip = async (targetId) => {
     setLoading(true);
     setPayslipData(null);
     setTemplateImageUrl(null);
     setTemplateLoading(false);
     setTemplateLoadFailed(false);
     try {
-      const res = await getEmployeePayroll(user.employeeId, selectedMonth);
+      const res = await getEmployeePayroll(targetId, selectedMonth);
       setPayslipData(res.data);
     } catch (error) {
       if (error.response && error.response.status !== 404) {
