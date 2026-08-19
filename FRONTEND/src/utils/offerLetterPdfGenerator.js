@@ -30,7 +30,7 @@ export const generateOfferLetterPdf = async (htmlContent, templateUrl = '/Arah_T
             htmlContent.includes("REMUNERATION");
 
         const CONTAINER_W = 790;  // px — the rendering width
-        const CANVAS_SCALE = 1.5;   // 1.5x for crisp text and smaller file size
+        const CANVAS_SCALE = 1.2;   // Reduced from 1.5 to 1.2 for much faster rendering without losing much quality
 
         const yStart = isDense ? 110 : 140;   // pt — space for template header
         const bottomMargin = 65;               // pt — space for template footer
@@ -199,9 +199,14 @@ export const generateOfferLetterPdf = async (htmlContent, templateUrl = '/Arah_T
             const ctx = cropCanvas.getContext('2d');
             ctx.drawImage(fullCanvas, 0, srcY, srcW, srcH, 0, 0, srcW, Math.round(srcH));
 
-            // Convert crop to PNG bytes
-            const pngDataUrl = cropCanvas.toDataURL('image/png');
-            const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer());
+            // Convert crop to PNG bytes efficiently using native Blob API
+            const pngBytes = await new Promise(resolve => {
+                cropCanvas.toBlob(blob => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.readAsArrayBuffer(blob);
+                }, 'image/png');
+            });
             const pngImage = await finalDoc.embedPng(pngBytes);
 
             // ─ Create page ─
@@ -227,15 +232,18 @@ export const generateOfferLetterPdf = async (htmlContent, templateUrl = '/Arah_T
             });
         }
 
-        // ── 5. Serialize to base64 data URI ─────────────────────
+        // ── 5. Serialize to base64 data URI using native fast FileReader ─────────────────────
         const pdfBytes = await finalDoc.save();
-        const bytes = new Uint8Array(pdfBytes);
-        let binary = '';
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
+        
+        const base64Url = await new Promise(resolve => {
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
+
         console.log(`PDF: Final document — ${totalPages} page(s), ${pdfBytes.byteLength} bytes`);
-        return 'data:application/pdf;base64,' + window.btoa(binary);
+        return base64Url;
 
     } catch (err) {
         console.error("PDF Template Error:", err);

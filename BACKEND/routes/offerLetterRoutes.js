@@ -342,26 +342,17 @@ router.post("/generate", protect, onlyAdmin, async (req, res) => {
     const ctcLakhs = formatLakhs(ctc);
     const netWords = numberToIndianWords(net);
 
-    // AI CONTENT GENERATION
+    // INSTANT CONTENT GENERATION (AI Bypassed for speed)
     let aiContent = "";
-    try {
-      console.log(`🤖 AI: Generating ${letterType} for ${emp.name}...`);
-      aiContent = await generateHRDocument({
-        letterType,
-        employeeData: emp,
-        companyName: company
-      });
-    } catch (aiErr) {
-      console.warn("⚠️ AI Generation failed, using fallback:", aiErr.message);
-      aiContent = getFallbackTemplate(letterType, {
-        name: emp.name,
-        designation: emp.designation,
-        companyName: company,
-        joiningDate: joiningFormatted,
-        ctc: ctcLakhs,
-        employmentType: emp.employment_type
-      });
-    }
+    console.log(`⚡ Fast Mode: Generating standard ${letterType} for ${emp.name}...`);
+    aiContent = getFallbackTemplate(letterType, {
+      name: emp.name,
+      designation: emp.designation,
+      companyName: company,
+      joiningDate: joiningFormatted,
+      ctc: ctcLakhs,
+      employmentType: emp.employment_type
+    });
 
     const subject = letterType === "Others" ? "Subject: [As Specified]" : `Subject: ${letterType}`;
 

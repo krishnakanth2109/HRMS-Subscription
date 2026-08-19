@@ -1643,9 +1643,9 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       { name: 'Conveyance', val: employee.monthlyBreakdown.conveyance },
       { name: 'Medical', val: employee.monthlyBreakdown.medical },
       { name: 'Travelling Allowance', val: employee.monthlyBreakdown.travellingAllowance },
-      { name: 'Special Allowance', val: employee.monthlyBreakdown.specialAllowance },
+      { name: 'Others', val: employee.monthlyBreakdown.specialAllowance },
       ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value }))
-    ].filter(i => i.val > 0);
+    ];
 
     const deductList = [
       { name: pfLabel, val: employee.breakdown.pf },
@@ -1664,7 +1664,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
         })(), val: employee.lateDeduction
       },
       ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
-    ].filter(i => i.val > 0);
+    ];
 
     const maxLen = Math.max(earnList.length, deductList.length);
     const SIGN = `"/api/offer-letters/templates/fetch?url=${encodeURIComponent('https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png')}"`;
@@ -2648,6 +2648,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                   { label: "Conveyance", val: employee.monthlyBreakdown.conveyance },
                   { label: "Medical", val: employee.monthlyBreakdown.medical },
                   { label: "Travelling Allowance", val: employee.monthlyBreakdown.travellingAllowance },
+                  { label: "Others", val: employee.monthlyBreakdown.specialAllowance },
                   ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ label: cf.name, val: cf.value }))
                 ].map(item => (
                   <div key={item.label} className="flex justify-between text-xs sm:text-sm py-1 border-b border-gray-50 last:border-0">
@@ -4070,7 +4071,8 @@ const PayrollManagement = () => {
       let latePenaltyOccurrences = 0;
       let lateDeduction = 0;
       if (effectiveRules.latePenaltyEnabled) {
-        const penaltyOccurrences = att.lateCount; // each late login = 1 occurrence, no threshold division
+        const threshold = Number(effectiveRules.latePenaltyThreshold) || 1;
+        const penaltyOccurrences = Math.floor(att.lateCount / threshold);
         latePenaltyOccurrences = penaltyOccurrences;
         if (penaltyOccurrences > 0) {
           const penaltyType = effectiveRules.latePenaltyType || 'halfDay';
