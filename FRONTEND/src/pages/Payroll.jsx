@@ -1657,10 +1657,10 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
           const r = employee.appliedRules;
           if (!r?.latePenaltyEnabled) return 'Late Penalty (Disabled)';
           const type = r?.latePenaltyType || 'halfDay';
-          const late = employee.lateDaysCount;
-          if (type === 'halfDay') return `Late Penalty (${late} late × 0.5d)`;
-          if (type === 'fullDay') return `Late Penalty (${late} late × 1d)`;
-          return `Late Penalty (${late} × ₹${r?.latePenaltyManualAmount || 0})`;
+          const occ = employee.latePenaltyOccurrences || 0;
+          if (type === 'halfDay') return `Late Penalty (${occ} occ. × 0.5d)`;
+          if (type === 'fullDay') return `Late Penalty (${occ} occ. × 1d)`;
+          return `Late Penalty (${occ} occ. × ₹${r?.latePenaltyManualAmount || 0})`;
         })(), val: employee.lateDeduction
       },
       ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))

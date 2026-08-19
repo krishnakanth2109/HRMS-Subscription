@@ -215,7 +215,7 @@ const EmployeePayslip = () => {
     { name: 'PF Employer', val: breakdown.employerPf },
     { name: 'Professional Tax', val: breakdown.pt },
     { name: `LOP Deduction (${attendanceSummary.lopDays || 0} days)`, val: salaryDetails.lopDeduction },
-    { name: `Late Penalty (${attendanceSummary.lateDaysCount || 0} late)`, val: salaryDetails.lateDeduction },
+    { name: `Late Penalty (${salaryDetails.latePenaltyOccurrences || 0} penalty occ.)`, val: salaryDetails.lateDeduction },
     ...(breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
   ].filter(item => item.val !== undefined && item.val !== null && item.val > 0);
 
