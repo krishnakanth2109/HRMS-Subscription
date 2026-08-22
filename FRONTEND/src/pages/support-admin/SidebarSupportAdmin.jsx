@@ -343,7 +343,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [setMobileOpen]);
 
   useEffect(() => {
     if (isMobile) {
@@ -539,7 +539,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
     fetchAll();
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
-  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests]);
+  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests, fetchPunchOutRequests]);
 
   useEffect(() => {
     const s = io(SOCKET_URL, { transports: ["polling", "websocket"] });
@@ -601,7 +601,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       socket.off("notice:reply:new", handleNewReply);
       socket.off("notice:updated", handleNoticeUpdate);
     };
-  }, [socket, fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchAndCalculateUnreadNotices, fetchFullDayRequests, fetchWorkModeRequests]);
+  }, [socket, fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchAndCalculateUnreadNotices, fetchFullDayRequests, fetchWorkModeRequests, fetchPunchOutRequests]);
 
   const getBadgeCount = (link) => {
     if (link.isLeave) return pendingLeaves;

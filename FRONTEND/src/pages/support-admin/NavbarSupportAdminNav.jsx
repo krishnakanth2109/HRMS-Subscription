@@ -255,9 +255,9 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
     return count;
   };
 
-  const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
-  const countPending = (items = []) =>
-    items.reduce((count, item) => count + (isPending(item?.status) ? 1 : 0), 0);
+  const isPending = useCallback((s) => typeof s === "string" && s.toLowerCase() === "pending", []);
+  const countPending = useCallback((items = []) =>
+    items.reduce((count, item) => count + (isPending(item?.status) ? 1 : 0), 0), [isPending]);
 
   useEffect(() => {
     const fetchPlanFeatures = async () => {
@@ -310,7 +310,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
   const fetchStatusCorrectionRequestCount = useCallback(async () => {
     const { data } = await api.get("/api/attendance/admin/status-correction-requests");
     return countPending(data?.data);
-  }, []);
+  }, [countPending]);
 
   const fetchPendingCorrectionCount = useCallback(async () => {
     const { data } = await api.get("/api/attendance/admin/pending-corrections");
@@ -353,14 +353,14 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
       const data = await getAllOvertimeRequests();
       setPendingOvertime(countPending(data));
     } catch { }
-  }, []);
+  }, [countPending]);
 
   const fetchLeaveRequests = useCallback(async () => {
     try {
       const data = await getLeaveRequests();
       setPendingLeaves(countPending(data));
     } catch { }
-  }, []);
+  }, [countPending]);
 
   const fetchPunchOutRequests = useCallback(async () => {
     try {
@@ -369,7 +369,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
     } catch (error) {
       console.error("Error fetching punch out requests:", error);
     }
-  }, []);
+  }, [countPending]);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -385,7 +385,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
     fetchAll();
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
-  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests]);
+  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests, fetchPunchOutRequests]);
 
   useEffect(() => {
     const s = io(SOCKET_URL, { transports: ["polling", "websocket"] });
