@@ -1148,7 +1148,7 @@ const Login = () => {
       )}
 
       {/* Custom CSS for animations and bubbles */}
-      <style jsx>{`
+      <style jsx="true">{`
         @keyframes float {
           0% { transform: translateY(0px) rotate(0deg); }
           50% { transform: translateY(-20px) rotate(180deg); }

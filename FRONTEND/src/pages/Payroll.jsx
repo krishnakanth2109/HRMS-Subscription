@@ -1470,6 +1470,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState('classic');
+  const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState(false);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [localOverride, setLocalOverride] = useState({
     // Earnings
@@ -2233,8 +2234,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       return `<div style="font-family:'Segoe UI',sans-serif;padding:0;background:transparent;color:#0f172a;">
         ${!isCustom ? `<div style="background:#0f172a;padding:20px 22px;display:flex;justify-content:space-between;align-items:center;">
           <div><div style="font-size:18px;font-weight:900;color:#fff;">${companyName}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div></div>
-          <div style="background:${accent};color:#fff;padding:6px 12px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;">PAYSLIP ${period}</div>
-        </div>` : `<div style="margin-bottom:16px;text-align:right;"><span style="background:${accent};color:#fff;padding:6px 12px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;">PAYSLIP ${period}</span></div>`}
+          <div style="display:inline-block;background:${accent};color:#fff;padding:3px 14px 7px 14px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;text-align:center;">PAYSLIP ${period}</div>
+        </div>` : `<div style="margin-bottom:16px;text-align:right;"><span style="display:inline-block;background:${accent};color:#fff;padding:3px 14px 7px 14px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;text-align:center;">PAYSLIP ${period}</span></div>`}
         
         <div style="margin:0 22px 24px;background:${bgCard};${isCustom?'border:2px solid #bae6fd;':'border:none;'}border-radius:12px;padding:16px;display:flex;justify-content:space-between;">
           <div>
@@ -2933,27 +2934,78 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
           </div>
 
           {/* Layout Template Picker */}
-          <div style={{ marginBottom: '12px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>📐 Payslip Layout</p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {PAYSLIP_LAYOUTS.map(layout => (
-                <button
-                  key={layout.id}
-                  onClick={() => setSelectedLayout(layout.id)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    padding: '8px 14px', borderRadius: '12px', border: '2px solid',
-                    borderColor: selectedLayout === layout.id ? '#4f46e5' : '#e2e8f0',
-                    background: selectedLayout === layout.id ? '#eef2ff' : '#f8fafc',
-                    cursor: 'pointer', transition: 'all 0.15s', minWidth: '80px',
-                    boxShadow: selectedLayout === layout.id ? '0 0 0 3px rgba(79,70,229,0.15)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '18px', marginBottom: '2px' }}>{layout.icon}</span>
-                  <span style={{ fontSize: '10px', fontWeight: 800, color: selectedLayout === layout.id ? '#4f46e5' : '#374151' }}>{layout.label}</span>
-                  <span style={{ fontSize: '9px', color: '#9ca3af', marginTop: '1px', textAlign: 'center', lineHeight: 1.2 }}>{layout.desc}</span>
-                </button>
-              ))}
+          <div style={{ marginBottom: '16px', position: 'relative' }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+              📐 Payslip Layout
+            </p>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsLayoutDropdownOpen(!isLayoutDropdownOpen)}
+                className={`w-full flex items-center justify-between px-4 py-3 bg-white border-2 rounded-xl transition-all duration-200 ${
+                  isLayoutDropdownOpen ? 'border-indigo-400 shadow-md ring-2 ring-indigo-50' : 'border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-50 text-xl shadow-sm border border-indigo-100">
+                    {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.icon}
+                  </div>
+                  <div className="text-left flex flex-col">
+                    <span className="text-sm font-extrabold text-gray-800">
+                      {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.label}
+                    </span>
+                    <span className="text-xs text-gray-500 font-medium">
+                      {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.desc}
+                    </span>
+                  </div>
+                </div>
+                <div className={`p-1 rounded-full transition-colors duration-200 ${isLayoutDropdownOpen ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <svg
+                    className={`w-5 h-5 transform transition-transform duration-300 ${isLayoutDropdownOpen ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {isLayoutDropdownOpen && (
+                <div className="w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-inner overflow-hidden transition-all" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div className="p-2 space-y-1">
+                    {PAYSLIP_LAYOUTS.map(layout => (
+                      <button
+                        key={layout.id}
+                        onClick={() => {
+                          setSelectedLayout(layout.id);
+                          setIsLayoutDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                          ${selectedLayout === layout.id ? 'bg-indigo-50 border border-indigo-100 shadow-sm' : 'bg-transparent border border-transparent hover:bg-gray-50 hover:border-gray-100'}
+                        `}
+                      >
+                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-lg transition-colors ${selectedLayout === layout.id ? 'bg-white shadow-sm' : 'bg-gray-100'}`}>
+                          {layout.icon}
+                        </div>
+                        <div className="text-left flex flex-col flex-1">
+                          <span className={`text-sm font-bold ${selectedLayout === layout.id ? 'text-indigo-700' : 'text-gray-700'}`}>
+                            {layout.label}
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium line-clamp-1">
+                            {layout.desc}
+                          </span>
+                        </div>
+                        {selectedLayout === layout.id && (
+                          <div className="ml-auto text-indigo-600 mr-1">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

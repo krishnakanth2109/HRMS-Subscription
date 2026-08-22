@@ -22,6 +22,7 @@ import {
   getFieldTripsForEmployee,
   getRecentFieldTrips,
   updateFieldTrackingSetting,
+  snapToRoadsProxy,
 } from "../../api";
 
 const SOCKET_URL =
@@ -148,10 +149,8 @@ const getGoogleMapsApi = async (key) => {
 const callSnapToRoads = async (waypoints) => {
   if (!waypoints || waypoints.length < 2) return waypoints;
   try {
-    const response = await api.post("/api/field-tracking/snap-to-roads", {
-      waypoints: waypoints.slice(0, 100),
-    });
-    const snapped = response.data?.snappedPoints;
+    const result = await snapToRoadsProxy(waypoints.slice(0, 100));
+    const snapped = result?.snappedPoints;
     if (Array.isArray(snapped) && snapped.length >= 2) return snapped;
   } catch (err) {
     console.warn("[AdminFieldTracking:snapToRoads] fallback to raw GPS:", err.message);

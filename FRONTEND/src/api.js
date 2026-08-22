@@ -6,7 +6,7 @@ import axios from "axios";
 export const baseURL =
   import.meta.env.MODE === "production"
     ? import.meta.env.VITE_API_URL_PRODUCTION
-    : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";
+    : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5003";
 
 // Debug logs
 console.log("🔧 Environment Mode:", import.meta.env.MODE);
@@ -70,7 +70,9 @@ api.interceptors.response.use(
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;
-    } catch { }
+    } catch {
+      // ignore
+    }
 
     const isEmployee = user?.role === "Employee";
 
@@ -1537,6 +1539,17 @@ export const addExpense = async (formData) =>
 // Employee: get own expenses
 export const getExpensesForEmployee = async (employeeId) =>
   (await api.get(`/api/expenses/employee/${employeeId}`)).data;
+
+// Snap to roads proxy (added for GPS accuracy)
+export const snapToRoadsProxy = async (waypoints) => {
+  try {
+    const response = await api.post("/api/field-tracking/snap-to-roads", { waypoints });
+    return response.data;
+  } catch (error) {
+    console.error("Snap to roads proxy failed:", error);
+    throw error;
+  }
+};
 
 export default api;
 
