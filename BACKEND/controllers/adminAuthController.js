@@ -959,7 +959,7 @@ export const registerSupportAdmin = async (req, res) => {
 /* ==================== UPDATE SUPPORT ADMIN ==================== */
 export const updateSupportAdmin = async (req, res) => {
   try {
-    const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : (req.user.actualId || req.user._id);
     const { id } = req.params;
     const { supportAdminId, name, email, positionName, phone, department, loginEnabled, password, assignedFeatures } = req.body;
 
@@ -1020,7 +1020,7 @@ export const updateSupportAdmin = async (req, res) => {
 /* ==================== GET SUPPORT ADMINS ==================== */
 export const getSupportAdmins = async (req, res) => {
   try {
-    const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : (req.user.actualId || req.user._id);
     const supportAdmins = await SupportAdmin.find({ adminId: parentAdminId }).select('-password');
     res.status(200).json(supportAdmins);
   } catch (error) {
@@ -1032,7 +1032,7 @@ export const getSupportAdmins = async (req, res) => {
 /* ==================== DELETE SUPPORT ADMIN ==================== */
 export const deleteSupportAdmin = async (req, res) => {
   try {
-    const parentAdminId = req.user.role === "support-admin" ? req.user._id : (req.user.actualId || req.user._id);
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : (req.user.actualId || req.user._id);
     const supportAdminId = req.params.id;
     const supportAdmin = await SupportAdmin.findOneAndDelete({ _id: supportAdminId, adminId: parentAdminId });
     if (!supportAdmin) {

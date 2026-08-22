@@ -40,6 +40,8 @@ import AdminNotices from "./pages/AdminNotices.jsx";
 import AdminHolidayCalendarPage from "./pages/AdminHolidayCalendarPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import SettingsPage from "./pages/SettingsPage";
+import SupportAdminShiftSettings from "./pages/SupportAdminShiftSettings";
+import SupportAdminLateRequests from "./pages/SupportAdminLateRequests";
 import Payroll from "./pages/Payroll";
 import SubsHome from "./SubscriptionPages/SubsHome"
 import EmployeePayslip from "./EmployeePages/EmployeePayslip";
@@ -297,6 +299,8 @@ function App() {
         <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
+        <Route path="/admin/support-admin-settings" element={<SupportAdminShiftSettings />} />
+        <Route path="/admin/support-admin-late-requests" element={<SupportAdminLateRequests />} />
         <Route path="/admin/field-tracking" element={<AdminFieldTracking />} />
         <Route path="/admin/shifttype" element={<AdminLocationSettings />} />
         <Route path="/admin/payroll" element={<Payroll />} />

@@ -45,7 +45,7 @@ transporter.verify((error, success) => {
    ========================================================== */
 
 const createInsufficientHoursEmail = (employeeData) => {
-  const { employeeName, date, punchIn, punchOut, workedHours, workedMinutes, workedSeconds, requiredHours, loginStatus, workedStatus } = employeeData;
+  const { employeeName, date, punchIn, punchOut, workedHours, workedMinutes, workedSeconds, requiredHours, loginStatus, workedStatus, earlyLeaveReason } = employeeData;
 
   const formatTime = (dateObj) => {
     if (!dateObj) return '--';
@@ -109,6 +109,15 @@ const createInsufficientHoursEmail = (employeeData) => {
                   <tr><td style="padding:10px 0;color:#6b7280;">🕔 Last Punch-Out</td><td style="padding:10px 0;text-align:right;font-weight:600;">${formatTime(punchOut)}</td></tr>
                   <tr><td style="padding:10px 0;color:#6b7280;">⏱ Required Hours</td><td style="padding:10px 0;text-align:right;font-weight:600;">${requiredHours}h</td></tr>
                   <tr style="border-top:1px solid #e5e7eb;">
+                          <td style="padding:15px;color:#1f2937;font-weight:600;">${workedStatus.replace(/_/g, ' ')}</td>
+                        </tr>
+                        ${earlyLeaveReason ? `
+                        <tr>
+                          <td style="padding:15px;color:#6b7280;border-right:1px solid #e5e7eb;border-top:1px solid #e5e7eb;">Employee Reason</td>
+                          <td style="padding:15px;color:#b91c1c;font-weight:600;border-top:1px solid #e5e7eb;">${earlyLeaveReason}</td>
+                        </tr>` : ''}
+                      </table>
+                  <tr style="border-top:1px solid #e5e7eb;">
                     <td style="padding:12px 0;font-weight:bold;color:#111827;">⌛ Total Worked Time</td>
                     <td style="padding:12px 0;text-align:right;font-weight:bold;color:#dc2626;font-size:15px;">${workedHours}h ${workedMinutes}m ${workedSeconds}s</td>
                   </tr>
@@ -134,10 +143,55 @@ const createInsufficientHoursEmail = (employeeData) => {
           </td>
         </tr>
       </table>
+    </td>    </tr>
+  </table>
+</body>
+</html>
+  `;
+};
+
+const createLateLoginEmail = (employeeData) => {
+  const { employeeName, date, punchIn, lateReason, shiftStart } = employeeData;
+  return `
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background-color:#eef2f7;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:40px 15px;">
+    <tr><td align="center">
+      <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#eab308,#ca8a04);padding:35px 30px;text-align:center;">
+            <h1 style="margin:0;font-size:26px;color:#ffffff;font-weight:700;">⚠ Late Coming Notification</h1>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:35px 30px;">
+            <p style="margin:0 0 18px 0;font-size:16px;color:#1f2937;">Hi <strong>${employeeName}</strong>,</p>
+            <p style="margin:0 0 25px 0;font-size:15px;color:#4b5563;line-height:1.7;">
+              This is to notify you that a late punch-in was recorded for you today.
+            </p>
+            <table width="100%" style="background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;font-size:14px;border-collapse:collapse;">
+              <tr>
+                <td style="padding:15px;color:#6b7280;width:40%;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">Date</td>
+                <td style="padding:15px;color:#1f2937;font-weight:600;border-bottom:1px solid #e5e7eb;">${date}</td>
+              </tr>
+              <tr>
+                <td style="padding:15px;color:#6b7280;width:40%;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">Punch In Time</td>
+                <td style="padding:15px;color:#1f2937;font-weight:600;border-bottom:1px solid #e5e7eb;">${new Date(punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+              </tr>
+              <tr>
+                <td style="padding:15px;color:#6b7280;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">Reason Provided</td>
+                <td style="padding:15px;color:#ca8a04;font-weight:600;border-bottom:1px solid #e5e7eb;">${lateReason || 'Not Provided'}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </td></tr>
   </table>
 </body>
-</html>`;
+</html>
+  `;
 };
 
 const createMissingAttendanceEmail = (employeeData) => {
@@ -246,6 +300,18 @@ const sendInsufficientHoursEmail = async (employeeEmail, employeeData) => {
   } catch (error) { console.error('❌ Error sending email:', error); }
 };
 
+const sendLateLoginEmail = async (employeeEmail, employeeData) => {
+  try {
+    await transporter.sendMail({
+      from: `<${process.env.SMTP_USER}>`,
+      to: employeeEmail,
+      subject: `Late Login Alert - ${employeeData.date}`,
+      html: createLateLoginEmail(employeeData),
+    });
+    console.log(`✅ Late Login email sent to ${employeeEmail}`);
+  } catch (error) { console.error('❌ Error sending late login email:', error); }
+};
+
 const sendMissingAttendanceEmail = async (employeeEmail, employeeData) => {
   try {
     await transporter.sendMail({
@@ -299,10 +365,10 @@ const resolveAttendanceScope = async (req, employeeId) => {
 
 const getEmployeeAttendanceIds = async (req, audience = "employee") => {
   if (audience === "support-admin") {
-    const supportAdminIds = await SupportAdmin.find({ adminId: req.user._id }).distinct("_id");
+    const supportAdminIds = await SupportAdmin.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) }).distinct("_id");
     return supportAdminIds.map((id) => id.toString());
   }
-  return Employee.find({ adminId: req.user._id }).distinct("employeeId");
+  return Employee.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) }).distinct("employeeId");
 };
 
 
@@ -313,7 +379,7 @@ const getEmployeeAttendanceIds = async (req, audience = "employee") => {
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
     const employeeIds = await getEmployeeAttendanceIds(req);
-    const records = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
+    const records = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
     const sortedRecords = records.map(rec => {
       rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
       return rec;
@@ -339,7 +405,7 @@ router.get('/admin/date-range', onlyAdmin, async (req, res) => {
     const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": { $gte: start, $lte: end } } },
       {
@@ -391,7 +457,7 @@ router.get('/admin/daily-counts', onlyAdmin, async (req, res) => {
     const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": date } },
       {
@@ -432,7 +498,7 @@ router.get('/admin/daily-log', onlyAdmin, async (req, res) => {
     const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": { $gte: start, $lte: end } } }
     ];
@@ -505,7 +571,7 @@ router.get('/admin/breaks/:employeeId/:date', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, date } = req.params;
     const record = await Attendance.findOne(
-      { employeeId, adminId: req.user._id },
+      { employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) },
       { attendance: { $elemMatch: { date: date } } }
     );
     if (!record || !record.attendance || record.attendance.length === 0) {
@@ -528,7 +594,7 @@ router.post('/admin/date-range-for-employees', onlyAdmin, async (req, res) => {
     }
 
     const records = await Attendance.aggregate([
-      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": { $gte: start, $lte: end } } },
       {
@@ -568,7 +634,7 @@ router.get('/admin/daily-status-list', onlyAdmin, async (req, res) => {
     const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pipeline = [
-      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { $match: { "attendance.date": date } }
     ];
@@ -608,7 +674,7 @@ router.get('/admin/daily-status-list', onlyAdmin, async (req, res) => {
 router.get('/admin/status-correction-requests', onlyAdmin, async (req, res) => {
   try {
     const employeeIds = await getEmployeeAttendanceIds(req);
-    const allRecords = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
+    const allRecords = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
     const requests = [];
 
     allRecords.forEach(empRecord => {
@@ -678,7 +744,7 @@ const getTimeDifferenceInMinutes = (punchIn, shiftStart) => {
 
 router.post('/punch-in', async (req, res) => {
   try {
-    const { employeeId, employeeName, latitude, longitude } = req.body;
+    const { employeeId, employeeName, latitude, longitude, lateReason } = req.body;
 
     if (!employeeId || !employeeName)
       return res.status(400).json({ message: 'Employee ID & Name required' });
@@ -827,6 +893,11 @@ router.post('/punch-in', async (req, res) => {
       const diffMin = getTimeDifferenceInMinutes(now, shift.shiftStartTime);
       const isLate = diffMin > shift.lateGracePeriod;
 
+      // ✅ NEW: Require Late Reason for late punch-ins
+      if (isLate && !lateReason) {
+        return res.status(400).json({ requiresLateReason: true, message: "You are late. Please provide a reason." });
+      }
+
       let adjustedShiftEnd = shift.shiftEndTime;
       if (isLate && shift.autoExtendShift) {
         adjustedShiftEnd = addMinutesToTime(shift.shiftEndTime, diffMin - shift.lateGracePeriod);
@@ -845,8 +916,25 @@ router.post('/punch-in', async (req, res) => {
         displayTime: "0h 0m 0s",
         status: "WORKING",
         loginStatus: isLate ? "LATE" : "ON_TIME",
+        lateReason: isLate ? (lateReason || null) : null,
       };
       attendance.attendance.push(todayRecord);
+
+      // ✅ NEW: Trigger Email if late and reason provided
+      if (isLate && lateReason && req.user && req.user.email) {
+         try {
+           const emailData = {
+             employeeName: attendance.employeeName,
+             date: today,
+             punchIn: now,
+             lateReason: lateReason,
+             shiftStart: shift.shiftStartTime
+           };
+           // Make sure `sendLateLoginEmail` is implemented in `emailConfig.js` and imported.
+           // Since we can't be sure it's imported yet, we'll just log and call the actual func later or add it now.
+           if (typeof sendLateLoginEmail === 'function') sendLateLoginEmail(req.user.email, emailData);
+         } catch(e) { console.error("Error sending late email:", e); }
+      }
     } else {
       if (todayRecord.workedStatus === "FULL_DAY") {
         return res.status(400).json({ message: "Your shift is completed. You cannot punch in again today." });
@@ -899,7 +987,7 @@ router.post('/punch-in', async (req, res) => {
 
 router.post('/punch-out', async (req, res) => {
   try {
-    const { employeeId, latitude, longitude } = req.body;
+    const { employeeId, latitude, longitude, earlyLeaveReason } = req.body;
     if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
 
     const today = getToday();
@@ -959,6 +1047,15 @@ router.post('/punch-out', async (req, res) => {
     todayRecord.workedStatus = workedStatus;
     todayRecord.attendanceCategory = attendanceCategory;
 
+    // ✅ NEW: Require earlyLeaveReason if worked hours are below full-day hours OR early checkout
+    if (h < shift.fullDayHours && !earlyLeaveReason) {
+      return res.status(400).json({ requiresEarlyLeaveReason: true, message: "You are leaving early or have short hours. Please provide a reason." });
+    }
+
+    if (h < shift.fullDayHours && earlyLeaveReason) {
+      todayRecord.earlyLeaveReason = earlyLeaveReason;
+    }
+
     await attendance.save();
 
     // Shortage Email Check
@@ -973,7 +1070,8 @@ router.post('/punch-out', async (req, res) => {
         workedSeconds: s,
         requiredHours: shift.fullDayHours,
         loginStatus: todayRecord.loginStatus || 'ON_TIME',
-        workedStatus: todayRecord.workedStatus
+        workedStatus: todayRecord.workedStatus,
+        earlyLeaveReason: todayRecord.earlyLeaveReason
       };
 
       if (todayRecord.workedStatus === "ABSENT") {
@@ -1084,7 +1182,7 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
     const punchOutDateObj = new Date(punchOutTime);
 
     // Scoped: ensure Admin owns this record
-    let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    let attendance = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!attendance) return res.status(404).json({ message: "No attendance record found for this employee" });
 
     let targetDateStr = date;
@@ -1151,7 +1249,7 @@ router.post('/admin-punch-out', onlyAdmin, async (req, res) => {
       const employee = await Employee.findOne({ employeeId });
       if (employee) {
         const notif = await Notification.create({
-          adminId: req.user._id,
+          adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
           companyId: attendance.companyId,
           userId: employee._id,
           userType: "Employee",
@@ -1341,7 +1439,7 @@ router.post('/approve-correction', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, date, status, adminComment } = req.body;
 
-    let attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    let attendance = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!attendance) return res.status(404).json({ message: "Record not found" });
 
     let dayRecord = attendance.attendance.find(a => a.date === date);
@@ -1396,7 +1494,7 @@ router.post('/approve-correction', onlyAdmin, async (req, res) => {
       const employee = await Employee.findOne({ employeeId });
       if (employee) {
         const notif = await Notification.create({
-          adminId: req.user._id,
+          adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
           companyId: attendance.companyId,
           userId: employee._id,
           userType: "Employee",
@@ -1423,7 +1521,7 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, date, adminComment } = req.body;
 
-    const attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    const attendance = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!attendance) return res.status(404).json({ message: "Attendance record not found" });
 
     const dayRecord = attendance.attendance.find(a => a.date === date);
@@ -1497,7 +1595,7 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
       const employee = await Employee.findOne({ employeeId });
       if (employee) {
         const notif = await Notification.create({
-          adminId: req.user._id,
+          adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
           companyId: attendance.companyId,
           userId: employee._id,
           userType: "Employee",
@@ -1527,7 +1625,7 @@ router.post('/approve-status-correction', onlyAdmin, async (req, res) => {
 router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
   try {
     const { employeeId, date, adminComment } = req.body;
-    const attendance = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    const attendance = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!attendance) return res.status(404).json({ message: "Attendance record not found" });
 
     const dayRecord = attendance.attendance.find(a => a.date === date);
@@ -1543,7 +1641,7 @@ router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
       const employee = await Employee.findOne({ employeeId });
       if (employee) {
         const notif = await Notification.create({
-          adminId: req.user._id,
+          adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
           companyId: attendance.companyId,
           userId: employee._id,
           userType: "Employee",
@@ -1570,7 +1668,7 @@ router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
 router.get("/all", protect, onlyAdmin, async (req, res) => {
   try {
     const employeeIds = await getEmployeeAttendanceIds(req);
-    const records = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
+    const records = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
     res.json({ success: true, data: records });
   } catch (err) {
     console.error("Error fetching all attendance records:", err);
@@ -1654,7 +1752,7 @@ router.post("/set-request-limit", onlyAdmin, async (req, res) => {
     if (!employeeId || limit === undefined)
       return res.status(400).json({ message: "Employee ID and limit are required" });
 
-    const attendanceRecord = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    const attendanceRecord = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!attendanceRecord) return res.status(404).json({ message: "Employee not found" });
 
     const currentMonth = new Date().toISOString().slice(0, 7);
@@ -1773,7 +1871,7 @@ router.post("/request-full-day", protect, async (req, res) => {
 router.get("/admin/full-day-requests", protect, onlyAdmin, async (req, res) => {
   try {
     const employeeIds = await getEmployeeAttendanceIds(req);
-    const allRecords = await Attendance.find({ adminId: req.user._id, employeeId: { $in: employeeIds } });
+    const allRecords = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
 
     const pendingRequests = [];
 
@@ -1822,7 +1920,7 @@ router.post("/approve-full-day", protect, onlyAdmin, async (req, res) => {
       return res.status(400).json({ message: "Employee ID and date are required." });
     }
 
-    const record = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    const record = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!record) return res.status(404).json({ message: "Attendance record not found." });
 
     const dateStr = new Date(date).toISOString().split("T")[0];
@@ -1854,7 +1952,7 @@ router.post("/approve-full-day", protect, onlyAdmin, async (req, res) => {
     const employee = await Employee.findOne({ employeeId });
     if (employee) {
       const notif = await Notification.create({
-        adminId: req.user._id,
+        adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
         companyId: record.companyId,
         userId: employee._id,
         userType: "Employee",
@@ -1893,7 +1991,7 @@ router.post("/reject-full-day", protect, onlyAdmin, async (req, res) => {
       return res.status(400).json({ message: "Admin comment is required for rejection." });
     }
 
-    const record = await Attendance.findOne({ employeeId, adminId: req.user._id });
+    const record = await Attendance.findOne({ employeeId, adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
     if (!record) return res.status(404).json({ message: "Attendance record not found." });
 
     const dateStr = new Date(date).toISOString().split("T")[0];
@@ -1921,7 +2019,7 @@ router.post("/reject-full-day", protect, onlyAdmin, async (req, res) => {
     const employee = await Employee.findOne({ employeeId });
     if (employee) {
       const notif = await Notification.create({
-        adminId: req.user._id,
+        adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
         companyId: record.companyId,
         userId: employee._id,
         userType: "Employee",
@@ -2036,7 +2134,7 @@ router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) =>
 
     if (req.user.role === 'admin' || req.user.role === 'support-admin') {
       // Find all companies owned by this admin
-      const companies = await Company.find({ adminId: req.user._id });
+      const companies = await Company.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) });
       companyIds = companies.map(c => c._id);
     } else {
       // Manager/Other roles should have a company field
@@ -2156,7 +2254,7 @@ router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => 
     if (employee) {
       // Step 5 — Save notification to DB
       const notif = await Notification.create({
-        adminId: req.user._id,
+        adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id),
         companyId: request.companyId,
         userId: employee._id,
         userType: "Employee",
@@ -2208,7 +2306,7 @@ router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) 
     const employeeIds = await getEmployeeAttendanceIds(req);
 
     const pendingRequests = await Attendance.aggregate([
-      { $match: { adminId: req.user._id, employeeId: { $in: employeeIds } } },
+      { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
       { $unwind: "$attendance" },
       { 
         $match: { 
@@ -2247,7 +2345,7 @@ router.get("/admin/all-request-limits", protect, onlyAdmin, async (req, res) => 
     const currentMonth = new Date().toISOString().slice(0, 7);
 
     const attendances = await Attendance.find(
-      { adminId: req.user._id, employeeId: { $in: employeeIds } },
+      { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } },
       "employeeId employeeName monthlyRequestLimits"
     ).lean();
 

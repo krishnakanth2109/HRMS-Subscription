@@ -17,7 +17,7 @@ import {
   FaArrowRight
 } from "react-icons/fa";
 
-const AdminLateRequests = () => {
+const SupportAdminLateRequests = () => {
   const { socket } = useContext(NotificationContext);
   const currentUser = (() => {
     try {
@@ -69,7 +69,7 @@ const AdminLateRequests = () => {
   const [bulkLimitValue, setBulkLimitValue] = useState(5);
 
   // --- NEW: Toggle for Employees vs Administration ---
-  const [candidateType, setCandidateType] = useState("employee"); // "employee" | "administration"
+  const [candidateType, setCandidateType] = useState("administration"); // Hardcoded for Support Admins
 
   // ✅ OPTIMIZED: Fetch Requests (Code 1)
   const fetchRequests = useCallback(async () => {
@@ -587,31 +587,6 @@ const AdminLateRequests = () => {
           </p>
         </div>
 
-        {/* Toggle Employees / Administration */}
-        {isAdmin && (
-          <div className="flex gap-4">
-            <button
-              onClick={() => setCandidateType("employee")}
-              className={`flex-1 py-2 px-4 text-center text-sm font-semibold rounded-lg border transition-all ${
-                candidateType === "employee"
-                  ? "bg-orange-600 text-white border-orange-600 shadow-md"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Employees
-            </button>
-            <button
-              onClick={() => setCandidateType("administration")}
-              className={`flex-1 py-2 px-4 text-center text-sm font-semibold rounded-lg border transition-all ${
-                candidateType === "administration"
-                  ? "bg-orange-600 text-white border-orange-600 shadow-md"
-                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              Administration
-            </button>
-          </div>
-        )}
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
@@ -1501,4 +1476,4 @@ const AdminLateRequests = () => {
   );
 };
 
-export default AdminLateRequests;
+export default SupportAdminLateRequests;

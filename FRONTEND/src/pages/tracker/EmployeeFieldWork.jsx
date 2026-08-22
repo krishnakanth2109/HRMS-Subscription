@@ -1101,7 +1101,7 @@ const EmployeeFieldWork = () => {
                       
                       <div className="space-y-1">
                         <label className="block text-xs font-bold text-slate-600">
-                          Break Description
+                         Description
                         </label>
                         <input
                           type="text"

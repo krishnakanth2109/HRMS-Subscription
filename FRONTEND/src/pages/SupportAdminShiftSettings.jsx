@@ -31,7 +31,7 @@ import api, {
   updateNotice
 } from "../api";
 
-const DepartmentSettings = () => {
+const SupportAdminShiftSettings = () => {
   // const { user } = useContext(AuthContext);
 
   const [employees, setEmployees] = useState([]);
@@ -43,7 +43,7 @@ const DepartmentSettings = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [viewMode, setViewMode] = useState("individual"); // "individual" | "bulk"
-  const [candidateType, setCandidateType] = useState("employees"); // "employees" | "administration"
+  const [candidateType, setCandidateType] = useState("administration"); // Hardcoded for this page
   const currentUser = (() => {
     try {
       const raw = sessionStorage.getItem("hrmsUser");
@@ -241,13 +241,7 @@ const DepartmentSettings = () => {
     setTimeout(() => setMessage({ type: "", text: "" }), 5000);
   };
 
-  const handleCandidateTypeChange = (type) => {
-    setCandidateType(type);
-    setSelectedEmployee(null);
-    setSelectedEmployeeIds([]);
-    setSelectedGroupId("all");
-    setSearchTerm("");
-  };
+
 
   const handleEmployeeSelect = (employee) => {
     setSelectedEmployee(employee);
@@ -457,32 +451,7 @@ const DepartmentSettings = () => {
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="mb-6 flex justify-center">
-          <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
-            <button
-              type="button"
-              onClick={() => handleCandidateTypeChange("employees")}
-              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${candidateType === "employees"
-                ? "bg-blue-600 text-white shadow-md shadow-blue-100"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
-            >
-              <FaUsers /> Employees
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCandidateTypeChange("administration")}
-              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all ${candidateType === "administration"
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
-                : "text-slate-600 hover:bg-slate-50"
-                }`}
-            >
-              <FaUsersCog /> Administration
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* ALERTS */}
       {message.text && (
@@ -849,4 +818,4 @@ const DepartmentSettings = () => {
   );
 };
 
-export default DepartmentSettings;
+export default SupportAdminShiftSettings;

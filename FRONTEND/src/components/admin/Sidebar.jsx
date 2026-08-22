@@ -155,6 +155,12 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           icon: UserPlus,
         },
         {
+          to: "/admin/support-admin-settings",
+          route: "/admin/support-admin-settings",
+          label: "Support Admin Shifts",
+          icon: UserPlus,
+        },
+        {
           to: "/admin/field-tracking",
           route: "/admin/field-tracking",
           label: "Live Tracking",
@@ -216,6 +222,12 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           label: "Attendance Requests",
           icon: Clock,
           isLateRequests: true,
+        },
+        {
+          to: "/admin/support-admin-late-requests",
+          route: "/admin/support-admin-late-requests",
+          label: "Support Admin Attendance Requests",
+          icon: Clock,
         },
         {
           to: "/admin/admin-overtime",
