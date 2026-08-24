@@ -2,6 +2,21 @@
 // --- START OF FILE Paste February 23, 2026 - 4:15PM ---
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  FaFileAlt,
+  FaPalette,
+  FaBuilding,
+  FaStar,
+  FaBriefcase,
+  FaFeatherAlt,
+  FaRocket,
+  FaThLarge,
+  FaReceipt,
+  FaAdjust,
+  FaRulerCombined,
+  FaPrint,
+  FaFilePdf,
+} from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Swal from 'sweetalert2';
@@ -1453,16 +1468,16 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
 
 // --- PAYSLIP MODAL COMPONENT ---
 const PAYSLIP_LAYOUTS = [
-  { id: 'classic', label: 'Classic', icon: '📄', desc: 'Clean document style' },
-  { id: 'modern', label: 'Modern', icon: '🎨', desc: 'Card-based with color accents' },
-  { id: 'corporate', label: 'Corporate', icon: '🏢', desc: 'Bold header, professional' },
-  { id: 'minimal', label: 'Minimal', icon: '✨', desc: 'Ultra-clean, stripe rows' },
-  { id: 'executive', label: 'Executive', icon: '💼', desc: 'Dark header, premium feel' },
-  { id: 'elegant', label: 'Elegant', icon: '🏛️', desc: 'Sophisticated, gold accents' },
-  { id: 'startup', label: 'Startup', icon: '🚀', desc: 'Vibrant, tech-focused' },
-  { id: 'compact', label: 'Compact', icon: '📊', desc: 'Dense, space-saving' },
-  { id: 'invoice', label: 'Invoice', icon: '🧾', desc: 'Classic bill format' },
-  { id: 'monochrome', label: 'Monochrome', icon: '⚫', desc: 'High-contrast, bold lines' },
+  { id: 'classic',    label: 'Classic',    Icon: FaFileAlt,     desc: 'Clean document style',       color: 'text-blue-600',   bg: 'bg-blue-50' },
+  { id: 'modern',     label: 'Modern',     Icon: FaPalette,     desc: 'Card-based with color accents', color: 'text-pink-600',   bg: 'bg-pink-50' },
+  { id: 'corporate',  label: 'Corporate',  Icon: FaBuilding,    desc: 'Bold header, professional',  color: 'text-slate-600',  bg: 'bg-slate-50' },
+  { id: 'minimal',    label: 'Minimal',    Icon: FaStar,        desc: 'Ultra-clean, stripe rows',   color: 'text-amber-500',  bg: 'bg-amber-50' },
+  { id: 'executive',  label: 'Executive',  Icon: FaBriefcase,   desc: 'Dark header, premium feel',  color: 'text-gray-700',   bg: 'bg-gray-100' },
+  { id: 'elegant',    label: 'Elegant',    Icon: FaFeatherAlt,  desc: 'Sophisticated, gold accents', color: 'text-yellow-600', bg: 'bg-yellow-50' },
+  { id: 'startup',    label: 'Startup',    Icon: FaRocket,      desc: 'Vibrant, tech-focused',      color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  { id: 'compact',    label: 'Compact',    Icon: FaThLarge,     desc: 'Dense, space-saving',        color: 'text-teal-600',   bg: 'bg-teal-50' },
+  { id: 'invoice',    label: 'Invoice',    Icon: FaReceipt,     desc: 'Classic bill format',        color: 'text-green-600',  bg: 'bg-green-50' },
+  { id: 'monochrome', label: 'Monochrome', Icon: FaAdjust,      desc: 'High-contrast, bold lines',  color: 'text-neutral-800',bg: 'bg-neutral-100' },
 ];
 
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateOverride }) => {
@@ -2233,9 +2248,9 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       }
       return `<div style="font-family:'Segoe UI',sans-serif;padding:0;background:transparent;color:#0f172a;">
         ${!isCustom ? `<div style="background:#0f172a;padding:20px 22px;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:18px;font-weight:900;color:#fff;">${companyName}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div></div>
-          <div style="display:inline-block;background:${accent};color:#fff;padding:3px 14px 7px 14px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;text-align:center;">PAYSLIP ${period}</div>
-        </div>` : `<div style="margin-bottom:16px;text-align:right;"><span style="display:inline-block;background:${accent};color:#fff;padding:3px 14px 7px 14px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;text-align:center;">PAYSLIP ${period}</span></div>`}
+          <div><div style="font-size:18px;font-weight:900;color:#fff !important;-webkit-text-fill-color:#fff !important;">${companyName}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div></div>
+          <div style="display:inline-block;background:${accent};padding:2px 14px 8px 14px;border-radius:16px;text-align:center;"><span style="position:relative;top:-4px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;">PAYSLIP ${period}</span></div>
+        </div>` : `<div style="margin-bottom:16px;text-align:right;"><div style="display:inline-block;background:${accent};padding:2px 14px 8px 14px;border-radius:16px;text-align:center;"><span style="position:relative;top:-4px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;">PAYSLIP ${period}</span></div></div>`}
         
         <div style="margin:0 22px 24px;background:${bgCard};${isCustom?'border:2px solid #bae6fd;':'border:none;'}border-radius:12px;padding:16px;display:flex;justify-content:space-between;">
           <div>
@@ -2935,8 +2950,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
 
           {/* Layout Template Picker */}
           <div style={{ marginBottom: '16px', position: 'relative' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
-              📐 Payslip Layout
+            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }} className="flex items-center gap-1.5">
+              <FaRulerCombined className="text-indigo-500" /> Payslip Layout
             </p>
             <div className="relative">
               <button
@@ -2947,9 +2962,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-50 text-xl shadow-sm border border-indigo-100">
-                    {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.icon}
-                  </div>
+                  {(() => { const lyt = PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout); return lyt ? <div className={`w-10 h-10 flex items-center justify-center rounded-full shadow-sm border border-indigo-100 ${lyt.bg}`}><lyt.Icon className={`text-lg ${lyt.color}`} /></div> : null; })()}
                   <div className="text-left flex flex-col">
                     <span className="text-sm font-extrabold text-gray-800">
                       {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.label}
@@ -2983,8 +2996,8 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                           ${selectedLayout === layout.id ? 'bg-indigo-50 border border-indigo-100 shadow-sm' : 'bg-transparent border border-transparent hover:bg-gray-50 hover:border-gray-100'}
                         `}
                       >
-                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-lg transition-colors ${selectedLayout === layout.id ? 'bg-white shadow-sm' : 'bg-gray-100'}`}>
-                          {layout.icon}
+                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-lg transition-colors ${selectedLayout === layout.id ? `${layout.bg} shadow-sm` : 'bg-gray-100'}`}>
+                          <layout.Icon className={`${layout.color} ${selectedLayout === layout.id ? '' : 'text-gray-500'}`} />
                         </div>
                         <div className="text-left flex flex-col flex-1">
                           <span className={`text-sm font-bold ${selectedLayout === layout.id ? 'text-indigo-700' : 'text-gray-700'}`}>
@@ -3014,7 +3027,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
               onClick={downloadPayslip}
               className="flex-1 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 hover:border-gray-300 transition active:scale-95 flex items-center justify-center gap-2"
             >
-              <span>🖨️ Simple Print</span>
+              <FaPrint className="text-gray-500" /> Simple Print
             </button>
             <button
               onClick={() => setShowTemplatePicker(true)}
@@ -3024,7 +3037,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
               {generatingPdf ? (
                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Generating...</>
               ) : (
-                <>📄 Custom PDF (with letterhead)</>
+                <><FaFilePdf className="text-white/80" /> Custom PDF (with letterhead)</>
               )}
             </button>
           </div>

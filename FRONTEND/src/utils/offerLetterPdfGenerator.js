@@ -121,7 +121,17 @@ export const generateOfferLetterPdf = async (htmlContent, templateUrl = '/Arah_T
         const containerPxPerPage = contentAreaPt / scaleFactor;    // ~958 px
         const canvasPxPerPage = containerPxPerPage * CANVAS_SCALE; // canvas pixels per page
 
-        const totalPages = Math.ceil(fullCanvas.height / canvasPxPerPage);
+        let totalPages = Math.ceil(fullCanvas.height / canvasPxPerPage);
+        
+        // Anti-spill logic: If it's a Payslip and it slightly spills into a second page (e.g. < 20% of the next page), force 1 page.
+        const isPayslip = htmlContent.includes("PAYSLIP") || htmlContent.includes("Payslip") || htmlContent.includes("Net Pay");
+        if (isPayslip && totalPages === 2) {
+            const spillAmount = fullCanvas.height - canvasPxPerPage;
+            if (spillAmount < (canvasPxPerPage * 0.3)) { 
+                totalPages = 1; // Force 1 page, we'll draw it slightly scaled down or just draw it to fit
+            }
+        }
+
         console.log(`PDF: Will produce ${totalPages} page(s)  (canvas height=${fullCanvas.height}, per-page=${Math.round(canvasPxPerPage)})`);
 
         let templateImage = null;
@@ -190,7 +200,7 @@ export const generateOfferLetterPdf = async (htmlContent, templateUrl = '/Arah_T
         for (let p = 0; p < totalPages; p++) {
             // ─ Crop the canvas for this page ─
             const srcY = p * canvasPxPerPage;
-            const srcH = Math.min(canvasPxPerPage, fullCanvas.height - srcY);
+            const srcH = (totalPages === 1) ? fullCanvas.height : Math.min(canvasPxPerPage, fullCanvas.height - srcY);
             const srcW = fullCanvas.width;
 
             const cropCanvas = document.createElement('canvas');

@@ -378,7 +378,8 @@ const getEmployeeAttendanceIds = async (req, audience = "employee") => {
 
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
     const records = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
     const sortedRecords = records.map(rec => {
       rec.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -2303,7 +2304,8 @@ router.post("/admin/act-on-correction", protect, onlyAdmin, async (req, res) => 
  */
 router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     const pendingRequests = await Attendance.aggregate([
       { $match: { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } } },
@@ -2341,7 +2343,8 @@ router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) 
  */
 router.get("/admin/all-request-limits", protect, onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
     const currentMonth = new Date().toISOString().slice(0, 7);
 
     const attendances = await Attendance.find(
