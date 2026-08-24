@@ -1551,6 +1551,6 @@ export const snapToRoadsProxy = async (waypoints) => {
   }
 };
 
-export default api;
-
 export const getMyAssignedTasks = async () => (await api.get('/api/admin-tasks/employee')).data;
+
+export default api;

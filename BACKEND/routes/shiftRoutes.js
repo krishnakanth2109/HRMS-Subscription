@@ -117,6 +117,7 @@ router.get('/:employeeId', async (req, res) => {
           halfDayHours: 4.5,
           autoExtendShift: true,
           weeklyOffDays: [0],
+          dailyTimings: [],
           timezone: "Asia/Kolkata",
           isDefault: true
         }

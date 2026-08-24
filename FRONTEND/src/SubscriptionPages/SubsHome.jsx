@@ -980,6 +980,76 @@ const DynamicHRMSLandingPage = () => {
                     </div>
                 </section>
 
+                {/* ─── OUR CLIENTS ─── */}
+                <section className="py-12 border-y border-zinc-100 dark:border-white/[0.05] bg-zinc-50/50 dark:bg-transparent">
+                    <div className="max-w-7xl mx-auto px-6 md:px-10 overflow-hidden">
+                        <p className={`text-center text-xs font-bold tracking-widest uppercase mb-8 ${textMuted}`}>
+                            TRUSTED BY INNOVATIVE COMPANIES
+                        </p>
+                        <div className="relative overflow-hidden w-full">
+                            {/* Left & Right Gradient Shadows for seamless scroll effect */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-16 md:w-32 z-10 pointer-events-none bg-gradient-to-r ${isDarkMode ? 'from-[#030712] to-transparent' : 'from-zinc-50/50 to-transparent'}`} />
+                            <div className={`absolute right-0 top-0 bottom-0 w-16 md:w-32 z-10 pointer-events-none bg-gradient-to-l ${isDarkMode ? 'from-[#030712] to-transparent' : 'from-zinc-50/50 to-transparent'}`} />
+                            
+                            <div className="flex items-center gap-16 md:gap-24 animate-marquee-premium whitespace-nowrap min-w-max">
+                                {/* Render the logos multiple times for seamless scrolling */}
+                                {[...Array(4)].map((_, i) => (
+                                    <React.Fragment key={i}>
+                                        <img 
+                                            src="https://www.marcamor.com/images/marcamore-logo.svg" 
+                                            alt="Marcamor" 
+                                            className="h-6 md:h-10 object-contain transition-all duration-300" 
+                                            style={{ filter: isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = 'none'} 
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)'} 
+                                        />
+                                        <img 
+                                            src="https://cubicassociates.com/wp-content/uploads/2023/08/cubic-final-2048x529.png" 
+                                            alt="Cubic Associates" 
+                                            className="h-8 md:h-12 object-contain transition-all duration-300" 
+                                            style={{ filter: isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = 'none'} 
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)'} 
+                                        />
+                                        <img 
+                                            src="https://i.ibb.co/LhcnKqpk/9588a187c7d2ffc83f9e7d0424865e484f9e83f3de1bdc25afa8f7882075b28c-removebg-preview.png" 
+                                            alt="Zero Seven" 
+                                            className="h-8 md:h-12 object-contain transition-all duration-300 rounded-sm" 
+                                            style={{ filter: isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = 'none'} 
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)'} 
+                                        />
+                                        <img 
+                                            src="https://vagarioussolutions.com/assets/logo-8p5st92j.png" 
+                                            alt="Vagarious Solutions" 
+                                            className="h-8 md:h-12 object-contain transition-all duration-300" 
+                                            style={{ filter: isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = 'none'} 
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)'} 
+                                        />
+                                        <img 
+                                            src="https://uplife.org.in/assets/logo-BhIZUEdC.png" 
+                                            alt="Uplife" 
+                                            className="h-8 md:h-12 object-contain transition-all duration-300" 
+                                            style={{ filter: isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = 'none'} 
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)'} 
+                                        />
+                                        <img 
+                                            src="https://www.hireiq.co.in/assets/logo-2PxSGm5F.png" 
+                                            alt="HireIQ" 
+                                            className="h-8 md:h-12 object-contain transition-all duration-300" 
+                                            style={{ filter: isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)' }} 
+                                            onMouseEnter={(e) => e.currentTarget.style.filter = 'none'} 
+                                            onMouseLeave={(e) => e.currentTarget.style.filter = isDarkMode ? 'brightness(0) invert(1) opacity(0.6)' : 'brightness(0) opacity(0.4)'} 
+                                        />
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 {/* ─── BENEFITS SECTION ─── */}
                 <section id="benefits" className="py-24 px-6 md:px-10">
                     <div className="max-w-7xl mx-auto">
@@ -1200,20 +1270,7 @@ const DynamicHRMSLandingPage = () => {
                         </div>
 
                         {/* Pricing Banner */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.99, y: 15 }}
-                            whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                            viewport={{ once: true, margin: "-50px" }}
-                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                            className={`relative rounded-3xl overflow-hidden mb-12 h-36 border ${isDarkMode ? 'border-white/[0.04]' : 'border-zinc-200/50'
-                                } shadow-premium-md`}
-                        >
-                            <img src={IMAGES.pricing} alt="Business contract pricing" className="w-full h-full object-cover" />
-                            <div className={`absolute inset-0 ${isDarkMode ? 'bg-[#030712]/80' : 'bg-blue-900/60'}`}></div>
-                            <div className="absolute inset-0 flex items-center justify-center z-10">
-                                <p className="text-white text-lg md:text-2xl font-extrabold text-center tracking-wider px-6">No hidden fees. Cancel anytime.</p>
-                            </div>
-                        </motion.div>
+                      
 
                         {plansLoading ? (
                             <div className="flex justify-center items-center h-40">

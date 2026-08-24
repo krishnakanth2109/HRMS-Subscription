@@ -68,15 +68,59 @@ const DepartmentSettings = () => {
   const [groupSearchTerm, setGroupSearchTerm] = useState("");
   const [viewUnassigned, setViewUnassigned] = useState(false);
 
+  // ---------------- Time Conversion Utils ----------------
+  const decimalToHHMMSS = (decimalHours) => {
+    if (!decimalHours || isNaN(decimalHours)) return "00:00:00";
+    const hrs = Math.floor(decimalHours);
+    const mins = Math.floor((decimalHours - hrs) * 60);
+    const secs = Math.floor((((decimalHours - hrs) * 60) - mins) * 60);
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const HHMMSSToDecimal = (timeString) => {
+    if (!timeString) return 0;
+    const parts = timeString.split(":");
+    const h = parseInt(parts[0] || 0, 10);
+    const m = parseInt(parts[1] || 0, 10);
+    const s = parseInt(parts[2] || 0, 10);
+    return h + (m / 60) + (s / 3600);
+  };
+
+  const minutesToHHMMSS = (minutes) => {
+    if (!minutes || isNaN(minutes)) return "00:00:00";
+    const hrs = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+  };
+
+  const HHMMSSToMinutes = (timeString) => {
+    if (!timeString) return 0;
+    const parts = timeString.split(":");
+    const h = parseInt(parts[0] || 0, 10);
+    const m = parseInt(parts[1] || 0, 10);
+    return (h * 60) + m;
+  };
+
   // Default Form State 
+  const defaultDaily = [
+    { day: 0, startTime: "09:30:00", endTime: "18:30:00" },
+    { day: 1, startTime: "09:30:00", endTime: "18:30:00" },
+    { day: 2, startTime: "09:30:00", endTime: "18:30:00" },
+    { day: 3, startTime: "09:30:00", endTime: "18:30:00" },
+    { day: 4, startTime: "09:30:00", endTime: "18:30:00" },
+    { day: 5, startTime: "09:30:00", endTime: "18:30:00" },
+    { day: 6, startTime: "09:30:00", endTime: "18:30:00" }
+  ];
+
   const defaultShift = {
-    shiftStartTime: "09:00",
-    shiftEndTime: "18:00",
+    shiftStartTime: "09:30:00",
+    shiftEndTime: "18:30:00",
     lateGracePeriod: 15,
-    fullDayHours: 9,
-    halfDayHours: 4.5,
+    fullDayHours: 9, // legacy
+    halfDayHours: 4.5, // legacy
     autoExtendShift: true,
-    weeklyOffDays: [0], // Sunday
+    weeklyOffDays: [0, 6], // default sat/sun in mockup
+    dailyTimings: JSON.parse(JSON.stringify(defaultDaily)),
   };
 
   const [shiftForm, setShiftForm] = useState(defaultShift);
@@ -257,35 +301,36 @@ const DepartmentSettings = () => {
     );
 
     if (existingShift) {
+      let parsedDaily = [];
+      if (existingShift.dailyTimings && existingShift.dailyTimings.length > 0) {
+        parsedDaily = JSON.parse(JSON.stringify(existingShift.dailyTimings));
+      } else {
+        // Fallback for legacy shifts
+        parsedDaily = defaultDaily.map(d => ({
+          ...d,
+          startTime: existingShift.shiftStartTime || "09:30:00",
+          endTime: existingShift.shiftEndTime || "18:30:00"
+        }));
+      }
+
       setShiftForm({
-        shiftStartTime: existingShift.shiftStartTime || "09:00",
-        shiftEndTime: existingShift.shiftEndTime || "18:00",
+        shiftStartTime: existingShift.shiftStartTime || "09:30:00",
+        shiftEndTime: existingShift.shiftEndTime || "18:30:00",
         lateGracePeriod: existingShift.lateGracePeriod ?? 15,
         fullDayHours: existingShift.fullDayHours || 9,
         halfDayHours: existingShift.halfDayHours || 4.5,
         autoExtendShift: existingShift.autoExtendShift ?? true,
         weeklyOffDays: existingShift.weeklyOffDays || [0],
+        dailyTimings: parsedDaily,
       });
     } else {
-      setShiftForm(defaultShift);
+      setShiftForm(JSON.parse(JSON.stringify(defaultShift)));
     }
   };
 
-  const handleFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setShiftForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
 
-  const handleBulkFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setBulkShiftForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
+
+
 
   const handleWeeklyOffToggle = (day, isBulk = false) => {
     const setter = isBulk ? setBulkShiftForm : setShiftForm;
@@ -330,11 +375,12 @@ const DepartmentSettings = () => {
         employeeId: selectedEmployee.employeeId,
         shiftStartTime: shiftForm.shiftStartTime,
         shiftEndTime: shiftForm.shiftEndTime,
-        lateGracePeriod: Number(shiftForm.lateGracePeriod),
+        lateGracePeriod: typeof shiftForm.lateGracePeriod === "string" ? HHMMSSToMinutes(shiftForm.lateGracePeriod) : Number(shiftForm.lateGracePeriod),
         fullDayHours: Number(shiftForm.fullDayHours),
         halfDayHours: Number(shiftForm.halfDayHours),
         autoExtendShift: shiftForm.autoExtendShift,
         weeklyOffDays: shiftForm.weeklyOffDays,
+        dailyTimings: shiftForm.dailyTimings,
       };
       await createOrUpdateShift(payload);
       showMessage("success", `Shift saved for ${selectedEmployee.name}`);
@@ -358,11 +404,12 @@ const DepartmentSettings = () => {
       const shiftData = {
         shiftStartTime: bulkShiftForm.shiftStartTime,
         shiftEndTime: bulkShiftForm.shiftEndTime,
-        lateGracePeriod: Number(bulkShiftForm.lateGracePeriod),
+        lateGracePeriod: typeof bulkShiftForm.lateGracePeriod === "string" ? HHMMSSToMinutes(bulkShiftForm.lateGracePeriod) : Number(bulkShiftForm.lateGracePeriod),
         fullDayHours: Number(bulkShiftForm.fullDayHours),
         halfDayHours: Number(bulkShiftForm.halfDayHours),
         autoExtendShift: bulkShiftForm.autoExtendShift,
         weeklyOffDays: bulkShiftForm.weeklyOffDays,
+        dailyTimings: bulkShiftForm.dailyTimings,
       };
       await bulkCreateShifts(selectedEmployeeIds, shiftData);
       showMessage("success", `Updated ${selectedEmployeeIds.length} ${candidateLabel}`);
@@ -385,7 +432,7 @@ const DepartmentSettings = () => {
       if (selectedEmployee?.employeeId === employeeId) {
         setShiftForm(defaultShift);
       }
-    } catch (error) {
+    } catch {
       showMessage("error", "Failed to delete shift");
     }
   };
@@ -420,11 +467,7 @@ const DepartmentSettings = () => {
     return group ? group.members.includes(String(emp._id)) : false;
   });
 
-  const weekDays = [
-    { value: 0, label: "Sun" }, { value: 1, label: "Mon" }, { value: 2, label: "Tue" },
-    { value: 3, label: "Wed" }, { value: 4, label: "Thu" }, { value: 5, label: "Fri" },
-    { value: 6, label: "Sat" },
-  ];
+
 
   if (loading) {
     return (
@@ -515,285 +558,221 @@ const DepartmentSettings = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* LEFT COLUMN: EMPLOYEE LIST */}
-        <div className="lg:col-span-5 flex flex-col h-[600px] bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-4 border-b border-gray-100">
-            <div className="relative">
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
-              <input type="text" placeholder={`Search ${candidateLabel}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+        <div className="lg:col-span-5 relative min-h-[600px]">
+          <div className="absolute inset-0 flex flex-col bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                <input type="text" placeholder={`Search ${candidateLabel}...`} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex justify-between items-center mt-2">
+                <p className="text-xs text-gray-500">Showing {filteredEmployees.length} {candidateLabel}</p>
+                {viewMode === "bulk" && (
+                  <button onClick={handleSelectAllEmployees} className="text-xs text-blue-600 font-bold hover:underline">
+                    {selectedEmployeeIds.length === filteredEmployees.length && filteredEmployees.length > 0 ? "Deselect All" : "Select All"}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex justify-between items-center mt-2">
-              <p className="text-xs text-gray-500">Showing {filteredEmployees.length} {candidateLabel}</p>
-              {viewMode === "bulk" && (
-                <button onClick={handleSelectAllEmployees} className="text-xs text-blue-600 font-bold hover:underline">
-                  {selectedEmployeeIds.length === filteredEmployees.length && filteredEmployees.length > 0 ? "Deselect All" : "Select All"}
-                </button>
-              )}
-            </div>
-          </div>
 
-          <div className="overflow-y-auto flex-1 p-2 space-y-2">
-            {filteredEmployees.map((emp) => (
-              <div
-                key={emp.employeeId}
-                onClick={() => viewMode === "bulk" ? handleBulkEmployeeToggle(emp.employeeId) : handleEmployeeSelect(emp)}
-                className={`p-3 rounded-lg border cursor-pointer transition-colors ${(viewMode === "individual" && selectedEmployee?.employeeId === emp.employeeId) || (viewMode === "bulk" && selectedEmployeeIds.includes(emp.employeeId))
-                  ? "bg-blue-50 border-blue-500"
-                  : "bg-white border-gray-100 hover:bg-gray-50"
-                  }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    {viewMode === "bulk" && <input type="checkbox" checked={selectedEmployeeIds.includes(emp.employeeId)} readOnly className="w-4 h-4 text-blue-600 rounded" />}
-                    <div>
-                      <p className="font-semibold text-gray-800 text-sm">{emp.name}</p>
-                      <p className="text-xs text-gray-500">{emp.displayId || emp.employeeId} {emp.displayRole ? `• ${emp.displayRole}` : ""}</p>
+            <div className="overflow-y-auto flex-1 p-2 space-y-2">
+              {filteredEmployees.map((emp) => (
+                <div
+                  key={emp.employeeId}
+                  onClick={() => viewMode === "bulk" ? handleBulkEmployeeToggle(emp.employeeId) : handleEmployeeSelect(emp)}
+                  className={`p-3 rounded-lg border cursor-pointer transition-colors ${(viewMode === "individual" && selectedEmployee?.employeeId === emp.employeeId) || (viewMode === "bulk" && selectedEmployeeIds.includes(emp.employeeId))
+                    ? "bg-blue-50 border-blue-500"
+                    : "bg-white border-gray-100 hover:bg-gray-50"
+                    }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      {viewMode === "bulk" && <input type="checkbox" checked={selectedEmployeeIds.includes(emp.employeeId)} readOnly className="w-4 h-4 text-blue-600 rounded" />}
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">{emp.name}</p>
+                        <p className="text-xs text-gray-500">{emp.displayId || emp.employeeId} {emp.displayRole ? `• ${emp.displayRole}` : ""}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            {filteredEmployees.length === 0 && <div className="text-center text-gray-400 text-sm mt-10">No {candidateLabel} found.</div>}
+              ))}
+              {filteredEmployees.length === 0 && <div className="text-center text-gray-400 text-sm mt-10">No {candidateLabel} found.</div>}
+            </div>
           </div>
         </div>
 
         {/* RIGHT COLUMN: FORM */}
         <div className="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-100 p-6">
-          {viewMode === "individual" ? (
-            selectedEmployee ? (
-              <form onSubmit={handleSaveShift} className="h-full flex flex-col">
-                <div className="mb-4 pb-4 border-b border-gray-100">
-                  <h2 className="text-xl font-bold text-gray-800">Edit Shift (IST)</h2>
-                  <p className="text-sm text-gray-600">For <span className="font-semibold text-blue-600">{selectedEmployee.name}</span> ({selectedEmployee.displayId || selectedEmployee.employeeId})</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 uppercase">Start Time (IST)</label>
-                    <input type="time" name="shiftStartTime" value={shiftForm.shiftStartTime} onChange={handleFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 uppercase">End Time (IST)</label>
-                    <input type="time" name="shiftEndTime" value={shiftForm.shiftEndTime} onChange={handleFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 uppercase">Full Day Work Hours</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      name="fullDayHours"
-                      value={shiftForm.fullDayHours}
-                      onChange={handleFormChange}
-                      className="w-full mt-1 p-2 border rounded-md"
-                      required
-                      min="0"
-                      onKeyDown={(e) => {
-                        if (e.key === '-' || e.key === 'e') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onInput={(e) => {
-                        if (e.target.value < 0) {
-                          e.target.value = 0;
-                          handleFormChange(e);
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 uppercase">Half Day Work Hours</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      name="halfDayHours"
-                      value={shiftForm.halfDayHours}
-                      onChange={handleFormChange}
-                      className="w-full mt-1 p-2 border rounded-md"
-                      required
-                      min="0"
-                      onKeyDown={(e) => {
-                        if (e.key === '-' || e.key === 'e') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onInput={(e) => {
-                        if (e.target.value < 0) {
-                          e.target.value = 0;
-                          handleFormChange(e);
-                        }
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-gray-700 uppercase">Grace (Mins)</label>
-                    <input
-                      type="number"
-                      name="lateGracePeriod"
-                      value={shiftForm.lateGracePeriod}
-                      onChange={handleFormChange}
-                      className="w-full mt-1 p-2 border rounded-md"
-                      required
-                      min="0"
-                      onKeyDown={(e) => {
-                        if (e.key === '-' || e.key === 'e') {
-                          e.preventDefault();
-                        }
-                      }}
-                      onInput={(e) => {
-                        if (e.target.value < 0) {
-                          e.target.value = 0;
-                          handleFormChange(e);
-                        }
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="flex items-center gap-2 text-sm mt-6 cursor-pointer">
-                      <input type="checkbox" name="autoExtendShift" checked={shiftForm.autoExtendShift} onChange={handleFormChange} className="w-4 h-4 text-blue-600" />
-                      Auto-extend shift if late
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded flex items-center gap-2">
-                  <FaInfoCircle className="text-blue-500" />
-                  Timings entered here are treated as Indian Standard Time by the server. Work hours are manual.
-                </div>
-
-                <div className="mt-4">
-                  <label className="text-xs font-bold text-gray-700 uppercase block mb-2">Weekly Offs</label>
-                  <div className="flex flex-wrap gap-2">
-                    {weekDays.map((d) => (
-                      <button key={d.value} type="button" onClick={() => handleWeeklyOffToggle(d.value)} className={`px-3 py-1 rounded text-xs font-bold ${shiftForm.weeklyOffDays.includes(d.value) ? "bg-red-500 text-white" : "bg-gray-200 text-gray-600"}`}>{d.label}</button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-8 flex gap-3">
-                  <button type="submit" disabled={saving} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 flex justify-center items-center gap-2">
-                    {saving ? "Saving..." : <><FaSave /> Save Shift</>}
-                  </button>
-                  {shifts.some(s => s.employeeId === selectedEmployee.employeeId) && (
-                    <button type="button" onClick={() => handleDeleteShift(selectedEmployee.employeeId)} className="bg-red-100 text-red-600 px-4 py-2 rounded-lg hover:bg-red-200"><FaTrash /></button>
-                  )}
-                </div>
-              </form>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                <FaUserTie className="text-5xl mb-3 opacity-20" />
-                <p>Select a {candidateSingularLabel} to configure shift</p>
-              </div>
-            )
+          {viewMode === "individual" && !selectedEmployee ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-400">
+              <FaUserTie className="text-5xl mb-3 opacity-20" />
+              <p>Select a {candidateSingularLabel} to configure shift</p>
+            </div>
           ) : (
-            <form onSubmit={handleBulkSaveShift} className="h-full flex flex-col">
-              <div className="mb-4 pb-4 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-gray-800">Bulk Shift Update (IST)</h2>
-                <p className="text-sm text-gray-600">Applying to <span className="font-bold text-blue-600">{selectedEmployeeIds.length}</span> {candidateLabel}</p>
+            <form onSubmit={viewMode === "bulk" ? handleBulkSaveShift : handleSaveShift} className="h-full flex flex-col">
+              <div className="mb-6 flex justify-between items-start border-b border-gray-100 pb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">{viewMode === "bulk" ? "Bulk Shift Update (IST)" : "Edit Shift (IST)"}</h2>
+                  <p className="text-sm text-gray-600">
+                    {viewMode === "bulk" 
+                      ? <>Applying to <span className="font-bold text-blue-600">{selectedEmployeeIds.length}</span> {candidateLabel}</> 
+                      : <>For <span className="font-semibold text-blue-600">{selectedEmployee.name}</span> ({selectedEmployee.displayId || selectedEmployee.employeeId})</>}
+                  </p>
+                </div>
+                <button type="button" onClick={() => setIsGroupModalOpen(true)} className="flex items-center gap-2 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 shadow-sm"><FaUsersCog /> Manage Groups</button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 uppercase">Start Time (IST)</label>
-                  <input type="time" name="shiftStartTime" value={bulkShiftForm.shiftStartTime} onChange={handleBulkFormChange} className="w-full mt-1 p-2 border rounded-md" required />
+              {/* WEEKLY OFFS & WORKING HOURS */}
+              <div className="mb-6 border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-blue-50/50 px-4 py-3 border-b border-gray-100">
+                  <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Weekly Offs & Working Hours</h3>
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 uppercase">End Time (IST)</label>
-                  <input type="time" name="shiftEndTime" value={bulkShiftForm.shiftEndTime} onChange={handleBulkFormChange} className="w-full mt-1 p-2 border rounded-md" required />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-700 uppercase">Full Day Work Hours</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    name="fullDayHours"
-                    value={bulkShiftForm.fullDayHours}
-                    onChange={handleBulkFormChange}
-                    className="w-full mt-1 p-2 border rounded-md"
-                    required
-                    min="0"
-                    onKeyDown={(e) => {
-                      if (e.key === '-' || e.key === 'e') {
-                        e.preventDefault();
-                      }
-                    }}
-                    onInput={(e) => {
-                      if (e.target.value < 0) {
-                        e.target.value = 0;
-                        handleBulkFormChange(e);
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 uppercase">Half Day Work Hours</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    name="halfDayHours"
-                    value={bulkShiftForm.halfDayHours}
-                    onChange={handleBulkFormChange}
-                    className="w-full mt-1 p-2 border rounded-md"
-                    required
-                    min="0"
-                    onKeyDown={(e) => {
-                      if (e.key === '-' || e.key === 'e') {
-                        e.preventDefault();
-                      }
-                    }}
-                    onInput={(e) => {
-                      if (e.target.value < 0) {
-                        e.target.value = 0;
-                        handleBulkFormChange(e);
-                      }
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-700 uppercase">Grace (Mins)</label>
-                  <input
-                    type="number"
-                    name="lateGracePeriod"
-                    value={bulkShiftForm.lateGracePeriod}
-                    onChange={handleBulkFormChange}
-                    className="w-full mt-1 p-2 border rounded-md"
-                    required
-                    min="0"
-                    onKeyDown={(e) => {
-                      if (e.key === '-' || e.key === 'e') {
-                        e.preventDefault();
-                      }
-                    }}
-                    onInput={(e) => {
-                      if (e.target.value < 0) {
-                        e.target.value = 0;
-                        handleBulkFormChange(e);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded flex items-center gap-2">
-                <FaInfoCircle className="text-blue-500" />
-                Timings entered here are treated as Indian Standard Time by the server. Work hours are manual.
-              </div>
-
-              <div className="mt-4">
-                <label className="text-xs font-bold text-gray-700 uppercase block mb-2">Weekly Offs</label>
-                <div className="flex flex-wrap gap-2">
-                  {weekDays.map((d) => (
-                    <button key={d.value} type="button" onClick={() => handleWeeklyOffToggle(d.value, true)} className={`px-3 py-1 rounded text-xs font-bold ${bulkShiftForm.weeklyOffDays.includes(d.value) ? "bg-red-500 text-white" : "bg-gray-200 text-gray-600"}`}>{d.label}</button>
-                  ))}
+                <div className="p-4 bg-white">
+                  <div className="grid grid-cols-4 gap-4 mb-3 px-2">
+                    <div className="text-xs font-bold text-blue-600">Days</div>
+                    <div className="text-xs font-bold text-blue-600">Weekoffs</div>
+                    <div className="text-xs font-bold text-blue-600">Start Times (IST)</div>
+                    <div className="text-xs font-bold text-blue-600">End Time (IST)</div>
+                  </div>
+                  
+                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((dayName, index) => {
+                    const currentForm = viewMode === "bulk" ? bulkShiftForm : shiftForm;
+                    const daily = currentForm.dailyTimings?.[index] || { startTime: "09:30:00", endTime: "18:30:00" };
+                    const isOff = currentForm.weeklyOffDays.includes(index);
+                    
+                    return (
+                      <div key={index} className="grid grid-cols-4 gap-4 items-center mb-3 px-2">
+                        <div className="text-sm font-semibold text-gray-800">{dayName}</div>
+                        
+                        {/* Toggle Switch */}
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => handleWeeklyOffToggle(index, viewMode === "bulk")}
+                            className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${isOff ? 'bg-blue-600' : 'bg-gray-300'}`}
+                          >
+                            <div className={`w-4 h-4 rounded-full bg-white transition-transform transform ${isOff ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                          </button>
+                        </div>
+                        
+                        {/* Start Time Input */}
+                        <div className="relative">
+                          <input 
+                            type="time" 
+                            step="1"
+                            disabled={isOff}
+                            value={daily.startTime}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
+                              setter(prev => {
+                                const newDaily = [...prev.dailyTimings];
+                                newDaily[index] = { ...newDaily[index], startTime: val };
+                                return { ...prev, dailyTimings: newDaily };
+                              });
+                            }}
+                            className={`w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isOff ? 'bg-gray-50 opacity-50' : ''}`}
+                          />
+                          <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                        </div>
+                        
+                        {/* End Time Input */}
+                        <div className="relative">
+                          <input 
+                            type="time" 
+                            step="1"
+                            disabled={isOff}
+                            value={daily.endTime}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
+                              setter(prev => {
+                                const newDaily = [...prev.dailyTimings];
+                                newDaily[index] = { ...newDaily[index], endTime: val };
+                                return { ...prev, dailyTimings: newDaily };
+                              });
+                            }}
+                            className={`w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isOff ? 'bg-gray-50 opacity-50' : ''}`}
+                          />
+                          <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="mt-auto pt-6">
-                <button type="submit" disabled={saving || selectedEmployeeIds.length === 0} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50">
-                  {saving ? "Processing..." : `Apply to ${selectedEmployeeIds.length} ${candidateLabel}`}
+              {/* GLOBAL WORKING HOURS */}
+              <div className="mb-6 border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-blue-50/50 px-4 py-3 border-b border-gray-100">
+                  <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Working Hours & Grace</h3>
+                </div>
+                <div className="p-4 bg-white grid grid-cols-3 gap-6">
+                  <div>
+                    <label className="text-xs font-bold text-blue-600 block mb-2">Working Hrs (HH:MM:SS)</label>
+                    <div className="relative">
+                      <input 
+                        type="time" 
+                        step="1"
+                        value={decimalToHHMMSS(viewMode === "bulk" ? bulkShiftForm.fullDayHours : shiftForm.fullDayHours)}
+                        onChange={(e) => {
+                          const dec = HHMMSSToDecimal(e.target.value);
+                          const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
+                          setter(prev => ({ ...prev, fullDayHours: dec }));
+                        }}
+                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        required 
+                      />
+                      <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-blue-600 block mb-2">Half Day Hrs (HH:MM:SS)</label>
+                    <div className="relative">
+                      <input 
+                        type="time" 
+                        step="1"
+                        value={decimalToHHMMSS(viewMode === "bulk" ? bulkShiftForm.halfDayHours : shiftForm.halfDayHours)}
+                        onChange={(e) => {
+                          const dec = HHMMSSToDecimal(e.target.value);
+                          const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
+                          setter(prev => ({ ...prev, halfDayHours: dec }));
+                        }}
+                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        required 
+                      />
+                      <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-blue-600 block mb-2">Grace Period (HH:MM:SS)</label>
+                    <div className="relative">
+                      <input 
+                        type="time" 
+                        step="1"
+                        value={minutesToHHMMSS(viewMode === "bulk" ? bulkShiftForm.lateGracePeriod : shiftForm.lateGracePeriod)}
+                        onChange={(e) => {
+                          const mins = HHMMSSToMinutes(e.target.value);
+                          const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
+                          setter(prev => ({ ...prev, lateGracePeriod: mins }));
+                        }}
+                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        required 
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-auto flex gap-3">
+                <button type="submit" disabled={saving || (viewMode === "bulk" && selectedEmployeeIds.length === 0)} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all">
+                  {saving ? "Saving..." : <><FaSave /> Save Shift</>}
                 </button>
+                {viewMode === "individual" && shifts.some(s => s.employeeId === selectedEmployee?.employeeId) && (
+                  <button type="button" onClick={() => handleDeleteShift(selectedEmployee.employeeId)} className="bg-red-50 text-red-500 px-4 py-3 rounded-lg hover:bg-red-100 transition-all flex items-center justify-center">
+                    <FaTrash />
+                  </button>
+                )}
               </div>
             </form>
           )}
