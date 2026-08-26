@@ -623,16 +623,33 @@ const DepartmentSettings = () => {
               </div>
 
               {/* WEEKLY OFFS & WORKING HOURS */}
-              <div className="mb-6 border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-                <div className="bg-blue-50/50 px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Weekly Offs & Working Hours</h3>
+              <div className="mb-8 border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white">
+                <div className="bg-slate-50/50 px-6 py-4 border-b border-slate-200">
+                  <h3 className="text-sm font-extrabold text-blue-800 uppercase tracking-widest">Weekly Offs & Working Hours</h3>
                 </div>
-                <div className="p-4 bg-white">
-                  <div className="grid grid-cols-4 gap-4 mb-3 px-2">
-                    <div className="text-xs font-bold text-blue-600">Days</div>
-                    <div className="text-xs font-bold text-blue-600">Weekoffs</div>
-                    <div className="text-xs font-bold text-blue-600">Start Times</div>
-                    <div className="text-xs font-bold text-blue-600">End Time</div>
+                
+                <div className="p-6">
+                  {/* CSS for custom time input to hide native icon but keep it clickable over our custom icon */}
+                  <style dangerouslySetInnerHTML={{__html: `
+                    input[type="time"]::-webkit-calendar-picker-indicator {
+                      opacity: 0;
+                      position: absolute;
+                      right: 0;
+                      width: 40px;
+                      height: 100%;
+                      cursor: pointer;
+                      z-index: 10;
+                    }
+                    input[type="time"] {
+                      position: relative;
+                    }
+                  `}} />
+
+                  <div className="grid grid-cols-4 gap-6 mb-4 px-2">
+                    <div className="text-sm font-bold text-blue-600">Days</div>
+                    <div className="text-sm font-bold text-blue-600">Weekoffs</div>
+                    <div className="text-sm font-bold text-blue-600">Start Times</div>
+                    <div className="text-sm font-bold text-blue-600">End Time</div>
                   </div>
                   
                   {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((dayName, index) => {
@@ -641,22 +658,22 @@ const DepartmentSettings = () => {
                     const isOff = currentForm.weeklyOffDays.includes(index);
                     
                     return (
-                      <div key={index} className="grid grid-cols-4 gap-4 items-center mb-3 px-2">
-                        <div className="text-sm font-semibold text-gray-800">{dayName}</div>
+                      <div key={index} className="grid grid-cols-4 gap-6 items-center mb-4 px-2">
+                        <div className="text-[15px] font-semibold text-slate-700">{dayName}</div>
                         
                         {/* Toggle Switch */}
                         <div>
                           <button
                             type="button"
                             onClick={() => handleWeeklyOffToggle(index, viewMode === "bulk")}
-                            className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${isOff ? 'bg-blue-600' : 'bg-gray-300'}`}
+                            className={`relative w-14 h-7 rounded-full transition-colors duration-300 flex items-center px-1 focus:outline-none ${isOff ? 'bg-blue-600' : 'bg-slate-300'}`}
                           >
-                            <div className={`w-4 h-4 rounded-full bg-white transition-transform transform ${isOff ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                            <div className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 transform ${isOff ? 'translate-x-7' : 'translate-x-0'}`}></div>
                           </button>
                         </div>
                         
                         {/* Start Time Input */}
-                        <div className="relative">
+                        <div className="relative flex items-center group">
                           <input 
                             type="time" 
                             step="1"
@@ -672,13 +689,15 @@ const DepartmentSettings = () => {
                                 return { ...prev, dailyTimings: newDaily };
                               });
                             }}
-                            className={`w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isOff ? 'bg-gray-50 opacity-50' : ''}`}
+                            className={`w-full pl-4 pr-12 py-2.5 text-slate-700 font-medium border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all ${isOff ? 'bg-slate-50 text-slate-400 opacity-70' : 'bg-white hover:border-slate-400'}`}
                           />
-                          <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                          <div className={`absolute right-2 w-8 h-8 rounded-full flex items-center justify-center pointer-events-none transition-colors ${isOff ? 'bg-slate-200 text-slate-400' : 'bg-slate-400 text-white group-focus-within:bg-blue-500'}`}>
+                            <FaClock size={14} />
+                          </div>
                         </div>
                         
                         {/* End Time Input */}
-                        <div className="relative">
+                        <div className="relative flex items-center group">
                           <input 
                             type="time" 
                             step="1"
@@ -694,9 +713,11 @@ const DepartmentSettings = () => {
                                 return { ...prev, dailyTimings: newDaily };
                               });
                             }}
-                            className={`w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${isOff ? 'bg-gray-50 opacity-50' : ''}`}
+                            className={`w-full pl-4 pr-12 py-2.5 text-slate-700 font-medium border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all ${isOff ? 'bg-slate-50 text-slate-400 opacity-70' : 'bg-white hover:border-slate-400'}`}
                           />
-                          <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                          <div className={`absolute right-2 w-8 h-8 rounded-full flex items-center justify-center pointer-events-none transition-colors ${isOff ? 'bg-slate-200 text-slate-400' : 'bg-slate-400 text-white group-focus-within:bg-blue-500'}`}>
+                            <FaClock size={14} />
+                          </div>
                         </div>
                       </div>
                     );

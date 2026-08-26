@@ -158,6 +158,27 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           label: "Employees Attendance",
           icon: UserCheck,
         },
+        {
+          to: "/support-admin/daily-work-tracker",
+          route: "/support-admin/daily-work-tracker",
+          label: "Daily Work Tracker",
+          icon: ClipboardCheck,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/field-work",
+          route: "/support-admin/field-work",
+          label: "Field Work",
+          icon: MapPin,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/chatting",
+          route: "/support-admin/chatting",
+          label: "Chat",
+          icon: Users,
+          alwaysAllowed: true,
+        },
       ],
     },
     {
@@ -225,9 +246,9 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       title: "Requests",
       links: [
         {
-          to: "/support-admin/leave-requests",
-          route: "/support-admin/leave-requests",
-          label: "My Leave Requests",
+          to: "/support-admin/leave-management",
+          route: "/support-admin/leave-management",
+          label: "Leave Requests",
           icon: CalendarPlus,
           alwaysAllowed: true,
         },
@@ -236,6 +257,27 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
           route: "/support-admin/payslip",
           label: "My Payroll Details",
           icon: IndianRupee,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/expenses",
+          route: "/support-admin/expenses",
+          label: "Expense Request",
+          icon: Receipt,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/requestworkmode",
+          route: "/support-admin/requestworkmode",
+          label: "Work-mode Request",
+          icon: MapPin,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/empovertime",
+          route: "/support-admin/empovertime",
+          label: "Request Overtime",
+          icon: Clock,
           alwaysAllowed: true,
         },
         {
@@ -271,11 +313,32 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
       title: "System",
       links: [
         {
+          to: "/support-admin/issues",
+          route: "/support-admin/issues",
+          label: "Report Issue",
+          icon: Megaphone,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/notices",
+          route: "/support-admin/notices",
+          label: "My Notice Board",
+          icon: Megaphone,
+          alwaysAllowed: true,
+        },
+        {
           to: "/admin/notices",
           route: "/admin/notices",
           label: "Announcements",
           icon: Megaphone,
           isNotice: true,
+        },
+        {
+          to: "/support-admin/resignation",
+          route: "/support-admin/resignation",
+          label: "Resignation",
+          icon: ClipboardCheck,
+          alwaysAllowed: true,
         },
         {
           to: "/admin/live-tracking",

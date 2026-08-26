@@ -153,6 +153,11 @@ export const login = async (req, res) => {
     delete userObj.password;
     userObj.role = role; // always present in the response
 
+    // Normalize employeeId for Support Admins so employee components work properly
+    if (role === "support-admin") {
+      userObj.employeeId = userObj.supportAdminId || userObj._id;
+    }
+
     if (rootAdmin) {
       userObj.plan = rootAdmin.plan;
     }
@@ -234,6 +239,8 @@ export const protect = async (req, res, next) => {
       if (currentUser) {
         currentUser.role = "support-admin";
         currentUser.actualId = currentUser._id;
+        // Normalize employeeId for Support Admins so employee routes work properly
+        currentUser.employeeId = currentUser.supportAdminId || currentUser._id;
         if (currentUser.adminId) {
           currentUser._id = currentUser.adminId;
         }

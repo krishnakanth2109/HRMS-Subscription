@@ -265,8 +265,20 @@ function App() {
         <Route path="/support-admin/my-attendance" element={<EmployeeDailyAttendance />} />
         <Route path="/admin/profile" element={<AdminProfile />} />
         <Route path="/support-admin/profile" element={<SupportAdminProfile />} />
-        <Route path="/support-admin/leave-requests" element={<SupportAdminLeaveRequests />} />
+        <Route path="/support-admin/leave-management" element={<LeaveWithModal />} />
         <Route path="/support-admin/payslip" element={<EmployeePayslip />} />
+        
+        {/* Support Admin Employee-Like Features */}
+        <Route path="/support-admin/expenses" element={<AddExpense />} />
+        <Route path="/support-admin/chatting" element={<ConnectWithEmployee />} />
+        <Route path="/support-admin/requestworkmode" element={<EmployeeWorkModeRequest />} />
+        <Route path="/support-admin/daily-work-tracker" element={<EmployeeWorkTracker />} />
+        <Route path="/support-admin/issues" element={<EmployeeIssues />} />
+        <Route path="/support-admin/notices" element={<CurrentEmployeeNoticeBoard />} />
+        <Route path="/support-admin/empovertime" element={<OvertimeForm />} />
+        <Route path="/support-admin/resignation" element={<EmployeeResignation />} />
+        <Route path="/support-admin/field-work" element={<EmployeeFieldWork />} />
+
         <Route path="/employees" element={<EmployeeManagement />} />
         <Route path="/support-admin/management" element={<SupportAdminManagement />} />
         <Route path="/employees/add" element={<AddEmployee />} />
