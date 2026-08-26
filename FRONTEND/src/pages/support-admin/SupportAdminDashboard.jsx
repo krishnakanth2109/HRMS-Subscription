@@ -489,7 +489,7 @@ const SupportAdminDashboard = () => {
     });
   };
 
-  const handlePunch = async (action) => {
+  const performPunchAction = async (action, additionalData = {}) => {
     if (!targetEmployeeId) return;
     setPunchStatus("FETCHING");
     try {
@@ -502,6 +502,7 @@ const SupportAdminDashboard = () => {
           employeeName: adminProfile?.name || user?.name || "Support Admin",
           latitude: location.latitude,
           longitude: location.longitude,
+          ...additionalData
         });
         speak(`${adminProfile?.name || user?.name}, punch in successful`);
         Swal.fire({ icon: 'success', title: 'Welcome!', text: 'Punch in recorded successfully.' });
@@ -510,6 +511,7 @@ const SupportAdminDashboard = () => {
           employeeId: targetEmployeeId,
           latitude: location.latitude,
           longitude: location.longitude,
+          ...additionalData
         });
         speak(`${adminProfile?.name || user?.name}, punch out successful`);
         Swal.fire({ icon: 'success', title: 'Goodbye!', text: 'Punch out recorded successfully.' });
@@ -517,6 +519,43 @@ const SupportAdminDashboard = () => {
       await getAttendanceForEmployeeLocal(targetEmployeeId);
     } catch (err) {
       console.error("Punch error:", err);
+
+      if (err.response?.data?.requiresLateReason) {
+        Swal.fire({
+          title: 'You are late!',
+          text: err.response.data.message,
+          input: 'text',
+          inputPlaceholder: 'Enter reason for being late...',
+          showCancelButton: true,
+          confirmButtonText: 'Submit & Punch In'
+        }).then((result) => {
+          if (result.isConfirmed && result.value) {
+            performPunchAction("IN", { lateReason: result.value });
+          } else {
+            setPunchStatus("IDLE");
+          }
+        });
+        return;
+      }
+
+      if (err.response?.data?.requiresEarlyLeaveReason) {
+        Swal.fire({
+          title: 'Short Hours / Early Leave',
+          text: err.response.data.message,
+          input: 'text',
+          inputPlaceholder: 'Enter reason for early leave...',
+          showCancelButton: true,
+          confirmButtonText: 'Submit & Punch Out'
+        }).then((result) => {
+          if (result.isConfirmed && result.value) {
+            performPunchAction("OUT", { earlyLeaveReason: result.value });
+          } else {
+            setPunchStatus("IDLE");
+          }
+        });
+        return;
+      }
+
       const msg = err.response?.data?.message || err.message || "Unknown Error";
       speak("Punch operation failed");
       Swal.fire({
@@ -526,6 +565,45 @@ const SupportAdminDashboard = () => {
       });
     } finally {
       setPunchStatus("IDLE");
+    }
+  };
+
+  const handlePunch = async (action) => {
+    if (!targetEmployeeId) return;
+
+    if (action === "IN") {
+      performPunchAction("IN");
+    }
+
+    if (action === "OUT") {
+      const fullDaySeconds = shiftTimings ? (shiftTimings.fullDayHours * 3600) : (9 * 3600);
+      const halfDaySeconds = shiftTimings ? (shiftTimings.halfDayHours * 3600) : (4.5 * 3600);
+
+      if (workedTime >= fullDaySeconds) { await performPunchAction("OUT"); return; }
+
+      let confirmMessage = workedTime < halfDaySeconds
+        ? "Your worked hours are below the minimum Half-Day limit. If you don't punch in again, today will be marked as ABSENT. Do you want to continue?"
+        : "Your worked hours are below the Full-Day requirement. If you don't punch in again, today will be marked as HALF-DAY. Do you want to continue?";
+
+      Swal.fire({
+        title: "Early Punch Out?",
+        text: confirmMessage,
+        icon: 'warning',
+        input: 'text',
+        inputPlaceholder: 'Reason for leaving early...',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Submit & Punch Out',
+        preConfirm: (reason) => {
+          if (!reason) {
+            Swal.showValidationMessage('Please provide a reason');
+          }
+          return reason;
+        }
+      }).then((result) => {
+        if (result.isConfirmed) { performPunchAction("OUT", { earlyLeaveReason: result.value }); }
+      });
     }
   };
 

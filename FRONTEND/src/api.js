@@ -431,6 +431,13 @@ export const getAttendanceByDateRange = async (startDate, endDate) =>
     })
   ).data;
 
+export const getRegularisationRequests = async (startDate, endDate) =>
+  (
+    await api.get("/api/admin/attendance/regularisation", {
+      params: { startDate, endDate },
+    })
+  ).data;
+
 export const punchIn = async (data) =>
   (await api.post("/api/attendance/punch-in", data)).data;
 export const punchOut = async (data) =>

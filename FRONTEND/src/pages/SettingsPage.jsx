@@ -631,8 +631,8 @@ const DepartmentSettings = () => {
                   <div className="grid grid-cols-4 gap-4 mb-3 px-2">
                     <div className="text-xs font-bold text-blue-600">Days</div>
                     <div className="text-xs font-bold text-blue-600">Weekoffs</div>
-                    <div className="text-xs font-bold text-blue-600">Start Times (IST)</div>
-                    <div className="text-xs font-bold text-blue-600">End Time (IST)</div>
+                    <div className="text-xs font-bold text-blue-600">Start Times</div>
+                    <div className="text-xs font-bold text-blue-600">End Time</div>
                   </div>
                   
                   {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((dayName, index) => {
@@ -661,6 +661,7 @@ const DepartmentSettings = () => {
                             type="time" 
                             step="1"
                             disabled={isOff}
+                            required={!isOff}
                             value={daily.startTime}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -682,6 +683,7 @@ const DepartmentSettings = () => {
                             type="time" 
                             step="1"
                             disabled={isOff}
+                            required={!isOff}
                             value={daily.endTime}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -707,58 +709,64 @@ const DepartmentSettings = () => {
                 <div className="bg-blue-50/50 px-4 py-3 border-b border-gray-100">
                   <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wider">Working Hours & Grace</h3>
                 </div>
-                <div className="p-4 bg-white grid grid-cols-3 gap-6">
+                <div className="p-4 bg-white grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div>
-                    <label className="text-xs font-bold text-blue-600 block mb-2">Working Hrs (HH:MM:SS)</label>
+                    <label className="text-xs font-bold text-blue-600 block mb-2">Working Hrs</label>
                     <div className="relative">
                       <input 
-                        type="time" 
-                        step="1"
-                        value={decimalToHHMMSS(viewMode === "bulk" ? bulkShiftForm.fullDayHours : shiftForm.fullDayHours)}
+                        type="number" 
+                        step="0.5"
+                        min="1"
+                        max="24"
+                        value={viewMode === "bulk" ? bulkShiftForm.fullDayHours : shiftForm.fullDayHours}
                         onChange={(e) => {
-                          const dec = HHMMSSToDecimal(e.target.value);
+                          const val = Number(e.target.value);
                           const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
-                          setter(prev => ({ ...prev, fullDayHours: dec }));
+                          setter(prev => ({ ...prev, fullDayHours: val }));
                         }}
-                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 pr-10" 
                         required 
                       />
-                      <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">hrs</span>
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-blue-600 block mb-2">Half Day Hrs (HH:MM:SS)</label>
+                    <label className="text-xs font-bold text-blue-600 block mb-2">Half Day Hrs</label>
                     <div className="relative">
                       <input 
-                        type="time" 
-                        step="1"
-                        value={decimalToHHMMSS(viewMode === "bulk" ? bulkShiftForm.halfDayHours : shiftForm.halfDayHours)}
+                        type="number" 
+                        step="0.5"
+                        min="0.5"
+                        max="24"
+                        value={viewMode === "bulk" ? bulkShiftForm.halfDayHours : shiftForm.halfDayHours}
                         onChange={(e) => {
-                          const dec = HHMMSSToDecimal(e.target.value);
+                          const val = Number(e.target.value);
                           const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
-                          setter(prev => ({ ...prev, halfDayHours: dec }));
+                          setter(prev => ({ ...prev, halfDayHours: val }));
                         }}
-                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 pr-10" 
                         required 
                       />
-                      <FaClock className="absolute right-3 top-2.5 text-gray-400" />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">hrs</span>
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-blue-600 block mb-2">Grace Period (HH:MM:SS)</label>
+                    <label className="text-xs font-bold text-blue-600 block mb-2">Grace Period (Minutes)</label>
                     <div className="relative">
                       <input 
-                        type="time" 
+                        type="number" 
                         step="1"
-                        value={minutesToHHMMSS(viewMode === "bulk" ? bulkShiftForm.lateGracePeriod : shiftForm.lateGracePeriod)}
+                        min="0"
+                        value={viewMode === "bulk" ? bulkShiftForm.lateGracePeriod : shiftForm.lateGracePeriod}
                         onChange={(e) => {
-                          const mins = HHMMSSToMinutes(e.target.value);
+                          const val = Number(e.target.value);
                           const setter = viewMode === "bulk" ? setBulkShiftForm : setShiftForm;
-                          setter(prev => ({ ...prev, lateGracePeriod: mins }));
+                          setter(prev => ({ ...prev, lateGracePeriod: val }));
                         }}
-                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" 
+                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 pr-12" 
                         required 
                       />
+                      <span className="absolute right-3 top-2.5 text-xs text-gray-500 font-bold">mins</span>
                     </div>
                   </div>
                 </div>

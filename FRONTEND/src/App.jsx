@@ -24,6 +24,7 @@ import AddEmployee from "./pages/AddEmployee";
 import ReactivateEmployee from "./pages/ReactivateEmployee";
 import EditEmployee from "./pages/EditEmployee";
 import AdminViewAttendance from "./pages/AdminviewAttendance";
+import Regularisation from "./pages/Regularisation";
 import LeaveManagement from "./pages/LeaveManagement";
 import AdminLeaveSummary from "./pages/AdminLeaveSummary";
 import AdminProfile from "./pages/AdminProfile";
@@ -273,6 +274,7 @@ function App() {
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
         <Route path="/attendance" element={<AdminViewAttendance />} />
+        <Route path="/attendance/regularisation" element={<Regularisation />} />
         <Route path="/admin/expense" element={<AdminExpenseDashboard />} />
 
 
