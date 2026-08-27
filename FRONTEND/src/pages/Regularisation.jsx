@@ -32,12 +32,19 @@ const Regularisation = () => {
     fetchData();
   }, [startDate, endDate]);
 
-  const filteredData = attendanceData.filter(item => 
-    item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    item.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.lateReason && item.lateReason.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (item.earlyLeaveReason && item.earlyLeaveReason.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredData = attendanceData.filter(item => {
+    // Only show employees that have actual regularization requests
+    const hasRequest = Boolean(item.lateReason || item.earlyLeaveReason);
+    if (!hasRequest) return false;
+
+    // Apply search filter
+    return (
+      item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      item.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.lateReason && item.lateReason.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (item.earlyLeaveReason && item.earlyLeaveReason.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  });
 
   return (
     <div className="p-6 md:p-10 bg-slate-50 min-h-screen font-sans selection:bg-indigo-100 selection:text-indigo-900">
@@ -180,7 +187,7 @@ const Regularisation = () => {
                             <span className="text-sm text-slate-600">"{item.lateReason}"</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400">On Time</span>
+                          <span className="text-sm text-slate-400">--</span>
                         )}
                       </td>
 
@@ -194,7 +201,7 @@ const Regularisation = () => {
                             <span className="text-sm text-slate-600">"{item.earlyLeaveReason}"</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-slate-400">Standard</span>
+                          <span className="text-sm text-slate-400">--</span>
                         )}
                       </td>
                     </tr>

@@ -409,6 +409,23 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
       </div>
 
       <div className="space-y-4 overflow-y-auto pr-2 flex-1">
+        {/* Attendance Based Salary Toggle */}
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center shadow-sm">
+          <div>
+            <h4 className="font-bold text-blue-800 text-sm">Attendance Based Salary</h4>
+            <p className="text-xs text-blue-600 mt-1">Calculate salary proportionally based on actual working days.</p>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => handleChange({ target: { name: 'attendanceBasedSalary', type: 'checkbox', checked: rules.attendanceBasedSalary === false ? true : false } })}
+              className={`relative w-12 h-6 rounded-full transition-colors flex items-center px-1 focus:outline-none ${rules.attendanceBasedSalary !== false ? 'bg-blue-600' : 'bg-gray-300'}`}
+            >
+              <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform transform ${rules.attendanceBasedSalary !== false ? 'translate-x-6' : 'translate-x-0'}`}></div>
+            </button>
+          </div>
+        </div>
+
         <div className="bg-green-50 p-3 rounded-lg border border-green-100">
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-bold text-green-800 text-sm uppercase">Earnings Structure</h4>
@@ -4086,15 +4103,32 @@ const PayrollManagement = () => {
       const thresholdSlab1 = 15000;
       const thresholdSlab2 = 20000;
 
-      const monthlyTotal = baseSalary;
+      const fullMonthlyTotal = baseSalary;
+      const perDaySalary = fullMonthlyTotal / totalDaysInMonth;
+      const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
+      const weekOffDays = leaves.weekOffDays || 0;
+      const holidayDays = leaves.holidayDays || 0;
+      
+      const isAttendanceBased = effectiveRules.attendanceBasedSalary !== false;
+      const calculatedSalary = isAttendanceBased 
+        ? (totalWorkedDays + weekOffDays + holidayDays) * perDaySalary 
+        : fullMonthlyTotal;
+        
+      const lopDeduction = isAttendanceBased 
+        ? leaves.extraLeaves * perDaySalary 
+        : 0;
+
+      const attendanceFactor = fullMonthlyTotal > 0 ? (calculatedSalary / fullMonthlyTotal) : 1;
+      const monthlyTotal = calculatedSalary; // Prorated gross base
+
       const monthlyBasic = (effectiveRules.basicValueType === 'fixed')
-        ? ruleBasic
+        ? ruleBasic * attendanceFactor
         : monthlyTotal * (ruleBasic / 100);
       const monthlyHRA = (effectiveRules.hraValueType === 'fixed')
-        ? ruleHra
+        ? ruleHra * attendanceFactor
         : monthlyBasic * (ruleHra / 100);
 
-      const calcAllowance = (val, type) => (type === 'percentage') ? monthlyBasic * (val / 100) : val;
+      const calcAllowance = (val, type) => (type === 'percentage') ? monthlyBasic * (val / 100) : val * attendanceFactor;
 
       const monthlyConv = calcAllowance(ruleConv, effectiveRules.conveyanceValueType || 'fixed');
       const monthlyMed = calcAllowance(ruleMed, effectiveRules.medicalValueType || 'fixed');
@@ -4111,7 +4145,7 @@ const PayrollManagement = () => {
             val = monthlyTotal * ((Number(cf.value) || 0) / 100);
           }
         } else {
-          val = Number(cf.value) || 0;
+          val = (Number(cf.value) || 0) * attendanceFactor;
         }
         customEarningsTotal += val;
         return { name: cf.name, value: val, valueType: cf.valueType, percentageOf: cf.percentageOf, rate: cf.value };
@@ -4122,13 +4156,7 @@ const PayrollManagement = () => {
       const specialAllowance = Math.max(0, monthlyTotal - staticEarnings);
       const earningsSum = staticEarnings + specialAllowance;
 
-      const perDaySalary = monthlyTotal / totalDaysInMonth;
-      const totalWorkedDays = att.workedDays + leaves.paidLeaveCredit;
-      const weekOffDays = leaves.weekOffDays || 0;
-      const holidayDays = leaves.holidayDays || 0;
-      const calculatedSalary = (totalWorkedDays + weekOffDays + holidayDays) * perDaySalary;
-      const lopDeduction = leaves.extraLeaves * perDaySalary;
-
+      // Late penalty uses the full un-prorated perDaySalary
       // --- DYNAMIC LATE PENALTY CALCULATION ---
       // latePenaltyDays = salary-days equivalent (0.5 per halfDay occ, 1 per fullDay/manual occ)
       // latePenaltyOccurrences = raw count of penalty events triggered
@@ -4193,8 +4221,9 @@ const PayrollManagement = () => {
         return { name: cf.name, value: val, valueType: cf.valueType, percentageOf: cf.percentageOf, rate: cf.value };
       });
 
-      const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lopDeduction + lateDeduction + customDeductionsTotal;
-      const netPayableSalary = Math.max(0, calculatedSalary + bonusAmount - totalDeductions);
+      // Note: lopDeduction is excluded from totalDeductions because earningsSum is already prorated (LOP is removed from gross earnings directly)
+      const totalDeductions = pfDeduction + employerPfAmount + ptDeduction + lateDeduction + customDeductionsTotal;
+      const netPayableSalary = Math.max(0, earningsSum + bonusAmount - totalDeductions);
 
       return {
         employeeId: emp.employeeId,
