@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
 import api, { getEmployees, getIdleTimeForEmployeeByDate, getAttendanceByDateRange } from ".././api";
 import {
     FaUserFriends, FaRegClock,
@@ -262,7 +262,7 @@ const AdminLiveTracking = () => {
                 const lastPingDate = new Date(record.lastPing);
                 if (currentTime > lastPingDate) {
                     const elapsedSincePing = (currentTime - lastPingDate) / 1000;
-                    // Cap at 30s — if more time has passed, the tracker is offline/lagging
+                    // Cap at 30s â€” if more time has passed, the tracker is offline/lagging
                     if (elapsedSincePing < 30) {
                         if (record.currentStatus === "WORKING") {
                             workedSeconds += elapsedSincePing;
@@ -286,7 +286,8 @@ const AdminLiveTracking = () => {
             idleTimeline: idleTimeline,
             punchIn: punchInTime,
             activeIdleExtra: activeIdleExtra,
-            storedIdleSeconds: storedIdleSeconds
+            storedIdleSeconds: storedIdleSeconds,
+            tabLogs: record.tabLogs || []
         };
     };
 
@@ -1318,7 +1319,7 @@ const AdminLiveTracking = () => {
                                                                         <span className="text-amber-600 font-mono font-medium">
                                                                             {new Date(ss.idleStart).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}
                                                                         </span>
-                                                                        <span className="text-slate-400 mx-1">→</span>
+                                                                        <span className="text-slate-400 mx-1">â†’</span>
                                                                         <span className="text-amber-600 font-mono font-medium">
                                                                             {new Date(ss.idleEnd).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}
                                                                         </span>
