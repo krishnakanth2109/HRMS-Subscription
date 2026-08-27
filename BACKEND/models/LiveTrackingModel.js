@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+
+// ---------------------------------------------------
+// Schema for an individual TAB log segment
+// ---------------------------------------------------
+const tabSegmentSchema = new mongoose.Schema(
+    {
+        title: { type: String, required: true },
+        startTime: { type: Date, required: true },
+        endTime: { type: Date, required: true },
+        durationSeconds: { type: Number, required: true }
+    },
+    { _id: false }
+);
+
 // ---------------------------------------------------
 // Schema for an individual IDLE time segment
 // ---------------------------------------------------
@@ -34,6 +48,7 @@ const dailyLiveSchema = new mongoose.Schema(
         idleSince: { type: Date, default: null },
         activeWindow: { type: String, default: null },
         idleTimeline: { type: [idleSegmentSchema], default: [] },
+        tabLogs: { type: [tabSegmentSchema], default: [] },
         trackedWorkSeconds: { type: Number, default: 0 },
         trackedIdleSeconds: { type: Number, default: 0 },
         currentIdleScreenshot: { type: String, default: null },  // Live screenshot URL (cleared on WORKING)

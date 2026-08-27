@@ -150,6 +150,8 @@ router.get('/live-status', async (req, res) => {
               idleSince: todayData.idleSince,
               activeWindow: todayData.activeWindow || null,
               idleTimeline: todayData.idleTimeline || [],
+          tabLogs: todayData.tabLogs || [],
+          activeWindow: todayData.activeWindow || null,
               trackedWorkSeconds: todayData.trackedWorkSeconds || 0,
               trackedIdleSeconds: todayData.trackedIdleSeconds || 0,
               currentIdleScreenshot: todayData.currentIdleScreenshot || null,
@@ -418,6 +420,8 @@ router.get("/:employeeId/:date", async (req, res) => {
         lastPing: todayData.lastPing,
         idleSince: todayData.idleSince,
         idleTimeline: todayData.idleTimeline || [],
+          tabLogs: todayData.tabLogs || [],
+          activeWindow: todayData.activeWindow || null,
         trackedWorkSeconds: todayData.trackedWorkSeconds || 0,
         trackedIdleSeconds: todayData.trackedIdleSeconds || 0
       };
@@ -451,6 +455,8 @@ router.get("/employee/:employeeId", async (req, res) => {
           lastPing: dailyData.lastPing,
           idleSince: dailyData.idleSince,
           idleTimeline: dailyData.idleTimeline || [],
+            tabLogs: dailyData.tabLogs || [],
+            activeWindow: dailyData.activeWindow || null,
           trackedWorkSeconds: dailyData.trackedWorkSeconds || 0,
           trackedIdleSeconds: dailyData.trackedIdleSeconds || 0
         });
@@ -524,6 +530,49 @@ router.get("/admin/stats", async (req, res) => {
   } catch (error) {
     console.error("❌ Admin stats error:", error);
     res.status(500).json({ error: "Server Error" });
+  }
+});
+
+
+// ------------------------------------------
+// POST /tablog
+// (Saves a COMPLETED Tab/Window segment)
+// ------------------------------------------
+router.post('/tablog', async (req, res) => {
+  try {
+    const { employeeId, title, startTime, endTime, durationSeconds } = req.body;
+    if (!employeeId || !title || !startTime || !endTime) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const date = new Date().toISOString().split('T')[0];
+
+    let doc = await LiveTracking.findOne({ employeeId });
+    if (!doc) {
+      doc = new LiveTracking({ employeeId, dates: {} });
+    }
+
+    if (!doc.dates.has(date)) {
+      doc.dates.set(date, { tabLogs: [] });
+    }
+
+    const todayData = doc.dates.get(date);
+    if (!todayData.tabLogs) todayData.tabLogs = [];
+    
+    todayData.tabLogs.push({
+      title,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      durationSeconds: Number(durationSeconds)
+    });
+
+    doc.dates.set(date, todayData);
+    await doc.save();
+    
+    return res.json({ message: "Tab log saved successfully" });
+  } catch (err) {
+    console.error("Tab log save error:", err);
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 

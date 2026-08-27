@@ -998,6 +998,19 @@ const AdminLiveTracking = () => {
                                             <span className="ml-1 px-1.5 py-0.5 bg-indigo-500 text-white text-xs rounded-full">{screenshots.length}</span>
                                         )}
                                     </button>
+                                    <button
+                                        onClick={() => setActiveTab('tablogs')}
+                                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${activeTab === 'tablogs'
+                                            ? 'bg-indigo-600 text-white'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200'
+                                            }`}
+                                    >
+                                        <FaDesktop />
+                                        Tab Logs
+                                        {reportData?.tabLogs?.length > 0 && (
+                                            <span className="ml-1 px-1.5 py-0.5 bg-indigo-500 text-white text-xs rounded-full">{reportData.tabLogs.length}</span>
+                                        )}
+                                    </button>
                                 </div>
                             </div>
 
@@ -1023,6 +1036,19 @@ const AdminLiveTracking = () => {
                                     Screenshots
                                     {screenshots.length > 0 && (
                                         <span className="ml-1 px-1.5 py-0.5 bg-indigo-500 text-white text-[10px] rounded-full">{screenshots.length}</span>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('tablogs')}
+                                    className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${activeTab === 'tablogs'
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200'
+                                        }`}
+                                >
+                                    <FaDesktop />
+                                    Tab Logs
+                                    {reportData?.tabLogs?.length > 0 && (
+                                        <span className="ml-1 px-1.5 py-0.5 bg-indigo-500 text-white text-[10px] rounded-full">{reportData.tabLogs.length}</span>
                                     )}
                                 </button>
                             </div>
@@ -1187,6 +1213,53 @@ const AdminLiveTracking = () => {
                                         </>
                                     )
                                 )
+                            )}
+
+
+                            {/* ===== TAB LOGS TAB ===== */}
+                            {activeTab === 'tablogs' && (
+                                <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50">
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <FaDesktop className="text-indigo-500 text-xl" />
+                                        <h3 className="text-xl font-bold text-slate-800">Tab Logs</h3>
+                                        <span className="text-xs text-slate-500">(window activity)</span>
+                                    </div>
+
+                                    {reportLoading ? (
+                                        <div className="py-16 flex flex-col items-center justify-center text-slate-400 gap-3">
+                                            <FaSyncAlt className="animate-spin text-3xl text-indigo-500" />
+                                            <p>Loading tab logs...</p>
+                                        </div>
+                                    ) : reportData?.tabLogs?.length > 0 ? (
+                                        <div className="bg-white rounded-xl border border-slate-200 flex flex-col overflow-hidden shadow-sm">
+                                            <div className="flex flex-col divide-y divide-slate-100">
+                                                <div className="hidden md:grid grid-cols-4 bg-slate-50 px-4 py-2 sticky top-0 font-bold text-slate-600 text-sm">
+                                                    <div className="col-span-2">Window Title</div>
+                                                    <div>From - To</div>
+                                                    <div>Duration</div>
+                                                </div>
+                                                {reportData.tabLogs.map((log, idx) => (
+                                                    <div key={idx} className="flex flex-col md:grid md:grid-cols-4 p-3 md:p-4 hover:bg-slate-50 gap-2 md:gap-4 text-xs md:text-sm">
+                                                        <div className="col-span-2 text-slate-800 font-medium break-words">
+                                                            {log.title}
+                                                        </div>
+                                                        <div className="text-slate-600">
+                                                            {new Date(log.startTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} - {new Date(log.endTime).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}
+                                                        </div>
+                                                        <div className="text-indigo-600 font-mono font-bold">
+                                                            {formatDuration(log.durationSeconds)}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="p-8 text-center text-slate-500 text-sm border-2 border-dashed border-slate-200 rounded-xl bg-white py-16">
+                                            <FaDesktop className="text-3xl md:text-4xl mx-auto mb-2 opacity-20" />
+                                            No tab logs recorded for this user today.
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {/* ===== SCREENSHOTS TAB ===== */}

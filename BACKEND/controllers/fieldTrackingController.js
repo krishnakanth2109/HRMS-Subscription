@@ -133,6 +133,7 @@ export const recordFieldWorkLocationForEmployee = async ({
       durationSeconds: Number(b.durationSeconds) || 0,
       photoUrl: b.photoUrl || null,
       description: b.description || null,
+      locationName: b.locationName || null,
     }));
   }
 

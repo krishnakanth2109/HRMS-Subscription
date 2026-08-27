@@ -59,6 +59,63 @@ const isSamePoint = (a, b) =>
   Number(a.latitude) === Number(b.latitude) &&
   Number(a.longitude) === Number(b.longitude);
 
+const fetchLocationName = async (lat, lng) => {
+  try {
+    let googleAddress = null;
+    if (window.google && window.google.maps && window.google.maps.Geocoder) {
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        const response = await geocoder.geocode({ location: { lat, lng } });
+        if (response.results && response.results[0]) {
+          googleAddress = response.results[0].formatted_address;
+        }
+      } catch (gErr) {
+        console.warn("Google Geocoder failed, falling back to OSM:", gErr);
+      }
+    }
+    if (googleAddress) return googleAddress;
+    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+    const data = await res.json();
+    const parts = [data.locality, data.city, data.principalSubdivision].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : "Unknown Location";
+  } catch (err) {
+    return "Unknown Location";
+  }
+};
+
+const LiveLocationName = ({ lat, lng, defaultName }) => {
+  const [name, setName] = useState(defaultName);
+  
+  useEffect(() => {
+    if (defaultName) {
+      setName(defaultName);
+      return;
+    }
+    if (!lat || !lng) return;
+    
+    let isMounted = true;
+    fetchLocationName(lat, lng).then((locName) => {
+      if (isMounted) setName(locName);
+    });
+    
+    return () => { isMounted = false; };
+  }, [lat, lng, defaultName]);
+
+  if (!name) {
+    return (
+      <p className="mt-1 text-xs text-slate-400 italic">
+        <MapPin className="inline mr-1" size={12} /> Fetching location...
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-1 text-xs text-slate-600 truncate" title={name}>
+      <MapPin className="inline mr-1" size={12} /> {name}
+    </p>
+  );
+};
+
 const formatDateTime = (value) => {
   if (!value) return "--";
   return new Date(value).toLocaleString("en-IN", {
@@ -312,9 +369,13 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
         title: "Start",
         zIndex: 10,
       });
-      startM.addListener("click", () => {
-        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${formatDateTime(start.recordedAt)}</span>`);
+      startM.addListener("click", async () => {
+        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${formatDateTime(start.recordedAt)}</span><br/><span style="font-size:11px;color:#475569"><i>Fetching location...</i></span>`);
         iw.open(map, startM);
+        if (!start.locationName) {
+          start.locationName = await fetchLocationName(start.latitude, start.longitude);
+        }
+        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${formatDateTime(start.recordedAt)}</span><br/><span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${start.locationName}</span>`);
       });
       newMarkers.push(startM);
 
@@ -326,13 +387,23 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
           title: `Stop ${i + 1}`,
           zIndex: 8,
         });
-        m.addListener("click", () => {
+        m.addListener("click", async () => {
           iw.setContent(
             `<b style="color:#ef4444">Stop ${i + 1}</b><br/>` +
             `<span style="font-size:12px">${formatDateTime(stop.stoppedAt)}</span><br/>` +
-            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span>`
+            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span><br/>` +
+            `<span style="font-size:11px;color:#475569"><i>Fetching location...</i></span>`
           );
           iw.open(map, m);
+          if (!stop.locationName) {
+            stop.locationName = await fetchLocationName(stop.latitude, stop.longitude);
+          }
+          iw.setContent(
+            `<b style="color:#ef4444">Stop ${i + 1}</b><br/>` +
+            `<span style="font-size:12px">${formatDateTime(stop.stoppedAt)}</span><br/>` +
+            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span><br/>` +
+            `<span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${stop.locationName}</span>`
+          );
         });
         newMarkers.push(m);
       });
@@ -347,15 +418,27 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
           title: `Break ${i + 1}`,
           zIndex: 8,
         });
-        m.addListener("click", () => {
+        m.addListener("click", async () => {
           iw.setContent(
             `<b style="color:#f59e0b">Break ${i + 1}</b><br/>` +
             `<span style="font-size:12px">${formatDateTime(b.startedAt)}</span><br/>` +
-            `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span>` +
+            `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span><br/>` +
+            (b.locationName ? `<span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${b.locationName}</span>` : `<span style="font-size:11px;color:#475569"><i>Fetching location...</i></span>`) +
             (b.description ? `<br/><i style="font-size:11px">"${b.description}"</i>` : "") +
             (b.photoUrl ? `<br/><a href="${b.photoUrl}" target="_blank"><img src="${b.photoUrl}" style="max-height:80px;margin-top:6px;border-radius:6px"/></a>` : "")
           );
           iw.open(map, m);
+          if (!b.locationName) {
+            b.locationName = await fetchLocationName(b.latitude, b.longitude);
+            iw.setContent(
+              `<b style="color:#f59e0b">Break ${i + 1}</b><br/>` +
+              `<span style="font-size:12px">${formatDateTime(b.startedAt)}</span><br/>` +
+              `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span><br/>` +
+              `<span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${b.locationName}</span>` +
+              (b.description ? `<br/><i style="font-size:11px">"${b.description}"</i>` : "") +
+              (b.photoUrl ? `<br/><a href="${b.photoUrl}" target="_blank"><img src="${b.photoUrl}" style="max-height:80px;margin-top:6px;border-radius:6px"/></a>` : "")
+            );
+          }
         });
         newMarkers.push(m);
       });
@@ -990,6 +1073,7 @@ const AdminFieldTracking = () => {
                               <p className="mt-1 text-xs font-semibold text-slate-500">
                                 Duration: {formatDuration(stop.durationSeconds)}
                               </p>
+                              <LiveLocationName lat={stop.latitude} lng={stop.longitude} defaultName={stop.locationName} />
                             </button>
                           );
                         })}
@@ -1034,6 +1118,7 @@ const AdminFieldTracking = () => {
                               <p className="mt-1 text-xs font-semibold text-slate-500">
                                 Duration: {formatDuration(b.durationSeconds)}
                               </p>
+                              <LiveLocationName lat={b.latitude} lng={b.longitude} defaultName={b.locationName} />
                               {b.description && (
                                 <p className="mt-1 text-xs text-slate-600 italic">"{b.description}"</p>
                               )}
