@@ -6,7 +6,7 @@ import axios from "axios";
 export const baseURL =
   import.meta.env.MODE === "production"
     ? import.meta.env.VITE_API_URL_PRODUCTION
-    : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5000";
+    : import.meta.env.VITE_API_URL_DEVELOPMENT || "http://localhost:5003";
 
 // Debug logs
 console.log("🔧 Environment Mode:", import.meta.env.MODE);
@@ -70,7 +70,9 @@ api.interceptors.response.use(
     let user = null;
     try {
       user = rawUser ? JSON.parse(rawUser) : null;
-    } catch { }
+    } catch {
+      // ignore
+    }
 
     const isEmployee = user?.role === "Employee";
 
@@ -285,9 +287,7 @@ export const stopFieldTrip = async (tripId, payload = {}) =>
   (await api.post(`/api/field-tracking/employee/trips/${tripId}/stop`, payload)).data;
 
 export const uploadBreakPhotoApi = async (tripId, formData) =>
-  (await api.post(`/api/field-tracking/employee/trips/${tripId}/break-photo`, formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })).data;
+  (await api.post(`/api/field-tracking/employee/trips/${tripId}/break-photo`, formData)).data;
 
 /* =============================================================================
    IDLE TIME TRACKING
@@ -427,6 +427,13 @@ export const getAttendanceForEmployee = async (id) =>
 export const getAttendanceByDateRange = async (startDate, endDate) =>
   (
     await api.get("/api/admin/attendance/by-range", {
+      params: { startDate, endDate },
+    })
+  ).data;
+
+export const getRegularisationRequests = async (startDate, endDate) =>
+  (
+    await api.get("/api/admin/attendance/regularisation", {
       params: { startDate, endDate },
     })
   ).data;
@@ -1540,6 +1547,17 @@ export const addExpense = async (formData) =>
 export const getExpensesForEmployee = async (employeeId) =>
   (await api.get(`/api/expenses/employee/${employeeId}`)).data;
 
-export default api;
+// Snap to roads proxy (added for GPS accuracy)
+export const snapToRoadsProxy = async (waypoints) => {
+  try {
+    const response = await api.post("/api/field-tracking/snap-to-roads", { waypoints });
+    return response.data;
+  } catch (error) {
+    console.error("Snap to roads proxy failed:", error);
+    throw error;
+  }
+};
 
 export const getMyAssignedTasks = async () => (await api.get('/api/admin-tasks/employee')).data;
+
+export default api;

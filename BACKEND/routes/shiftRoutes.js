@@ -49,17 +49,18 @@ const resolveShiftCandidate = async (candidateId, adminId) => {
 ============================================================ */
 router.post('/create', onlyAdmin, async (req, res) => {
   try {
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : req.user._id;
     const { employeeId, ...shiftData } = req.body;
     const cleanId = String(employeeId || "").trim();
 
-    const candidate = await resolveShiftCandidate(cleanId, req.user._id);
+    const candidate = await resolveShiftCandidate(cleanId, parentAdminId);
     if (!candidate) return res.status(404).json({ message: 'Employee or administration user not found' });
 
     // Update or Create Shift with Hierarchy
     const shift = await Shift.findOneAndUpdate(
         { employeeId: cleanId },
         { 
-            adminId: req.user._id,
+            adminId: parentAdminId,
             companyId: candidate.companyId,
             ...shiftData, 
             employeeName: candidate.employeeName,
@@ -82,7 +83,8 @@ router.post('/create', onlyAdmin, async (req, res) => {
 ============================================================ */
 router.get('/all', onlyAdmin, async (req, res) => {
   try {
-    const shifts = await Shift.find({ adminId: req.user._id, isActive: true }).sort({ employeeName: 1 });
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : req.user._id;
+    const shifts = await Shift.find({ adminId: parentAdminId, isActive: true }).sort({ employeeName: 1 });
     return res.status(200).json({ success: true, count: shifts.length, data: shifts });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -115,6 +117,7 @@ router.get('/:employeeId', async (req, res) => {
           halfDayHours: 4.5,
           autoExtendShift: true,
           weeklyOffDays: [0],
+          dailyTimings: [],
           timezone: "Asia/Kolkata",
           isDefault: true
         }
@@ -133,7 +136,8 @@ router.get('/:employeeId', async (req, res) => {
 ============================================================ */
 router.delete('/:employeeId', onlyAdmin, async (req, res) => {
   try {
-    await Shift.findOneAndDelete({ employeeId: req.params.employeeId, adminId: req.user._id });
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : req.user._id;
+    await Shift.findOneAndDelete({ employeeId: req.params.employeeId, adminId: parentAdminId });
     return res.status(200).json({ success: true, message: 'Shift reset to default' });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -145,6 +149,7 @@ router.delete('/:employeeId', onlyAdmin, async (req, res) => {
 ============================================================ */
 router.post('/bulk-create', onlyAdmin, async (req, res) => {
   try {
+    const parentAdminId = req.user.role === "support-admin" ? req.user.adminId : req.user._id;
     const { employeeIds, shiftData } = req.body;
 
     if (!employeeIds || !Array.isArray(employeeIds)) {
@@ -153,12 +158,12 @@ router.post('/bulk-create', onlyAdmin, async (req, res) => {
 
     const promises = employeeIds.map(async (empId) => {
       const cleanId = String(empId || "").trim();
-      const candidate = await resolveShiftCandidate(cleanId, req.user._id);
+      const candidate = await resolveShiftCandidate(cleanId, parentAdminId);
       if (!candidate) return;
 
       const updateData = {
         ...shiftData,
-        adminId: req.user._id,
+        adminId: parentAdminId,
         companyId: candidate.companyId,
         employeeName: candidate.employeeName,
         email: candidate.email,

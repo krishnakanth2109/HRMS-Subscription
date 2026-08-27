@@ -717,7 +717,7 @@ const EmployeeDashboard = () => {
     return defaults;
   }, [officeConfig, user]);
 
-  const performPunchAction = async (action) => {
+  const performPunchAction = async (action, additionalData = {}) => {
     setPunchStatus("FETCHING");
 
     try {
@@ -747,7 +747,7 @@ const EmployeeDashboard = () => {
           }
         }
         alarmPlayedRef.current = false;
-        await punchIn({ employeeId: user.employeeId, employeeName: user.name, latitude: location.latitude, longitude: location.longitude });
+        await punchIn({ employeeId: user.employeeId, employeeName: user.name, latitude: location.latitude, longitude: location.longitude, ...additionalData });
         speak(`${user.name}, punch in successful`);
         Swal.fire({ icon: 'success', title: 'Welcome!', text: 'Punch in recorded successfully.' });
 
@@ -762,7 +762,7 @@ const EmployeeDashboard = () => {
         Swal.fire({ icon: 'info', title: 'Break Started! ☕', text: 'Your session is paused. Click Punch In to resume work.' });
 
       } else {
-        await punchOut({ employeeId: user.employeeId, latitude: location.latitude, longitude: location.longitude });
+        await punchOut({ employeeId: user.employeeId, latitude: location.latitude, longitude: location.longitude, ...additionalData });
         speak(`${user.name}, punch out successful`);
         Swal.fire({ icon: 'success', title: 'Goodbye!', text: 'Punch out recorded successfully.' });
       }
@@ -770,6 +770,43 @@ const EmployeeDashboard = () => {
       await loadAttendance(user.employeeId);
     } catch (err) {
       console.error("Punch error:", err);
+
+      if (err.response?.data?.requiresLateReason) {
+        Swal.fire({
+          title: 'You are late!',
+          text: err.response.data.message,
+          input: 'text',
+          inputPlaceholder: 'Enter reason for being late...',
+          showCancelButton: true,
+          confirmButtonText: 'Submit & Punch In'
+        }).then((result) => {
+          if (result.isConfirmed && result.value) {
+            performPunchAction("IN", { lateReason: result.value });
+          } else {
+            setPunchStatus("IDLE");
+          }
+        });
+        return;
+      }
+
+      if (err.response?.data?.requiresEarlyLeaveReason) {
+        Swal.fire({
+          title: 'Short Hours / Early Leave',
+          text: err.response.data.message,
+          input: 'text',
+          inputPlaceholder: 'Enter reason for early leave...',
+          showCancelButton: true,
+          confirmButtonText: 'Submit & Punch Out'
+        }).then((result) => {
+          if (result.isConfirmed && result.value) {
+            performPunchAction("OUT", { earlyLeaveReason: result.value });
+          } else {
+            setPunchStatus("IDLE");
+          }
+        });
+        return;
+      }
+
       const msg = err.response?.data?.message || err.message || "Unknown Error";
 
       if (msg.includes("Location")) {
@@ -884,12 +921,20 @@ const EmployeeDashboard = () => {
         title: "Early Punch Out?",
         text: confirmMessage,
         icon: 'warning',
+        input: 'text',
+        inputPlaceholder: 'Reason for leaving early...',
         showCancelButton: true,
         confirmButtonColor: '#d33',
         cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Yes, punch out!'
+        confirmButtonText: 'Submit & Punch Out',
+        preConfirm: (reason) => {
+          if (!reason) {
+            Swal.showValidationMessage('Please provide a reason');
+          }
+          return reason;
+        }
       }).then((result) => {
-        if (result.isConfirmed) { performPunchAction("OUT"); }
+        if (result.isConfirmed) { performPunchAction("OUT", { earlyLeaveReason: result.value }); }
       });
     }
   };

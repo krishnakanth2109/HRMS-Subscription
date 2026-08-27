@@ -57,6 +57,8 @@ const DailySchema = new mongoose.Schema({
     enum: ["ON_TIME", "LATE", "NOT_APPLICABLE"],
     default: "NOT_APPLICABLE",
   },
+  lateReason: { type: String, default: null },
+  earlyLeaveReason: { type: String, default: null },
 
   workedStatus: {
     type: String,

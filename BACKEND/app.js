@@ -1,5 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config.js";
 
 import express from "express";
 import cors from "cors";
@@ -9,8 +8,8 @@ import path from "path";
 import { Server } from "socket.io";
 import Employee from "./models/employeeModel.js";
 import { recordFieldWorkLocationForEmployee } from "./controllers/fieldTrackingController.js";
-
-/* ==================== ROUTE IMPORTS ==================== */
+  
+/*   sagar ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";

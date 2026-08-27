@@ -1,3 +1,5 @@
+import lineClamp from '@tailwindcss/line-clamp';
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -41,7 +43,7 @@ export default {
     },
   },
   plugins: [
-    require('@tailwindcss/line-clamp'),
+    lineClamp,
   ],
   future: {
     useOkLCH: false, // ✅ disables oklch usage

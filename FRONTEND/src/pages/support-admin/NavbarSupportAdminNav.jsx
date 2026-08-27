@@ -129,6 +129,27 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
           label: "Employees Attendance",
           icon: UserCheck,
         },
+        {
+          to: "/support-admin/daily-work-tracker",
+          route: "/support-admin/daily-work-tracker",
+          label: "Daily Work Tracker",
+          icon: ClipboardCheck,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/field-work",
+          route: "/support-admin/field-work",
+          label: "Field Work",
+          icon: MapPin,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/chatting",
+          route: "/support-admin/chatting",
+          label: "Chat",
+          icon: Users,
+          alwaysAllowed: true,
+        },
       ],
     },
     {
@@ -177,10 +198,38 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
       title: "Requests",
       links: [
         {
-          to: "/support-admin/leave-requests",
-          route: "/support-admin/leave-requests",
-          label: "My Leave Requests",
+          to: "/support-admin/leave-management",
+          route: "/support-admin/leave-management",
+          label: "Leave Requests",
           icon: CalendarPlus,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/payslip",
+          route: "/support-admin/payslip",
+          label: "My Payroll Details",
+          icon: IndianRupee,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/expenses",
+          route: "/support-admin/expenses",
+          label: "Expense Request",
+          icon: Receipt,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/requestworkmode",
+          route: "/support-admin/requestworkmode",
+          label: "Work-mode Request",
+          icon: MapPin,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/empovertime",
+          route: "/support-admin/empovertime",
+          label: "Request Overtime",
+          icon: Clock,
           alwaysAllowed: true,
         },
         {
@@ -210,11 +259,32 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
       title: "System",
       links: [
         {
+          to: "/support-admin/issues",
+          route: "/support-admin/issues",
+          label: "Report Issue",
+          icon: Megaphone,
+          alwaysAllowed: true,
+        },
+        {
+          to: "/support-admin/notices",
+          route: "/support-admin/notices",
+          label: "My Notice Board",
+          icon: Megaphone,
+          alwaysAllowed: true,
+        },
+        {
           to: "/admin/notices",
           route: "/admin/notices",
           label: "Announcements",
           icon: Megaphone,
           isNotice: true,
+        },
+        {
+          to: "/support-admin/resignation",
+          route: "/support-admin/resignation",
+          label: "Resignation",
+          icon: ClipboardCheck,
+          alwaysAllowed: true,
         },
         {
           to: "/admin/live-tracking",
@@ -255,9 +325,9 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
     return count;
   };
 
-  const isPending = (s) => typeof s === "string" && s.toLowerCase() === "pending";
-  const countPending = (items = []) =>
-    items.reduce((count, item) => count + (isPending(item?.status) ? 1 : 0), 0);
+  const isPending = useCallback((s) => typeof s === "string" && s.toLowerCase() === "pending", []);
+  const countPending = useCallback((items = []) =>
+    items.reduce((count, item) => count + (isPending(item?.status) ? 1 : 0), 0), [isPending]);
 
   useEffect(() => {
     const fetchPlanFeatures = async () => {
@@ -310,7 +380,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
   const fetchStatusCorrectionRequestCount = useCallback(async () => {
     const { data } = await api.get("/api/attendance/admin/status-correction-requests");
     return countPending(data?.data);
-  }, []);
+  }, [countPending]);
 
   const fetchPendingCorrectionCount = useCallback(async () => {
     const { data } = await api.get("/api/attendance/admin/pending-corrections");
@@ -353,14 +423,14 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
       const data = await getAllOvertimeRequests();
       setPendingOvertime(countPending(data));
     } catch { }
-  }, []);
+  }, [countPending]);
 
   const fetchLeaveRequests = useCallback(async () => {
     try {
       const data = await getLeaveRequests();
       setPendingLeaves(countPending(data));
     } catch { }
-  }, []);
+  }, [countPending]);
 
   const fetchPunchOutRequests = useCallback(async () => {
     try {
@@ -369,7 +439,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
     } catch (error) {
       console.error("Error fetching punch out requests:", error);
     }
-  }, []);
+  }, [countPending]);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -385,7 +455,7 @@ const NavbarSupportAdminNav = ({ theme, inline = false }) => {
     fetchAll();
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
-  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests]);
+  }, [fetchLeaveRequests, fetchOvertimeRequests, fetchLateRequests, fetchAttendanceRequests, fetchFullDayRequests, fetchAndCalculateUnreadNotices, fetchWorkModeRequests, fetchPunchOutRequests]);
 
   useEffect(() => {
     const s = io(SOCKET_URL, { transports: ["polling", "websocket"] });

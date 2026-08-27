@@ -30,6 +30,15 @@ const ShiftSchema = new mongoose.Schema({
   
   autoExtendShift: { type: Boolean, default: true },
   weeklyOffDays: { type: [Number], default: [0] }, 
+
+  dailyTimings: {
+    type: [{
+      day: { type: Number, required: true }, // 0=Sunday, 1=Monday, ..., 6=Saturday
+      startTime: { type: String, required: true },
+      endTime: { type: String, required: true }
+    }],
+    default: []
+  },
   
   isActive: { type: Boolean, default: true },
   

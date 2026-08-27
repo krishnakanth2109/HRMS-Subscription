@@ -5,6 +5,43 @@ import React, { useState } from 'react';
 // ============================================
 const updates = [
   {
+    date: "August 22, 2026",
+    version: "v5.5.0",
+    items: [
+      {
+        type: "improved",
+        title: "Live Tracking & Map Accuracy",
+        desc: "Fixed employee location display issues. Corrected the company location, employee location, and route map rendering in the View Map option."
+      }
+    ]
+  },
+  {
+    date: "August 20, 2026",
+    version: "v5.4.0",
+    items: [
+      {
+        type: "new",
+        title: "Late Coming Reason & Notification",
+        desc: "If an employee arrives beyond the grace period, a popup now prompts them to enter a reason for being late. An automatic email notification is also sent."
+      },
+      {
+        type: "new",
+        title: "Early Going & Short Hours Regularization",
+        desc: "Employees who leave early or do not complete required hours can now enter a reason and apply for regularization directly."
+      },
+      {
+        type: "new",
+        title: "Dedicated Attendance Overview",
+        desc: "Added a separate Attendance Overview section to easily identify late coming, early going, short hours, absences, missing punches, and pending regularizations."
+      },
+      {
+        type: "new",
+        title: "Leave Limit Popup Warning",
+        desc: "If an employee applies for leave beyond their available balance or limit, a popup warning will now appear in the employee portal."
+      }
+    ]
+  },
+  {
     date: "July 13, 2026",
     version: "v5.3.0",
     items: [

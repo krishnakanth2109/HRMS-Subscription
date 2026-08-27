@@ -72,4 +72,62 @@ router.get("/by-range", onlyAdmin, async (req, res) => {
   }
 });
 
+// ✅ Admin fetch regularisation requests (Late Login / Early Punch Out)
+router.get("/regularisation", onlyAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: "startDate and endDate are required." });
+    }
+
+    const result = await Attendance.aggregate([
+      {
+        $match: {
+          adminId: req.user._id
+        }
+      },
+      {
+        $unwind: "$attendance"
+      },
+      {
+        $match: {
+          "attendance.date": {
+            $gte: startDate,
+            $lte: endDate
+          },
+          $or: [
+            { "attendance.lateReason": { $exists: true, $ne: null, $ne: "" } },
+            { "attendance.earlyLeaveReason": { $exists: true, $ne: null, $ne: "" } }
+          ]
+        }
+      },
+      {
+        $sort: {
+          "attendance.date": -1,
+          "employeeName": 1
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          employeeName: "$employeeName",
+          employeeId: "$employeeId",
+          date: "$attendance.date",
+          punchIn: "$attendance.punchIn",
+          punchOut: "$attendance.punchOut",
+          lateReason: "$attendance.lateReason",
+          earlyLeaveReason: "$attendance.earlyLeaveReason"
+        }
+      }
+    ]);
+
+    res.json(result);
+
+  } catch (err) {
+    console.error("Error fetching regularisation requests:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

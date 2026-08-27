@@ -1,7 +1,7 @@
 // --- START OF FILE App.jsx ---
 
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom"; // ✅ Added Navigate
+import React, { lazy, Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 // Layouts
 import LayoutAdmin from "./components/admin/LayoutAdmin";
@@ -24,6 +24,7 @@ import AddEmployee from "./pages/AddEmployee";
 import ReactivateEmployee from "./pages/ReactivateEmployee";
 import EditEmployee from "./pages/EditEmployee";
 import AdminViewAttendance from "./pages/AdminviewAttendance";
+import Regularisation from "./pages/Regularisation";
 import LeaveManagement from "./pages/LeaveManagement";
 import AdminLeaveSummary from "./pages/AdminLeaveSummary";
 import AdminProfile from "./pages/AdminProfile";
@@ -40,10 +41,12 @@ import AdminNotices from "./pages/AdminNotices.jsx";
 import AdminHolidayCalendarPage from "./pages/AdminHolidayCalendarPage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import SettingsPage from "./pages/SettingsPage";
+import SupportAdminShiftSettings from "./pages/SupportAdminShiftSettings";
+import SupportAdminLateRequests from "./pages/SupportAdminLateRequests";
 import Payroll from "./pages/Payroll";
 import SubsHome from "./SubscriptionPages/SubsHome"
-import EmployeePayslip from "./EmployeePages/EmployeePayslip";
-import ConnectWithEmployee from "./EmployeePages/ConnectwithEmployee";
+const EmployeePayslip = lazy(() => import("./EmployeePages/EmployeePayslip"));
+const ConnectWithEmployee = lazy(() => import("./EmployeePages/ConnectwithEmployee"));
 
 
 // Attendance Features
@@ -58,20 +61,20 @@ import HolidayCalendarProvider from "./context/HolidayCalendarProvider";
 import CurrentEmployeeNotificationProvider from "./EmployeeContext/CurrentEmployeeNotificationProvider";
 import { EmployeeProvider } from "./context/EmployeeProvider";
 
-// Employee pages
-import EmployeeDashboard from "./EmployeePages/EmployeeDashboard";
-import CurrentEmployeeAttendanceProfile from "./EmployeePages/CurrentEmployeeAttendanceProfile";
-import LeaveWithModal from "./EmployeePages/EmployeeLeavemanagement";
-import CurrentEmployeeHolidayCalendar from "./EmployeePages/CurrentEmployeeHolidayCalendar";
-import CurrentEmployeeProfile from "./EmployeePages/CurrentEmployeeProfile";
-import CurrentEmployeeNoticeBoard from "./EmployeePages/CurrentEmployeeNoticeBoard";
-import OvertimeForm from "./EmployeePages/EmployeeOvertimeForm";
-import NewEmployeeAttendance from "./EmployeePages/EmployeeAttendance";
-import EmployeeDailyAttendance from "./EmployeePages/EmployeeDailyAttendance";
-import EmployeeNotifications from "./pages/EmployeeNotifications";
-import EmployeeTeamsPage from "./EmployeePages/EmployeeTeamsPage";
-import EmployeeWorkTracker from "./EmployeePages/EmployeeWorkTracker";
-import CurrentEmployeeFaceSetup from "./EmployeePages/CurrentEmployeeFaceSetup";
+// Employee pages (Lazy Loaded for Performance)
+const EmployeeDashboard = lazy(() => import("./EmployeePages/EmployeeDashboard"));
+const CurrentEmployeeAttendanceProfile = lazy(() => import("./EmployeePages/CurrentEmployeeAttendanceProfile"));
+const LeaveWithModal = lazy(() => import("./EmployeePages/EmployeeLeavemanagement"));
+const CurrentEmployeeHolidayCalendar = lazy(() => import("./EmployeePages/CurrentEmployeeHolidayCalendar"));
+const CurrentEmployeeProfile = lazy(() => import("./EmployeePages/CurrentEmployeeProfile"));
+const CurrentEmployeeNoticeBoard = lazy(() => import("./EmployeePages/CurrentEmployeeNoticeBoard"));
+const OvertimeForm = lazy(() => import("./EmployeePages/EmployeeOvertimeForm"));
+const NewEmployeeAttendance = lazy(() => import("./EmployeePages/EmployeeAttendance"));
+const EmployeeDailyAttendance = lazy(() => import("./EmployeePages/EmployeeDailyAttendance"));
+const EmployeeNotifications = lazy(() => import("./pages/EmployeeNotifications"));
+const EmployeeTeamsPage = lazy(() => import("./EmployeePages/EmployeeTeamsPage"));
+const EmployeeWorkTracker = lazy(() => import("./EmployeePages/EmployeeWorkTracker"));
+const CurrentEmployeeFaceSetup = lazy(() => import("./EmployeePages/CurrentEmployeeFaceSetup"));
 
 
 // Admin pages
@@ -84,12 +87,12 @@ import AdminGroupPage from "./pages/AdminGroupPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import AdminLocationSettings from "./components/AdminLocationSettings";
-import EmployeeWorkModeRequest from "./EmployeePages/EmployeeWorkModeRequest";
-import RequestPunchOut from "./EmployeePages/RequestPunchOut";
+const EmployeeWorkModeRequest = lazy(() => import("./EmployeePages/EmployeeWorkModeRequest"));
+const RequestPunchOut = lazy(() => import("./EmployeePages/RequestPunchOut"));
 import AdminLateRequests from "./pages/AdminLateRequests";
 import MeetingGenerator from "./pages/meeting";
 import TodayOverview from "./pages/TodayOverview";
-import EmployeeViewRules from "./EmployeePages/EmployeeViewRules";
+const EmployeeViewRules = lazy(() => import("./EmployeePages/EmployeeViewRules"));
 import AdminRulesPost from "./pages/AdminRulespost";
 import PaymentSuccess from "./SubscriptionPages/PaymentSuccess";
 import ManageLogins from "./pages/master/Managelogins";
@@ -99,7 +102,7 @@ import SendOnboardingForm from "./pages/InviteEmployee";
 import EmployeeOnboarding from "./pages/EmployeeOnboarding";
 import SuperAdminIssues from "./pages/SuperAdminIssues";
 import AdminIssues from "./pages/AdminIssues";
-import EmployeeIssues from "./pages/EmployeeIssues";
+const EmployeeIssues = lazy(() => import("./pages/EmployeeIssues"));
 import AdminLiveTracking from "./pages/AdminLiveTracking";
 import OfferLetterPage from "./pages/OfferLetterPage";
 import GeneralLettersPage from "./pages/GeneralLettersPage";
@@ -111,17 +114,17 @@ import DocVerifyInvite from "./pages/DocVerifyInvite";
 import DocVerifyAdmin from "./pages/DocVerifyAdmin";
 import DocumentVerificationForm from "./pages/DocumentVerificationForm";
 import AdminResignation from "./pages/AdminResignation";
-import EmployeeResignation from "./EmployeePages/EmployeeResignation";
+const EmployeeResignation = lazy(() => import("./EmployeePages/EmployeeResignation"));
 import HRChecklist from "./pages/HRChecklist";
 import AdminWelcomeKits from "./pages/Adminwelcomekits";
 import WhatsNew from "./pages/versionpage";
 import DomainSettings from "./pages/Domainsettings";
 import EditEmailTemplate from "./pages/EditEmailTemplate";
 import AdminFieldTracking from "./pages/tracker/AdminFieldTracking";
-import EmployeeFieldWork from "./pages/tracker/EmployeeFieldWork";
+const EmployeeFieldWork = lazy(() => import("./pages/tracker/EmployeeFieldWork"));
 import AdminWorkReports from "./pages/AdminWorkReports";
 import AdminExpenseDashboard from "./pages/AdminExpense";
-import AddExpense from "./EmployeePages/AddExpense";
+const AddExpense = lazy(() => import("./EmployeePages/AddExpense"));
 import PortfolioPage from "./pages/PortfolioPage";
 
 // ----------------------------------------------------------------------
@@ -262,8 +265,20 @@ function App() {
         <Route path="/support-admin/my-attendance" element={<EmployeeDailyAttendance />} />
         <Route path="/admin/profile" element={<AdminProfile />} />
         <Route path="/support-admin/profile" element={<SupportAdminProfile />} />
-        <Route path="/support-admin/leave-requests" element={<SupportAdminLeaveRequests />} />
+        <Route path="/support-admin/leave-management" element={<LeaveWithModal />} />
         <Route path="/support-admin/payslip" element={<EmployeePayslip />} />
+        
+        {/* Support Admin Employee-Like Features */}
+        <Route path="/support-admin/expenses" element={<AddExpense />} />
+        <Route path="/support-admin/chatting" element={<ConnectWithEmployee />} />
+        <Route path="/support-admin/requestworkmode" element={<EmployeeWorkModeRequest />} />
+        <Route path="/support-admin/daily-work-tracker" element={<EmployeeWorkTracker />} />
+        <Route path="/support-admin/issues" element={<EmployeeIssues />} />
+        <Route path="/support-admin/notices" element={<CurrentEmployeeNoticeBoard />} />
+        <Route path="/support-admin/empovertime" element={<OvertimeForm />} />
+        <Route path="/support-admin/resignation" element={<EmployeeResignation />} />
+        <Route path="/support-admin/field-work" element={<EmployeeFieldWork />} />
+
         <Route path="/employees" element={<EmployeeManagement />} />
         <Route path="/support-admin/management" element={<SupportAdminManagement />} />
         <Route path="/employees/add" element={<AddEmployee />} />
@@ -271,6 +286,7 @@ function App() {
         <Route path="/employees/edit/:id" element={<EditEmployee />} />
         <Route path="/employee/:id/profile" element={<EmployeeProfile />} />
         <Route path="/attendance" element={<AdminViewAttendance />} />
+        <Route path="/attendance/regularisation" element={<Regularisation />} />
         <Route path="/admin/expense" element={<AdminExpenseDashboard />} />
 
 
@@ -297,6 +313,8 @@ function App() {
         <Route path="/leave-management" element={<LeaveManagement />} />
         <Route path="/admin/leave-summary" element={<AdminLeaveSummary />} />
         <Route path="/admin/settings" element={<SettingsPage />} />
+        <Route path="/admin/support-admin-settings" element={<SupportAdminShiftSettings />} />
+        <Route path="/admin/support-admin-late-requests" element={<SupportAdminLateRequests />} />
         <Route path="/admin/field-tracking" element={<AdminFieldTracking />} />
         <Route path="/admin/shifttype" element={<AdminLocationSettings />} />
         <Route path="/admin/payroll" element={<Payroll />} />
@@ -349,7 +367,9 @@ function App() {
           <ProtectedRoute role="employee">
             <CurrentEmployeeNotificationProvider>
               <NoticeProvider>
-                <LayoutEmployee />
+                <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+                  <LayoutEmployee />
+                </Suspense>
               </NoticeProvider>
             </CurrentEmployeeNotificationProvider>
           </ProtectedRoute>

@@ -2,6 +2,21 @@
 // --- START OF FILE Paste February 23, 2026 - 4:15PM ---
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  FaFileAlt,
+  FaPalette,
+  FaBuilding,
+  FaStar,
+  FaBriefcase,
+  FaFeatherAlt,
+  FaRocket,
+  FaThLarge,
+  FaReceipt,
+  FaAdjust,
+  FaRulerCombined,
+  FaPrint,
+  FaFilePdf,
+} from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import Swal from 'sweetalert2';
@@ -1453,16 +1468,16 @@ const ReleasePayslipModal = ({ isOpen, onClose, payrollData, periodStart, period
 
 // --- PAYSLIP MODAL COMPONENT ---
 const PAYSLIP_LAYOUTS = [
-  { id: 'classic', label: 'Classic', icon: '📄', desc: 'Clean document style' },
-  { id: 'modern', label: 'Modern', icon: '🎨', desc: 'Card-based with color accents' },
-  { id: 'corporate', label: 'Corporate', icon: '🏢', desc: 'Bold header, professional' },
-  { id: 'minimal', label: 'Minimal', icon: '✨', desc: 'Ultra-clean, stripe rows' },
-  { id: 'executive', label: 'Executive', icon: '💼', desc: 'Dark header, premium feel' },
-  { id: 'elegant', label: 'Elegant', icon: '🏛️', desc: 'Sophisticated, gold accents' },
-  { id: 'startup', label: 'Startup', icon: '🚀', desc: 'Vibrant, tech-focused' },
-  { id: 'compact', label: 'Compact', icon: '📊', desc: 'Dense, space-saving' },
-  { id: 'invoice', label: 'Invoice', icon: '🧾', desc: 'Classic bill format' },
-  { id: 'monochrome', label: 'Monochrome', icon: '⚫', desc: 'High-contrast, bold lines' },
+  { id: 'classic',    label: 'Classic',    Icon: FaFileAlt,     desc: 'Clean document style',       color: 'text-blue-600',   bg: 'bg-blue-50' },
+  { id: 'modern',     label: 'Modern',     Icon: FaPalette,     desc: 'Card-based with color accents', color: 'text-pink-600',   bg: 'bg-pink-50' },
+  { id: 'corporate',  label: 'Corporate',  Icon: FaBuilding,    desc: 'Bold header, professional',  color: 'text-slate-600',  bg: 'bg-slate-50' },
+  { id: 'minimal',    label: 'Minimal',    Icon: FaStar,        desc: 'Ultra-clean, stripe rows',   color: 'text-amber-500',  bg: 'bg-amber-50' },
+  { id: 'executive',  label: 'Executive',  Icon: FaBriefcase,   desc: 'Dark header, premium feel',  color: 'text-gray-700',   bg: 'bg-gray-100' },
+  { id: 'elegant',    label: 'Elegant',    Icon: FaFeatherAlt,  desc: 'Sophisticated, gold accents', color: 'text-yellow-600', bg: 'bg-yellow-50' },
+  { id: 'startup',    label: 'Startup',    Icon: FaRocket,      desc: 'Vibrant, tech-focused',      color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  { id: 'compact',    label: 'Compact',    Icon: FaThLarge,     desc: 'Dense, space-saving',        color: 'text-teal-600',   bg: 'bg-teal-50' },
+  { id: 'invoice',    label: 'Invoice',    Icon: FaReceipt,     desc: 'Classic bill format',        color: 'text-green-600',  bg: 'bg-green-50' },
+  { id: 'monochrome', label: 'Monochrome', Icon: FaAdjust,      desc: 'High-contrast, bold lines',  color: 'text-neutral-800',bg: 'bg-neutral-100' },
 ];
 
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateOverride }) => {
@@ -1470,6 +1485,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [selectedLayout, setSelectedLayout] = useState('classic');
+  const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState(false);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
   const [localOverride, setLocalOverride] = useState({
     // Earnings
@@ -2232,9 +2248,9 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       }
       return `<div style="font-family:'Segoe UI',sans-serif;padding:0;background:transparent;color:#0f172a;">
         ${!isCustom ? `<div style="background:#0f172a;padding:20px 22px;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:18px;font-weight:900;color:#fff;">${companyName}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div></div>
-          <div style="background:${accent};color:#fff;padding:6px 12px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;">PAYSLIP ${period}</div>
-        </div>` : `<div style="margin-bottom:16px;text-align:right;"><span style="background:${accent};color:#fff;padding:6px 12px;border-radius:16px;font-size:10px;font-weight:bold;letter-spacing:1px;">PAYSLIP ${period}</span></div>`}
+          <div><div style="font-size:18px;font-weight:900;color:#fff !important;-webkit-text-fill-color:#fff !important;">${companyName}</div><div style="font-size:10px;color:#94a3b8;margin-top:2px;">${companyAddress}</div></div>
+          <div style="display:inline-block;background:${accent};padding:2px 14px 8px 14px;border-radius:16px;text-align:center;"><span style="position:relative;top:-4px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;">PAYSLIP ${period}</span></div>
+        </div>` : `<div style="margin-bottom:16px;text-align:right;"><div style="display:inline-block;background:${accent};padding:2px 14px 8px 14px;border-radius:16px;text-align:center;"><span style="position:relative;top:-4px;font-size:10px;font-weight:bold;letter-spacing:1px;line-height:1;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;">PAYSLIP ${period}</span></div></div>`}
         
         <div style="margin:0 22px 24px;background:${bgCard};${isCustom?'border:2px solid #bae6fd;':'border:none;'}border-radius:12px;padding:16px;display:flex;justify-content:space-between;">
           <div>
@@ -2933,27 +2949,76 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
           </div>
 
           {/* Layout Template Picker */}
-          <div style={{ marginBottom: '12px' }}>
-            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>📐 Payslip Layout</p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {PAYSLIP_LAYOUTS.map(layout => (
-                <button
-                  key={layout.id}
-                  onClick={() => setSelectedLayout(layout.id)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    padding: '8px 14px', borderRadius: '12px', border: '2px solid',
-                    borderColor: selectedLayout === layout.id ? '#4f46e5' : '#e2e8f0',
-                    background: selectedLayout === layout.id ? '#eef2ff' : '#f8fafc',
-                    cursor: 'pointer', transition: 'all 0.15s', minWidth: '80px',
-                    boxShadow: selectedLayout === layout.id ? '0 0 0 3px rgba(79,70,229,0.15)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '18px', marginBottom: '2px' }}>{layout.icon}</span>
-                  <span style={{ fontSize: '10px', fontWeight: 800, color: selectedLayout === layout.id ? '#4f46e5' : '#374151' }}>{layout.label}</span>
-                  <span style={{ fontSize: '9px', color: '#9ca3af', marginTop: '1px', textAlign: 'center', lineHeight: 1.2 }}>{layout.desc}</span>
-                </button>
-              ))}
+          <div style={{ marginBottom: '16px', position: 'relative' }}>
+            <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }} className="flex items-center gap-1.5">
+              <FaRulerCombined className="text-indigo-500" /> Payslip Layout
+            </p>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsLayoutDropdownOpen(!isLayoutDropdownOpen)}
+                className={`w-full flex items-center justify-between px-4 py-3 bg-white border-2 rounded-xl transition-all duration-200 ${
+                  isLayoutDropdownOpen ? 'border-indigo-400 shadow-md ring-2 ring-indigo-50' : 'border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  {(() => { const lyt = PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout); return lyt ? <div className={`w-10 h-10 flex items-center justify-center rounded-full shadow-sm border border-indigo-100 ${lyt.bg}`}><lyt.Icon className={`text-lg ${lyt.color}`} /></div> : null; })()}
+                  <div className="text-left flex flex-col">
+                    <span className="text-sm font-extrabold text-gray-800">
+                      {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.label}
+                    </span>
+                    <span className="text-xs text-gray-500 font-medium">
+                      {PAYSLIP_LAYOUTS.find(l => l.id === selectedLayout)?.desc}
+                    </span>
+                  </div>
+                </div>
+                <div className={`p-1 rounded-full transition-colors duration-200 ${isLayoutDropdownOpen ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <svg
+                    className={`w-5 h-5 transform transition-transform duration-300 ${isLayoutDropdownOpen ? 'rotate-180' : ''}`}
+                    fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {isLayoutDropdownOpen && (
+                <div className="w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-inner overflow-hidden transition-all" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                  <div className="p-2 space-y-1">
+                    {PAYSLIP_LAYOUTS.map(layout => (
+                      <button
+                        key={layout.id}
+                        onClick={() => {
+                          setSelectedLayout(layout.id);
+                          setIsLayoutDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200
+                          ${selectedLayout === layout.id ? 'bg-indigo-50 border border-indigo-100 shadow-sm' : 'bg-transparent border border-transparent hover:bg-gray-50 hover:border-gray-100'}
+                        `}
+                      >
+                        <div className={`w-9 h-9 flex items-center justify-center rounded-full text-lg transition-colors ${selectedLayout === layout.id ? `${layout.bg} shadow-sm` : 'bg-gray-100'}`}>
+                          <layout.Icon className={`${layout.color} ${selectedLayout === layout.id ? '' : 'text-gray-500'}`} />
+                        </div>
+                        <div className="text-left flex flex-col flex-1">
+                          <span className={`text-sm font-bold ${selectedLayout === layout.id ? 'text-indigo-700' : 'text-gray-700'}`}>
+                            {layout.label}
+                          </span>
+                          <span className="text-[10px] text-gray-500 font-medium line-clamp-1">
+                            {layout.desc}
+                          </span>
+                        </div>
+                        {selectedLayout === layout.id && (
+                          <div className="ml-auto text-indigo-600 mr-1">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -2962,7 +3027,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
               onClick={downloadPayslip}
               className="flex-1 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 hover:border-gray-300 transition active:scale-95 flex items-center justify-center gap-2"
             >
-              <span>🖨️ Simple Print</span>
+              <FaPrint className="text-gray-500" /> Simple Print
             </button>
             <button
               onClick={() => setShowTemplatePicker(true)}
@@ -2972,7 +3037,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
               {generatingPdf ? (
                 <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Generating...</>
               ) : (
-                <>📄 Custom PDF (with letterhead)</>
+                <><FaFilePdf className="text-white/80" /> Custom PDF (with letterhead)</>
               )}
             </button>
           </div>

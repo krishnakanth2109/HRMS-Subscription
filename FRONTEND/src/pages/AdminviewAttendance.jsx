@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import * as FileSaver from "file-saver";
 import * as XLSX from "xlsx";
 import api, { getEmployees, getAllShifts, getHolidays, getAllOvertimeRequests } from "../api";
@@ -1576,6 +1576,10 @@ const AdminAttendance = () => {
                   <span className="truncate">Punch Out Requests</span>
                   {pendingPunchOutRequests.length > 0 && (<span className="inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-black px-2 py-1 animate-pulse">{pendingPunchOutRequests.length}</span>)}
                 </button>
+                <Link to="/attendance/regularisation" className="flex-1 sm:flex-none relative flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 text-indigo-700 text-sm font-bold rounded-xl shadow-sm hover:bg-indigo-50 transition-all active:scale-95">
+                  <FaCheckCircle size={16} className="text-indigo-600" />
+                  <span className="truncate">Regularisation</span>
+                </Link>
                 <button onClick={() => setIsPerformanceModalOpen(true)} className="flex-1 sm:flex-none relative flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-all active:scale-95">
                   <FaTrophy size={16} className="text-yellow-500" />
                   <span className="truncate">Performance</span>
