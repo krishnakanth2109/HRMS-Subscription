@@ -874,7 +874,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
             {(!collapsed || isMobile) ? (
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-slate-300 truncate">Admin Panel</span>
-                <span className="text-[10px] text-indigo-400 hover:underline">v5.3.0</span>
+                <span className="text-[10px] text-indigo-400 hover:underline">v5.5.0</span>
               </div>
             ) : (
               <span className="text-[10px] text-indigo-400 font-bold hover:underline">V5</span>
