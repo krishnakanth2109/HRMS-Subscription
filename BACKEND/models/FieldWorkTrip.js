@@ -32,6 +32,7 @@ const breakSchema = new mongoose.Schema(
     durationSeconds: { type: Number, default: 0 },
     photoUrl: { type: String, default: null },
     description: { type: String, default: null },
+    locationName: { type: String, default: null },
   },
   { _id: false },
 );

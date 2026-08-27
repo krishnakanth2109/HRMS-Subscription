@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocateFixed, MapPin, Navigation, Power, RefreshCw, Route, CalendarDays, Coffee, Camera } from "lucide-react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { io } from "socket.io-client";
-import {
+import api, {
   getFieldTrackingSetting,
   getMyActiveFieldTrip,
   getMyFieldTrips,
@@ -42,12 +42,71 @@ const calculateDistanceKm = (a, b) => {
   return earthRadius * (2 * Math.atan2(Math.sqrt(hav), Math.sqrt(1 - hav)));
 };
 
+const fetchLocationName = async (lat, lng) => {
+  try {
+    let googleAddress = null;
+    if (window.google && window.google.maps && window.google.maps.Geocoder) {
+      try {
+        const geocoder = new window.google.maps.Geocoder();
+        const response = await geocoder.geocode({ location: { lat, lng } });
+        if (response.results && response.results[0]) {
+          googleAddress = response.results[0].formatted_address;
+        }
+      } catch (gErr) {
+        console.warn("Google Geocoder failed (e.g. billing disabled), falling back to OSM Nominatim:", gErr);
+      }
+    }
+    
+    if (googleAddress) return googleAddress;
+    const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+    const data = await res.json();
+    const parts = [data.locality, data.city, data.principalSubdivision].filter(Boolean);
+    return parts.length > 0 ? parts.join(", ") : "Unknown Location";
+  } catch (err) {
+    console.error("All geocoding failed:", err);
+    return "Unknown Location";
+  }
+};
+
 const formatDuration = (seconds = 0) => {
   const total = Number(seconds) || 0;
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const secs = total % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
+const LiveLocationName = ({ lat, lng, defaultName }) => {
+  const [name, setName] = useState(defaultName);
+  
+  useEffect(() => {
+    if (defaultName) {
+      setName(defaultName);
+      return;
+    }
+    if (!lat || !lng) return;
+    
+    let isMounted = true;
+    fetchLocationName(lat, lng).then((locName) => {
+      if (isMounted) setName(locName);
+    });
+    
+    return () => { isMounted = false; };
+  }, [lat, lng, defaultName]);
+
+  if (!name) {
+    return (
+      <p className="mt-1 text-[10px] text-slate-400 italic">
+        <MapPin className="inline mr-1" size={10} /> Fetching location...
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-1 text-[10px] text-slate-500 break-words line-clamp-2" title={name}>
+      <MapPin size={10} className="inline mr-1" />{name}
+    </p>
+  );
 };
 
 const STOP_RADIUS_KM = 0.05;
@@ -258,9 +317,13 @@ const LiveTripMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoint
         title: "Start",
         zIndex: 10,
       });
-      startM.addListener("click", () => {
-        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${s.recordedAt ? new Date(s.recordedAt).toLocaleTimeString("en-IN") : "--"}</span>`);
+      startM.addListener("click", async () => {
+        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${s.recordedAt ? new Date(s.recordedAt).toLocaleTimeString("en-IN") : "--"}</span><br/><span style="font-size:11px;color:#475569"><i>Fetching location...</i></span>`);
         iw.open(map, startM);
+        if (!s.locationName) {
+          s.locationName = await fetchLocationName(s.latitude, s.longitude);
+        }
+        iw.setContent(`<b style="color:#16a34a">Start</b><br/><span style="font-size:12px">${s.recordedAt ? new Date(s.recordedAt).toLocaleTimeString("en-IN") : "--"}</span><br/><span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${s.locationName}</span>`);
       });
       newMarkers.push(startM);
 
@@ -273,13 +336,23 @@ const LiveTripMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoint
           title: `Stop ${i + 1}`,
           zIndex: 8,
         });
-        m.addListener("click", () => {
+        m.addListener("click", async () => {
           iw.setContent(
             `<b style="color:#ef4444">Stop ${i + 1}</b><br/>` +
             `<span style="font-size:12px">${stop.stoppedAt ? new Date(stop.stoppedAt).toLocaleTimeString("en-IN") : "--"}</span><br/>` +
-            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span>`
+            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span><br/>` +
+            `<span style="font-size:11px;color:#475569"><i>Fetching location...</i></span>`
           );
           iw.open(map, m);
+          if (!stop.locationName) {
+            stop.locationName = await fetchLocationName(stop.latitude, stop.longitude);
+          }
+          iw.setContent(
+            `<b style="color:#ef4444">Stop ${i + 1}</b><br/>` +
+            `<span style="font-size:12px">${stop.stoppedAt ? new Date(stop.stoppedAt).toLocaleTimeString("en-IN") : "--"}</span><br/>` +
+            `<span style="font-size:12px">Duration: ${formatDuration(stop.durationSeconds)}</span><br/>` +
+            `<span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${stop.locationName}</span>`
+          );
         });
         newMarkers.push(m);
       });
@@ -295,15 +368,27 @@ const LiveTripMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoint
           title: `Break ${i + 1}`,
           zIndex: 8,
         });
-        m.addListener("click", () => {
+        m.addListener("click", async () => {
           iw.setContent(
             `<b style="color:#f59e0b">Break ${i + 1}</b><br/>` +
             `<span style="font-size:12px">${b.startedAt ? new Date(b.startedAt).toLocaleTimeString("en-IN") : "--"}</span><br/>` +
-            `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span>` +
+            `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span><br/>` +
+            (b.locationName ? `<span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${b.locationName}</span>` : `<span style="font-size:11px;color:#475569"><i>Fetching location...</i></span>`) +
             (b.description ? `<br/><i style="font-size:11px">"${b.description}"</i>` : "") +
             (b.photoUrl ? `<br/><a href="${b.photoUrl}" target="_blank"><img src="${b.photoUrl}" style="max-height:80px;margin-top:6px;border-radius:6px"/></a>` : "")
           );
           iw.open(map, m);
+          if (!b.locationName) {
+            b.locationName = await fetchLocationName(b.latitude, b.longitude);
+            iw.setContent(
+              `<b style="color:#f59e0b">Break ${i + 1}</b><br/>` +
+              `<span style="font-size:12px">${b.startedAt ? new Date(b.startedAt).toLocaleTimeString("en-IN") : "--"}</span><br/>` +
+              `<span style="font-size:12px">Duration: ${formatDuration(b.durationSeconds)}</span><br/>` +
+              `<span style="font-size:11px;color:#475569"><b style="color:#64748b">Location:</b> ${b.locationName}</span>` +
+              (b.description ? `<br/><i style="font-size:11px">"${b.description}"</i>` : "") +
+              (b.photoUrl ? `<br/><a href="${b.photoUrl}" target="_blank"><img src="${b.photoUrl}" style="max-height:80px;margin-top:6px;border-radius:6px"/></a>` : "")
+            );
+          }
         });
         newMarkers.push(m);
       });
@@ -858,6 +943,9 @@ const EmployeeFieldWork = () => {
 
       finalizeStop(Date.now());
       setBreakDescription("");
+      
+      const locName = await fetchLocationName(pt.latitude, pt.longitude);
+
       const breakData = {
         latitude: pt.latitude,
         longitude: pt.longitude,
@@ -866,11 +954,19 @@ const EmployeeFieldWork = () => {
         durationSeconds: 0,
         photoUrl: null,
         description: "",
+        locationName: locName,
       };
       setActiveBreak(breakData);
       setIsBreakActive(true);
       isBreakActiveRef.current = true;
-      alert("Break started!");
+      
+      const updatedBreaks = [...breaksRef.current, breakData];
+      breaksRef.current = updatedBreaks;
+      setBreaks(updatedBreaks);
+
+      await sendLocationUpdate(activeTrip._id, pt, updatedBreaks);
+      
+      alert("Break started at " + locName + "!");
     } catch (err) {
       console.error("Failed to start break:", err);
       alert(err.message || "Unable to start break.");
@@ -882,12 +978,19 @@ const EmployeeFieldWork = () => {
     try {
       const endedAt = new Date();
       const durationSeconds = Math.max(0, Math.floor((endedAt.getTime() - new Date(activeBreak.startedAt).getTime()) / 1000));
-      const finalBreak = {
-        ...activeBreak,
-        endedAt: endedAt.toISOString(),
-        durationSeconds,
-      };
-      const updatedBreaks = [...breaksRef.current, finalBreak];
+      
+      const updatedBreaks = [...breaksRef.current];
+      // update the last break (which should be the active one)
+      if (updatedBreaks.length > 0) {
+        updatedBreaks[updatedBreaks.length - 1] = {
+          ...updatedBreaks[updatedBreaks.length - 1],
+          endedAt: endedAt.toISOString(),
+          durationSeconds,
+          description: activeBreak.description,
+          photoUrl: activeBreak.photoUrl
+        };
+      }
+      
       breaksRef.current = updatedBreaks;
       setBreaks(updatedBreaks);
       setActiveBreak(null);
@@ -1416,6 +1519,7 @@ const EmployeeFieldWork = () => {
                               <p className="mt-1 text-[11px] font-semibold text-slate-500">
                                 Duration: {formatDuration(b.durationSeconds)}
                               </p>
+                              <LiveLocationName lat={b.latitude} lng={b.longitude} defaultName={b.locationName} />
                               {b.description && (
                                 <p className="mt-1 text-[11px] text-slate-600 italic">"{b.description}"</p>
                               )}
