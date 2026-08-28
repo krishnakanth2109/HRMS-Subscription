@@ -69,6 +69,7 @@ import { useNavigate, Link } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
 import EmployeeQRCodeModal from "../components/employee/EmployeeQRCodeModal";
 
+
 // ✅ Registering Chart Components
 ChartJS.register(
   CategoryScale,
@@ -2268,6 +2269,8 @@ const EmployeeDashboard = () => {
         portfolioUrl={`https://vwsync.com/portfolio/${employeeId}`}
         employeeName={displayUser?.name}
       />
+
+
     </div>
   );
 };

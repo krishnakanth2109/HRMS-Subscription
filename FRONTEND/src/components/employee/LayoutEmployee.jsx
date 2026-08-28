@@ -28,6 +28,7 @@ import { Outlet } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { getNotices } from "../../api";
 import Swal from "sweetalert2";
+import EmployeeAICopilot from "./EmployeeAICopilot";
 
 const LayoutEmployee = () => {
   const { user } = useContext(AuthContext);
@@ -214,6 +215,9 @@ const LayoutEmployee = () => {
           </div>
         </main>
       </div>
+
+      {/* 🤖 Floating AI Copilot — visible on all Employee pages */}
+      <EmployeeAICopilot employee={user} />
     </div>
   );
 };

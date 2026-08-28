@@ -1560,4 +1560,23 @@ export const snapToRoadsProxy = async (waypoints) => {
 
 export const getMyAssignedTasks = async () => (await api.get('/api/admin-tasks/employee')).data;
 
+/* =============================================================================
+   🤖 AI COPILOT API FUNCTIONS
+============================================================================= */
+export const sendCopilotMessage = async (message, chatHistory = []) => {
+  const response = await api.post("/api/copilot/chat", { message, chatHistory });
+  return response.data;
+};
+
+export const executeCopilotAction = async (actionToken) => {
+  const response = await api.post("/api/copilot/execute-action", { actionToken });
+  return response.data;
+};
+
+export const updateCopilotDraftAction = async (actionType, data) => {
+  const response = await api.post("/api/copilot/update-draft-action", { actionType, data });
+  return response.data;
+};
+
 export default api;
+
