@@ -22,7 +22,43 @@ const getShiftDurationInHours = (startTime, endTime) => { if (!startTime || !end
 const formatDecimalHours = (decimalHours) => { if (decimalHours === undefined || decimalHours === null || isNaN(decimalHours)) return "0h 0m"; const hours = Math.floor(decimalHours); const minutes = Math.round((decimalHours - hours) * 60); if (minutes === 0) return `${hours}h`; return `${hours}h ${minutes}m`; };
 const getCurrentRole = (employee) => { if (employee.currentRole) return employee.currentRole; if (employee && Array.isArray(employee.experienceDetails)) { const currentExp = employee.experienceDetails.find(exp => exp.lastWorkingDate === "Present"); return currentExp?.role || "N/A"; } return "N/A"; };
 const getWorkedStatus = (punchIn, punchOut, apiStatus, fullDayThreshold, halfDayThreshold) => { const statusUpper = (apiStatus || "").toUpperCase(); if (statusUpper === "LEAVE") return "Leave"; if (statusUpper === "HOLIDAY") return "Holiday"; if (statusUpper === "ABSENT" && !punchIn) return "Absent"; if (punchIn && !punchOut) return "Working.."; if (!punchIn) return "Absent"; const workedMilliseconds = new Date(punchOut) - new Date(punchIn); const workedHours = workedMilliseconds / (1000 * 60 * 60); if (workedHours >= fullDayThreshold) return "Full Day"; if (workedHours >= halfDayThreshold) return "Half Day"; return "Absent"; };
-const LocationViewButton = ({ location }) => { if (!location || !location.latitude || !location.longitude) return <span className="text-gray-400 text-xs font-medium">No Loc</span>; const mapUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`; return (<a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-[11px] font-semibold mt-1 bg-blue-50 px-2 py-0.5 rounded-full transition-colors" title={location.address || 'View on Google Maps'}><FaMapMarkerAlt size={10} /> View Map</a>); };
+const LocationViewButton = ({ location }) => {
+  const [displayAddress, setDisplayAddress] = useState('');
+  
+  const handleMouseEnter = async () => {
+    if (displayAddress) return;
+    if (location.address && !location.address.toLowerCase().includes('not found')) {
+      setDisplayAddress(location.address);
+      return;
+    }
+    setDisplayAddress('Fetching locality...');
+    try {
+      const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${location.latitude}&longitude=${location.longitude}&localityLanguage=en`);
+      const data = await res.json();
+      const locality = data.locality || data.city || data.principalSubdivision || `Lat: ${location.latitude}, Lng: ${location.longitude}`;
+      setDisplayAddress(locality);
+    } catch (err) {
+      setDisplayAddress(`Lat: ${location.latitude}, Lng: ${location.longitude}`);
+    }
+  };
+
+  if (!location || !location.latitude || !location.longitude) return <span className="text-gray-400 text-xs font-medium">No Loc</span>;
+  const mapUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
+  const fallbackTitle = (location.address && !location.address.toLowerCase().includes('not found')) ? location.address : `Lat: ${location.latitude}, Lng: ${location.longitude}`;
+
+  return (
+    <a 
+      href={mapUrl} 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-[11px] font-semibold mt-1 bg-blue-50 px-2 py-0.5 rounded-full transition-colors" 
+      title={displayAddress || fallbackTitle}
+      onMouseEnter={handleMouseEnter}
+    >
+      <FaMapMarkerAlt size={10} /> View Map
+    </a>
+  );
+};
 const calculateLoginStatus = (punchInTime, shiftData, apiStatus) => { 
   if (!punchInTime) return "--"; 
   if (shiftData && shiftData.shiftStartTime) { 
