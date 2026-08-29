@@ -15,7 +15,19 @@ VSync HRMS Leave Policy Guidelines:
 4. Paid/Earned Leave (PL): Requires manager approval at least 7 days in advance. PLs accumulate and can be encashed during annual review according to company encashment rules.
 5. Maternity & Paternity Leave: Female employees receive 26 weeks of paid maternity leave. Male employees receive 5 days of paid paternity leave.
 6. Unapproved Absence: Taking leave without prior application or approval will result in Loss of Pay (LOP) and a warning notice.
-7. Applying via Copilot / App: Employees can draft and submit leave requests directly through the HRMS Dashboard.
+7. Applying via Copilot / App: Employees can draft, review, and confirm leave requests directly through the HRMS Copilot or Leave Management page.
+    `.trim(),
+  },
+  {
+    docId: "policy_sandwich_carryforward",
+    title: "Sandwich Leave & Carry Forward Rules",
+    category: "leave_policy",
+    content: `
+VSync HRMS Sandwich Leave and Carry-Forward Rules:
+1. Sandwich Leave: When sandwich leave calculation is enabled by the organization, leaves taken immediately before and after a weekend or public holiday will count the weekend/holiday gap as leave days.
+2. Carry Forward: Unused paid leave balances up to 10 days may be carried forward into the next annual cycle if carry-forward is active in the company leave policy.
+3. Half-Day Leaves: Available for morning session (First Half: 9:00 AM - 1:30 PM) or afternoon session (Second Half: 1:30 PM - 6:00 PM).
+4. Cancellation: Pending and future approved leaves can be cancelled through the portal or Copilot before the leave start date.
     `.trim(),
   },
   {
@@ -27,9 +39,9 @@ VSync HRMS Attendance & Work Hours Rules:
 1. Standard Working Hours: Standard full-time workday is 8 hours excluding break time (typically 9:00 AM to 6:00 PM or assigned shift).
 2. Grace Period: A 15-minute grace period is granted for morning punch-in (up to 9:15 AM).
 3. Late Mark Rule: Punching in after the 15-minute grace period counts as a Late Mark. Every 3 Late Marks in a calendar month results in a 0.5-day salary/leave deduction.
-4. Half-Day Attendance: Working less than 4 hours in a day is marked as Half-Day unless approved as official leave or WFH.
-5. Punch In / Punch Out Mandatory: Employees must punch in upon starting work and punch out upon completing work. Forgotten punches can be corrected by submitting a Punch-Out Request.
-6. Idle Time & Tracking: Extended system inactivity without notification is logged as Idle Time and reviewed by department managers.
+4. Break Tracking: Employees can log lunch breaks and short tea breaks using the Punch Break feature on the Dashboard.
+5. Missing Punch Corrections: If an employee forgets to punch out, they can submit a Missing Punch-Out Request with date, time, and reason for admin approval.
+6. Late Arrival Justification: Arriving late due to emergency or official duty can be justified via the Late Correction form.
     `.trim(),
   },
   {
@@ -38,10 +50,23 @@ VSync HRMS Attendance & Work Hours Rules:
     category: "wfh_policy",
     content: `
 VSync HRMS Work From Home (WFH) Guidelines:
-1. WFH Approval: Working remotely requires prior request submission through the HRMS Work Mode Request module and manager approval.
+1. WFH Approval: Working remotely requires prior request submission through the HRMS Work Mode Request module or Copilot and manager approval.
 2. Frequency: Employees are allowed up to 4 WFH days per month unless specifically hired under a full-time Remote work agreement.
 3. Availability: Remote employees must remain reachable on official chat/email during standard shift hours and attend all scheduled meetings.
 4. Internet & Equipment: Employees working remotely must ensure stable high-speed internet connectivity.
+5. Mode Updates: Existing pending WFH requests can be modified or updated with revised dates and reasons before admin approval.
+    `.trim(),
+  },
+  {
+    docId: "policy_expense_reimbursement",
+    title: "Expense Claims & Reimbursement Policy",
+    category: "expense_policy",
+    content: `
+VSync HRMS Expense Claims & Reimbursement Guidelines:
+1. Eligible Categories: Travel (cabs, flights, trains, fuel), Food & Client Meals, Internet/Mobile Recharge, Equipment & Hardware, and Stationery.
+2. Submission Window: Expense claims must be submitted within 30 days of expense date with supporting bills or receipts.
+3. Approval Process: Claims are reviewed by the finance/admin department. Approved claims are credited with the monthly payroll.
+4. Limits: Meals up to ₹500/day during official travel; daily client travel as per company rate card.
     `.trim(),
   },
   {
@@ -51,21 +76,21 @@ VSync HRMS Work From Home (WFH) Guidelines:
     content: `
 VSync HRMS Overtime (OT) and Shift Regulations:
 1. Overtime Qualification: Work performed beyond assigned shift hours (minimum 1 extra hour) qualifies for Overtime credit if pre-approved by department head.
-2. Overtime Rate: Approved overtime is compensated at 1.5x standard hourly rate or provided as compensatory off (Comp-Off).
+2. Overtime Rate: Approved overtime is compensated at 1.5x standard hourly rate or provided as compensatory off (Comp-Off) or incentive OT.
 3. Shift Timings: Shifts are assigned by Admin/HR. Night shifts include shift differential allowance.
-4. Swapping Shifts: Shift swap requests must be submitted at least 48 hours in advance via the HRMS portal.
+4. Shift Swaps: Shift swap requests must be submitted at least 48 hours in advance via the HRMS portal.
     `.trim(),
   },
   {
-    docId: "policy_holidays_weekends",
-    title: "Company Holidays & Weekend Off Policy",
-    category: "general_guidelines",
+    docId: "policy_daily_work_tracker",
+    title: "Daily Work Tracking & Performance System",
+    category: "work_policy",
     content: `
-VSync HRMS Holidays & Weekly Offs:
-1. Paid Holidays: The company declares 10 to 12 national and regional paid holidays per calendar year.
-2. Mandatory Holidays: Republic Day, Independence Day, Gandhi Jayanti, and major regional festivals.
-3. Weekend Offs: Saturdays and Sundays are official non-working days unless a special weekend shift is scheduled.
-4. Holiday List View: Employees can view upcoming holidays anytime on the HRMS Dashboard.
+VSync HRMS Daily Work Tracking Guidelines:
+1. Morning Work Plan: Employees submit their morning task title and plan upon starting work.
+2. Evening Work Summary: Employees submit their evening summary of completed tasks and self-assessed completion percentage (0-100%).
+3. Performance Metrics: Daily submissions contribute directly to monthly performance scores and work completion metrics.
+4. Copilot Integration: Work can be submitted by typing "Update my work for today" in the Copilot.
     `.trim(),
   },
   {
@@ -75,9 +100,55 @@ VSync HRMS Holidays & Weekly Offs:
     content: `
 VSync HRMS Payroll & Remuneration Policy:
 1. Salary Credit Date: Salaries are credited on the 1st of every month for the previous month's work period.
-2. Salary Slips: Digital payslips are generated automatically and accessible under the Payroll section after the 1st of the month.
+2. Salary Slips: Digital payslips are generated automatically and accessible under the Payroll / Payslip section after the 1st of the month.
 3. Tax & Statutory Deductions: Deductions include PF (Provident Fund), ESI, Professional Tax, and Income Tax (TDS) based on statutory declarations.
-4. Reimbursable Expenses: Official travel/food expenses must be submitted with valid GST invoices under Expense Claims within 30 days.
+4. Download: Employees can view breakdown (Basic, HRA, Special Allowances, Net Salary) and download historical salary slips.
+    `.trim(),
+  },
+  {
+    docId: "policy_code_of_conduct",
+    title: "Company Rules, Code of Conduct & Workplace Ethics",
+    category: "rules_guidelines",
+    content: `
+VSync HRMS Workplace Rules & Code of Conduct:
+1. Professional Conduct: Mutual respect, anti-harassment (POSH compliance), integrity, and non-discrimination are mandatory.
+2. Data Confidentiality: Company source code, employee information, and client data must remain strictly confidential.
+3. Dress Code: Smart casual from Monday to Thursday; casual on Fridays.
+4. Device & Asset Security: Company laptops and systems must have screen lock enabled when unattended.
+5. Grievance Redressal: Technical or workplace issues can be submitted via the Support / Issue Ticket system.
+    `.trim(),
+  },
+  {
+    docId: "policy_resignation_exit",
+    title: "Resignation Procedure & Exit Formalities",
+    category: "resignation_policy",
+    content: `
+VSync HRMS Resignation & Exit Guidelines:
+1. Submission: Formal resignation is submitted via the Employee Resignation page or Copilot with stated reasons.
+2. Notice Period: Standard notice period is 30 days (or 60/90 days as per appointment letter).
+3. Exit Formalities: Return company assets, ID cards, and Welcome Kit items; complete knowledge transfer; obtain department clearances.
+4. Full & Final (F&F) Settlement: Processed within 30 to 45 days following the last working day.
+    `.trim(),
+  },
+  {
+    docId: "portal_feature_guidance",
+    title: "Employee Portal Features & Navigation Guide",
+    category: "portal_guidance",
+    content: `
+VSync HRMS Employee Portal Feature Navigation Guide:
+1. Dashboard: Overview of today's attendance, punch in/out, break toggle, leaves balance, shift timings, and announcements.
+2. Leave Management: Apply leaves, check balances, view applied leaves history, and cancel pending requests.
+3. Daily Attendance: Monthly log calendar, punch in/out times, working hours, and missing punch-out correction requests.
+4. Work Mode: Request Work From Home (WFH) or Work From Office (WFO), edit requests, and check approval status.
+5. Expense Claims: Submit reimbursement bills for travel, food, internet, hardware; track approvals.
+6. Overtime (OT): Submit overtime hours worked with task description.
+7. Work Tracker: Log morning plans and evening task completion summaries.
+8. Payslips: View and download monthly payslips with earnings and deduction breakdown.
+9. Company Notices: View corporate announcements and post replies.
+10. Holiday Calendar: View upcoming company holidays.
+11. Rules & Policies: Access company rules, code of conduct, and guidelines.
+12. Team Directory: Connect with colleagues, view department team members and contact emails.
+13. Resignation: Submit resignation and track exit clearances.
     `.trim(),
   },
 ];

@@ -23,6 +23,11 @@ import {
   Edit3,
   Save,
   Undo2,
+  History,
+  Plus,
+  Trash2,
+  MessageSquare,
+  ArrowLeft,
 } from "lucide-react";
 import {
   sendCopilotMessage,
@@ -31,16 +36,9 @@ import {
 } from "../../api";
 
 const QUICK_SUGGESTIONS = [
+  "Show my dashboard",
   "What is my leave balance?",
   "Apply for casual leave tomorrow",
-  "Cancel my pending leave",
-  "View my latest payslip",
-  "Check expense claims",
-  "Apply for overtime",
-  "Apply for WFH tomorrow",
-  "Punch in for today",
-  "Company notices",
-  "Upcoming holidays list",
 ];
 
 /* =========================================================================
@@ -63,6 +61,10 @@ const FormattedMarkdownText = ({ content }) => {
     const cleanLine = isBullet
       ? trimmed.replace(/^[*-]\s+/, "").replace(/^\d+\.\s+/, "")
       : trimmed;
+
+    const cleanHtmlLine = cleanLine
+      .replace(/<\/?(?:strong|b)>/gi, "**")
+      .replace(/<\/?(?:em|i)>/gi, "*");
 
     const parseInline = (str) => {
       const parts = str.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
@@ -110,13 +112,13 @@ const FormattedMarkdownText = ({ content }) => {
           <span className="text-indigo-500 font-bold leading-tight text-xs shrink-0">
             •
           </span>
-          <span className="flex-1">{parseInline(cleanLine)}</span>
+          <span className="flex-1">{parseInline(cleanHtmlLine)}</span>
         </div>
       );
     } else {
       elements.push(
         <p key={lineIdx} className="my-0.5">
-          {parseInline(cleanLine)}
+          {parseInline(cleanHtmlLine)}
         </p>
       );
     }
@@ -127,16 +129,124 @@ const FormattedMarkdownText = ({ content }) => {
 
 export default function EmployeeAICopilot({ employee }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      id: "welcome-1",
-      role: "assistant",
-      text: `Hello ${employee?.firstName || employee?.name || "there"}! 👋 I am your **VSync HR Copilot**. You can ask policy questions, check balances, or run actions like **Apply Leave**, **Cancel Leave**, **Apply WFH**, and **Punch In/Out**!`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    },
-  ]);
+
+  const storageKey = `vsync_copilot_sessions_${employee?._id || employee?.employeeId || "emp_default"}`;
+
+  const createWelcomeMsg = () => ({
+    id: `welcome-${Date.now()}`,
+    role: "assistant",
+    text: `Hello ${employee?.firstName || employee?.name || "there"}! 👋 I am your **VSync HR Copilot**. You can ask policy questions, check balances, or run actions like **Apply Leave**, **Cancel Leave**, **Apply WFH**, and **Punch In/Out**!`,
+    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  });
+
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Could not read saved copilot sessions:", e);
+    }
+    const initId = `session-${Date.now()}`;
+    return [
+      {
+        id: initId,
+        title: "New Conversation",
+        updatedAt: new Date().toISOString(),
+        messages: [
+          {
+            id: "welcome-init",
+            role: "assistant",
+            text: `Hello ${employee?.firstName || employee?.name || "there"}! 👋 I am your **VSync HR Copilot**. You can ask policy questions, check balances, or run actions like **Apply Leave**, **Cancel Leave**, **Apply WFH**, and **Punch In/Out**!`,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ],
+      },
+    ];
+  });
+
+  const [currentSessionId, setCurrentSessionId] = useState(() => {
+    return sessions[0]?.id || `session-${Date.now()}`;
+  });
+
+  const activeSession = sessions.find((s) => s.id === currentSessionId) || sessions[0];
+  const messages = activeSession?.messages || [createWelcomeMsg()];
+
+  const setMessages = (updater) => {
+    setSessions((prevSessions) => {
+      return prevSessions.map((s) => {
+        if (s.id === currentSessionId) {
+          const newMessages = typeof updater === "function" ? updater(s.messages || []) : updater;
+          let title = s.title;
+          const firstUserMsg = newMessages.find((m) => m.role === "user");
+          if (firstUserMsg && (s.title === "New Conversation" || !s.title)) {
+            title = firstUserMsg.text.slice(0, 32) + (firstUserMsg.text.length > 32 ? "..." : "");
+          }
+          return {
+            ...s,
+            title,
+            messages: newMessages,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return s;
+      });
+    });
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(sessions));
+    } catch (e) {
+      console.warn("Failed to persist copilot sessions:", e);
+    }
+  }, [sessions, storageKey]);
+
+  const handleNewChat = () => {
+    const newId = `session-${Date.now()}`;
+    const newSession = {
+      id: newId,
+      title: "New Conversation",
+      updatedAt: new Date().toISOString(),
+      messages: [createWelcomeMsg()],
+    };
+    setSessions((prev) => [newSession, ...prev]);
+    setCurrentSessionId(newId);
+    setShowHistory(false);
+  };
+
+  const handleSelectSession = (sessionId) => {
+    setCurrentSessionId(sessionId);
+    setShowHistory(false);
+  };
+
+  const handleDeleteSession = (sessionId, e) => {
+    e.stopPropagation();
+    setSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== sessionId);
+      if (filtered.length === 0) {
+        const freshId = `session-${Date.now()}`;
+        const freshSession = {
+          id: freshId,
+          title: "New Conversation",
+          updatedAt: new Date().toISOString(),
+          messages: [createWelcomeMsg()],
+        };
+        setCurrentSessionId(freshId);
+        return [freshSession];
+      }
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(filtered[0].id);
+      }
+      return filtered;
+    });
+  };
+
   const [executingActionId, setExecutingActionId] = useState(null);
   const [editingCardId, setEditingCardId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
@@ -202,11 +312,88 @@ export default function EmployeeAICopilot({ employee }) {
     }
   };
 
-  const handleConfirmAction = async (msgId, actionToken) => {
+  const getDeviceLocation = () => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        return reject(new Error("Geolocation is not supported by your browser"));
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+        },
+        (err) => {
+          if (err.code !== 1) {
+            navigator.geolocation.getCurrentPosition(
+              (pos2) => {
+                resolve({
+                  latitude: pos2.coords.latitude,
+                  longitude: pos2.coords.longitude,
+                });
+              },
+              (err2) => reject(err2),
+              { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+            );
+          } else {
+            reject(err);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+      );
+    });
+  };
+
+  const handleConfirmAction = async (msgId, actionToken, cardType = "") => {
     if (!actionToken) return;
     setExecutingActionId(msgId);
     try {
-      const result = await executeCopilotAction(actionToken);
+      let locationPayload = {};
+      if (cardType === "confirm_punch_in" || cardType === "confirm_punch_out" || cardType === "confirm_start_field_work") {
+        try {
+          const loc = await getDeviceLocation();
+          locationPayload = loc;
+        } catch (geoErr) {
+          let errorMsg = "📍 Location access is required to record attendance. Please enable location permissions in your browser.";
+          if (geoErr.code === 1) {
+            errorMsg = "❌ Location permission denied. You must allow location access in your browser to punch in or punch out.";
+          }
+          alert(errorMsg);
+          setExecutingActionId(null);
+          return;
+        }
+      }
+
+      const result = await executeCopilotAction(actionToken, locationPayload);
+
+      // ⚡ Live UI Synchronization for Profile Updates
+      if (result?.data) {
+        try {
+          const saved = sessionStorage.getItem("hrmsUser");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const updatedUser = {
+              ...parsed,
+              ...result.data,
+              personalDetails: {
+                ...(parsed.personalDetails || {}),
+                ...(result.data.personalDetails || {}),
+              },
+            };
+            sessionStorage.setItem("hrmsUser", JSON.stringify(updatedUser));
+            window.dispatchEvent(new Event("hrmsUserUpdated"));
+            window.dispatchEvent(new Event("storage"));
+          }
+        } catch (e) {
+          console.error("Failed to sync local session profile:", e);
+        }
+      }
+
+      // ⚡ Live UI Synchronization for Attendance & Leaves
+      window.dispatchEvent(new Event("hrmsAttendanceUpdated"));
+      window.dispatchEvent(new Event("hrmsLeavesUpdated"));
+      window.dispatchEvent(new Event("hrmsWorkUpdated"));
 
       setMessages((prev) =>
         prev.map((msg) => {
@@ -329,15 +516,31 @@ export default function EmployeeAICopilot({ employee }) {
 
             <div className="flex items-center gap-1">
               <button
+                onClick={() => setShowHistory((prev) => !prev)}
+                className={`p-1.5 rounded-lg transition text-indigo-100 hover:text-white cursor-pointer ${
+                  showHistory ? "bg-white/30 text-white font-semibold shadow-2xs" : "hover:bg-white/20"
+                }`}
+                title="Past Conversations"
+              >
+                <History className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleNewChat}
+                className="p-1.5 hover:bg-white/20 rounded-lg transition text-indigo-100 hover:text-white cursor-pointer"
+                title="New Chat"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+              <button
                 onClick={handleClearChat}
-                className="p-1.5 hover:bg-white/20 rounded-lg transition text-indigo-100 hover:text-white"
-                title="Clear Chat"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition text-indigo-100 hover:text-white cursor-pointer"
+                title="Reset Session"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 hover:bg-white/20 rounded-lg transition text-indigo-100 hover:text-white"
+                className="p-1.5 hover:bg-white/20 rounded-lg transition text-indigo-100 hover:text-white cursor-pointer"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -345,8 +548,93 @@ export default function EmployeeAICopilot({ employee }) {
             </div>
           </div>
 
-          {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/50 scroll-smooth">
+          {showHistory ? (
+            /* 📜 PAST CONVERSATIONS OVERLAY PANEL */
+            <div className="flex-1 flex flex-col bg-slate-50 dark:bg-slate-900 overflow-hidden animate-in fade-in duration-150">
+              <div className="p-3 bg-white dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700/80 flex items-center justify-between shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Past Conversations</span>
+                  <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold px-2 py-0.5 rounded-full">
+                    {sessions.length}
+                  </span>
+                </div>
+                <button
+                  onClick={handleNewChat}
+                  className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg text-[11px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Chat
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {sessions.map((sess) => {
+                  const isActive = sess.id === currentSessionId;
+                  const firstUserMsg = (sess.messages || []).find((m) => m.role === "user")?.text;
+                  const lastMsg = (sess.messages || [])[sess.messages?.length - 1]?.text?.replace(/[*#`_]/g, "");
+                  const timeFormatted = new Date(sess.updatedAt || Date.now()).toLocaleDateString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+
+                  return (
+                    <div
+                      key={sess.id}
+                      onClick={() => handleSelectSession(sess.id)}
+                      className={`group relative p-3 rounded-xl border transition cursor-pointer ${
+                        isActive
+                          ? "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700/80 shadow-2xs"
+                          : "bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700/70 hover:border-indigo-200 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <MessageSquare className={`w-4 h-4 shrink-0 ${isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`} />
+                          <h4 className={`text-xs font-semibold truncate ${isActive ? "text-indigo-900 dark:text-indigo-200" : "text-slate-700 dark:text-slate-200"}`}>
+                            {sess.title || firstUserMsg || "New Conversation"}
+                          </h4>
+                        </div>
+                        <button
+                          onClick={(e) => handleDeleteSession(sess.id, e)}
+                          title="Delete Chat"
+                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-slate-400 hover:text-rose-500 rounded transition shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {lastMsg && (
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-1 pl-6">
+                          {lastMsg}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between text-[9px] text-slate-400 dark:text-slate-500 mt-2 pl-6">
+                        <span>{timeFormatted}</span>
+                        <span className="font-mono">{(sess.messages || []).length} msgs</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-2.5 bg-white dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-700/80 text-center">
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center justify-center gap-1 w-full py-1 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to Active Chat
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Messages Container */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-50/50 dark:bg-slate-950/50 scroll-smooth">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -545,6 +833,94 @@ export default function EmployeeAICopilot({ employee }) {
                               <span className="text-slate-500">Notice End Date:</span>
                               <span className="font-mono">{msg.actionCard.data?.noticePeriodEndDate}</span>
                             </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 📊 Dashboard Summary Widget */}
+                      {msg.actionCard.type === "dashboard_summary_widget" && (
+                        <div className="bg-gradient-to-br from-indigo-50/80 to-blue-50/80 dark:from-slate-900 dark:to-indigo-950/40 p-3 rounded-xl border border-indigo-200 dark:border-indigo-800/50 space-y-2">
+                          <div className="text-[11px] font-bold text-indigo-950 dark:text-indigo-300 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Briefcase className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                              Today's Overview ({msg.actionCard.data?.date})
+                            </span>
+                            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
+                              {msg.actionCard.data?.punchStatus}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700 space-y-0.5">
+                              <span className="text-slate-400 font-medium block">Leave Balances</span>
+                              <div className="font-bold text-slate-700 dark:text-slate-200">
+                                CL: {msg.actionCard.data?.leaveBalances?.casual} • SL: {msg.actionCard.data?.leaveBalances?.sick} • PL: {msg.actionCard.data?.leaveBalances?.paid}
+                              </div>
+                            </div>
+                            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700 space-y-0.5">
+                              <span className="text-slate-400 font-medium block">Pending Requests</span>
+                              <div className="font-bold text-amber-600 dark:text-amber-400">
+                                {msg.actionCard.data?.pendingCounts?.total} Total Pending
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Next Holiday:</span>
+                              <span className="font-medium text-emerald-600 dark:text-emerald-400">{msg.actionCard.data?.nextHoliday}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Break Status:</span>
+                              <span className="font-medium text-slate-700 dark:text-slate-300">{msg.actionCard.data?.breakStatus}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 📍 Field Work History Widget */}
+                      {msg.actionCard.type === "field_work_widget" && (
+                        <div className="bg-cyan-50/70 dark:bg-cyan-950/40 p-2.5 rounded-xl border border-cyan-200 dark:border-cyan-800/50 space-y-2">
+                          <div className="text-[11px] font-bold text-cyan-950 dark:text-cyan-300 flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-cyan-600" />
+                              Field Work Activity
+                            </span>
+                            {msg.actionCard.data?.activeTrip && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 animate-pulse">
+                                🟢 Trip In Progress
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="space-y-1 max-h-36 overflow-y-auto">
+                            {msg.actionCard.data?.trips?.length === 0 ? (
+                              <div className="text-[10px] text-slate-500 italic p-2 bg-white dark:bg-slate-800 rounded-lg text-center">
+                                No field trips recorded yet. Say "start field trip" to begin.
+                              </div>
+                            ) : (
+                              msg.actionCard.data?.trips?.map((trip, idx) => (
+                                <div key={idx} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700 text-[10px] flex justify-between items-center">
+                                  <div>
+                                    <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                                      {new Date(trip.startedAt).toLocaleDateString()}
+                                    </span>
+                                    <span className="text-slate-400 text-[9px]">
+                                      {new Date(trip.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                      {trip.endedAt ? ` - ${new Date(trip.endedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " (Running)"}
+                                    </span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="font-bold text-cyan-700 dark:text-cyan-400 block">
+                                      {(trip.distanceKm || 0).toFixed(1)} km
+                                    </span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${trip.status === "active" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                                      {trip.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
                       )}
@@ -906,50 +1282,121 @@ export default function EmployeeAICopilot({ employee }) {
                                 </div>
                               )}
 
-                              {msg.actionCard.type === "confirm_work_update" && (
-                                <div className="space-y-1.5">
-                                  <div>
-                                    <label className="text-slate-500 font-semibold block text-[9px]">Task Title</label>
-                                    <input
-                                      type="text"
-                                      value={editFormData.title || ""}
-                                      onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-slate-500 font-semibold block text-[9px]">Work Description / Tasks</label>
-                                    <textarea
-                                      rows={2}
-                                      value={editFormData.description || ""}
-                                      onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
-                                    />
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <label className="text-slate-500 font-semibold block text-[9px]">Completion (%)</label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        value={editFormData.percentage !== undefined ? editFormData.percentage : 100}
-                                        onChange={(e) => setEditFormData({ ...editFormData, percentage: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-slate-500 font-semibold block text-[9px]">Date</label>
-                                      <input
-                                        type="date"
-                                        value={editFormData.date || ""}
-                                        onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                               {msg.actionCard.type === "confirm_work_update" && (
+                                 <div className="space-y-1.5">
+                                   <div>
+                                     <label className="text-slate-500 font-semibold block text-[9px]">Task Title</label>
+                                     <input
+                                       type="text"
+                                       value={editFormData.title || ""}
+                                       onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                     />
+                                   </div>
+                                   <div>
+                                     <label className="text-slate-500 font-semibold block text-[9px]">Work Description / Tasks</label>
+                                     <textarea
+                                       rows={2}
+                                       value={editFormData.description || ""}
+                                       onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                     />
+                                   </div>
+                                   <div className="grid grid-cols-2 gap-2">
+                                     <div>
+                                       <label className="text-slate-500 font-semibold block text-[9px]">Completion (%)</label>
+                                       <input
+                                         type="number"
+                                         min="0"
+                                         max="100"
+                                         value={editFormData.percentage !== undefined ? editFormData.percentage : 100}
+                                         onChange={(e) => setEditFormData({ ...editFormData, percentage: e.target.value })}
+                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                       />
+                                     </div>
+                                     <div>
+                                       <label className="text-slate-500 font-semibold block text-[9px]">Date</label>
+                                       <input
+                                         type="date"
+                                         value={editFormData.date || ""}
+                                         onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                       />
+                                     </div>
+                                   </div>
+                                 </div>
+                               )}
+
+                               {msg.actionCard.type === "confirm_late_correction" && (
+                                 <div className="space-y-1.5">
+                                   <div>
+                                     <label className="text-slate-500 font-semibold block text-[9px]">Date</label>
+                                     <input
+                                       type="date"
+                                       value={editFormData.date || ""}
+                                       onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                     />
+                                   </div>
+                                   <div>
+                                     <label className="text-slate-500 font-semibold block text-[9px]">Reason for Late Arrival</label>
+                                     <textarea
+                                       rows={2}
+                                       value={editFormData.reason || ""}
+                                       onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                     />
+                                   </div>
+                                 </div>
+                               )}
+
+                               {msg.actionCard.type === "confirm_update_wfh" && (
+                                 <div className="space-y-1.5">
+                                   <div className="grid grid-cols-2 gap-2">
+                                     <div>
+                                       <label className="text-slate-500 font-semibold block text-[9px]">From Date</label>
+                                       <input
+                                         type="date"
+                                         value={editFormData.fromDate || ""}
+                                         onChange={(e) => setEditFormData({ ...editFormData, fromDate: e.target.value })}
+                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                       />
+                                     </div>
+                                     <div>
+                                       <label className="text-slate-500 font-semibold block text-[9px]">To Date</label>
+                                       <input
+                                         type="date"
+                                         value={editFormData.toDate || ""}
+                                         onChange={(e) => setEditFormData({ ...editFormData, toDate: e.target.value })}
+                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                       />
+                                     </div>
+                                   </div>
+                                   <div>
+                                     <label className="text-slate-500 font-semibold block text-[9px]">Reason</label>
+                                     <input
+                                       type="text"
+                                       value={editFormData.reason || ""}
+                                       onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                     />
+                                   </div>
+                                 </div>
+                               )}
+
+                               {msg.actionCard.type === "confirm_notice_reply" && (
+                                 <div className="space-y-1.5">
+                                   <div>
+                                     <label className="text-slate-500 font-semibold block text-[9px]">Reply Message</label>
+                                     <textarea
+                                       rows={2}
+                                       value={editFormData.message || ""}
+                                       onChange={(e) => setEditFormData({ ...editFormData, message: e.target.value })}
+                                       className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                     />
+                                   </div>
+                                 </div>
+                               )}
 
                               {/* Edit Action Buttons */}
                               <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
@@ -1010,6 +1457,63 @@ export default function EmployeeAICopilot({ employee }) {
                                 </>
                               )}
 
+                              {msg.actionCard.type === "confirm_punch_break" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> {msg.actionCard.data.breakType || "Break"}</div>
+                                  <div><strong className="text-slate-500">Time:</strong> {msg.actionCard.data.time}</div>
+                                  <div><strong className="text-slate-500">Employee:</strong> {msg.actionCard.data.employeeName}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_late_correction" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Late Arrival Justification</div>
+                                  <div><strong className="text-slate-500">Date:</strong> {msg.actionCard.data.date}</div>
+                                  <div><strong className="text-slate-500">Reason:</strong> {msg.actionCard.data.reason}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_update_wfh" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Update WFH Request</div>
+                                  <div><strong className="text-slate-500">Dates:</strong> {msg.actionCard.data.fromDate} to {msg.actionCard.data.toDate}</div>
+                                  <div><strong className="text-slate-500">Reason:</strong> {msg.actionCard.data.reason}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_cancel_wfh" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Cancel Work From Home (WFH)</div>
+                                  <div><strong className="text-slate-500">Dates:</strong> {msg.actionCard.data.fromDate} to {msg.actionCard.data.toDate}</div>
+                                  <div><strong className="text-slate-500">Mode:</strong> {msg.actionCard.data.mode}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_cancel_expense" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Cancel Expense Claim</div>
+                                  <div><strong className="text-slate-500">Claim Amount:</strong> ₹{msg.actionCard.data.amount?.toLocaleString()}</div>
+                                  <div><strong className="text-slate-500">Category:</strong> {msg.actionCard.data.category}</div>
+                                  <div><strong className="text-slate-500">Description:</strong> {msg.actionCard.data.description}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_cancel_overtime" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Cancel Overtime Claim</div>
+                                  <div><strong className="text-slate-500">Hours:</strong> {msg.actionCard.data.hours} hours</div>
+                                  <div><strong className="text-slate-500">Date:</strong> {msg.actionCard.data.date}</div>
+                                  <div><strong className="text-slate-500">Reason:</strong> {msg.actionCard.data.reason}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_notice_reply" && (
+                                <>
+                                  <div><strong className="text-slate-500">Announcement:</strong> {msg.actionCard.data.noticeTitle}</div>
+                                  <div><strong className="text-slate-500">Your Reply:</strong> {msg.actionCard.data.message}</div>
+                                </>
+                              )}
+
                               {msg.actionCard.type === "confirm_expense_request" && (
                                 <>
                                   <div><strong className="text-slate-500">Claim Amount:</strong> ₹{msg.actionCard.data.amount?.toLocaleString()}</div>
@@ -1055,6 +1559,50 @@ export default function EmployeeAICopilot({ employee }) {
                                   <div><strong className="text-slate-500">Completion:</strong> {msg.actionCard.data.percentage || 100}% on {msg.actionCard.data.date}</div>
                                 </>
                               )}
+
+                              {msg.actionCard.type === "confirm_update_profile" && (() => {
+                                const fieldLabels = {
+                                  email: "Email Address", bloodGroup: "Blood Group", qualification: "Qualification",
+                                  name: "Full Name", gender: "Gender", phone: "Phone Number", mobile: "Mobile",
+                                  address: "Address", aadhaarNumber: "Aadhaar Number", panNumber: "PAN Number",
+                                  accountNumber: "Bank Account Number", bankName: "Bank Name", ifsc: "IFSC Code",
+                                  branch: "Bank Branch", emergency: "Emergency Contact", nationality: "Nationality",
+                                  bio: "Bio / About Me", dob: "Date of Birth", maritalStatus: "Marital Status",
+                                  linkedin: "LinkedIn Profile", github: "GitHub Profile", instagram: "Instagram",
+                                  website: "Portfolio Website",
+                                };
+                                const label = fieldLabels[msg.actionCard.data.field] || msg.actionCard.data.field;
+                                return (
+                                  <>
+                                    <div><strong className="text-slate-500">Update:</strong> {label}</div>
+                                    <div><strong className="text-slate-500">Current Value:</strong> {msg.actionCard.data.oldValue}</div>
+                                    <div><strong className="text-slate-500">New Value:</strong> {msg.actionCard.data.value}</div>
+                                  </>
+                                );
+                              })()}
+
+                              {msg.actionCard.type === "confirm_start_field_work" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Start Field Trip</div>
+                                  <div><strong className="text-slate-500">Start Time:</strong> {msg.actionCard.data.time} ({msg.actionCard.data.date})</div>
+                                  <div><strong className="text-slate-500">Employee:</strong> {msg.actionCard.data.employeeName}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_end_field_work" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> End Field Trip</div>
+                                  <div><strong className="text-slate-500">Started At:</strong> {msg.actionCard.data.startTimeFormatted}</div>
+                                  <div><strong className="text-slate-500">Distance:</strong> {(msg.actionCard.data.distanceKm || 0).toFixed(1)} km</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_send_message" && (
+                                <>
+                                  <div><strong className="text-slate-500">Recipient:</strong> {msg.actionCard.data.receiverName} ({msg.actionCard.data.receiverDepartment})</div>
+                                  <div><strong className="text-slate-500">Message:</strong> "{msg.actionCard.data.messageText}"</div>
+                                </>
+                              )}
                             </div>
                           )}
 
@@ -1081,7 +1629,8 @@ export default function EmployeeAICopilot({ employee }) {
                                   onClick={() =>
                                     handleConfirmAction(
                                       msg.id,
-                                      msg.actionCard.actionToken
+                                      msg.actionCard.actionToken,
+                                      msg.actionCard.type
                                     )
                                   }
                                   disabled={executingActionId === msg.id}
@@ -1174,8 +1723,10 @@ export default function EmployeeAICopilot({ employee }) {
               </button>
             </form>
           </div>
-        </div>
+        </>
       )}
-    </>
-  );
+    </div>
+  )}
+</>
+);
 }

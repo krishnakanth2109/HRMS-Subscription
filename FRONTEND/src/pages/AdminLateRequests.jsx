@@ -136,8 +136,15 @@ const AdminLateRequests = () => {
     fetchEmployeeLimits();
   }, [fetchRequests, fetchFullDayRequests, fetchCorrectionRequests, fetchEmployeeLimits, candidateType]);
 
-  // ✅ REAL-TIME UPDATES VIA SOCKET
+  // ✅ REAL-TIME UPDATES VIA SOCKET & WINDOW EVENTS
   useEffect(() => {
+    const handleWindowAttendanceUpdate = () => {
+      fetchRequests();
+      fetchFullDayRequests();
+      fetchCorrectionRequests();
+    };
+    window.addEventListener("hrmsAttendanceUpdated", handleWindowAttendanceUpdate);
+
     if (socket) {
       socket.on("attendance:correctionNew", () => {
         console.log("⚡ New correction request received.");
@@ -149,17 +156,33 @@ const AdminLateRequests = () => {
         fetchRequests();
       });
 
+      socket.on("attendance:lateApproved", () => {
+        fetchRequests();
+        fetchCorrectionRequests();
+      });
+
+      socket.on("attendance:lateRejected", () => {
+        fetchRequests();
+        fetchCorrectionRequests();
+      });
+
       socket.on("fullDay:new", () => {
         fetchFullDayRequests();
       });
 
       return () => {
+        window.removeEventListener("hrmsAttendanceUpdated", handleWindowAttendanceUpdate);
         socket.off("attendance:correctionNew");
         socket.off("attendance:lateNew");
+        socket.off("attendance:lateApproved");
+        socket.off("attendance:lateRejected");
         socket.off("fullDay:new");
       };
     }
-  }, [socket, fetchCorrectionRequests, fetchFullDayRequests]);
+    return () => {
+      window.removeEventListener("hrmsAttendanceUpdated", handleWindowAttendanceUpdate);
+    };
+  }, [socket, fetchRequests, fetchCorrectionRequests, fetchFullDayRequests]);
 
   // ✅ NEW: Handle Full Day Approve / Reject
   const handleFullDayAction = async (reqItem, action) => {

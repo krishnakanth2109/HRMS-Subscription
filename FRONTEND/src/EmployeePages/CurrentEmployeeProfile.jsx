@@ -36,43 +36,55 @@ const CurrentEmployeeProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState({ pan: false, aadhaar: false, exp: false, profile: false });
 
-  // Load Employee from sessionStorage
+  // Load Employee from sessionStorage & react to live updates
   useEffect(() => {
-    const saved = sessionStorage.getItem("hrmsUser");
+    const syncProfileFromStorage = () => {
+      const saved = sessionStorage.getItem("hrmsUser");
 
-    if (!saved || saved === "undefined") {
-      setLoading(false);
-      return;
-    }
+      if (!saved || saved === "undefined") {
+        setLoading(false);
+        return;
+      }
 
-    try {
-      const parsed = JSON.parse(saved);
+      try {
+        const parsed = JSON.parse(saved);
 
-      // ✅ ALWAYS normalize user shape
-      const empData = {
-        ...parsed,
-        employeeId: String(parsed.employeeId),
-        experienceDetails:
-          parsed.experienceDetails?.length > 0
-            ? parsed.experienceDetails
-            : [
-              {
-                company: "Current Company",
-                role: "",
-                department: "",
-                joiningDate: "",
-                salary: 0,
-              },
-            ],
-      };
+        // ✅ ALWAYS normalize user shape
+        const empData = {
+          ...parsed,
+          employeeId: String(parsed.employeeId),
+          personalDetails: parsed.personalDetails || {},
+          experienceDetails:
+            parsed.experienceDetails?.length > 0
+              ? parsed.experienceDetails
+              : [
+                {
+                  company: "Current Company",
+                  role: "",
+                  department: "",
+                  joiningDate: "",
+                  salary: 0,
+                },
+              ],
+        };
 
-      setEmployee(empData);
-    } catch (e) {
-      console.error("Error parsing hrmsUser:", e);
-      setEmployee(null);
-    } finally {
-      setLoading(false);
-    }
+        setEmployee(empData);
+      } catch (e) {
+        console.error("Error parsing hrmsUser:", e);
+        setEmployee(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    syncProfileFromStorage();
+
+    window.addEventListener("hrmsUserUpdated", syncProfileFromStorage);
+    window.addEventListener("storage", syncProfileFromStorage);
+    return () => {
+      window.removeEventListener("hrmsUserUpdated", syncProfileFromStorage);
+      window.removeEventListener("storage", syncProfileFromStorage);
+    };
   }, []);
 
   if (loading) return <div className="p-10 text-center text-blue-600 font-bold"><FaSpinner className="animate-spin inline mr-2" />Loading profile...</div>;

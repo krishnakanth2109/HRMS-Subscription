@@ -2,6 +2,7 @@ import Sidebar from "./Sidebar";  // now from admin folder
 import SidebarSupportAdmin from "../../pages/support-admin/SidebarSupportAdmin";
 import Navbar from "./Navbar";
 import NavbarSupportAdmin from "../../pages/support-admin/NavbarSupportAdmin";
+import AdminAICopilot from "./AdminAICopilot";
 import { Outlet } from "react-router-dom";
 import { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
@@ -130,6 +131,9 @@ const LayoutAdmin = () => {
             <Outlet />
           </div>
         </main>
+
+        {/* 🤖 ADMIN AI COPILOT FLOATING WINDOW */}
+        <AdminAICopilot admin={user} />
 
       </div>
     </div>

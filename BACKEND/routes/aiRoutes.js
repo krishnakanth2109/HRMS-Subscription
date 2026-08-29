@@ -31,9 +31,8 @@ router.post("/optimize-reason", async (req, res) => {
         console.log(`Attempting with Gemini API key starting with: ${apiKey.substring(0, 10)}...`);
         
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Using Gemini Flash Latest to avoid 0-limit quota restrictions on their keys
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash-8b",
+          model: "gemini-1.5-flash",
           generationConfig: {
             maxOutputTokens: 600, 
             temperature: 0.7,
@@ -122,7 +121,7 @@ router.post("/generate-announcement", async (req, res) => {
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash-8b",
+          model: "gemini-1.5-flash",
           generationConfig: {
             maxOutputTokens: 1000,
             temperature: 0.7,

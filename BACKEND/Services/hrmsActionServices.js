@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import LeaveRequest, { LeavePolicy } from "../models/LeaveRequest.js";
 import WorkModeRequest from "../models/WorkModeRequest.js";
 import Attendance from "../models/Attendance.js";
@@ -10,6 +11,11 @@ import PunchOutRequest from "../models/PunchOutRequest.js";
 import TechnicalIssue from "../models/TechnicalIssue.js";
 import Resignation from "../models/Resignation.js";
 import DailyWorkEntry from "../models/DailyWorkEntry.js";
+import Notice from "../models/Notice.js";
+import Shift from "../models/shiftModel.js";
+import Employee from "../models/employeeModel.js";
+import FieldWorkTrip from "../models/FieldWorkTrip.js";
+import Message from "../models/Message.js";
 import nodemailer from "nodemailer";
 
 /* ===============================================================
@@ -411,19 +417,50 @@ export const serviceApplyWFH = async ({ loggedUser, fromDate, toDate, requestedM
 /* =========================================================================
    4. SHARED SERVICE: PUNCH IN
 ========================================================================= */
-export const servicePunchIn = async ({ loggedUser, date, note = "", io = null }) => {
+export const servicePunchIn = async ({ loggedUser, date, note = "", latitude = null, longitude = null, lateReason = "", io = null }) => {
   const todayStr = date || new Date().toISOString().slice(0, 10);
   const now = new Date();
-  const empIdStr = (loggedUser.employeeId || loggedUser._id).toString();
+  const userId = loggedUser._id || loggedUser.id;
+  const empIdStr = (loggedUser.employeeId || userId).toString();
+
+  // 1. Fetch Shift Data for Late Check
+  const shift = (await Shift.findOne({
+    $or: [{ employeeId: empIdStr }, { employeeId: userId.toString() }],
+  }).lean()) || {
+    shiftStartTime: "09:30",
+    lateGracePeriod: 15,
+    fullDayHours: 9,
+    halfDayHours: 4.5,
+  };
+
+  let loginStatus = "ON_TIME";
+  let lateByMinutes = 0;
+
+  try {
+    const [shiftHour, shiftMin] = (shift.shiftStartTime || "09:30").split(":").map(Number);
+    const shiftDate = new Date(now);
+    shiftDate.setHours(shiftHour, shiftMin, 0, 0);
+
+    const graceMinutes = shift.lateGracePeriod || 15;
+    const lateCutoff = new Date(shiftDate.getTime() + graceMinutes * 60000);
+
+    if (now > lateCutoff) {
+      loginStatus = "LATE";
+      const diffMs = now.getTime() - shiftDate.getTime();
+      lateByMinutes = Math.floor(diffMs / 60000);
+    }
+  } catch (calcError) {
+    console.error("Time calculation error in servicePunchIn:", calcError);
+  }
 
   let attDoc = await Attendance.findOne({
-    $or: [{ employeeId: empIdStr }, { employeeId: (loggedUser._id || loggedUser.id).toString() }],
+    $or: [{ employeeId: empIdStr }, { employeeId: userId.toString() }],
   });
 
   if (!attDoc) {
     attDoc = await Attendance.create({
-      adminId: loggedUser.adminId || loggedUser._id,
-      companyId: loggedUser.company || loggedUser.companyId || loggedUser._id,
+      adminId: loggedUser.adminId || userId,
+      companyId: loggedUser.company || loggedUser.companyId || userId,
       employeeId: empIdStr,
       employeeName: loggedUser.name || "Employee",
       attendance: [],
@@ -436,8 +473,11 @@ export const servicePunchIn = async ({ loggedUser, date, note = "", io = null })
     attDoc.attendance.push({
       date: todayStr,
       punchIn: now,
+      punchInLocation: latitude && longitude ? { latitude, longitude } : undefined,
       status: "WORKING",
-      loginStatus: "ON_TIME",
+      loginStatus,
+      lateByMinutes,
+      lateReason: lateReason || (loginStatus === "LATE" ? "Late punch in via Copilot" : ""),
       workedStatus: "FULL_DAY",
       attendanceCategory: "FULL_DAY",
       sessions: [{ punchIn: now }],
@@ -447,7 +487,16 @@ export const servicePunchIn = async ({ loggedUser, date, note = "", io = null })
       throw new Error(`Already punched in for today (${todayStr}).`);
     }
     todayEntry.punchIn = now;
+    todayEntry.punchOut = undefined;
+    todayEntry.isFinalPunchOut = false;
+    if (latitude && longitude) {
+      todayEntry.punchInLocation = { latitude, longitude };
+    }
     todayEntry.status = "WORKING";
+    todayEntry.loginStatus = loginStatus;
+    todayEntry.lateByMinutes = lateByMinutes;
+    if (lateReason) todayEntry.lateReason = lateReason;
+    if (!todayEntry.sessions) todayEntry.sessions = [];
     todayEntry.sessions.push({ punchIn: now });
   }
 
@@ -455,37 +504,50 @@ export const servicePunchIn = async ({ loggedUser, date, note = "", io = null })
 
   if (io) {
     io.emit("attendance:punchIn", { employeeId: empIdStr, time: now });
+    io.emit("attendance:update", { employeeId: empIdStr, time: now, date: todayStr });
+    if (loginStatus === "LATE") {
+      io.emit("admin-notification", {
+        adminId: loggedUser.adminId,
+        message: `⏰ ${loggedUser.name || "Employee"} punched in late (${lateByMinutes} mins) for ${todayStr}.`,
+      });
+    }
   }
 
-  return { date: todayStr, punchIn: now, status: "WORKING" };
+  return { date: todayStr, punchIn: now, status: "WORKING", loginStatus, lateByMinutes };
 };
 
 /* =========================================================================
    5. SHARED SERVICE: PUNCH OUT
 ========================================================================= */
-export const servicePunchOut = async ({ loggedUser, date, note = "", io = null }) => {
+export const servicePunchOut = async ({ loggedUser, date, note = "", latitude = null, longitude = null, earlyLeaveReason = "", io = null }) => {
   const todayStr = date || new Date().toISOString().slice(0, 10);
   const now = new Date();
-  const empIdStr = (loggedUser.employeeId || loggedUser._id).toString();
+  const userId = loggedUser._id || loggedUser.id;
+  const empIdStr = (loggedUser.employeeId || userId).toString();
 
   const attDoc = await Attendance.findOne({
-    $or: [{ employeeId: empIdStr }, { employeeId: (loggedUser._id || loggedUser.id).toString() }],
+    $or: [{ employeeId: empIdStr }, { employeeId: userId.toString() }],
   });
 
   const todayEntry = attDoc?.attendance?.find((a) => a.date === todayStr);
 
-  if (!todayEntry || !todayEntry.punchIn) {
+  if (!todayEntry || (!todayEntry.punchIn && todayEntry.status !== "WORKING")) {
     throw new Error("Cannot punch out without prior punch in today.");
   }
 
-  if (todayEntry.punchOut) {
+  if (todayEntry.status === "COMPLETED" && todayEntry.punchOut && todayEntry.isFinalPunchOut) {
     throw new Error(`Already punched out for today (${todayStr}).`);
   }
 
   todayEntry.punchOut = now;
+  if (latitude && longitude) {
+    todayEntry.punchOutLocation = { latitude, longitude };
+  }
   todayEntry.status = "COMPLETED";
   todayEntry.isFinalPunchOut = true;
+  if (earlyLeaveReason) todayEntry.earlyLeaveReason = earlyLeaveReason;
 
+  // Calculate session duration
   if (todayEntry.sessions && todayEntry.sessions.length > 0) {
     const lastSession = todayEntry.sessions[todayEntry.sessions.length - 1];
     if (!lastSession.punchOut) {
@@ -494,13 +556,55 @@ export const servicePunchOut = async ({ loggedUser, date, note = "", io = null }
     }
   }
 
+  // Calculate total worked hours
+  const totalWorkedSeconds = (todayEntry.sessions || []).reduce((acc, s) => acc + (s.durationSeconds || 0), 0);
+  const workedHours = totalWorkedSeconds / 3600;
+  const workedH = Math.floor(workedHours);
+  const workedM = Math.floor((totalWorkedSeconds % 3600) / 60);
+  const workedS = Math.floor(totalWorkedSeconds % 60);
+
+  todayEntry.workedHours = workedH;
+  todayEntry.workedMinutes = workedM;
+  todayEntry.workedSeconds = workedS;
+  todayEntry.displayTime = `${workedH}h ${workedM}m ${workedS}s`;
+
+  // Fetch shift for completion check
+  const shift = (await Shift.findOne({
+    $or: [{ employeeId: empIdStr }, { employeeId: userId.toString() }],
+  }).lean()) || { fullDayHours: 9, halfDayHours: 4.5 };
+
+  if (workedHours >= (shift.fullDayHours || 9)) {
+    todayEntry.workedStatus = "FULL_DAY";
+    todayEntry.attendanceCategory = "FULL_DAY";
+  } else if (workedHours >= (shift.halfDayHours || 4.5)) {
+    todayEntry.workedStatus = "HALF_DAY";
+    todayEntry.attendanceCategory = "HALF_DAY";
+  } else if (workedHours >= (shift.quarterDayHours || 2)) {
+    todayEntry.workedStatus = "QUARTER_DAY";
+    todayEntry.attendanceCategory = "ABSENT";
+  } else {
+    todayEntry.workedStatus = "HALF_DAY";
+    todayEntry.attendanceCategory = "HALF_DAY";
+  }
+
   await attDoc.save();
 
   if (io) {
     io.emit("attendance:punchOut", { employeeId: empIdStr, time: now });
+    io.emit("attendance:update", { employeeId: empIdStr, time: now, date: todayStr });
+    io.emit("admin-notification", {
+      adminId: loggedUser.adminId,
+      message: `🚪 ${loggedUser.name || "Employee"} punched out at ${now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} (${workedHours.toFixed(1)}h worked).`,
+    });
   }
 
-  return { date: todayStr, punchOut: now, status: "COMPLETED" };
+  return {
+    date: todayStr,
+    punchOut: now,
+    status: "COMPLETED",
+    workedStatus: todayEntry.workedStatus,
+    workedHours: workedHours.toFixed(2),
+  };
 };
 
 /* =========================================================================
@@ -851,3 +955,603 @@ export const serviceSubmitWorkUpdate = async ({ loggedUser, title, description, 
 
   return entry;
 };
+
+/* =========================================================================
+   12. SHARED SERVICE: PUNCH BREAK (TOGGLE / START / END BREAK)
+========================================================================= */
+export const servicePunchBreak = async ({ loggedUser, breakType = "Lunch Break", io = null }) => {
+  const employeeId = (loggedUser.employeeId || loggedUser._id).toString();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+
+  let attendance = await Attendance.findOne({
+    $or: [{ employeeId }, { employeeId: loggedUser._id?.toString() }],
+  });
+
+  if (!attendance) {
+    throw new Error("No attendance record found for your employee profile.");
+  }
+
+  let todayRecord = attendance.attendance.find((a) => a.date === todayStr);
+  if (!todayRecord || !todayRecord.punchIn) {
+    throw new Error("You must punch in first before starting or resuming a break.");
+  }
+
+  const hasOpenBreak = todayRecord.isOnBreak || (todayRecord.breakSessions || []).some((b) => !b.to);
+
+  // ── CASE 1: RESUME FROM BREAK ──────────────────────────────────────────────
+  if (hasOpenBreak) {
+    const activeBreak = (todayRecord.breakSessions || []).slice().reverse().find((b) => !b.to);
+    if (activeBreak) {
+      activeBreak.to = now;
+      activeBreak.durationSeconds = Math.max(0, (new Date(now) - new Date(activeBreak.from)) / 1000);
+    }
+
+    const totalBreakSec = (todayRecord.breakSessions || []).reduce((acc, b) => acc + (b.durationSeconds || 0), 0);
+    todayRecord.totalBreakSeconds = totalBreakSec;
+
+    todayRecord.isOnBreak = false;
+    todayRecord.status = "WORKING";
+    todayRecord.isFinalPunchOut = false;
+    todayRecord.punchOut = undefined;
+
+    if (!todayRecord.sessions) todayRecord.sessions = [];
+    const openSess = todayRecord.sessions.find((s) => !s.punchOut);
+    if (!openSess) {
+      todayRecord.sessions.push({ punchIn: now, punchOut: null, durationSeconds: 0 });
+    }
+
+    await attendance.save();
+
+    if (io) {
+      io.emit("attendance:update", { employeeId, date: todayStr, action: "break_end", status: "WORKING" });
+    }
+
+    return {
+      status: "RESUMED_WORKING",
+      message: "Resumed work from break successfully. Happy working!",
+      displayTime: todayRecord.displayTime,
+    };
+  }
+
+  // ── CASE 2: START BREAK ───────────────────────────────────────────────────
+  const currentSession = (todayRecord.sessions || []).find((s) => !s.punchOut);
+  if (currentSession) {
+    currentSession.punchOut = now;
+    currentSession.durationSeconds = Math.max(0, (new Date(now) - new Date(currentSession.punchIn)) / 1000);
+  }
+
+  todayRecord.punchOut = now;
+  todayRecord.status = "COMPLETED";
+  todayRecord.isFinalPunchOut = false;
+  todayRecord.isOnBreak = true;
+
+  if (!todayRecord.breakSessions) todayRecord.breakSessions = [];
+  todayRecord.breakSessions.push({ from: now, to: null, durationSeconds: 0 });
+
+  let totalSeconds = 0;
+  todayRecord.sessions.forEach((sess) => {
+    if (sess.punchIn && sess.punchOut) {
+      totalSeconds += (new Date(sess.punchOut) - new Date(sess.punchIn)) / 1000;
+    }
+  });
+
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+
+  todayRecord.workedHours = h;
+  todayRecord.workedMinutes = m;
+  todayRecord.workedSeconds = s;
+  todayRecord.displayTime = `${h}h ${m}m ${s}s`;
+
+  await attendance.save();
+
+  if (io) {
+    io.emit("attendance:update", { employeeId, date: todayStr, action: "break_start", status: "ON_BREAK" });
+  }
+
+  return {
+    status: "ON_BREAK",
+    message: `Break started successfully (${breakType}). Total worked so far: ${h}h ${m}m.`,
+    displayTime: todayRecord.displayTime,
+  };
+};
+
+/* =========================================================================
+   13. SHARED SERVICE: SUBMIT LATE ARRIVAL CORRECTION
+========================================================================= */
+export const serviceSubmitLateCorrection = async ({ loggedUser, date, reason, requestedTime, io = null }) => {
+  const employeeId = (loggedUser.employeeId || loggedUser._id).toString();
+  const dateStr = date || new Date().toISOString().slice(0, 10);
+  const timeStr = requestedTime || new Date().toISOString();
+
+  let attendance = await Attendance.findOne({
+    $or: [{ employeeId }, { employeeId: loggedUser._id?.toString() }],
+  });
+
+  if (!attendance) {
+    throw new Error("Attendance record not found.");
+  }
+
+  let dayLog = attendance.attendance.find((a) => a.date === dateStr);
+  if (!dayLog) {
+    throw new Error(`No attendance record found for date ${dateStr}.`);
+  }
+
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const monthData = attendance.monthlyRequestLimits?.get(currentMonth) || { limit: 5, used: 0 };
+
+  if (monthData.used >= monthData.limit) {
+    throw new Error("Monthly late correction request limit reached (max 5 per month).");
+  }
+
+  dayLog.lateCorrectionRequest = {
+    hasRequest: true,
+    status: "PENDING",
+    requestedTime: new Date(timeStr),
+    reason: reason || "Late arrival justification",
+  };
+
+  attendance.monthlyRequestLimits.set(currentMonth, { limit: monthData.limit, used: monthData.used + 1 });
+  await attendance.save();
+
+  const adminId = loggedUser.adminId || loggedUser._id;
+  let notif = null;
+  try {
+    notif = await Notification.create({
+      adminId,
+      companyId: loggedUser.company || loggedUser.companyId || adminId,
+      userId: adminId,
+      userType: "Admin",
+      title: "New Late Arrival Correction Request",
+      message: `${loggedUser.name || "Employee"} submitted a late arrival justification for ${dateStr}.`,
+      type: "attendance",
+      isRead: false,
+    });
+  } catch (notifErr) {
+    console.warn("⚠️ Late correction notification skipped:", notifErr.message);
+  }
+
+  if (io) {
+    if (notif) {
+      io.to(`admin_${adminId}`).emit("newNotification", notif);
+      io.to(`user_${adminId}`).emit("newNotification", notif);
+      io.emit("admin-notification", notif);
+    }
+    io.emit("attendance:lateNew", { employeeId, date: dateStr, message: `Late correction request from ${loggedUser.name}` });
+  }
+
+  return dayLog;
+};
+
+/* =========================================================================
+   14. SHARED SERVICE: UPDATE WFH REQUEST
+========================================================================= */
+export const serviceUpdateWFH = async ({ loggedUser, requestId, fromDate, toDate, requestedMode = "WFH", reason, io = null }) => {
+  const employeeId = (loggedUser.employeeId || loggedUser._id).toString();
+
+  let targetReq = null;
+  if (requestId) {
+    targetReq = await WorkModeRequest.findById(requestId);
+  } else {
+    targetReq = await WorkModeRequest.findOne({
+      $or: [{ employeeId }, { employeeId: loggedUser._id?.toString() }],
+      status: "Pending",
+    }).sort({ createdAt: -1 });
+  }
+
+  if (!targetReq) {
+    throw new Error("No pending WFH/remote request found to update.");
+  }
+
+  if (fromDate) targetReq.fromDate = new Date(fromDate);
+  if (toDate) targetReq.toDate = new Date(toDate);
+  if (requestedMode) targetReq.requestedMode = requestedMode;
+  if (reason) targetReq.reason = reason;
+
+  await targetReq.save();
+
+  const adminId = loggedUser.adminId || loggedUser._id;
+  if (io) {
+    io.emit("wfh:updated", targetReq);
+  }
+
+  return targetReq;
+};
+
+/* =========================================================================
+   15. SHARED SERVICE: REPLY TO NOTICE
+========================================================================= */
+export const serviceReplyNotice = async ({ loggedUser, noticeId, message, io = null }) => {
+  if (!noticeId) throw new Error("Notice ID is required.");
+  if (!message) throw new Error("Reply message cannot be empty.");
+
+  const notice = await Notice.findById(noticeId);
+  if (!notice) throw new Error("Notice not found.");
+
+  const replyObj = {
+    employeeId: loggedUser._id,
+    message: message.trim(),
+    sentBy: "Employee",
+    repliedAt: new Date(),
+  };
+
+  notice.replies.push(replyObj);
+  await notice.save();
+
+  if (io) {
+    io.emit("notice:reply", { noticeId, reply: replyObj });
+  }
+
+  return replyObj;
+};
+
+/* =========================================================================
+   16. SHARED SERVICE: UPDATE EMPLOYEE PROFILE DETAILS
+========================================================================= */
+export const serviceUpdateProfile = async ({ loggedUser, field, value, updates = {}, io = null }) => {
+  const userId = loggedUser._id || loggedUser.id;
+  const emp = await Employee.findById(userId);
+  if (!emp) throw new Error("Employee profile record not found.");
+
+  const updateFields = { ...updates };
+  if (field && value !== undefined) {
+    updateFields[field] = value;
+  }
+
+  const mongoSet = {};
+
+  if (updateFields.name || updateFields.firstName) {
+    const newName = (updateFields.name || updateFields.firstName).trim();
+    mongoSet.name = newName;
+    mongoSet.firstName = newName.split(" ")[0];
+    if (newName.split(" ").length > 1) {
+      mongoSet.lastName = newName.split(" ").slice(1).join(" ");
+    }
+  }
+  if (updateFields.lastName) {
+    mongoSet.lastName = updateFields.lastName.trim();
+    if (emp.firstName) {
+      mongoSet.name = `${emp.firstName} ${updateFields.lastName.trim()}`.trim();
+    }
+  }
+
+  if (updateFields.email) {
+    mongoSet.email = updateFields.email.trim();
+  }
+  if (updateFields.bloodGroup) {
+    mongoSet["personalDetails.bloodGroup"] = updateFields.bloodGroup.trim();
+    mongoSet["personal.bloodGroup"] = updateFields.bloodGroup.trim();
+  }
+  if (updateFields.qualification) {
+    mongoSet["personalDetails.qualification"] = updateFields.qualification.trim();
+    mongoSet["personal.qualification"] = updateFields.qualification.trim();
+  }
+  if (updateFields.gender) {
+    const validGenders = ["Male", "Female", "Prefer not to say"];
+    const normalizedGender = validGenders.find((g) => g.toLowerCase() === String(updateFields.gender).toLowerCase()) || updateFields.gender;
+    mongoSet["personalDetails.gender"] = normalizedGender;
+    mongoSet["personal.gender"] = normalizedGender;
+  }
+  if (updateFields.phone || updateFields.mobile) {
+    mongoSet.phone = updateFields.phone || updateFields.mobile;
+  }
+  if (updateFields.address) {
+    mongoSet.address = updateFields.address;
+  }
+  if (updateFields.dob) {
+    mongoSet["personalDetails.dob"] = updateFields.dob;
+    mongoSet["personal.dob"] = updateFields.dob;
+  }
+  if (updateFields.maritalStatus) {
+    mongoSet["personalDetails.maritalStatus"] = updateFields.maritalStatus;
+    mongoSet["personal.maritalStatus"] = updateFields.maritalStatus;
+  }
+  if (updateFields.emergencyContact || updateFields.emergencyPhone || updateFields.emergency) {
+    mongoSet.emergency = updateFields.emergencyContact || updateFields.emergencyPhone || updateFields.emergency;
+    mongoSet.emergencyContact = updateFields.emergencyContact || updateFields.emergencyPhone || updateFields.emergency;
+  }
+  if (updateFields.aadhaarNumber || updateFields.aadharNumber || updateFields.aadhaar || updateFields.aadhar) {
+    const aadharVal = String(updateFields.aadhaarNumber || updateFields.aadharNumber || updateFields.aadhaar || updateFields.aadhar).trim();
+    mongoSet["personalDetails.aadhaarNumber"] = aadharVal;
+    mongoSet["personal.aadhaarNumber"] = aadharVal;
+  }
+  if (updateFields.panNumber || updateFields.pan) {
+    const panVal = String(updateFields.panNumber || updateFields.pan).trim().toUpperCase();
+    mongoSet["personalDetails.panNumber"] = panVal;
+    mongoSet["personal.panNumber"] = panVal;
+  }
+  if (updateFields.nationality) {
+    mongoSet["personalDetails.nationality"] = updateFields.nationality.trim();
+    mongoSet["personal.nationality"] = updateFields.nationality.trim();
+  }
+  if (updateFields.accountNumber || updateFields.bankAccount || updateFields.account) {
+    const accVal = String(updateFields.accountNumber || updateFields.bankAccount || updateFields.account).trim();
+    mongoSet["bankDetails.accountNumber"] = accVal;
+    mongoSet["bank.accountNumber"] = accVal;
+  }
+  if (updateFields.bankName) {
+    mongoSet["bankDetails.bankName"] = updateFields.bankName.trim();
+    mongoSet["bank.bankName"] = updateFields.bankName.trim();
+  }
+  if (updateFields.ifsc || updateFields.ifscCode) {
+    const ifscVal = String(updateFields.ifsc || updateFields.ifscCode).trim().toUpperCase();
+    mongoSet["bankDetails.ifsc"] = ifscVal;
+    mongoSet["bank.ifsc"] = ifscVal;
+  }
+  if (updateFields.branch) {
+    mongoSet["bankDetails.branch"] = updateFields.branch.trim();
+    mongoSet["bank.branch"] = updateFields.branch.trim();
+  }
+  if (updateFields.bio) {
+    mongoSet.bio = updateFields.bio.trim();
+  }
+  if (updateFields.linkedin) mongoSet["socialLinks.linkedin"] = updateFields.linkedin.trim();
+  if (updateFields.github) mongoSet["socialLinks.github"] = updateFields.github.trim();
+  if (updateFields.instagram) mongoSet["socialLinks.instagram"] = updateFields.instagram.trim();
+  if (updateFields.website) mongoSet["socialLinks.website"] = updateFields.website.trim();
+
+  const updatedEmp = await Employee.findByIdAndUpdate(
+    userId,
+    { $set: mongoSet },
+    { new: true, runValidators: false }
+  ).select("-password").lean();
+
+  if (io) {
+    io.emit("employee:updated", {
+      employeeId: updatedEmp.employeeId,
+      updatedFields: Object.keys(updateFields),
+      employee: updatedEmp,
+    });
+    io.emit("admin-notification", {
+      adminId: updatedEmp.adminId,
+      message: `${updatedEmp.name} updated their profile details (${Object.keys(updateFields).join(", ")}).`,
+    });
+  }
+
+  return updatedEmp;
+};
+
+/* =========================================================================
+   17. SHARED SERVICE: CANCEL PENDING WFH REQUEST
+========================================================================= */
+export const serviceCancelWFH = async ({ loggedUser, requestId, io = null }) => {
+  const employeeId = loggedUser.employeeId || loggedUser._id?.toString();
+  let targetReq = null;
+
+  if (requestId) {
+    targetReq = await WorkModeRequest.findById(requestId);
+  } else {
+    targetReq = await WorkModeRequest.findOne({
+      $or: [{ employeeId }, { employeeId: loggedUser._id?.toString() }],
+      status: "Pending",
+    }).sort({ createdAt: -1 });
+  }
+
+  if (!targetReq) {
+    throw new Error("No pending WFH request found to cancel.");
+  }
+
+  await WorkModeRequest.findByIdAndDelete(targetReq._id);
+
+  if (io) {
+    io.emit("wfh:deleted", { id: targetReq._id });
+  }
+
+  return targetReq;
+};
+
+/* =========================================================================
+   18. SHARED SERVICE: CANCEL PENDING EXPENSE CLAIM
+========================================================================= */
+export const serviceCancelExpense = async ({ loggedUser, expenseId, io = null }) => {
+  const userId = loggedUser._id || loggedUser.id;
+  let targetExpense = null;
+
+  if (expenseId) {
+    targetExpense = await Expense.findById(expenseId);
+  } else {
+    const queryOr = [{ employeeId: userId }];
+    if (mongoose.Types.ObjectId.isValid(loggedUser.employeeId)) {
+      queryOr.push({ employeeId: loggedUser.employeeId });
+    }
+    targetExpense = await Expense.findOne({
+      $or: queryOr,
+      status: "Pending",
+    }).sort({ createdAt: -1 });
+  }
+
+  if (!targetExpense) {
+    throw new Error("No pending expense claim found to cancel.");
+  }
+
+  await Expense.findByIdAndDelete(targetExpense._id);
+
+  if (io) {
+    io.emit("expense:deleted", { id: targetExpense._id });
+  }
+
+  return targetExpense;
+};
+
+/* =========================================================================
+   19. SHARED SERVICE: CANCEL PENDING OVERTIME CLAIM
+========================================================================= */
+export const serviceCancelOvertime = async ({ loggedUser, overtimeId, io = null }) => {
+  const userId = loggedUser._id || loggedUser.id;
+  const empIdStr = (loggedUser.employeeId || userId).toString();
+
+  let targetOT = null;
+  if (overtimeId) {
+    targetOT = await Overtime.findById(overtimeId);
+  } else {
+    targetOT = await Overtime.findOne({
+      $or: [{ employeeId: empIdStr }, { employeeId: userId.toString() }],
+      status: "PENDING",
+    }).sort({ createdAt: -1 });
+  }
+
+  if (!targetOT) {
+    throw new Error("No active pending overtime claim found to cancel.");
+  }
+
+  const cancelledDetails = {
+    hours: targetOT.hours,
+    date: targetOT.date,
+    reason: targetOT.reason,
+  };
+
+  await Overtime.findByIdAndDelete(targetOT._id);
+
+  if (io) {
+    io.emit("overtime:deleted", { id: targetOT._id });
+    io.emit("admin-notification", {
+      adminId: targetOT.adminId,
+      message: `${loggedUser.name || "Employee"} cancelled their ${cancelledDetails.hours}h overtime claim for ${cancelledDetails.date}.`,
+    });
+  }
+
+  return cancelledDetails;
+};
+
+/* =========================================================================
+   20. SHARED SERVICE: START FIELD WORK TRIP
+========================================================================= */
+export const serviceStartFieldWork = async ({ loggedUser, io = null }) => {
+  const userId = loggedUser._id || loggedUser.id;
+  const adminId = loggedUser.adminId;
+  const companyId = loggedUser.company || loggedUser.companyId;
+
+  // Check if an active trip already exists
+  const existingActive = await FieldWorkTrip.findOne({
+    employee: userId,
+    status: "active",
+  }).lean();
+
+  if (existingActive) {
+    return {
+      tripId: existingActive._id,
+      startedAt: existingActive.startedAt,
+      isResumed: true,
+      message: `Active field trip from ${new Date(existingActive.startedAt).toLocaleTimeString()} is already running.`,
+    };
+  }
+
+  const newTrip = await FieldWorkTrip.create({
+    adminId,
+    companyId,
+    employee: userId,
+    employeeId: loggedUser.employeeId || userId.toString(),
+    employeeName: loggedUser.name || "Employee",
+    status: "active",
+    startedAt: new Date(),
+    path: [],
+    stops: [],
+    breaks: [],
+  });
+
+  if (io) {
+    io.emit("fieldTracking:tripStarted", { trip: newTrip });
+    io.emit("admin-notification", {
+      adminId,
+      message: `📍 ${loggedUser.name || "Employee"} started a field work trip.`,
+    });
+  }
+
+  return {
+    tripId: newTrip._id,
+    startedAt: newTrip.startedAt,
+    isResumed: false,
+    message: "Field work trip successfully started and live tracking initialized.",
+  };
+};
+
+/* =========================================================================
+   21. SHARED SERVICE: END FIELD WORK TRIP
+========================================================================= */
+export const serviceEndFieldWork = async ({ loggedUser, tripId = null, io = null }) => {
+  const userId = loggedUser._id || loggedUser.id;
+
+  const query = { employee: userId, status: "active" };
+  if (tripId) query._id = tripId;
+
+  const activeTrip = await FieldWorkTrip.findOne(query).sort({ startedAt: -1 });
+  if (!activeTrip) {
+    throw new Error("No active field work trip found to stop.");
+  }
+
+  const endedAt = new Date();
+  const durationMs = endedAt - new Date(activeTrip.startedAt);
+  const durationMins = Math.round(durationMs / 60000);
+
+  activeTrip.status = "completed";
+  activeTrip.endedAt = endedAt;
+  await activeTrip.save();
+
+  if (io) {
+    io.emit("fieldTracking:tripStopped", { tripId: activeTrip._id, employeeId: loggedUser.employeeId });
+    io.emit("admin-notification", {
+      adminId: activeTrip.adminId,
+      message: `🏁 ${loggedUser.name || "Employee"} ended their field trip (${durationMins} mins).`,
+    });
+  }
+
+  return {
+    tripId: activeTrip._id,
+    startedAt: activeTrip.startedAt,
+    endedAt,
+    durationMins,
+    distanceKm: activeTrip.distanceKm || 0,
+  };
+};
+
+/* =========================================================================
+   22. SHARED SERVICE: SEND DIRECT MESSAGE / CONNECT
+========================================================================= */
+export const serviceSendMessage = async ({ loggedUser, receiverName, receiverId = null, messageText, io = null }) => {
+  const senderId = loggedUser._id || loggedUser.id;
+  const adminId = loggedUser.adminId;
+  const companyId = loggedUser.company || loggedUser.companyId;
+
+  let targetReceiver = null;
+  if (receiverId) {
+    targetReceiver = await Employee.findById(receiverId).lean();
+  } else if (receiverName) {
+    const rx = new RegExp(receiverName.trim(), "i");
+    targetReceiver = await Employee.findOne({
+      $or: [{ name: rx }, { email: rx }],
+      _id: { $ne: senderId },
+      $or: [{ adminId }, { company: companyId }],
+    }).lean();
+  }
+
+  if (!targetReceiver) {
+    throw new Error(`Colleague "${receiverName || "receiver"}" not found in your company directory.`);
+  }
+
+  const newMsg = await Message.create({
+    adminId,
+    companyId,
+    sender: senderId,
+    receiver: targetReceiver._id,
+    message: messageText.trim(),
+    isRead: false,
+  });
+
+  if (io) {
+    io.to(targetReceiver._id.toString()).emit("newMessage", newMsg);
+    io.emit("message:received", { receiverId: targetReceiver._id, senderId });
+  }
+
+  return {
+    messageId: newMsg._id,
+    receiverName: targetReceiver.name,
+    receiverEmail: targetReceiver.email,
+    sentAt: newMsg.createdAt,
+    text: newMsg.message,
+  };
+};
+
+
+

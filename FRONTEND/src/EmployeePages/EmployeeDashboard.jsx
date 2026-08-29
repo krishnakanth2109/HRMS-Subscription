@@ -545,6 +545,28 @@ const EmployeeDashboard = () => {
     bootstrap();
   }, [user, loadAttendance, loadShiftTimings, loadHolidaysAndLeaves, loadRequestLimit]);
 
+  // ⚡ Real-Time Attendance Synchronization from Socket & Copilot
+  useEffect(() => {
+    const handleLiveAttendanceSync = () => {
+      if (user?.employeeId) {
+        loadAttendance(user.employeeId);
+      }
+    };
+
+    window.addEventListener("hrmsAttendanceUpdated", handleLiveAttendanceSync);
+
+    if (socket) {
+      socket.on("attendance:update", handleLiveAttendanceSync);
+    }
+
+    return () => {
+      window.removeEventListener("hrmsAttendanceUpdated", handleLiveAttendanceSync);
+      if (socket) {
+        socket.off("attendance:update", handleLiveAttendanceSync);
+      }
+    };
+  }, [socket, user?.employeeId, loadAttendance]);
+
   const loadProfilePic = async () => {
     try {
       const res = await getProfilePic();

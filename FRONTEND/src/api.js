@@ -1568,13 +1568,31 @@ export const sendCopilotMessage = async (message, chatHistory = []) => {
   return response.data;
 };
 
-export const executeCopilotAction = async (actionToken) => {
-  const response = await api.post("/api/copilot/execute-action", { actionToken });
+export const executeCopilotAction = async (actionToken, payload = {}) => {
+  const response = await api.post("/api/copilot/execute-action", { actionToken, ...payload });
   return response.data;
 };
 
 export const updateCopilotDraftAction = async (actionType, data) => {
   const response = await api.post("/api/copilot/update-draft-action", { actionType, data });
+  return response.data;
+};
+
+/* =============================================================================
+   🛡️ ADMIN AI COPILOT API FUNCTIONS
+============================================================================= */
+export const sendAdminCopilotMessage = async (message, chatHistory = []) => {
+  const response = await api.post("/api/admin/copilot/chat", { message, chatHistory });
+  return response.data;
+};
+
+export const executeAdminCopilotAction = async (actionToken, payload = {}) => {
+  const response = await api.post("/api/admin/copilot/execute-action", { actionToken, ...payload });
+  return response.data;
+};
+
+export const updateAdminCopilotDraftAction = async (actionType, updatedData) => {
+  const response = await api.post("/api/admin/copilot/update-draft-action", { actionType, updatedData });
   return response.data;
 };
 

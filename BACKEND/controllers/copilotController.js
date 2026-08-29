@@ -6,14 +6,25 @@ import {
   serviceApplyLeave,
   serviceCancelLeave,
   serviceApplyWFH,
+  serviceUpdateWFH,
   servicePunchIn,
   servicePunchOut,
+  servicePunchBreak,
+  serviceSubmitLateCorrection,
   serviceApplyExpense,
   serviceApplyOvertime,
   serviceRequestPunchOut,
   serviceSubmitIssue,
   serviceSubmitResignation,
   serviceSubmitWorkUpdate,
+  serviceReplyNotice,
+  serviceUpdateProfile,
+  serviceCancelWFH,
+  serviceCancelExpense,
+  serviceCancelOvertime,
+  serviceStartFieldWork,
+  serviceEndFieldWork,
+  serviceSendMessage,
 } from "../services/hrmsActionServices.js";
 
 // Dynamically load API Keys from .env
@@ -29,10 +40,10 @@ const getCopilotApiKeys = () => {
 // Candidate models to try in order
 const CANDIDATE_MODELS = [
   process.env.COPILOT_GEMINI_MODEL,
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-flash-8b",
   "gemini-1.5-flash",
-  "gemini-1.5-pro-latest",
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro",
+  "gemini-pro",
 ].filter((m) => !!m && typeof m === "string" && m.trim() !== "");
 
 /* =========================================================================
@@ -362,27 +373,101 @@ export const extractExplicitTime = (message) => {
   return null;
 };
 
-const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
-  const q = message.toLowerCase().trim();
+export const fuzzyNormalizeText = (text) => {
+  if (!text || typeof text !== "string") return "";
+  let t = text.toLowerCase().trim();
+  
+  // Common HRMS Typos & Colloquial Abbreviations
+  return t
+    .replace(/\b(leav|leve|levae|leev|leves|leavs)\b/g, "leave")
+    .replace(/\b(atendance|atendence|atndance|attandance|attendence)\b/g, "attendance")
+    .replace(/\b(expenes|expnse|expanse|expaneses|reimbersment|remburse|rembursment)\b/g, "expense")
+    .replace(/\b(punc|pnch|puch|ponch)\b/g, "punch")
+    .replace(/\b(overtme|ovrtime|ovetime)\b/g, "overtime")
+    .replace(/\b(payslp|salry|slary|pay-slip)\b/g, "payslip")
+    .replace(/\b(holidat|holida|hollyday|holydays)\b/g, "holiday")
+    .replace(/\b(notic|notce|notces|announcment)\b/g, "notice")
+    .replace(/\b(tommorow|tomm|tomoro|tomrw|tmrw|tmr)\b/g, "tomorrow")
+    .replace(/\b(yestarday|yesturday|yday|ystrday)\b/g, "yesterday")
+    .replace(/\b(resig|resing|resignaton)\b/g, "resignation")
+    .replace(/\b(complnt|complaint|issu|isue)\b/g, "issue")
+    .replace(/\b(linkedn|liknedin|linkdin|linkden)\b/g, "linkedin")
+    .replace(/\b(githb|githup)\b/g, "github")
+    .replace(/\b(instgram|insta|instagrm)\b/g, "instagram")
+    .replace(/\b(websit|portfolo|portfilio)\b/g, "website")
+    .replace(/\b(adhar|adharno|aadharno)\b/g, "aadhaar")
+    .replace(/\b(mon|monday)\b/g, "monday")
+    .replace(/\b(tue|tues|tuesday)\b/g, "tuesday")
+    .replace(/\b(wed|wednesday)\b/g, "wednesday")
+    .replace(/\b(thu|thur|thurs|thursday)\b/g, "thursday")
+    .replace(/\b(fri|friday)\b/g, "friday");
+};
+
+export const classifyIntentTraditional = (message, todayStr, tomorrowStr, chatHistory = []) => {
+  if (!message || typeof message !== "string") return null;
+
+  const rawQ = message.toLowerCase().trim();
+  const q = fuzzyNormalizeText(message);
+
+  // ── 0. CONVERSATIONAL MULTI-TURN CONTEXT RESOLVER ──────────────────────────
+  if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+    const lastAssistant = [...chatHistory].reverse().find((m) => m.role === "assistant")?.text?.toLowerCase() || "";
+    const lastUser = [...chatHistory].reverse().find((m) => m.role === "user")?.text?.toLowerCase() || "";
+
+    // Follow-up: "cancel that" / "withdraw that" / "cancel it" / "discard that"
+    if (
+      q === "cancel that" ||
+      q === "cancel it" ||
+      q === "withdraw that" ||
+      q === "discard that" ||
+      q === "cancel" ||
+      q === "withdraw"
+    ) {
+      if (lastAssistant.includes("wfh") || lastUser.includes("wfh")) return { action: "draft_cancel_wfh" };
+      if (lastAssistant.includes("expense") || lastUser.includes("expense")) return { action: "draft_cancel_expense" };
+      return { action: "draft_cancel_leave" };
+    }
+
+    // Follow-up: Date / Mode amendment (e.g. "change it to monday", "make it tomorrow", "change to sick leave")
+    if (
+      q.startsWith("change it to") ||
+      q.startsWith("change to") ||
+      q.startsWith("make it") ||
+      q.startsWith("set it to")
+    ) {
+      if (lastAssistant.includes("wfh") || lastUser.includes("wfh")) {
+        const { from, to } = extractExplicitDateRange(message, todayStr, tomorrowStr);
+        return { action: "draft_wfh_request", fromDate: from, toDate: to };
+      }
+      if (lastAssistant.includes("expense") || lastUser.includes("expense")) {
+        const amountMatch = message.match(/(?:rs\.?|inr|₹|\$)\s*(\d+(?:,\d+)*(?:\.\d+)?)/i) || message.match(/\b(\d{2,7})\b/);
+        if (amountMatch) {
+          return { action: "draft_expense_request", amount: parseFloat(amountMatch[1].replace(/,/g, "")) };
+        }
+      }
+      const { from, to } = extractExplicitDateRange(message, todayStr, tomorrowStr);
+      return { action: "draft_leave_request", from, to };
+    }
+  }
 
   // ── 1. PUNCH IN / PUNCH OUT & MISSING PUNCH CORRECTION ────────────────────
   if (
-    q === "punch in" ||
-    q === "login" ||
-    q === "clock in" ||
-    q === "check in" ||
-    q === "checkin" ||
-    q.includes("punch in") ||
-    q.includes("punchin") ||
-    q.includes("start work") ||
-    q.includes("clock in") ||
-    q.includes("mark attendance") ||
-    q.includes("check in")
+    q.includes("late login") ||
+    q.includes("late mark") ||
+    q.includes("late entry") ||
+    q.includes("late arrival") ||
+    q.includes("came late") ||
+    q.includes("got late") ||
+    q.includes("reached late") ||
+    q.includes("late request") ||
+    (q.includes("late") && (q.includes("request") || q.includes("apply") || q.includes("traffic") || q.includes("reason") || q.includes("justify") || q.includes("correction") || q.includes("keep") || q.includes("put") || q.includes("submit") || q.includes("mark")))
   ) {
-    const explicitNote = normalizeDescription(message, "general");
+    const explicitDate = parseExplicitDate(message) || todayStr;
+    const explicitReason = normalizeDescription(message, "general");
     return {
-      action: "draft_punch_in",
-      note: explicitNote || "Punched in via AI Copilot",
+      action: "draft_late_correction",
+      date: explicitDate,
+      reason: explicitReason || "Traffic delay / late arrival justification",
     };
   }
 
@@ -393,7 +478,7 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     q.includes("punchout request") ||
     q.includes("punch out request") ||
     q.includes("punch correction") ||
-    ((q.includes("punch out") || q.includes("punchout") || q.includes("checkout")) &&
+    ((q.includes("punch out") || q.includes("checkout")) &&
       (q.includes("yesterday") || q.includes("miss") || q.includes("forgot") || q.includes("request") || q.includes("correct")))
   ) {
     const explicitDate = parseExplicitDate(message) || (q.includes("yesterday") ? parseExplicitDate("yesterday") : todayStr);
@@ -408,16 +493,43 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
   }
 
   if (
+    q === "punch in" ||
+    q === "login" ||
+    q === "clock in" ||
+    q === "check in" ||
+    q === "checkin" ||
+    q.includes("punch in") ||
+    q.includes("start work") ||
+    q.includes("clock in") ||
+    q.includes("mark attendance") ||
+    q.includes("check in")
+  ) {
+    const explicitNote = normalizeDescription(message, "general");
+    return {
+      action: "draft_punch_in",
+      note: explicitNote || "Punched in via AI Copilot",
+    };
+  }
+
+  if (
     q === "punch out" ||
     q === "logout" ||
     q === "clock out" ||
     q === "check out" ||
     q === "checkout" ||
     q === "sign out" ||
+    q === "completed work" ||
+    q === "work completed" ||
+    q === "finished work" ||
+    q === "work finished" ||
+    q === "done with work" ||
     q.includes("punch out") ||
-    q.includes("punchout") ||
     q.includes("done for today") ||
     q.includes("done for the day") ||
+    q.includes("completed work") ||
+    q.includes("work completed") ||
+    q.includes("finished work") ||
+    q.includes("work finished") ||
     q.includes("leaving now") ||
     q.includes("end work") ||
     q.includes("clock out")
@@ -429,7 +541,36 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     };
   }
 
-  // ── 2. LEAVE MANAGEMENT (QUERIES, CANCELLATION, APPLICATION) ───────────────
+  // ── 2. BREAK MANAGEMENT (LUNCH / TEA / RESUME WORK / RETURN TO WORK / ON BREAK / APPLY BREAK) ──
+  const isBreakUtterance =
+    (q.includes("break") && !q.includes("breakfast") && !q.includes("broken")) ||
+    q.includes("return to work") ||
+    q.includes("back to work") ||
+    q.includes("continue work") ||
+    q.includes("resume work") ||
+    q.includes("resumed work") ||
+    q.includes("resume working") ||
+    q.includes("resumed working") ||
+    q.includes("started working") ||
+    q.includes("start working again") ||
+    q.includes("back from break") ||
+    q.includes("ended break") ||
+    q.includes("break over") ||
+    q.includes("break finished") ||
+    q.includes("break done") ||
+    q.includes("resumed") ||
+    q === "resume" ||
+    q === "resumed";
+
+  if (isBreakUtterance) {
+    const breakType = q.includes("tea") ? "Tea Break" : "Lunch Break";
+    return {
+      action: "draft_punch_break",
+      breakType,
+    };
+  }
+
+  // ── 3. LEAVE BALANCE LOOKUP ───────────────────────────────────────────────
   if (
     q === "balance" ||
     q === "leave balance" ||
@@ -441,14 +582,15 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     q.includes("leaves left") ||
     q.includes("remaining leave") ||
     q.includes("leave quota") ||
-    q.includes("leave status")
+    q.includes("leave status") ||
+    (q.includes("check") && q.includes("leave") && !q.includes("apply") && !q.includes("cancel"))
   ) {
     return { action: "get_leave_balance" };
   }
 
+  // ── 4. CANCEL LEAVE ───────────────────────────────────────────────────────
   if (
     q === "cancel leave" ||
-    q === "cancel" ||
     q.includes("cancel leave") ||
     q.includes("withdraw leave") ||
     q.includes("delete leave") ||
@@ -464,37 +606,53 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     };
   }
 
+  // ── 5. SYMPTOMS & HEALTH CONDITIONS (AUTO-ROUTED TO SICK LEAVE) ───────────
+  const SICKNESS_PATTERNS = [
+    "fever", "cold", "cough", "headache", "stomach ache", "stomach pain",
+    "vomiting", "migraine", "food poisoning", "hospital", "doctor appointment",
+    "dentist", "surgery", "clinic", "unwell", "sick", "ill", "not feeling well",
+    "not well", "high fever", "feeling sick", "sick day"
+  ];
+  const hasSymptom = SICKNESS_PATTERNS.some((sym) => q.includes(sym));
+
+  // ── 6. LEAVE APPLICATION (CASUAL / SICK / PAID) ───────────────────────────
   if (
+    hasSymptom ||
     q === "leave" ||
     q === "apply leave" ||
     q === "sick leave" ||
     q === "casual leave" ||
-    q.includes("leave") ||
+    q === "paid leave" ||
+    q.includes("need leave") ||
+    q.includes("want leave") ||
+    q.includes("apply leave") ||
+    q.includes("taking leave") ||
+    q.includes("take leave") ||
+    q.includes("request leave") ||
     q.includes("day off") ||
     q.includes("days off") ||
     q.includes("half day") ||
     q.includes("taking off") ||
     q.includes("off tomorrow") ||
-    q.includes("sick day") ||
-    (q.includes("fever") && !q.includes("what")) ||
-    (q.includes("unwell") && !q.includes("what"))
+    q.includes("off today") ||
+    q.includes("leave tomorrow") ||
+    q.includes("leave today") ||
+    (q.includes("leave") && !q.includes("policy") && !q.includes("rule") && !q.includes("cancel") && !q.includes("balance") && !q.includes("history"))
   ) {
-    // Explicit Date Range (e.g. "from 1st to 5th Sept", "10-15 Sept", "tomorrow", "Monday to Wednesday")
     const { from, to } = extractExplicitDateRange(message, todayStr, tomorrowStr);
     
-    // Explicit Leave Type
-    const leaveType = (q.includes("sick") || q.includes("fever") || q.includes("ill") || q.includes("cold") || q.includes("doctor") || q.includes("hospital") || q.includes("unwell") || q.includes("sl"))
+    // Explicit Leave Type Identification
+    const leaveType = (hasSymptom || q.includes("sick") || q.includes("sl"))
       ? "Sick Leave"
-      : (q.includes("paid") || q.includes("annual") || q.includes("earned") || q.includes("pl") || q.includes("el") || q.includes("privilege"))
+      : (q.includes("paid") || q.includes("annual") || q.includes("earned") || q.includes("pl") || q.includes("el"))
       ? "Paid Leave"
       : "Casual Leave";
       
-    // Explicit Day Type (Half Day vs Full Day)
-    const leaveDayType = q.includes("half day") || q.includes("half-day") || q.includes("first half") || q.includes("second half") || q.includes("0.5") ? "Half Day" : "Full Day";
+    const leaveDayType = (q.includes("half day") || q.includes("half-day") || q.includes("0.5") || q.includes("first half") || q.includes("second half")) ? "Half Day" : "Full Day";
     
-    // Explicit Reason Priority
     const extractedReason = normalizeDescription(message, "leave");
-    const defaultReason = leaveType === "Sick Leave" ? "Sick leave application" : "Casual leave application";
+    const symptomReason = hasSymptom ? SICKNESS_PATTERNS.find((s) => q.includes(s)) : null;
+    const defaultReason = symptomReason ? `Unwell due to ${symptomReason}` : (leaveType === "Sick Leave" ? "Sick leave application" : "Casual leave application");
     
     return {
       action: "draft_leave_request",
@@ -506,64 +664,108 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     };
   }
 
-  // ── 3. WORK FROM HOME (WFH) ────────────────────────────────────────────────
+  // ── 7. WORK FROM HOME (WFH / REMOTE WORK) ─────────────────────────────────
   if (
     q === "wfh" ||
     q === "work from home" ||
     q === "remote" ||
+    q === "remote work" ||
     q.includes("wfh") ||
     q.includes("work from home") ||
     q.includes("remote work") ||
+    q.includes("working from home") ||
     q.includes("work remotely") ||
-    q.includes("home work")
+    q.includes("remote mode")
   ) {
+    if (q.includes("cancel") || q.includes("withdraw") || q.includes("delete") || q.includes("remove") || q.includes("revoke")) {
+      return { action: "draft_cancel_wfh" };
+    }
+    if (q.includes("history") || q.includes("status") || q.includes("requests") || (q.includes("check") && !q.includes("apply") && !q.includes("tomorrow"))) {
+      return { action: "get_my_wfh_requests" };
+    }
+
     const { from, to } = extractExplicitDateRange(message, todayStr, tomorrowStr);
-    const requestedMode = q.includes("wfo") || q.includes("work from office") ? "WFO" : "WFH";
-    const extractedWfhReason = normalizeDescription(message, "wfh");
+    const requestedMode = q.includes("office") ? "Office" : "WFH";
+    const cleanWfhReason = normalizeDescription(message, "wfh");
     return {
       action: "draft_wfh_request",
       fromDate: from,
       toDate: to,
       requestedMode,
-      reason: extractedWfhReason || "Work from home request",
+      reason: cleanWfhReason || `${requestedMode} request`,
     };
   }
 
-  // ── 4. EXPENSE REIMBURSEMENT ──────────────────────────────────────────────
+  // ── 8. EXPENSE REIMBURSEMENT ──────────────────────────────────────────────
+  const EXPENSE_CATEGORIES = {
+    Travel: ["cab", "taxi", "uber", "ola", "flight", "plane", "train", "metro", "bus", "auto", "petrol", "diesel", "fuel", "hotel", "travel", "trip", "fare", "toll", "parking"],
+    Food: ["lunch", "dinner", "breakfast", "meal", "food", "restaurant", "cafe", "coffee", "tea", "snacks", "swiggy", "zomato", "team lunch", "team dinner"],
+    Internet: ["wifi", "internet", "broadband", "phone", "mobile", "recharge", "airtel", "jio", "vi", "data pack"],
+    Equipment: ["mouse", "keyboard", "monitor", "screen", "headphone", "headset", "earphones", "laptop", "charger", "cable", "adapter", "hardware", "hard disk", "ssd", "ram"],
+    Stationery: ["print", "photocopy", "xerox", "courier", "paper", "pen", "notebook", "stationery", "stamp"]
+  };
+
+  let matchedExpenseCategory = "General";
+  for (const [catName, keywords] of Object.entries(EXPENSE_CATEGORIES)) {
+    if (keywords.some((kw) => q.includes(kw))) {
+      matchedExpenseCategory = catName;
+      break;
+    }
+  }
+
+  const amountMatch = message.match(/(?:rs\.?|inr|₹|\$)\s*(\d+(?:,\d+)*(?:\.\d+)?)/i) || 
+                     message.match(/\b(\d{2,7})\s*(?:rs|inr|rupees|\$)\b/i) ||
+                     (matchedExpenseCategory !== "General" ? message.match(/\b(\d{2,7})\b/) : null);
+
   if (
     q.includes("expense") ||
     q.includes("reimburse") ||
     q.includes("claim") ||
     q.includes("bill") ||
-    q.includes("receipt")
+    q.includes("receipt") ||
+    (amountMatch && matchedExpenseCategory !== "General")
   ) {
-    const amountMatch = message.match(/(?:rs\.?|inr|₹|\$)\s*(\d+(?:,\d+)*(?:\.\d+)?)/i) || message.match(/\b(\d{2,7})\s*(?:rs|inr|rupees|\$)?\b/i);
-    if (amountMatch || q.includes("apply") || q.includes("submit") || q.includes("add") || q.includes("claim")) {
-      const amountVal = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, "")) : 500;
-      
-      // Explicit Category Extraction
-      let category = "General";
-      if (q.includes("travel") || q.includes("cab") || q.includes("flight") || q.includes("taxi") || q.includes("hotel") || q.includes("trip") || q.includes("train") || q.includes("fuel")) category = "Travel";
-      else if (q.includes("food") || q.includes("lunch") || q.includes("dinner") || q.includes("meal") || q.includes("snack") || q.includes("restaurant") || q.includes("breakfast")) category = "Food";
-      else if (q.includes("internet") || q.includes("wifi") || q.includes("phone") || q.includes("broadband") || q.includes("mobile") || q.includes("recharge")) category = "Internet";
-      else if (q.includes("equipment") || q.includes("hardware") || q.includes("laptop") || q.includes("mouse") || q.includes("keyboard") || q.includes("monitor")) category = "Equipment";
-      else if (q.includes("stationery") || q.includes("print") || q.includes("courier") || q.includes("paper")) category = "Stationery";
-      
+    if (q.includes("cancel") || q.includes("withdraw") || q.includes("delete") || q.includes("remove")) {
+      return { action: "draft_cancel_expense" };
+    }
+
+    const isExplicitInquiry = 
+      q.startsWith("check") ||
+      q.startsWith("view") ||
+      q.startsWith("show") ||
+      q.startsWith("list") ||
+      q.startsWith("get") ||
+      q.includes("my expense") ||
+      q.includes("my claim") ||
+      q.includes("expense claims") ||
+      q.includes("claims list") ||
+      q.includes("history") ||
+      q.includes("status") ||
+      q.includes("track") ||
+      q === "expenses" ||
+      q === "expense claims" ||
+      q === "my claims" ||
+      q.includes("check claims");
+
+    const hasExplicitApplyVerb = q.includes("apply") || q.includes("submit") || q.includes("create") || q.includes("add") || q.includes("new claim") || q.includes("claim") || q.includes("spent") || q.includes("paid");
+
+    if (!isExplicitInquiry && (amountMatch || hasExplicitApplyVerb)) {
+      const amountVal = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, "")) : "";
       const explicitDate = parseExplicitDate(message) || todayStr;
       const cleanDesc = normalizeDescription(message, "expense");
       
       return {
         action: "draft_expense_request",
         amount: amountVal,
-        category,
-        description: cleanDesc || `${category} expense claim`,
+        category: matchedExpenseCategory,
+        description: cleanDesc || `${matchedExpenseCategory} expense claim`,
         date: explicitDate,
       };
     }
     return { action: "get_my_expenses" };
   }
 
-  // ── 5. OVERTIME (OT) ──────────────────────────────────────────────────────
+  // ── 9. OVERTIME (OT) ──────────────────────────────────────────────────────
   if (
     q.includes("overtime") ||
     q.includes(" ot ") ||
@@ -571,15 +773,38 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     q === "ot" ||
     q === "overtime" ||
     q.includes("extra hour") ||
-    q.includes("extra time")
+    q.includes("extra time") ||
+    q.includes("extra work")
   ) {
-    const hoursMatch = message.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/i) || message.match(/\b(\d+(?:\.\d+)?)\s*extra\b/i) || message.match(/\b(\d+(?:\.\d+)?)\b/);
-    if (hoursMatch || q.includes("apply") || q.includes("submit") || q.includes("claim") || q.includes("worked") || q.includes("extra")) {
-      const hoursVal = hoursMatch ? parseFloat(hoursMatch[1]) : 2;
+    if (q.includes("cancel") || q.includes("withdraw") || q.includes("delete") || q.includes("revoke")) {
+      return { action: "draft_cancel_overtime" };
+    }
+
+    const isExplicitInquiry = 
+      q.startsWith("check") ||
+      q.startsWith("view") ||
+      q.startsWith("show") ||
+      q.startsWith("list") ||
+      q.startsWith("get") ||
+      q.includes("my overtime") ||
+      q.includes("my ot") ||
+      q.includes("overtime claims") ||
+      q.includes("history") ||
+      q.includes("status") ||
+      q.includes("track") ||
+      q === "overtime" ||
+      q === "ot" ||
+      q.includes("check overtime");
+
+    const hoursMatch = message.match(/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b/i) || message.match(/\b(\d+(?:\.\d+)?)\s*extra\b/i);
+    const hasExplicitApplyVerb = q.includes("apply") || q.includes("submit") || q.includes("request") || q.includes("add") || q.includes("worked") || q.includes("claim");
+
+    if (!isExplicitInquiry && (hoursMatch || hasExplicitApplyVerb)) {
+      const hoursVal = hoursMatch ? parseFloat(hoursMatch[1]) : "";
       const explicitDate = parseExplicitDate(message) || (q.includes("yesterday") ? parseExplicitDate("yesterday") : todayStr);
       const timeParsed = extractExplicitTime(message);
-      const fromTime = timeParsed?.fromTime || "18:00";
-      const toTime = timeParsed?.toTime || "20:00";
+      const fromTime = timeParsed?.fromTime || "";
+      const toTime = timeParsed?.toTime || "";
       const cleanOtReason = normalizeDescription(message, "overtime");
       
       return {
@@ -594,7 +819,40 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     return { action: "get_my_overtime" };
   }
 
-  // ── 6. PAYSLIP & SALARY ───────────────────────────────────────────────────
+  // ── 10. DAILY WORK TRACKER & TASK REPORT ──────────────────────────────────
+  if (
+    q.includes("daily work") ||
+    q.includes("work update") ||
+    q.includes("task update") ||
+    q.includes("todays work") ||
+    q.includes("work log") ||
+    q.includes("work report") ||
+    q.includes("log work") ||
+    q.includes("tracker")
+  ) {
+    if (
+      q.includes("update") ||
+      q.includes("submit") ||
+      q.includes("log") ||
+      q.includes("completed") ||
+      q.includes("finished") ||
+      q.includes("progress") ||
+      q.includes("%")
+    ) {
+      const pctMatch = message.match(/(\d{1,3})\s*%/);
+      const pctVal = pctMatch ? parseInt(pctMatch[1], 10) : 100;
+      const cleanWorkTitle = normalizeDescription(message, "work") || "Daily Work Report";
+      return {
+        action: "draft_work_update",
+        title: cleanWorkTitle,
+        description: cleanWorkTitle,
+        percentage: Math.min(100, Math.max(0, pctVal)),
+      };
+    }
+    return { action: "get_my_daily_work" };
+  }
+
+  // ── 11. PAYSLIP & SALARY ──────────────────────────────────────────────────
   if (
     q === "payslip" ||
     q === "salary" ||
@@ -610,10 +868,13 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     q.includes("deduction") ||
     q.includes("earnings")
   ) {
+    if (q.includes("history") || q.includes("all") || q.includes("past")) {
+      return { action: "get_payslip_history" };
+    }
     return { action: "get_my_payslip" };
   }
 
-  // ── 7. NOTICES, ANNOUNCEMENTS & MEETINGS ──────────────────────────────────
+  // ── 12. NOTICES, ANNOUNCEMENTS & MEETINGS ─────────────────────────────────
   if (
     q === "notices" ||
     q === "notice" ||
@@ -626,10 +887,14 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     q.includes("circular") ||
     q.includes("company update")
   ) {
+    if (q.includes("reply") || q.includes("comment") || q.includes("respond")) {
+      const cleanNoticeReply = normalizeDescription(message, "general") || "Thank you for the update.";
+      return { action: "draft_notice_reply", message: cleanNoticeReply };
+    }
     return { action: "get_my_notices" };
   }
 
-  // ── 8. HOLIDAYS ───────────────────────────────────────────────────────────
+  // ── 13. HOLIDAYS ──────────────────────────────────────────────────────────
   if (
     q === "holiday" ||
     q === "holidays" ||
@@ -642,7 +907,7 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     return { action: "get_upcoming_holidays" };
   }
 
-  // ── 9. SHIFTS & SCHEDULE ──────────────────────────────────────────────────
+  // ── 14. SHIFTS & SCHEDULE ─────────────────────────────────────────────────
   if (
     q === "shift" ||
     q === "my shift" ||
@@ -650,44 +915,268 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     q === "work hours" ||
     q.includes("shift") ||
     q.includes("work hours") ||
-    q.includes("grace period") ||
-    q.includes("office timing")
+    q.includes("grace period")
   ) {
     return { action: "get_my_shifts" };
   }
 
-  // ── 10. ATTENDANCE LOG & STATS ────────────────────────────────────────────
+  // ── 15. ATTENDANCE LOG & STATS ────────────────────────────────────────────
   if (
     q === "attendance" ||
     q === "my attendance" ||
     q.includes("attendance") ||
-    q.includes("late mark") ||
-    q.includes("present day") ||
-    q.includes("absent day") ||
     q.includes("hours worked") ||
     q.includes("log sheet")
   ) {
+    if (q.includes("today") || q.includes("did i punch")) return { action: "get_today_attendance" };
     return { action: "get_my_attendance" };
   }
 
-  // ── 11. PROFILE DETAILS ───────────────────────────────────────────────────
-  if (
-    q === "profile" ||
-    q === "my profile" ||
-    q === "emp id" ||
-    q === "employee id" ||
-    q === "who am i" ||
-    q.includes("profile") ||
-    q.includes("employee id") ||
-    q.includes("emp id") ||
-    q.includes("my designation") ||
-    q.includes("my department") ||
-    q.includes("my details")
-  ) {
+  // ── 16. PROFILE DETAILS & UPDATES ─────────────────────────────────────────
+  const isProfileUpdateVerb =
+    q.includes("update") ||
+    q.includes("change") ||
+    q.includes("set") ||
+    q.includes("edit") ||
+    q.includes("modify") ||
+    q.includes("correct") ||
+    q.includes("save") ||
+    q.includes("replace");
+
+  const hasProfileField =
+    q.includes("email") ||
+    q.includes("mail") ||
+    q.includes("name") ||
+    q.includes("gender") ||
+    q.includes("phone") ||
+    q.includes("mobile") ||
+    q.includes("contact") ||
+    q.includes("address") ||
+    q.includes("aadhar") ||
+    q.includes("aadhaar") ||
+    q.includes("pan") ||
+    q.includes("bank") ||
+    q.includes("account") ||
+    q.includes("ifsc") ||
+    q.includes("branch") ||
+    q.includes("emergency") ||
+    q.includes("nationality") ||
+    q.includes("bio") ||
+    q.includes("about") ||
+    q.includes("dob") ||
+    q.includes("birth") ||
+    q.includes("marital") ||
+    q.includes("blood") ||
+    q.includes("qualification") ||
+    q.includes("education") ||
+    q.includes("degree") ||
+    q.includes("linkedin") ||
+    q.includes("github") ||
+    q.includes("instagram") ||
+    q.includes("social") ||
+    q.includes("website") ||
+    q.includes("portfolio") ||
+    q.includes("link") ||
+    q.includes("profile");
+
+  if (isProfileUpdateVerb && hasProfileField) {
+    let field = "name";
+    let val = "";
+
+    // Email ID
+    if (q.includes("email") || q.includes("mail")) {
+      field = "email";
+      const emailMatch = message.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      if (emailMatch) {
+        val = emailMatch[0].trim();
+      } else {
+        const afterKw = message.split(/email(?:\s+id|\s+address)?(?:\s*[:\-=]|to|is)?/i)[1];
+        val = afterKw ? afterKw.trim() : normalizeDescription(message, "general");
+      }
+    }
+    // Aadhar / Aadhaar
+    else if (q.includes("aadhar") || q.includes("aadhaar")) {
+      field = "aadhaarNumber";
+      const aadharMatch = message.match(/(?:aadhar|aadhaar)(?:\s+number)?\s*[:\-=]*\s*([0-9\s\-]+)/i);
+      if (aadharMatch) {
+        val = aadharMatch[1].replace(/[\s\-]/g, "").trim();
+      } else {
+        val = message.replace(/[^0-9]/g, "");
+      }
+    }
+    // PAN Card
+    else if (q.includes("pan")) {
+      field = "panNumber";
+      const panMatch = message.match(/(?:pan)(?:\s+card|\s+number)?\s*[:\-=]*\s*([A-Za-z0-9]+)/i);
+      if (panMatch) {
+        val = panMatch[1].toUpperCase().trim();
+      } else {
+        const directPan = message.match(/[A-Z]{5}[0-9]{4}[A-Z]{1}/i);
+        val = directPan ? directPan[0].toUpperCase() : normalizeDescription(message, "general");
+      }
+    }
+    // Bank Account Number
+    else if ((q.includes("account") || q.includes("bank account")) && !q.includes("bank name")) {
+      field = "accountNumber";
+      const accMatch = message.match(/(?:account)(?:\s+number)?\s*[:\-=]*\s*([0-9]+)/i);
+      val = accMatch ? accMatch[1].trim() : message.replace(/[^0-9]/g, "");
+    }
+    // IFSC Code
+    else if (q.includes("ifsc")) {
+      field = "ifsc";
+      const ifscMatch = message.match(/(?:ifsc)(?:\s+code)?\s*[:\-=]*\s*([A-Za-z0-9]+)/i);
+      val = ifscMatch ? ifscMatch[1].toUpperCase().trim() : normalizeDescription(message, "general").toUpperCase();
+    }
+    // Bank Name
+    else if (q.includes("bank name") || (q.includes("bank") && !q.includes("account"))) {
+      field = "bankName";
+      const bankMatch = message.match(/(?:bank(?:\s+name)?)\s*(?:is|to|:-|=|:)?\s*([a-zA-Z\s]+)/i);
+      val = bankMatch ? bankMatch[1].trim() : normalizeDescription(message, "general");
+    }
+    // Branch
+    else if (q.includes("branch")) {
+      field = "branch";
+      const branchMatch = message.match(/(?:branch)\s*(?:is|to|:-|=|:)?\s*([a-zA-Z0-9\s]+)/i);
+      val = branchMatch ? branchMatch[1].trim() : normalizeDescription(message, "general");
+    }
+    // Blood Group
+    else if (q.includes("blood")) {
+      field = "bloodGroup";
+      const bgMatch = message.match(/\b(A|B|AB|O)[+-]\b/i) || message.match(/(?:blood(?:\s+group)?)\s*(?:is|to|:-|=|:)?\s*([a-zA-Z+-]+)/i);
+      val = bgMatch ? (bgMatch[1] || bgMatch[0]).toUpperCase() : "O+";
+    }
+    // Qualification / Education
+    else if (q.includes("qualification") || q.includes("education") || q.includes("degree")) {
+      field = "qualification";
+      val = normalizeDescription(message, "general");
+    }
+    // Emergency Contact / Phone
+    else if (q.includes("emergency")) {
+      field = "emergency";
+      const emPhoneMatch = message.match(/\b\d{10,12}\b/);
+      val = emPhoneMatch ? emPhoneMatch[0] : normalizeDescription(message, "general");
+    }
+    // LinkedIn
+    else if (q.includes("linkedin")) {
+      field = "linkedin";
+      const urlMatch = message.match(/\b(?:https?:\/\/|www\.)[^\s]+/i) ||
+                       message.match(/(?:linkedin\.com\/[^\s]+)/i);
+      if (urlMatch) {
+        val = urlMatch[0];
+      } else {
+        const afterKw = message.split(/linkedin(?:\s+profile|\s+url|\s+link)?(?:\s*[:\-=]|to|is)?/i)[1];
+        val = afterKw ? afterKw.trim() : normalizeDescription(message, "general");
+      }
+    }
+    // GitHub
+    else if (q.includes("github")) {
+      field = "github";
+      const urlMatch = message.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[^\s]+/i) || message.match(/\bhttps?:\/\/[^\s]+/i);
+      val = urlMatch ? urlMatch[0] : normalizeDescription(message, "general");
+    }
+    // Instagram
+    else if (q.includes("instagram") || q.includes("insta")) {
+      field = "instagram";
+      const urlMatch = message.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/[^\s]+/i) || message.match(/\bhttps?:\/\/[^\s]+/i);
+      val = urlMatch ? urlMatch[0] : normalizeDescription(message, "general");
+    }
+    // Website / Portfolio
+    else if (q.includes("website") || q.includes("portfolio")) {
+      field = "website";
+      const urlMatch = message.match(/(?:https?:\/\/)?[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/i);
+      val = urlMatch ? urlMatch[0] : normalizeDescription(message, "general");
+    }
+    // Nationality
+    else if (q.includes("nationality")) {
+      field = "nationality";
+      const natMatch = message.match(/(?:nationality)\s*(?:is|to|:-|=|:)?\s*([a-zA-Z\s]+)/i);
+      val = natMatch ? natMatch[1].trim() : "Indian";
+    }
+    // Bio / About Me
+    else if (q.includes("bio") || q.includes("about me") || q.includes("about")) {
+      field = "bio";
+      const bioMatch = message.match(/(?:bio|about me|about)\s*(?:is|to|:-|=|:)?\s*(.+)/i);
+      val = bioMatch ? bioMatch[1].trim() : normalizeDescription(message, "general");
+    }
+    // Name
+    else if (q.includes("name")) {
+      field = "name";
+      const nameMatch = message.match(/(?:change|update|set|edit)?\s*(?:my\s+)?(?:first\s+|last\s+)?name\s+(?:is\s+|to\s+|as\s+|:-\s*|:\s*|=\s*)?([a-zA-Z\s]+?)(?:\s+in\s+profile|\s+on\s+profile|\s+please|$)/i) ||
+                        message.match(/\bname\s+(?:to\s+|is\s+|:-\s*|:\s*|=\s*)?([a-zA-Z\s]+)/i);
+      if (nameMatch) {
+        val = nameMatch[1].trim();
+        val = val.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      } else {
+        val = normalizeDescription(message, "general");
+      }
+    }
+    // Gender
+    else if (q.includes("gender")) {
+      field = "gender";
+      if (q.includes("female") || q.includes("woman") || q.includes("girl")) val = "Female";
+      else if (q.includes("male") || q.includes("man") || q.includes("boy")) val = "Male";
+      else if (q.includes("prefer not to say") || q.includes("other")) val = "Prefer not to say";
+      else val = "Female";
+    }
+    // Phone / Mobile
+    else if (q.includes("phone") || q.includes("mobile") || q.includes("contact")) {
+      field = "phone";
+      const phoneMatch = message.match(/\b\d{10,12}\b/);
+      if (phoneMatch) val = phoneMatch[0];
+      else val = message.replace(/[^0-9]/g, "");
+    }
+    // Address
+    else if (q.includes("address") || q.includes("city") || q.includes("state") || q.includes("pincode")) {
+      field = "address";
+      val = normalizeDescription(message, "general");
+    }
+    // Marital Status
+    else if (q.includes("marital")) {
+      field = "maritalStatus";
+      val = q.includes("married") ? "Married" : "Single";
+    }
+    // DOB / Date of Birth
+    else if (q.includes("dob") || q.includes("birth")) {
+      field = "dob";
+      val = parseExplicitDate(message) || todayStr;
+    }
+
+    if (val) {
+      return {
+        action: "draft_update_profile",
+        field,
+        value: val,
+      };
+    }
+  }
+
+  // ── 16B. VIEW PROFILE (Strict Read-Only Inquiry) ──────────────────────────
+  const isStrictProfileInquiry =
+    !isProfileUpdateVerb &&
+    !q.includes("update") &&
+    !q.includes("change") &&
+    !q.includes("set") &&
+    !q.includes("edit") &&
+    (q === "profile" ||
+      q === "my profile" ||
+      q === "view profile" ||
+      q === "view my profile" ||
+      q === "show profile" ||
+      q === "show my profile" ||
+      q === "emp id" ||
+      q === "employee id" ||
+      q === "who am i" ||
+      q === "my details" ||
+      q.includes("my designation") ||
+      q.includes("my department") ||
+      q.includes("check my profile") ||
+      (q.includes("profile") && !q.includes("http") && !q.includes(".com")));
+
+  if (isStrictProfileInquiry) {
     return { action: "get_my_profile" };
   }
 
-  // ── 12. SUPPORT TICKETS / ISSUES ──────────────────────────────────────────
+  // ── 17. SUPPORT TICKETS / ISSUES ──────────────────────────────────────────
   if (
     q.includes("ticket") ||
     q.includes("grievance") ||
@@ -717,7 +1206,7 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     return { action: "get_my_issues" };
   }
 
-  // ── 13. RESIGNATION & EXIT ────────────────────────────────────────────────
+  // ── 18. RESIGNATION & EXIT ────────────────────────────────────────────────
   if (
     q === "resign" ||
     q.includes("resign") ||
@@ -743,49 +1232,151 @@ const classifyIntentTraditional = (message, todayStr, tomorrowStr) => {
     return { action: "get_my_resignation" };
   }
 
-  // ── 14. DAILY WORK UPDATE & TASK REPORT ──────────────────────────────────
-  const isWorkDomain =
-    /\b(?:work|task|tasks|progress|activity)\b/i.test(q) ||
-    /\b(?:daily\s+work|work\s+update|task\s+update|work\s+report)\b/i.test(q);
-
-  const isWorkAction =
-    /\b(?:update|log|submit|add|fill|record|enter|save|report|complete|completed|did|done)\b/i.test(q);
-
-  const isWorkQuery =
-    /\b(?:check|view|status|did\s+i|show|get|list)\b/i.test(q);
-
+  // ── 19. TEAM DIRECTORY ────────────────────────────────────────────────────
   if (
-    (isWorkDomain && (isWorkAction || /\b(?:today|todays|today's|daily|yesterday)\b/i.test(q))) ||
-    /\b(?:update|log|submit|record)\b.*\b(?:work|task|tasks)\b/i.test(q) ||
-    /\b(?:work|task|tasks)\b.*\b(?:update|log|report|summary|status)\b/i.test(q)
+    q === "team" ||
+    q === "my team" ||
+    q.includes("team members") ||
+    q.includes("colleagues") ||
+    q.includes("who is in my department") ||
+    q.includes("team directory") ||
+    q.includes("view my team")
   ) {
-    if (isWorkQuery && !isWorkAction) {
-      return { action: "get_my_daily_work" };
+    return { action: "get_my_team" };
+  }
+
+  // ── 20. COMPANY RULES & POLICIES ──────────────────────────────────────────
+  if (
+    q === "rules" ||
+    q === "company rules" ||
+    q === "office rules" ||
+    q === "code of conduct" ||
+    q.includes("company rules") ||
+    q.includes("office rules") ||
+    q.includes("code of conduct") ||
+    q.includes("company guidelines") ||
+    q.includes("office policies")
+  ) {
+    return { action: "get_company_rules" };
+  }
+
+  // ── 21. LEAVE POLICY RULES ────────────────────────────────────────────────
+  if (
+    q.includes("leave policy") ||
+    q.includes("leave rules") ||
+    q.includes("sandwich leave") ||
+    q.includes("carry forward")
+  ) {
+    return { action: "get_leave_policy" };
+  }
+
+  // ── 22. OFFICE TIMINGS & SETTINGS ─────────────────────────────────────────
+  if (
+    q.includes("office timing") ||
+    q.includes("grace period") ||
+    q.includes("office location") ||
+    q.includes("office hours")
+  ) {
+    return { action: "get_office_settings" };
+  }
+
+  // ── 23. DASHBOARD SUMMARY & DAILY OVERVIEW ────────────────────────────────
+  if (
+    q === "dashboard" ||
+    q === "my dashboard" ||
+    q === "summary" ||
+    q === "daily overview" ||
+    q === "overview" ||
+    q.includes("dashboard") ||
+    q.includes("today's summary") ||
+    q.includes("todays summary") ||
+    q.includes("daily summary") ||
+    q.includes("my status today") ||
+    q.includes("what is my status") ||
+    q.includes("give me summary") ||
+    q.includes("day summary") ||
+    q.includes("today overview")
+  ) {
+    return { action: "get_dashboard_summary" };
+  }
+
+  // ── 24. FIELD WORK & LOCATION TRACKING ────────────────────────────────────
+  if (
+    q.includes("field work") ||
+    q.includes("field trip") ||
+    q.includes("field visit") ||
+    q.includes("client visit") ||
+    q.includes("on field")
+  ) {
+    if (
+      q.includes("start") ||
+      q.includes("begin") ||
+      q.includes("commence") ||
+      q.includes("going on") ||
+      q.includes("out for")
+    ) {
+      return { action: "draft_start_field_work" };
     }
+    if (
+      q.includes("end") ||
+      q.includes("stop") ||
+      q.includes("finish") ||
+      q.includes("complete") ||
+      q.includes("done with") ||
+      q.includes("returned from")
+    ) {
+      return { action: "draft_end_field_work" };
+    }
+    return { action: "get_field_work_history" };
+  }
 
-    const percentageMatch = message.match(/(\d{1,3})\s*%/);
-    const percentageVal = percentageMatch ? parseInt(percentageMatch[1], 10) : 100;
-    const cleanWorkDesc = normalizeDescription(message, "work");
-    const title = cleanWorkDesc || "Daily Work Update";
-    const description = cleanWorkDesc || "Completed assigned daily tasks";
+  // ── 25. CONNECT & DIRECT MESSAGING ────────────────────────────────────────
+  const isMessageVerb =
+    q.startsWith("message ") ||
+    q.startsWith("send message ") ||
+    q.startsWith("send msg ") ||
+    q.startsWith("msg ") ||
+    q.startsWith("chat with ") ||
+    q.includes("send a message to ") ||
+    q.includes("send message to ");
 
-    return {
-      action: "draft_work_update",
-      title,
-      description,
-      percentage: percentageVal,
-      date: todayStr,
-    };
+  if (isMessageVerb) {
+    const msgMatch =
+      message.match(/(?:send\s+a?\s*message|send\s+msg|msg|chat|message)\s+(?:to\s+|with\s+)?([a-zA-Z\s]+?)(?:\s*[:\-]\s*|\s+that\s+|\s+saying\s+|\s+is\s+)(.+)/i) ||
+      message.match(/(?:send\s+a?\s*message|send\s+msg|msg|chat|message)\s+(?:to\s+|with\s+)?([a-zA-Z]+)\s+(.+)/i);
+
+    if (msgMatch) {
+      const receiverName = msgMatch[1].trim();
+      const messageText = msgMatch[2].trim();
+      if (receiverName && messageText) {
+        return {
+          action: "draft_send_message",
+          receiverName,
+          messageText,
+        };
+      }
+    }
   }
 
   return {
     action: "reply",
-    replyText:
-      "Hello! I am your VSync HR Copilot. Ask me to apply for leave, submit expenses, claim overtime, check payslips, update daily work, request WFH, view notices, or check attendance!",
+    replyText: "",
   };
 };
 
+/* ============================================================================
+   ⚡ MAIN COPILOT CHAT CONTROLLER: TRADITIONAL + RAG FIRST PIPELINE
+   Priority 1: Deterministic Traditional Engine (<10ms)
+   Priority 2: Local RAG Knowledge Policy Match (<15ms)
+   Priority 3: Gemini Fallback for Complex / Ambiguous Requests
+   Priority 4: Contextual HR Assistant Fallback
+============================================================================ */
 export const handleCopilotChat = async (req, res) => {
+  let actionCard = null;
+  let replyText = "";
+  let toolResultData = null;
+  let retrievedDocs = [];
+
   try {
     const { message, chatHistory = [] } = req.body;
     const user = req.user;
@@ -798,128 +1389,23 @@ export const handleCopilotChat = async (req, res) => {
       return res.status(401).json({ error: "Unauthorized user." });
     }
 
-    const apiKeys = getCopilotApiKeys();
-
-    // 1. RAG Vector Search / Policy Context
     const tenantCompanyId = user.company || user.companyId || null;
-    const { retrievedDocs, formattedContext } = await retrieveRelevantHRContext(
-      message,
-      tenantCompanyId,
-      3
-    );
-
-    // Calculate dates on server
     const nowObj = new Date();
     const todayStr = nowObj.toISOString().slice(0, 10);
     const tomorrowObj = new Date(nowObj);
     tomorrowObj.setDate(tomorrowObj.getDate() + 1);
     const tomorrowStr = tomorrowObj.toISOString().slice(0, 10);
-    const dayOfWeekStr = nowObj.toLocaleDateString("en-US", { weekday: "long" });
 
-    // 2. Structured Intent Prompt for Gemini
-    const intentPrompt = `You are the official VSync HRMS Employee AI Copilot.
-Your job is to understand employee requests, resolve relative dates, and output structured intent JSON.
+    // =========================================================================
+    // ⚡ STAGE 1: TRADITIONAL DETERMINISTIC INTENT ENGINE (Fast Path ~5-15ms)
+    // =========================================================================
+    const deterministicIntent = classifyIntentTraditional(message, todayStr, tomorrowStr, chatHistory);
 
-SERVER CALENDAR CONTEXT:
-- Today's Date: ${todayStr} (${dayOfWeekStr})
-- Tomorrow's Date: ${tomorrowStr}
-
-AVAILABLE ACTIONS:
-- "draft_leave_request": apply for leave. Params: from (YYYY-MM-DD), to (YYYY-MM-DD), leaveType ("Casual Leave"|"Sick Leave"|"Paid Leave"), reason
-- "draft_cancel_leave": cancel pending/approved leave. Params: leaveRequestId (optional), from (optional)
-- "draft_wfh_request": apply for WFH. Params: fromDate (YYYY-MM-DD), toDate (YYYY-MM-DD), requestedMode ("WFH"), reason
-- "draft_expense_request": apply for expense reimbursement. Params: amount (number), category (string), description (string), date (YYYY-MM-DD)
-- "draft_overtime_request": apply for overtime hours. Params: hours (number), date (YYYY-MM-DD), reason (string), fromTime (HH:mm), toTime (HH:mm)
-- "draft_punch_out_request": request missing punch out. Params: originalDate (YYYY-MM-DD), time (HH:mm), reason (string)
-- "draft_issue_request": raise support ticket. Params: subject (string), message (string)
-- "draft_resignation_request": submit resignation. Params: reason (string)
-- "draft_punch_in": punch in attendance. Params: note (optional)
-- "draft_punch_out": punch out attendance. Params: note (optional)
-- "get_leave_balance": check leave balances. Params: {}
-- "get_my_expenses": check expense claims. Params: {}
-- "get_my_overtime": check overtime summary. Params: {}
-- "get_my_payslip": check salary payslip. Params: {}
-- "get_my_notices": check company notices and meetings. Params: {}
-- "get_my_issues": check raised tickets. Params: {}
-- "get_my_resignation": check resignation status. Params: {}
-- "get_my_attendance": check attendance log. Params: {}
-- "get_upcoming_holidays": check upcoming holidays. Params: {}
-- "get_my_shifts": check shift schedule. Params: {}
-- "get_my_profile": check profile. Params: {}
-- "reply": general conversation or policy question. Params: replyText
-
-RULES:
-1. Clean and normalize all descriptions, reasons, and subjects into crisp, professional phrases (max 60 chars), removing repetitive noise words (e.g. "500 for travel expense for client meeting to travel" → "Client travel for meeting", "i am having severe fever" → "Severe fever").
-2. If asking a policy question, use the HR Policy context below and output: {"action": "reply", "replyText": "Your markdown answer..."}
-3. OUTPUT ONLY VALID JSON. DO NOT INCLUDE MARKDOWN CODE BLOCKS OR EXTRA TEXT.
-
---- RETRIEVED HR POLICY KNOWLEDGE (RAG CONTEXT) ---
-${formattedContext || "No specific policy document retrieved."}
-
-USER QUERY: "${message}"`;
-
-    let responseText = null;
-
-    // Try Gemini API keys & models — ALL errors are silently caught; deterministic fallback handles failures
-    try {
-      if (apiKeys.length > 0) {
-        outer: for (const apiKey of apiKeys) {
-          const genAI = new GoogleGenerativeAI(apiKey);
-
-          for (const modelName of CANDIDATE_MODELS) {
-            try {
-              const model = genAI.getGenerativeModel({ model: modelName });
-              const result = await model.generateContent(intentPrompt);
-              if (result?.response) {
-                responseText = result.response.text().trim();
-                console.log(`✅ Gemini response received via model ${modelName}`);
-                break outer;
-              }
-            } catch (err) {
-              console.warn(`⚠️ Model ${modelName} failed, trying next...`);
-              continue;
-            }
-          }
-        }
-      }
-    } catch (geminiBlockErr) {
-      // Safety net — Gemini block errors never propagate
-      console.warn("⚠️ Gemini block caught unexpected error, using fallback:", geminiBlockErr.message);
-    }
-
-    let intentData = null;
-
-    if (responseText) {
-      let cleanJsonStr = responseText;
-      if (cleanJsonStr.startsWith("```json")) {
-        cleanJsonStr = cleanJsonStr.replace(/^```json\s*/, "").replace(/\s*```$/, "");
-      } else if (cleanJsonStr.startsWith("```")) {
-        cleanJsonStr = cleanJsonStr.replace(/^```\s*/, "").replace(/\s*```$/, "");
-      }
-
-      try {
-        intentData = JSON.parse(cleanJsonStr);
-      } catch (parseErr) {
-        intentData = { action: "reply", replyText: responseText };
-      }
-    }
-
-    // 3. Robust Intent Fallback (Guarantees zero 404 / 100% uptime)
-    if (!intentData || !intentData.action) {
-      console.log("ℹ️ Using deterministic intent classifier fallback.");
-      intentData = classifyIntentTraditional(message, todayStr, tomorrowStr);
-    }
-
-    let replyText = "";
-    let actionCard = null;
-    let toolResultData = null;
-
-    if (intentData.action && intentData.action !== "reply") {
-      const toolName = intentData.action;
-      const toolArgs = { ...intentData };
+    if (deterministicIntent && deterministicIntent.action && deterministicIntent.action !== "reply") {
+      const toolName = deterministicIntent.action;
+      const toolArgs = { ...deterministicIntent };
       delete toolArgs.action;
 
-      // Universal NLU description sanitization & normalization
       if (toolArgs.reason) {
         const domain = toolName.includes("leave") ? "leave" : toolName.includes("wfh") ? "wfh" : toolName.includes("overtime") ? "overtime" : "general";
         toolArgs.reason = normalizeDescription(toolArgs.reason, domain) || toolArgs.reason;
@@ -931,7 +1417,7 @@ USER QUERY: "${message}"`;
         toolArgs.subject = normalizeDescription(toolArgs.subject, "issue") || toolArgs.subject;
       }
 
-      console.log(`🤖 Executing tool action: ${toolName}`, toolArgs);
+      console.log(`🤖 Executing fast-path tool action: ${toolName}`, toolArgs);
 
       try {
         const toolOutput = await executeCopilotTool(toolName, toolArgs, user);
@@ -993,56 +1479,98 @@ USER QUERY: "${message}"`;
             };
           }
         }
-      } catch (toolError) {
-        console.error("❌ Copilot tool execution error:", toolError);
-        replyText = `I encountered an issue processing that request: ${toolError.message}`;
+
+        return res.json({
+          reply: replyText,
+          sources: [],
+          actionCard,
+          toolResult: toolResultData,
+        });
+      } catch (toolErr) {
+        console.error("❌ Fast-path tool error:", toolErr);
+        return res.json({
+          reply: `I encountered an issue executing that action: ${toolErr.message}`,
+          sources: [],
+          actionCard: null,
+        });
       }
-    } else {
-      replyText = intentData.replyText || intentData.reply || "How can I assist you with your HR actions?";
     }
 
+    // =========================================================================
+    // 🧠 STAGE 2: LOCAL VECTOR EMBEDDINGS / RAG KNOWLEDGE BASE (<15ms)
+    // =========================================================================
+    try {
+      const ragResult = await retrieveRelevantHRContext(message, tenantCompanyId, 3);
+      if (ragResult?.retrievedDocs?.length > 0) {
+        const topDoc = ragResult.retrievedDocs[0];
+        if (topDoc.score >= 0.55) {
+          retrievedDocs = ragResult.retrievedDocs;
+          return res.json({
+            reply: `Here is the relevant information from our HR policy:\n\n${ragResult.formattedContext}`,
+            sources: retrievedDocs,
+            actionCard: null,
+          });
+        }
+      }
+    } catch (ragErr) {
+      console.warn("⚠️ RAG Retrieval bypass:", ragErr.message);
+    }
+
+    // =========================================================================
+    // 🤖 STAGE 3: GEMINI AI FALLBACK WITH TOOL CALLING (2.5s Strict Race Timeout)
+    // =========================================================================
+    const apiKeys = getCopilotApiKeys();
+    if (apiKeys.length > 0) {
+      for (const apiKey of apiKeys) {
+        for (const modelName of CANDIDATE_MODELS) {
+          try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({
+              model: modelName,
+              generationConfig: { maxOutputTokens: 250, temperature: 0.2 },
+            });
+
+            const prompt = `You are VSync HR AI Copilot for employees.
+Current user: ${user.name || "Employee"} (ID: ${user.employeeId || user._id}). Today's date is ${todayStr}.
+Respond politely, concisely, and helpfully to the user's message.
+User inquiry: "${message}"`;
+
+            const aiPromise = model.generateContent(prompt);
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Gemini timeout")), 2500)
+            );
+
+            const aiResult = await Promise.race([aiPromise, timeoutPromise]);
+            const responseText = aiResult?.response?.text();
+            if (responseText && responseText.trim()) {
+              return res.json({
+                reply: responseText.trim(),
+                sources: [],
+                actionCard: null,
+              });
+            }
+          } catch (aiErr) {
+            // Continue trying remaining candidate models
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 💡 STAGE 4: CONTEXTUAL HR ASSISTANT RESPONSE
+    // =========================================================================
     return res.json({
-      reply: replyText,
-      sources: retrievedDocs,
-      actionCard,
-      toolResult: toolResultData,
+      reply: `I understand your request: "${message}". You can ask me to apply for leave, request WFH, submit expenses, claim overtime, punch in/out, log daily work, check payslips, or update your profile details!`,
+      sources: [],
+      actionCard: null,
     });
   } catch (error) {
     console.error("❌ Copilot Chat Controller Error:", error);
-    // Last resort fallback — still return a usable response, never expose raw Gemini errors
-    try {
-      const nowFallback = new Date();
-      const todayFallback = nowFallback.toISOString().slice(0, 10);
-      const tomorrowFallback = new Date(nowFallback);
-      tomorrowFallback.setDate(tomorrowFallback.getDate() + 1);
-      const intentFallback = classifyIntentTraditional(
-        req.body?.message || "",
-        todayFallback,
-        tomorrowFallback.toISOString().slice(0, 10)
-      );
-      if (intentFallback.action && intentFallback.action !== "reply") {
-        const user = req.user;
-        const toolArgs = { ...intentFallback };
-        delete toolArgs.action;
-        const toolOutput = await executeCopilotTool(intentFallback.action, toolArgs, user);
-        return res.json({
-          reply: toolOutput.message || "",
-          sources: [],
-          actionCard: toolOutput.actionCard || null,
-        });
-      }
-      return res.json({
-        reply: intentFallback.replyText || "How can I assist you with your HR actions today?",
-        sources: [],
-        actionCard: null,
-      });
-    } catch (finalErr) {
-      return res.json({
-        reply: "Hello! I am your VSync HR Copilot. Ask me to apply for leave, request WFH, check your leave balance, or view upcoming holidays!",
-        sources: [],
-        actionCard: null,
-      });
-    }
+    return res.json({
+      reply: "How can I assist you with your HR requests or company policies?",
+      sources: [],
+      actionCard: null,
+    });
   }
 };
 
@@ -1137,31 +1665,55 @@ export const handleExecuteAction = async (req, res) => {
       }
 
       case "confirm_punch_in": {
+        const { latitude, longitude, lateReason } = req.body;
         const result = await servicePunchIn({
           loggedUser: user,
           date: decoded.date,
           note: decoded.note,
+          latitude: latitude || decoded.latitude,
+          longitude: longitude || decoded.longitude,
+          lateReason: lateReason || decoded.lateReason,
           io,
         });
 
+        const lateMsg = result.loginStatus === "LATE" ? ` (Recorded as Late: ${result.lateByMinutes}m)` : "";
         return res.json({
           success: true,
-          message: `✅ Successfully punched in for today (${result.date}) at ${new Date(result.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
+          message: `✅ Successfully punched in for today (${result.date}) at ${new Date(result.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${lateMsg}.`,
           data: result,
         });
       }
 
       case "confirm_punch_out": {
+        const { latitude, longitude, earlyLeaveReason } = req.body;
         const result = await servicePunchOut({
           loggedUser: user,
           date: decoded.date,
           note: decoded.note,
+          latitude: latitude || decoded.latitude,
+          longitude: longitude || decoded.longitude,
+          earlyLeaveReason: earlyLeaveReason || decoded.earlyLeaveReason,
           io,
         });
 
         return res.json({
           success: true,
-          message: `✅ Successfully punched out for today (${result.date}) at ${new Date(result.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.`,
+          message: `✅ Successfully punched out for today (${result.date}) at ${new Date(result.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} (${result.workedHours}h worked).`,
+          data: result,
+        });
+      }
+
+      case "confirm_punch_break": {
+        const { breakType = "Lunch Break" } = decoded;
+        const result = await servicePunchBreak({
+          loggedUser: user,
+          breakType,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ ${result.message}`,
           data: result,
         });
       }
@@ -1268,6 +1820,181 @@ export const handleExecuteAction = async (req, res) => {
           success: true,
           message: `✅ Daily work update (${percentage}% completed) successfully submitted for admin review.`,
           data: workDoc,
+        });
+      }
+
+      case "confirm_punch_break": {
+        const { breakType = "Lunch Break" } = decoded;
+        const result = await servicePunchBreak({
+          loggedUser: user,
+          breakType,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ ${result.message}`,
+          data: result,
+        });
+      }
+
+      case "confirm_late_correction": {
+        const { date, reason, requestedTime } = decoded;
+        const result = await serviceSubmitLateCorrection({
+          loggedUser: user,
+          date,
+          reason,
+          requestedTime,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Late arrival justification for ${date} successfully submitted for approval.`,
+          data: result,
+        });
+      }
+
+      case "confirm_update_wfh": {
+        const { requestId, fromDate, toDate, requestedMode = "WFH", reason } = decoded;
+        const result = await serviceUpdateWFH({
+          loggedUser: user,
+          requestId,
+          fromDate,
+          toDate,
+          requestedMode,
+          reason,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Remote work (${requestedMode}) request for ${fromDate} to ${toDate} successfully updated.`,
+          data: result,
+        });
+      }
+
+      case "confirm_notice_reply": {
+        const { noticeId, message: replyMsg } = decoded;
+        const result = await serviceReplyNotice({
+          loggedUser: user,
+          noticeId,
+          message: replyMsg,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Your reply has been posted to the announcement.`,
+          data: result,
+        });
+      }
+
+      case "confirm_update_profile": {
+        const { field, value } = decoded;
+        const result = await serviceUpdateProfile({
+          loggedUser: user,
+          field,
+          value,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Your profile ${field} has been successfully updated to "${value}"!`,
+          data: result,
+        });
+      }
+
+      case "confirm_cancel_wfh": {
+        const { requestId } = decoded;
+        const result = await serviceCancelWFH({
+          loggedUser: user,
+          requestId,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Your pending Work From Home (WFH) request has been successfully cancelled.`,
+          data: result,
+        });
+      }
+
+      case "confirm_cancel_expense": {
+        const { expenseId } = decoded;
+        const result = await serviceCancelExpense({
+          loggedUser: user,
+          expenseId,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Your pending expense reimbursement claim has been successfully cancelled.`,
+          data: result,
+        });
+      }
+
+      case "confirm_cancel_overtime": {
+        const { overtimeId } = decoded;
+        const result = await serviceCancelOvertime({
+          loggedUser: user,
+          overtimeId,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ Your pending overtime claim for ${result.hours} hours has been successfully cancelled.`,
+          data: result,
+        });
+      }
+
+      case "confirm_start_field_work": {
+        const result = await serviceStartFieldWork({
+          loggedUser: user,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: result.isResumed
+            ? `📍 ${result.message}`
+            : `📍 Field work trip started successfully! Live location tracking is active.`,
+          data: result,
+        });
+      }
+
+      case "confirm_end_field_work": {
+        const { tripId } = decoded;
+        const result = await serviceEndFieldWork({
+          loggedUser: user,
+          tripId,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `🏁 Field work trip ended (${result.durationMins} mins, ${(result.distanceKm || 0).toFixed(1)} km). Trip summary saved.`,
+          data: result,
+        });
+      }
+
+      case "confirm_send_message": {
+        const { receiverId, receiverName, messageText } = decoded;
+        const result = await serviceSendMessage({
+          loggedUser: user,
+          receiverId,
+          receiverName,
+          messageText,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `💬 Message successfully sent to **${result.receiverName}**!`,
+          data: result,
         });
       }
 
@@ -1542,6 +2269,117 @@ export const handleUpdateDraftAction = async (req, res) => {
             percentage: Number(percentage) || 100,
             date: date || new Date().toISOString().slice(0, 10),
             employeeName: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Employee",
+          },
+        };
+        break;
+      }
+
+      case "confirm_late_correction": {
+        const { date, reason } = data;
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            actionType: "confirm_late_correction",
+            date: date || new Date().toISOString().slice(0, 10),
+            reason: reason || "Late arrival justification",
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+
+        updatedActionCard = {
+          type: "confirm_late_correction",
+          title: "Late Arrival Justification (Updated)",
+          actionToken,
+          data: {
+            date: date || new Date().toISOString().slice(0, 10),
+            reason: reason || "Late arrival justification",
+            employeeName: user.name || "Employee",
+          },
+        };
+        break;
+      }
+
+      case "confirm_update_wfh": {
+        const { requestId, fromDate, toDate, requestedMode = "WFH", reason } = data;
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            actionType: "confirm_update_wfh",
+            requestId,
+            fromDate,
+            toDate: toDate || fromDate,
+            requestedMode,
+            reason: reason || "Updated WFH request",
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+
+        updatedActionCard = {
+          type: "confirm_update_wfh",
+          title: "Remote Work / WFH (Updated)",
+          actionToken,
+          data: {
+            requestId,
+            fromDate,
+            toDate: toDate || fromDate,
+            requestedMode,
+            reason: reason || "Updated WFH request",
+          },
+        };
+        break;
+      }
+
+      case "confirm_notice_reply": {
+        const { noticeId, noticeTitle, message: replyMsg } = data;
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            actionType: "confirm_notice_reply",
+            noticeId,
+            message: (replyMsg || "Thank you for the update.").trim(),
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+
+        updatedActionCard = {
+          type: "confirm_notice_reply",
+          title: "Post Reply to Notice (Updated)",
+          actionToken,
+          data: {
+            noticeId,
+            noticeTitle: noticeTitle || "Notice Announcement",
+            message: (replyMsg || "Thank you for the update.").trim(),
+            employeeName: user.name || "Employee",
+          },
+        };
+        break;
+      }
+
+      case "confirm_update_profile": {
+        const { field = "gender", value, oldValue } = data;
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            actionType: "confirm_update_profile",
+            field,
+            value,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+
+        updatedActionCard = {
+          type: "confirm_update_profile",
+          title: "Update Profile Confirmation (Updated)",
+          actionToken,
+          data: {
+            field,
+            oldValue: oldValue || "Current",
+            value,
+            employeeName: user.name || "Employee",
           },
         };
         break;
