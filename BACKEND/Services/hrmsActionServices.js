@@ -16,6 +16,7 @@ import Shift from "../models/shiftModel.js";
 import Employee from "../models/employeeModel.js";
 import FieldWorkTrip from "../models/FieldWorkTrip.js";
 import Message from "../models/Message.js";
+import AttendanceRequest from "../models/AttendanceRequest.js";
 import nodemailer from "nodemailer";
 
 /* ===============================================================
@@ -1550,6 +1551,74 @@ export const serviceSendMessage = async ({ loggedUser, receiverName, receiverId 
     receiverEmail: targetReceiver.email,
     sentAt: newMsg.createdAt,
     text: newMsg.message,
+  };
+};
+
+/* ===============================================================
+   22. REQUEST ON-TIME LOGIN / ATTENDANCE CORRECTION
+=============================================================== */
+export const serviceRequestOnTimeLogin = async ({
+  loggedUser,
+  date = new Date().toISOString().slice(0, 10),
+  reason = "Late login correction requested via AI Copilot",
+  requestedPunchIn = "09:30",
+  io = null,
+}) => {
+  const employeeId = loggedUser.employeeId || loggedUser.id || loggedUser._id;
+  const attendanceRecord = await Attendance.findOne({ employeeId });
+  if (!attendanceRecord) {
+    throw new Error("Attendance record not found for your account.");
+  }
+
+  const dayLog = attendanceRecord.attendance.find((a) => a.date === date);
+  const currentPunchIn = dayLog?.punchIn ? new Date(dayLog.punchIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : "";
+
+  // Check if a pending request already exists for this date
+  const existing = await AttendanceRequest.findOne({
+    employeeId,
+    date,
+    requestStatus: 'pending',
+  });
+  if (existing) {
+    throw new Error(`An attendance correction request for ${date} is already pending admin review.`);
+  }
+
+  const newRequest = await AttendanceRequest.create({
+    employeeId,
+    adminId: attendanceRecord.adminId,
+    companyId: attendanceRecord.companyId,
+    employeeName: attendanceRecord.employeeName || loggedUser.name,
+    date,
+    currentStatus: dayLog?.status || "LATE",
+    requestedStatus: "ON_TIME",
+    currentPunchIn: currentPunchIn || "Late",
+    requestedPunchIn: requestedPunchIn || "09:30",
+    reason: reason.trim(),
+    requestStatus: "pending",
+  });
+
+  if (attendanceRecord.adminId) {
+    const notif = await Notification.create({
+      adminId: attendanceRecord.adminId,
+      companyId: attendanceRecord.companyId,
+      userId: attendanceRecord.adminId,
+      userType: "Admin",
+      title: "New Attendance Correction Request",
+      message: `${attendanceRecord.employeeName || loggedUser.name} requested on-time login correction for ${date} (${reason})`,
+      type: "attendance-correction-request",
+      date: new Date(),
+    });
+    if (io) {
+      io.to(`user_${attendanceRecord.adminId.toString()}`).emit("newNotification", notif);
+      io.to(`user_${attendanceRecord.adminId.toString()}`).emit("attendance:correctionNew", { employeeId, date });
+      io.emit("hrmsAttendanceUpdated");
+    }
+  }
+
+  return {
+    success: true,
+    message: `On-time login request submitted for ${date}. Admin has been notified for approval.`,
+    request: newRequest,
   };
 };
 

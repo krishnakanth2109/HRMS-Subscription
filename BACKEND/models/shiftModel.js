@@ -8,12 +8,12 @@ const ShiftSchema = new mongoose.Schema({
 
   employeeId: {
     type: String,
-    required: true,
-    unique: true,
-    ref: 'Employee'
+    sparse: true,
+    ref: 'Employee',
+    default: null
   },
-  employeeName: { type: String, required: true },
-  email: { type: String, required: true },
+  employeeName: { type: String, default: 'General Shift' },
+  email: { type: String, default: 'general@company.com' },
   department: { type: String, default: 'N/A' },
   role: { type: String, default: 'N/A' },
   

@@ -35,6 +35,8 @@ import {
   UserPlus,
   CheckSquare,
   XCircle,
+  MapPin,
+  Shield,
 } from "lucide-react";
 import {
   sendAdminCopilotMessage,
@@ -345,6 +347,8 @@ export default function AdminAICopilot({ admin }) {
       window.dispatchEvent(new Event("hrmsExpensesUpdated"));
       window.dispatchEvent(new Event("hrmsAttendanceUpdated"));
       window.dispatchEvent(new Event("hrmsEmployeeAdded"));
+      window.dispatchEvent(new Event("hrmsEmployeeUpdated"));
+      window.dispatchEvent(new Event("adminProfileUpdated"));
       window.dispatchEvent(new Event("hrmsNoticesUpdated"));
       window.dispatchEvent(new Event("hrmsShiftUpdated"));
     } catch (error) {
@@ -415,10 +419,9 @@ export default function AdminAICopilot({ admin }) {
           >
             <span className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-700 rounded-full blur opacity-70 group-hover:opacity-100 transition duration-500 animate-pulse"></span>
 
-            <div className="relative flex items-center gap-2 px-1">
-              <ShieldAlert className="w-5 h-5 text-amber-300" />
-              <span className="font-semibold text-sm tracking-wide hidden sm:inline-block pr-1">
-                Admin Copilot
+            <div className="relative flex items-center gap-2 px-2 py-0.5">
+              <span className="font-semibold text-sm tracking-wide">
+                Ai copilot
               </span>
               <span className="flex h-2.5 w-2.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -435,12 +438,9 @@ export default function AdminAICopilot({ admin }) {
           {/* Header */}
           <div className="px-4 py-3 bg-gradient-to-r from-violet-700 via-indigo-700 to-purple-800 text-white flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
-                <ShieldAlert className="w-5 h-5 text-amber-300" />
-              </div>
               <div>
                 <h3 className="font-bold text-sm leading-tight flex items-center gap-1.5">
-                  VSync Admin Copilot
+                  AI Copilot
                   <span className="text-[10px] bg-emerald-400/30 text-emerald-100 px-1.5 py-0.2 rounded-full font-normal">
                     Live
                   </span>
@@ -686,34 +686,415 @@ export default function AdminAICopilot({ admin }) {
                                 <span>{msg.actionCard.title}</span>
                                 <span className="text-amber-700">{msg.actionCard.data?.total} Pending</span>
                               </div>
-                              <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                                 {msg.actionCard.data?.leaves?.map((l, i) => (
-                                  <div key={`l-${i}`} className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px]">
-                                    <div>
-                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block">Leave: {l.employee}</span>
-                                      <span className="text-[9px] text-slate-400">{l.type} • {l.dates}</span>
+                                  <div key={`l-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">Leave: {l.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{l.type} • {l.dates}</span>
                                     </div>
-                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] font-bold">Review</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve leave for ${l.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject leave for ${l.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
+
                                 {msg.actionCard.data?.attendanceRequests?.map((a, i) => (
-                                  <div key={`a-${i}`} className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px]">
-                                    <div>
-                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block">Attendance: {a.employee}</span>
-                                      <span className="text-[9px] text-slate-400">{a.date} • Req: {a.requested} ({a.reason})</span>
+                                  <div key={`a-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">Attendance: {a.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{a.date} • Req: {a.requested} ({a.reason})</span>
                                     </div>
-                                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded text-[9px] font-bold">Review</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve attendance request for ${a.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject attendance request for ${a.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
+
                                 {msg.actionCard.data?.expenses?.map((e, i) => (
-                                  <div key={`e-${i}`} className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px]">
-                                    <div>
-                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block">Expense: {e.employee}</span>
-                                      <span className="text-[9px] text-slate-400">{e.category} • ₹{e.amount}</span>
+                                  <div key={`e-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">Expense: {e.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{e.category} • ₹{e.amount}</span>
                                     </div>
-                                    <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-bold">Review</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve expense for ${e.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject expense for ${e.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
                                   </div>
                                 ))}
+
+                                {msg.actionCard.data?.wfh?.map((w, i) => (
+                                  <div key={`w-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">WFH: {w.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{w.mode} • {w.reason}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve wfh for ${w.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject wfh for ${w.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {msg.actionCard.data?.overtime?.map((o, i) => (
+                                  <div key={`o-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">Overtime: {o.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{o.hours}h • {o.reason}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve overtime for ${o.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject overtime for ${o.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {msg.actionCard.data?.punchOuts?.map((p, i) => (
+                                  <div key={`p-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">Punch-Out: {p.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{p.date} • {p.reason}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve punch out for ${p.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject punch out for ${p.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                                {msg.actionCard.data?.resignations?.map((r, i) => (
+                                  <div key={`r-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">Resignation: {r.employee}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{r.reason}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <button
+                                        onClick={() => handleSend(`approve resignation for ${r.employee}`)}
+                                        className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleSend(`reject resignation for ${r.employee}`)}
+                                        className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4B. Leave Requests Overview Widget */}
+                          {msg.actionCard.type === "admin_leave_list_widget" && (
+                            <div className="bg-purple-50/70 dark:bg-purple-950/40 p-2.5 rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-purple-950 dark:text-purple-200">
+                                <span>{msg.actionCard.title}</span>
+                                <span className="text-purple-700">{msg.actionCard.data?.total} Request(s)</span>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.leaves?.length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No leave requests found for this period.</div>
+                                ) : (
+                                  msg.actionCard.data?.leaves?.map((l, i) => (
+                                    <div key={`lv-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-purple-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{l.employee}</span>
+                                          <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${l.status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : l.status === 'Rejected' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                                            {l.status}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] text-slate-400 block truncate">{l.type} • {l.dates}</span>
+                                      </div>
+                                      {l.status === "Pending" && (
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            onClick={() => handleSend(`approve leave for ${l.employee}`)}
+                                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            onClick={() => handleSend(`reject leave for ${l.employee}`)}
+                                            className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                          >
+                                            Reject
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4C. Notices & Announcements List Widget */}
+                          {msg.actionCard.type === "admin_notices_widget" && (
+                            <div className="bg-sky-50/70 dark:bg-sky-950/40 p-2.5 rounded-xl border border-sky-100 dark:border-sky-900/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-sky-950 dark:text-sky-200">
+                                <span>{msg.actionCard.title}</span>
+                                <span className="text-sky-700">{msg.actionCard.data?.total} Broadcast(s)</span>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.notices?.length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No announcements found.</div>
+                                ) : (
+                                  msg.actionCard.data?.notices?.map((n, i) => (
+                                    <div key={`not-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-sky-100 dark:border-slate-700 text-[10px]">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{n.title}</span>
+                                        <span className="text-[8px] text-slate-400">{n.date}</span>
+                                      </div>
+                                      <p className="text-[9px] text-slate-500 line-clamp-2 mt-0.5">{n.description}</p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4D. Live Activity & Idle Tracking Widget */}
+                          {msg.actionCard.type === "admin_idle_tracking_widget" && (
+                            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-amber-950 dark:text-amber-200">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="text-amber-700">{msg.actionCard.data?.totalEmployees} Staff</span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700">
+                                  <span className="text-slate-500 block text-[9px]">Idle Now</span>
+                                  <strong className="text-amber-600 text-xs">{msg.actionCard.data?.idleCount}</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700">
+                                  <span className="text-slate-500 block text-[9px]">Active</span>
+                                  <strong className="text-emerald-600 text-xs">{msg.actionCard.data?.workingCount}</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700">
+                                  <span className="text-slate-500 block text-[9px]">Offline</span>
+                                  <strong className="text-slate-500 text-xs">{msg.actionCard.data?.offlineCount}</strong>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.records?.map((r, i) => (
+                                  <div key={`idle-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{r.name}</span>
+                                        <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${r.status === 'IDLE' ? 'bg-amber-100 text-amber-800 animate-pulse' : r.status === 'WORKING' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                                          {r.status}
+                                        </span>
+                                      </div>
+                                      <span className="text-[9px] text-slate-400 block truncate">
+                                        Idle: {r.idleTimeFormatted} • Work: {r.workHoursFormatted} • Win: {r.activeWindow}
+                                      </span>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                      <span className="text-[8px] text-slate-400 block">{r.lastPing}</span>
+                                      {r.screenshotUrl && (
+                                        <a href={r.screenshotUrl} target="_blank" rel="noopener noreferrer" className="text-[8px] text-violet-600 hover:underline font-bold">
+                                          View Screen
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4E. Office Location & Geofencing Settings Widget */}
+                          {msg.actionCard.type === "admin_office_settings_widget" && (
+                            <div className="bg-teal-50/70 dark:bg-teal-950/40 p-2.5 rounded-xl border border-teal-100 dark:border-teal-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-teal-950 dark:text-teal-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-teal-600" />
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="px-1.5 py-0.5 bg-teal-100 text-teal-800 rounded text-[9px] font-bold">
+                                  Mode: {msg.actionCard.data?.globalWorkMode}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5 text-[10px] pt-1">
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-teal-100 dark:border-slate-700">
+                                  <span className="text-slate-500">Allowed Radius:</span> <strong>{msg.actionCard.data?.allowedRadius}m</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-teal-100 dark:border-slate-700">
+                                  <span className="text-slate-500">Tracker Interval:</span> <strong>{msg.actionCard.data?.screenshotIntervalMinutes} mins</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-teal-100 dark:border-slate-700 col-span-2">
+                                  <span className="text-slate-500">GPS Coordinates:</span> <code className="text-[9px] bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">{msg.actionCard.data?.latitude}, {msg.actionCard.data?.longitude}</code>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4F. Performance & Work Reports Widget */}
+                          {msg.actionCard.type === "admin_performance_widget" && (
+                            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-emerald-950 dark:text-emerald-200 flex items-center justify-between">
+                                <span>{msg.actionCard.title}</span>
+                                <span className="text-emerald-700">{msg.actionCard.data?.totalSubmitted} Submitted</span>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.records?.length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No work reports submitted for today.</div>
+                                ) : (
+                                  msg.actionCard.data?.records?.map((r, i) => (
+                                    <div key={`perf-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-emerald-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{r.employeeName}</span>
+                                          <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold ${r.status === 'approved' ? 'bg-emerald-100 text-emerald-800' : r.status === 'rejected' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>
+                                            {r.status === 'approved' ? `${r.approvedPercentage}%` : r.status}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] text-slate-400 block truncate">{r.morningTitle}</span>
+                                      </div>
+                                      {r.status === "pending" ? (
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            onClick={() => handleSend(`approve work report for ${r.employeeName}`)}
+                                            className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                          >
+                                            Approve
+                                          </button>
+                                          <button
+                                            onClick={() => handleSend(`reject work report for ${r.employeeName}`)}
+                                            className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[9px] font-bold transition shadow-2xs cursor-pointer"
+                                          >
+                                            Reject
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[9px] text-slate-400 capitalize">{r.status}</span>
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4G. Support Admin Management Widget */}
+                          {msg.actionCard.type === "admin_support_admins_widget" && (
+                            <div className="bg-purple-50/70 dark:bg-purple-950/40 p-2.5 rounded-xl border border-purple-100 dark:border-purple-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-purple-950 dark:text-purple-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <Shield className="w-3.5 h-3.5 text-purple-600" />
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="text-purple-700">{msg.actionCard.data?.total} Sub-Admin(s)</span>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.admins?.map((s, i) => (
+                                  <div key={`sa-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-purple-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">{s.name}</span>
+                                      <span className="text-[9px] text-slate-400 block truncate">{s.role} • {s.department}</span>
+                                    </div>
+                                    <span className="text-[9px] text-slate-400">{s.email}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4H. Company Rules & Policies Widget */}
+                          {msg.actionCard.type === "admin_rules_widget" && (
+                            <div className="bg-rose-50/70 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-100 dark:border-rose-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-rose-950 dark:text-rose-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <FileText className="w-3.5 h-3.5 text-rose-600" />
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="text-rose-700">{msg.actionCard.data?.total} Policy / Rule(s)</span>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.rules?.length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No company rules published yet.</div>
+                                ) : (
+                                  msg.actionCard.data?.rules?.map((r, i) => (
+                                    <div key={`rl-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-rose-100 dark:border-slate-700 text-[10px]">
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200 truncate">{r.title}</span>
+                                        <span className="text-[8px] text-slate-400">{r.date}</span>
+                                      </div>
+                                      <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-2">{r.description}</p>
+                                    </div>
+                                  ))
+                                )}
                               </div>
                             </div>
                           )}
@@ -760,18 +1141,66 @@ export default function AdminAICopilot({ admin }) {
                                 </span>
                               </div>
 
-                              {/* Form Details */}
-                              <div className="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-lg border border-amber-200/50 dark:border-amber-900/40 space-y-1 text-slate-700 dark:text-slate-300">
-                                {Object.entries(msg.actionCard.data || {}).map(([k, v], idx) => {
-                                  if (k === "leaveId" || k === "expenseId" || k === "requestId" || k === "attendanceId" || k === "overtimeId") return null;
-                                  return (
-                                    <div key={idx} className="flex justify-between items-center text-[10px]">
-                                      <span className="text-slate-500 capitalize">{k.replace(/([A-Z])/g, " $1")}:</span>
-                                      <strong className="text-slate-800 dark:text-slate-200 text-right">{String(v || "N/A")}</strong>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                              {/* ── EDITABLE INLINE FORM MODE ── */}
+                              {editingCardId === msg.id ? (
+                                <div className="bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-amber-200 dark:border-slate-700 text-[10px] space-y-2">
+                                  {Object.entries(editFormData).map(([k, v]) => {
+                                    if (k.endsWith("Id") || k === "actionType" || k === "adminId") return null;
+                                    return (
+                                      <div key={k} className="space-y-1">
+                                        <label className="text-slate-500 font-semibold block text-[9px] capitalize">
+                                          {k.replace(/([A-Z])/g, " $1")}
+                                        </label>
+                                        {k === "description" || k === "content" || k === "reason" ? (
+                                          <textarea
+                                            rows={2}
+                                            value={v || ""}
+                                            onChange={(e) => setEditFormData({ ...editFormData, [k]: e.target.value })}
+                                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                          />
+                                        ) : (
+                                          <input
+                                            type="text"
+                                            value={v || ""}
+                                            onChange={(e) => setEditFormData({ ...editFormData, [k]: e.target.value })}
+                                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <button
+                                      onClick={() => handleSaveEdit(msg.id, msg.actionCard.type)}
+                                      disabled={updatingTokenId === msg.id}
+                                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold py-1.5 px-2.5 rounded-lg text-[10px] shadow transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      <Save className="w-3 h-3" />
+                                      {updatingTokenId === msg.id ? "Regenerating..." : "Save & Update Token"}
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEdit}
+                                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] transition font-medium cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* Form Details */
+                                <div className="bg-white/80 dark:bg-slate-800/80 p-2.5 rounded-lg border border-amber-200/50 dark:border-amber-900/40 space-y-1 text-slate-700 dark:text-slate-300">
+                                  {Object.entries(msg.actionCard.data || {}).map(([k, v], idx) => {
+                                    if (k === "leaveId" || k === "expenseId" || k === "requestId" || k === "attendanceId" || k === "overtimeId") return null;
+                                    return (
+                                      <div key={idx} className="flex justify-between items-center text-[10px]">
+                                        <span className="text-slate-500 capitalize">{k.replace(/([A-Z])/g, " $1")}:</span>
+                                        <strong className="text-slate-800 dark:text-slate-200 text-right">{String(v || "N/A")}</strong>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
 
                               {/* Result or Buttons */}
                               {msg.actionCard.executed ? (
@@ -780,28 +1209,38 @@ export default function AdminAICopilot({ admin }) {
                                   <span>{msg.actionCard.resultMessage}</span>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-2 pt-1">
-                                  <button
-                                    onClick={() =>
-                                      handleConfirmAction(
-                                        msg.id,
-                                        msg.actionCard.actionToken,
-                                        msg.actionCard.type
-                                      )
-                                    }
-                                    disabled={executingActionId === msg.id}
-                                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-1.5 px-3 rounded-lg text-[11px] shadow-xs transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
-                                  >
-                                    {executingActionId === msg.id ? (
-                                      "Executing..."
-                                    ) : (
-                                      <>
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        Confirm & Apply
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
+                                editingCardId !== msg.id && (
+                                  <div className="flex items-center gap-2 pt-1">
+                                    <button
+                                      onClick={() => handleStartEdit(msg)}
+                                      className="px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 font-semibold rounded-lg text-[11px] transition flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+                                      title="Edit details before confirming"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5 text-violet-600" />
+                                      Edit Details
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleConfirmAction(
+                                          msg.id,
+                                          msg.actionCard.actionToken,
+                                          msg.actionCard.type
+                                        )
+                                      }
+                                      disabled={executingActionId === msg.id}
+                                      className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold py-1.5 px-3 rounded-lg text-[11px] shadow-xs transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
+                                    >
+                                      {executingActionId === msg.id ? (
+                                        "Executing..."
+                                      ) : (
+                                        <>
+                                          <CheckCircle2 className="w-3.5 h-3.5" />
+                                          Confirm & Apply
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                )
                               )}
                             </div>
                           )}

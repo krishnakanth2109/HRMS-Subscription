@@ -25,6 +25,9 @@ import {
   adminServiceAddEmployee,
   adminServiceUpdateEmployee,
   adminServiceToggleEmployeeStatus,
+  adminServiceUpdateAdminProfile,
+  adminServiceToggleMobileAccess,
+  adminServiceAssignTask,
   adminServicePostNotice,
   adminServiceDeleteNotice,
   adminServiceUpdateIssueStatus,
@@ -32,8 +35,9 @@ import {
   adminServiceRejectResignation,
   adminServiceUpdateShift,
   adminServiceAddHoliday,
-  adminServiceDeleteHoliday,
   adminServicePostRule,
+  adminServiceApproveWorkReport,
+  adminServiceRejectWorkReport,
 } from "../services/adminHrmsActionServices.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "default_hrms_super_secret_jwt_key_2026";
@@ -84,23 +88,42 @@ export const classifyAdminIntentTraditional = (message) => {
     return { action: "admin_get_dashboard_summary" };
   }
 
-  // ── 2. ATTENDANCE TODAY & CLOCK STATUS ───────────────────────────────────
+  // ── 2. LIVE ATTENDANCE / ATTENDANCE INQUIRIES ────────────────────────────
   if (
-    q.includes("attendance status") ||
-    q.includes("attendance today") ||
-    q.includes("today's attendance") ||
+    q.includes("attendance") ||
     q.includes("who is present") ||
     q.includes("present today") ||
     q.includes("clock status") ||
     q.includes("who clocked in") ||
     q.includes("who is working") ||
-    q.includes("check attendance") ||
-    q.includes("show attendance") ||
-    q.includes("attendance overview") ||
-    q.includes("attendance summary") ||
-    q === "attendance"
+    q.includes("punch status") ||
+    q.includes("who punched in")
   ) {
-    return { action: "admin_get_today_attendance" };
+    if (
+      !q.includes("request") &&
+      !q.includes("correction") &&
+      !q.includes("late") &&
+      !q.includes("absent") &&
+      !q.includes("mobile") &&
+      !q.includes("approve") &&
+      !q.includes("reject")
+    ) {
+      let department = undefined;
+      const deptMatch = message.match(/(?:administration|engineering|sales|marketing|hr|human resources|finance|operations|design|qa)\s+attendance/i) ||
+                        message.match(/attendance\s+(?:in|for|of)\s+(?:the\s+)?(administration|engineering|sales|marketing|hr|finance|operations|design)/i);
+      if (deptMatch) {
+        department = (deptMatch[1] || deptMatch[0].replace(/attendance/i, "")).trim();
+      }
+
+      const empMatch = message.match(/(?:of|for)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+today|\s+attendance)/i);
+      const employeeName = (!deptMatch && empMatch) ? empMatch[1].replace(/attendance|today|for|of|employee/gi, "").trim() : "";
+
+      return {
+        action: "admin_get_today_attendance",
+        employeeName: employeeName || undefined,
+        department,
+      };
+    }
   }
 
   // ── 3. ABSENT EMPLOYEES ──────────────────────────────────────────────────
@@ -126,6 +149,25 @@ export const classifyAdminIntentTraditional = (message) => {
     return { action: "admin_get_late_employees" };
   }
 
+  // ── 4B. IDLE TIME & LIVE ACTIVITY TRACKING ────────────────────────────────
+  if (
+    q.includes("idle") ||
+    q.includes("live tracking") ||
+    q.includes("activity tracking") ||
+    q.includes("screen tracking") ||
+    q.includes("who is idle") ||
+    q.includes("idle employees") ||
+    q.includes("idle time") ||
+    q.includes("idle report")
+  ) {
+    const empMatch = message.match(/(?:of|for)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+today|\s+idle)/i);
+    const employeeName = empMatch ? empMatch[1].replace(/idle|tracking|time|report|for|of/gi, "").trim() : "";
+    return {
+      action: "admin_get_idle_tracking",
+      employeeName: employeeName || undefined,
+    };
+  }
+
   // ── 5. PENDING APPROVALS HUB ─────────────────────────────────────────────
   if (
     q === "approvals" ||
@@ -133,13 +175,31 @@ export const classifyAdminIntentTraditional = (message) => {
     q.includes("pending approvals") ||
     q.includes("what needs approval") ||
     q.includes("pending requests") ||
-    q.includes("approvals list")
+    q.includes("approvals list") ||
+    q.includes("review pending") ||
+    q.includes("review approval") ||
+    q.includes("review request") ||
+    q.includes("review expense") ||
+    q.includes("review expenses") ||
+    q.includes("review leave") ||
+    q.includes("review leaves") ||
+    q.includes("review wfh") ||
+    q.includes("review overtime") ||
+    q.includes("review resignation") ||
+    q.includes("review attendance") ||
+    q.includes("show expense") ||
+    q.includes("show expenses") ||
+    q.includes("view expense") ||
+    q.includes("view expenses") ||
+    q.includes("list expense") ||
+    q.includes("list expenses") ||
+    q.includes("pending expenses")
   ) {
     return { action: "admin_get_pending_approvals" };
   }
 
-  // ── 6. LEAVE APPROVAL & REJECTION ────────────────────────────────────────
-  if (q.includes("leave")) {
+  // ── 6. LEAVE REQUESTS, INQUIRIES & APPROVALS ──────────────────────────────
+  if (q.includes("leave") || q.includes("vacation") || q.includes("time off")) {
     if (q.includes("approve") || q.includes("accept")) {
       const match = message.match(/(?:approve|accept)\s+(?:leave\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+leave|\s+leave|$)/i);
       const name = match ? match[1].replace(/leave|for|of/gi, "").trim() : "";
@@ -150,71 +210,138 @@ export const classifyAdminIntentTraditional = (message) => {
       const name = match ? match[1].replace(/leave|for|of/gi, "").trim() : "";
       return { action: "admin_draft_reject_leave", employeeName: name || "all" };
     }
+
+    const monthMatch = message.match(/(?:for|in|of)?\s*(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s*(?:month)?/i);
+    const month = monthMatch ? monthMatch[1].toLowerCase() : "";
+
+    return {
+      action: "admin_get_leave_requests",
+      month,
+      status: q.includes("pending") ? "Pending" : (q.includes("approved") ? "Approved" : "all"),
+    };
   }
 
-  // ── 7. WFH APPROVAL & REJECTION ──────────────────────────────────────────
+  // ── 7. WFH & REMOTE WORK REQUESTS ─────────────────────────────────────────
   if (q.includes("wfh") || q.includes("work from home") || q.includes("remote")) {
     if (q.includes("approve") || q.includes("accept")) {
       const match = message.match(/(?:approve|accept)\s+(?:wfh\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+wfh|\s+wfh|$)/i);
       const name = match ? match[1].replace(/wfh|for|of|remote/gi, "").trim() : "";
       return { action: "admin_draft_approve_wfh", employeeName: name || "all" };
     }
+    if (q.includes("reject") || q.includes("deny")) {
+      const match = message.match(/(?:reject|deny)\s+(?:wfh\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+wfh|\s+wfh|$)/i);
+      const name = match ? match[1].replace(/wfh|for|of|remote/gi, "").trim() : "";
+      return { action: "admin_draft_reject_wfh", employeeName: name || "all" };
+    }
+    return { action: "admin_get_pending_approvals" };
   }
 
-  // ── 8. EXPENSE APPROVAL & REJECTION ──────────────────────────────────────
-  if (q.includes("expense") || q.includes("reimbursement") || q.includes("claim")) {
+  // ── 8. EXPENSES, REIMBURSEMENTS & CLAIMS ─────────────────────────────────
+  if (
+    q.includes("expense") ||
+    q.includes("expenses") ||
+    q.includes("reimbursement") ||
+    q.includes("reimbursements") ||
+    q.includes("claim") ||
+    q.includes("claims")
+  ) {
     if (q.includes("approve") || q.includes("accept")) {
-      const match = message.match(/(?:approve|accept)\s+(?:expense\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+expense|\s+expense|$)/i);
-      const name = match ? match[1].replace(/expense|claim|for|of/gi, "").trim() : "";
+      const match = message.match(/(?:approve|accept)\s+(?:expense\s+(?:for\s+|of\s+)?|reimbursement\s+(?:for\s+|of\s+)?|claim\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+expense|'s\s+claim|\s+expense|\s+claim|$)/i);
+      const name = match ? match[1].replace(/expense|claim|reimbursement|for|of/gi, "").trim() : "";
       return { action: "admin_draft_approve_expense", employeeName: name || "all" };
     }
+    if (q.includes("reject") || q.includes("deny")) {
+      const match = message.match(/(?:reject|deny)\s+(?:expense\s+(?:for\s+|of\s+)?|reimbursement\s+(?:for\s+|of\s+)?|claim\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+expense|'s\s+claim|\s+expense|\s+claim|$)/i);
+      const name = match ? match[1].replace(/expense|claim|reimbursement|for|of/gi, "").trim() : "";
+      return { action: "admin_draft_reject_expense", employeeName: name || "all" };
+    }
+    return { action: "admin_get_pending_approvals" };
   }
 
-  // ── 8B. OVERTIME APPROVAL ────────────────────────────────────────────────
-  if (q.includes("overtime") || q.includes(" ot ")) {
+  // ── 8B. OVERTIME REQUESTS & APPROVALS ────────────────────────────────────
+  if (q.includes("overtime") || q.includes(" ot ") || q.startsWith("ot ") || q.endsWith(" ot") || q === "ot") {
     if (q.includes("approve") || q.includes("accept")) {
       const match = message.match(/(?:approve|accept)\s+(?:overtime\s+(?:for\s+|of\s+)?|ot\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+overtime|\s+overtime|'s\s+ot|\s+ot|$)/i);
       const name = match ? match[1].replace(/overtime|ot|for|of/gi, "").trim() : "";
       return { action: "admin_draft_approve_overtime", employeeName: name || "all" };
     }
+    return { action: "admin_get_pending_approvals" };
   }
 
-  // ── 8C. LATE LOGIN JUSTIFICATION APPROVAL ────────────────────────────────
-  if (q.includes("late login") || q.includes("late mark") || q.includes("waive late")) {
+  // ── 8C. LATE LOGIN JUSTIFICATION & REQUESTS ──────────────────────────────
+  if (q.includes("late login") || q.includes("late mark") || q.includes("waive late") || q.includes("late justification") || q.includes("late request") || q.includes("late requests")) {
     if (q.includes("approve") || q.includes("accept") || q.includes("waive")) {
-      const match = message.match(/(?:approve|accept|waive)\s+(?:late\s+login\s+(?:for\s+|of\s+)?|late\s+mark\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+late|\s+late|$)/i);
-      const name = match ? match[1].replace(/late|login|mark|waive|for|of/gi, "").trim() : "";
+      const match = message.match(/(?:approve|accept|waive)\s+(?:late\s+login\s+(?:for\s+|of\s+)?|late\s+mark\s+(?:for\s+|of\s+)?|late\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+late|\s+late|$)/i);
+      const name = match ? match[1].replace(/late|login|mark|waive|for|of|request/gi, "").trim() : "";
       return { action: "admin_draft_approve_late", employeeName: name || "all" };
     }
+    return { action: "admin_get_pending_approvals" };
   }
 
-  // ── 8D. MISSING PUNCH-OUT APPROVAL ───────────────────────────────────────
-  if (q.includes("punch out request") || q.includes("missing punch")) {
+  // ── 8D. MISSING PUNCH-OUT & FORCE PUNCH-OUT ──────────────────────────────
+  if (q.includes("punch out request") || q.includes("punch out requests") || q.includes("missing punch") || q.includes("punchout request")) {
     if (q.includes("approve") || q.includes("accept")) {
       const match = message.match(/(?:approve|accept)\s+(?:punch\s+out\s+request\s+(?:for\s+|of\s+)?|missing\s+punch\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+punch|\s+punch|$)/i);
       const name = match ? match[1].replace(/punch|out|request|missing|for|of/gi, "").trim() : "";
       return { action: "admin_draft_approve_punch_out", employeeName: name || "all" };
     }
+    return { action: "admin_get_pending_approvals" };
   }
 
   // ── 8E. ATTENDANCE REQUESTS & CORRECTIONS ────────────────────────────────
   if (
     q.includes("attendance request") ||
-    q.includes("late request") ||
+    q.includes("attendance requests") ||
     q.includes("attendance correction") ||
     q.includes("correction request") ||
+    q.includes("correction requests") ||
     q.includes("status adjustment")
   ) {
     if (q.includes("approve") || q.includes("accept")) {
-      const match = message.match(/(?:approve|accept)\s+(?:attendance\s+request\s+(?:for\s+|of\s+)?|late\s+request\s+(?:for\s+|of\s+)?|attendance\s+correction\s+(?:for\s+|of\s+)?|correction\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z0-9\s]+?)(?:'s\s+attendance|'s\s+request|\s+attendance|\s+request|$)/i);
-      const name = match ? match[1].replace(/attendance|request|correction|late|for|of/gi, "").trim() : "";
+      const match = message.match(/(?:approve|accept)\s+(?:attendance\s+request\s+(?:for\s+|of\s+)?|attendance\s+correction\s+(?:for\s+|of\s+)?|correction\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z0-9\s]+?)(?:'s\s+attendance|'s\s+request|\s+attendance|\s+request|$)/i);
+      const name = match ? match[1].replace(/attendance|request|correction|for|of/gi, "").trim() : "";
       return { action: "admin_draft_approve_attendance_request", employeeName: name || "all" };
     }
     if (q.includes("reject") || q.includes("deny")) {
-      const match = message.match(/(?:reject|deny)\s+(?:attendance\s+request\s+(?:for\s+|of\s+)?|late\s+request\s+(?:for\s+|of\s+)?|attendance\s+correction\s+(?:for\s+|of\s+)?|correction\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z0-9\s]+?)(?:'s\s+attendance|'s\s+request|\s+attendance|\s+request|$)/i);
-      const name = match ? match[1].replace(/attendance|request|correction|late|for|of/gi, "").trim() : "";
+      const match = message.match(/(?:reject|deny)\s+(?:attendance\s+request\s+(?:for\s+|of\s+)?|attendance\s+correction\s+(?:for\s+|of\s+)?|correction\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z0-9\s]+?)(?:'s\s+attendance|'s\s+request|\s+attendance|\s+request|$)/i);
+      const name = match ? match[1].replace(/attendance|request|correction|for|of/gi, "").trim() : "";
       return { action: "admin_draft_reject_attendance_request", employeeName: name || "all" };
     }
+    return { action: "admin_get_pending_approvals" };
+  }
+
+  // ── 8F. RESIGNATIONS & EXIT MANAGEMENT ─────────────────────────────────
+  if (
+    q.includes("resignation") ||
+    q.includes("exit request") ||
+    q.includes("resigned")
+  ) {
+    if (q.includes("approve") || q.includes("accept")) {
+      const match = message.match(/(?:approve|accept)\s+(?:resignation\s+(?:for\s+|of\s+)?|exit\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z0-9\s]+?)(?:'s\s+resignation|\s+resignation|$)/i);
+      const name = match ? match[1].replace(/resignation|request|exit|for|of/gi, "").trim() : "";
+      return { action: "admin_draft_approve_resignation", employeeName: name || "all" };
+    }
+    if (q.includes("reject") || q.includes("deny")) {
+      const match = message.match(/(?:reject|deny)\s+(?:resignation\s+(?:for\s+|of\s+)?|exit\s+request\s+(?:for\s+|of\s+)?|)([a-zA-Z0-9\s]+?)(?:'s\s+resignation|\s+resignation|$)/i);
+      const name = match ? match[1].replace(/resignation|request|exit|for|of/gi, "").trim() : "";
+      return { action: "admin_draft_reject_resignation", employeeName: name || "all" };
+    }
+    return { action: "admin_get_pending_approvals" };
+  }
+
+  // ── 8G. SUPPORT TICKETS & TECHNICAL ISSUES ──────────────────────────────
+  if (
+    q.includes("ticket") ||
+    q.includes("support issue") ||
+    q.includes("technical issue") ||
+    q.includes("grievance")
+  ) {
+    if (q.includes("resolve") || q.includes("close") || q.includes("fix")) {
+      const match = message.match(/(?:resolve|close|fix)\s+(?:ticket\s+|issue\s+|grievance\s+)?(.+)/i);
+      const subject = match ? match[1].replace(/ticket|issue|grievance|support|technical/gi, "").trim() : "";
+      return { action: "admin_draft_resolve_issue", subject };
+    }
+    return { action: "admin_get_pending_approvals" };
   }
 
   // ── 9. EMPLOYEE DIRECTORY & ADD EMPLOYEE ─────────────────────────────────
@@ -263,47 +390,258 @@ export const classifyAdminIntentTraditional = (message) => {
     return { action: "admin_get_all_employees" };
   }
 
-  // ── 10. NOTICES & BROADCASTS ─────────────────────────────────────────────
+  // ── 9B. UPDATE ADMIN'S OWN PROFILE & PHONE / DETAILS ────────────────────
   if (
-    q.startsWith("post notice") ||
-    q.startsWith("broadcast notice") ||
-    q.startsWith("send notice") ||
-    q.startsWith("create notice") ||
-    q.startsWith("publish notice") ||
-    q.includes("post a notice")
+    q.includes("my phone") ||
+    q.includes("my mobile") ||
+    q.includes("my number") ||
+    q.includes("my department") ||
+    q.includes("my name") ||
+    q.includes("my profile") ||
+    q.includes("admin profile") ||
+    ((q.includes("update") || q.includes("change") || q.includes("set")) && (q.includes("phone") || q.includes("mobile") || q.includes("number")) && !q.includes("employee")) ||
+    ((q.includes("update") || q.includes("change") || q.includes("set")) && q.includes("department") && !q.includes("employee"))
   ) {
-    const titleMatch = message.match(/(?:post|broadcast|send|create|publish)\s+(?:a\s+)?notice\s*[:\-]?\s*(.+)/i);
-    const fullText = titleMatch ? titleMatch[1].trim() : "Company Notice";
-    const splitParts = fullText.split(/[:\-\n]/);
-    const title = splitParts[0].trim();
-    const description = splitParts.slice(1).join(" ").trim() || title;
+    const updates = {};
+    const phoneMatch = message.match(/(?:phone(?:\s+number)?|mobile(?:\s+number)?|number)\s*(?:in\s+my\s+profile|to|is|:)?\s*([0-9+\-()\s]{6,20})/i);
+    if (phoneMatch) {
+      updates.phone = phoneMatch[1].replace(/[^0-9+]/g, "");
+    } else {
+      const numMatch = message.match(/(\d{6,15})/);
+      if (numMatch) updates.phone = numMatch[1];
+    }
 
-    return {
-      action: "admin_draft_post_notice",
-      title,
-      description,
-      recipients: "ALL",
-    };
+    const deptMatch = message.match(/department\s+(?:to|is|as)?\s*([a-zA-Z\s]+)/i);
+    if (deptMatch) {
+      updates.department = deptMatch[1].trim();
+    }
+
+    const nameMatch = message.match(/name\s+(?:to|is|as)?\s*([a-zA-Z\s]+)/i);
+    if (nameMatch && !deptMatch && !phoneMatch) {
+      updates.name = nameMatch[1].trim();
+    }
+
+    if (Object.keys(updates).length > 0) {
+      return {
+        action: "admin_draft_update_admin_profile",
+        ...updates,
+      };
+    }
+  }
+
+  // ── 9C. UPDATE EMPLOYEE DETAILS ──────────────────────────────────────────
+  if (q.includes("update employee") || q.includes("change employee") || (q.includes("employee") && (q.includes("phone to") || q.includes("salary to") || q.includes("department to") || q.includes("designation to")))) {
+    const nameMatch = message.match(/(?:update|change)?\s*employee\s+([a-zA-Z0-9\s.-]+?)(?:'s|\s+phone|\s+salary|\s+department|\s+designation|\s+to|$)/i);
+    const employeeName = nameMatch ? nameMatch[1].replace(/employee|update|change/gi, "").trim() : "";
+
+    const updates = {};
+    const phoneMatch = message.match(/phone(?:\s+number)?\s+(?:to|is)?\s*([0-9+\-()\s]{6,20})/i);
+    if (phoneMatch) updates.phone = phoneMatch[1].replace(/[^0-9+]/g, "");
+
+    const salaryMatch = message.match(/salary\s+(?:to|is)?\s*(?:₹|rs\.?)?\s*([0-9,]+)/i);
+    if (salaryMatch) updates.salary = Number(salaryMatch[1].replace(/,/g, ""));
+
+    const deptMatch = message.match(/department\s+(?:to|is)?\s*([a-zA-Z\s]+)/i);
+    if (deptMatch) updates.department = deptMatch[1].trim();
+
+    const desigMatch = message.match(/designation\s+(?:to|is)?\s*([a-zA-Z\s]+)/i);
+    if (desigMatch) updates.designation = desigMatch[1].trim();
+
+    if (employeeName && Object.keys(updates).length > 0) {
+      return {
+        action: "admin_draft_update_employee",
+        employeeName,
+        ...updates,
+      };
+    }
+  }
+
+  // ── 9D. MOBILE ATTENDANCE ACCESS TOGGLE ──────────────────────────────────
+  if (q.includes("mobile access") || q.includes("mobile punch") || q.includes("mobile attendance")) {
+    if (q.includes("enable") || q.includes("turn on") || q.includes("allow")) {
+      return { action: "admin_draft_toggle_mobile_access", enabled: true };
+    }
+    if (q.includes("disable") || q.includes("turn off") || q.includes("block") || q.includes("stop")) {
+      return { action: "admin_draft_toggle_mobile_access", enabled: false };
+    }
+    return { action: "admin_draft_toggle_mobile_access", enabled: true };
+  }
+
+  // ── 9E. PERFORMANCE & WORK REPORTS ───────────────────────────────────────
+  if (
+    q.includes("work report") ||
+    q.includes("work reports") ||
+    q.includes("performance") ||
+    q.includes("daily work") ||
+    q.includes("work percentage") ||
+    q.includes("task submission") ||
+    q.startsWith("assign a task") ||
+    q.startsWith("assign task") ||
+    q.startsWith("give task") ||
+    q.startsWith("create task") ||
+    q.includes("assign task to") ||
+    q.includes("assign a task to")
+  ) {
+    if (q.includes("approve") || q.includes("accept")) {
+      let employeeName = "";
+      const forMatch = message.match(/(?:for|of)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+with|\s+at|\s+\d)/i);
+      if (forMatch) {
+        employeeName = forMatch[1].replace(/employee|task|work|report/gi, "").trim();
+      } else {
+        const directMatch = message.match(/(?:approve|accept)\s+([a-zA-Z0-9\s.-]+?)(?:'s|\s+work|\s+report|\s+task|$)/i);
+        if (directMatch) employeeName = directMatch[1].replace(/work|report|task|daily/gi, "").trim();
+      }
+
+      const pctMatch = message.match(/(\d{1,3})\s*%/);
+      const percentage = pctMatch ? parseInt(pctMatch[1], 10) : undefined;
+
+      return {
+        action: "admin_draft_approve_work_report",
+        employeeName: employeeName || undefined,
+        percentage,
+      };
+    }
+
+    if (q.includes("reject") || q.includes("deny")) {
+      let employeeName = "";
+      const forMatch = message.match(/(?:for|of)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+with|\s+at|\s+\d)/i);
+      if (forMatch) {
+        employeeName = forMatch[1].replace(/employee|task|work|report/gi, "").trim();
+      } else {
+        const directMatch = message.match(/(?:reject|deny)\s+([a-zA-Z0-9\s.-]+?)(?:'s|\s+work|\s+report|\s+task|$)/i);
+        if (directMatch) employeeName = directMatch[1].replace(/work|report|task|daily/gi, "").trim();
+      }
+
+      return {
+        action: "admin_draft_reject_work_report",
+        employeeName: employeeName || undefined,
+      };
+    }
+
+    if (
+      q.startsWith("assign a task") ||
+      q.startsWith("assign task") ||
+      q.startsWith("give task") ||
+      q.startsWith("create task") ||
+      q.includes("assign task to") ||
+      q.includes("assign a task to")
+    ) {
+      const nameMatch = message.match(/(?:to|for)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+title|\s+task)/i);
+      const employeeName = nameMatch ? nameMatch[1].replace(/employee|to|for/gi, "").trim() : "";
+
+      const titleMatch = message.match(/(?:task|title|named|called|[:])\s*[:\-]?\s*([a-zA-Z0-9\s.-]+)/i);
+      const title = titleMatch && titleMatch[1] && !titleMatch[1].toLowerCase().includes("to")
+        ? titleMatch[1].trim()
+        : "Complete Assigned Project Task";
+
+      return {
+        action: "admin_draft_assign_task",
+        employeeName,
+        title,
+        description: `Task assigned via AI Copilot: ${title}`,
+      };
+    }
+    return { action: "admin_get_performance_reports" };
+  }
+
+  // ── 9F. LOCATION & OFFICE SETTINGS ───────────────────────────────────────
+  if (
+    q.includes("location setting") ||
+    q.includes("office setting") ||
+    q.includes("geofence") ||
+    q.includes("office radius") ||
+    q.includes("office location") ||
+    q.includes("work mode setting") ||
+    q.includes("global work mode")
+  ) {
+    return { action: "admin_get_office_settings" };
+  }
+
+  // ── 9G. SUPPORT ADMIN & MANAGEMENT ───────────────────────────────────────
+  if (
+    q.includes("support admin") ||
+    q.includes("support admins") ||
+    q.includes("sub admin") ||
+    q.includes("sub-admin") ||
+    q.includes("management team") ||
+    q.includes("admin management")
+  ) {
+    return { action: "admin_get_support_admins" };
+  }
+
+  // ── 10. NOTICES & ANNOUNCEMENTS (WITH TYPO TOLERANCE) ────────────────────
+  const noticeKeywordRegex = /\b(?:notice|notices|announcement|announcements|annoucement|annoucements|anouncement|anouncements|anoucement|broadcast|broadcasts)\b/i;
+  if (noticeKeywordRegex.test(q)) {
+    if (
+      q.includes("post") ||
+      q.includes("send") ||
+      q.includes("create") ||
+      q.includes("publish") ||
+      q.includes("broadcast") ||
+      q.includes("make") ||
+      q.includes("share")
+    ) {
+      const titleMatch = message.match(/(?:post|broadcast|send|create|publish|make|share)\s+(?:an?\s+)?(?:notice|notices|announcement|announcements|annoucement|annoucements|anouncement|anouncements|anoucement|broadcast)\s*[:\-]?\s*(.*)/i);
+      const rawText = titleMatch && titleMatch[1] ? titleMatch[1].trim() : "";
+
+      let title = "Company Announcement";
+      let description = "Company Announcement for all team members.";
+
+      if (rawText) {
+        const splitParts = rawText.split(/[:\-\n]/);
+        title = splitParts[0].trim();
+        description = splitParts.slice(1).join(" ").trim() || title;
+      }
+
+      return {
+        action: "admin_draft_post_notice",
+        title,
+        description,
+        recipients: "ALL",
+      };
+    }
+    return { action: "admin_get_notices" };
   }
 
   // ── 11. SHIFT TIMINGS & POLICIES ─────────────────────────────────────────
   if (
-    q.startsWith("change shift") ||
-    q.startsWith("update shift") ||
-    q.startsWith("set shift") ||
-    q.includes("shift timing") ||
-    q.includes("shift hours")
+    q.includes("shift") ||
+    q.includes("timing") ||
+    q.includes("timings") ||
+    q.includes("work hours") ||
+    q.includes("working hours") ||
+    q.includes("office hours")
   ) {
     const timeMatch = message.match(/(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:to|-)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
-    const startTime = timeMatch ? timeMatch[1] : "09:30";
-    const endTime = timeMatch ? timeMatch[2] : "18:30";
-    const graceMatch = message.match(/(\d{1,2})\s*(?:min|mins|minutes)?\s*grace/i);
-    const gracePeriod = graceMatch ? parseInt(graceMatch[1], 10) : 15;
 
-    if (q.includes("change") || q.includes("update") || q.includes("set")) {
+    if (
+      q.includes("change") ||
+      q.includes("update") ||
+      q.includes("set") ||
+      q.includes("modify") ||
+      q.includes("assign") ||
+      timeMatch
+    ) {
+      let employeeName = "";
+      const forOfMatch = message.match(/(?:for|of)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+start|\s+to|\s+timing|\s+shift|\s+from|\s+hours)/i);
+      if (forOfMatch) {
+        employeeName = forOfMatch[1].replace(/shift|change|update|for|of|timing|timings|hours/gi, "").trim();
+      } else {
+        const directChangeMatch = message.match(/(?:change|update|set|modify)\s+([a-zA-Z0-9\s.-]+?)(?:'s|\s+timing|\s+timings|\s+shift|\s+to|\s+hours|:|-)/i);
+        if (directChangeMatch) {
+          employeeName = directChangeMatch[1].replace(/shift|change|update|set|modify|timing|timings|hours/gi, "").trim();
+        }
+      }
+
+      const startTime = timeMatch ? timeMatch[1].trim() : "09:30";
+      const endTime = timeMatch ? timeMatch[2].trim() : "18:30";
+      const graceMatch = message.match(/(\d{1,2})\s*(?:min|mins|minutes)?\s*grace/i);
+      const gracePeriod = graceMatch ? parseInt(graceMatch[1], 10) : 15;
+
       return {
         action: "admin_draft_update_shift",
-        shiftName: "General Shift",
+        employeeName,
+        shiftName: employeeName ? `${employeeName}'s Shift` : "General Shift",
         startTime,
         endTime,
         gracePeriod,
@@ -324,10 +662,27 @@ export const classifyAdminIntentTraditional = (message) => {
   }
 
   // ── 13. RULES & GUIDELINES ───────────────────────────────────────────────
-  if (q.startsWith("publish rule") || q.startsWith("add rule") || q.startsWith("post rule")) {
-    const ruleMatch = message.match(/(?:publish|add|post)\s+rule\s*[:\-]?\s*(.+)/i);
-    const fullText = ruleMatch ? ruleMatch[1].trim() : "Company Rule";
-    return { action: "admin_draft_post_rule", title: fullText, content: fullText };
+  if (
+    q.includes("rule") ||
+    q.includes("rules") ||
+    q.includes("guideline") ||
+    q.includes("guidelines") ||
+    q.includes("company policy") ||
+    q.includes("company policies") ||
+    q.includes("code of conduct")
+  ) {
+    if (
+      q.startsWith("publish rule") ||
+      q.startsWith("add rule") ||
+      q.startsWith("post rule") ||
+      q.startsWith("create rule") ||
+      q.startsWith("new rule")
+    ) {
+      const ruleMatch = message.match(/(?:publish|add|post|create|new)\s+rule\s*[:\-]?\s*(.+)/i);
+      const fullText = ruleMatch ? ruleMatch[1].trim() : "Company Rule";
+      return { action: "admin_draft_post_rule", title: fullText, content: fullText };
+    }
+    return { action: "admin_get_company_rules" };
   }
 
   // ── 14. PAYROLL SUMMARY ──────────────────────────────────────────────────
@@ -624,6 +979,68 @@ export const handleAdminExecuteAction = async (req, res) => {
         return res.json({ success: true, message: `✅ ${result.message}`, data: result });
       }
 
+      case "admin_confirm_update_employee": {
+        const result = await adminServiceUpdateEmployee({
+          loggedAdmin: user,
+          employeeId: req.body?.employeeId || decoded.employeeId,
+          updates: req.body?.updates || decoded.updates || {},
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_update_admin_profile": {
+        const result = await adminServiceUpdateAdminProfile({
+          loggedAdmin: user,
+          updates: req.body?.updates || decoded.updates || {},
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_toggle_mobile_access": {
+        const result = await adminServiceToggleMobileAccess({
+          loggedAdmin: user,
+          enabled: req.body?.enabled !== undefined ? req.body.enabled : decoded.enabled,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_assign_task": {
+        const result = await adminServiceAssignTask({
+          loggedAdmin: user,
+          employeeId: req.body?.employeeId || decoded.employeeId,
+          title: req.body?.title || decoded.title,
+          description: req.body?.description || decoded.description,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_approve_work_report": {
+        const result = await adminServiceApproveWorkReport({
+          loggedAdmin: user,
+          entryId: req.body?.entryId || decoded.entryId,
+          employeeName: req.body?.employeeName || decoded.employeeName,
+          percentage: req.body?.percentage !== undefined ? req.body.percentage : decoded.percentage,
+          adminComment: req.body?.adminComment || decoded.adminComment,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_reject_work_report": {
+        const result = await adminServiceRejectWorkReport({
+          loggedAdmin: user,
+          entryId: req.body?.entryId || decoded.entryId,
+          employeeName: req.body?.employeeName || decoded.employeeName,
+          adminComment: req.body?.adminComment || decoded.adminComment,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
       case "admin_confirm_post_notice": {
         const result = await adminServicePostNotice({
           loggedAdmin: user,
@@ -640,10 +1057,13 @@ export const handleAdminExecuteAction = async (req, res) => {
       case "admin_confirm_update_shift": {
         const result = await adminServiceUpdateShift({
           loggedAdmin: user,
+          employeeName: req.body?.employeeName || decoded.employeeName || req.body?.target || decoded.target || "",
           shiftName: req.body?.shiftName || decoded.shiftName,
           startTime: req.body?.startTime || decoded.startTime,
           endTime: req.body?.endTime || decoded.endTime,
           gracePeriod: req.body?.gracePeriod || decoded.gracePeriod,
+          halfDayThreshold: req.body?.halfDayThreshold || decoded.halfDayThreshold,
+          fullDayThreshold: req.body?.fullDayThreshold || decoded.fullDayThreshold,
           io,
         });
         return res.json({ success: true, message: `✅ ${result.message}`, data: result });
@@ -666,6 +1086,38 @@ export const handleAdminExecuteAction = async (req, res) => {
           title: req.body?.title || decoded.title,
           content: req.body?.content || decoded.content,
           category: req.body?.category || decoded.category,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_approve_resignation": {
+        const result = await adminServiceApproveResignation({
+          loggedAdmin: user,
+          resignationId: req.body?.resignationId || decoded.resignationId,
+          lastWorkingDate: req.body?.lastWorkingDate || decoded.lastWorkingDate,
+          adminRemark: req.body?.adminRemark || decoded.adminRemark,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_reject_resignation": {
+        const result = await adminServiceRejectResignation({
+          loggedAdmin: user,
+          resignationId: req.body?.resignationId || decoded.resignationId,
+          reason: req.body?.adminRemark || req.body?.reason || decoded.adminRemark || decoded.reason,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_resolve_issue": {
+        const result = await adminServiceUpdateIssueStatus({
+          loggedAdmin: user,
+          issueId: req.body?.issueId || decoded.issueId,
+          status: req.body?.status || decoded.status || "resolved",
+          reply: req.body?.reply || decoded.reply || "",
           io,
         });
         return res.json({ success: true, message: `✅ ${result.message}`, data: result });

@@ -478,10 +478,9 @@ export default function EmployeeAICopilot({ employee }) {
           >
             <span className="absolute -inset-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full blur opacity-70 group-hover:opacity-100 transition duration-500 animate-pulse"></span>
 
-            <div className="relative flex items-center gap-2 px-1">
-              <Sparkles className="w-6 h-6 animate-spin-slow text-yellow-300" />
-              <span className="font-semibold text-sm tracking-wide hidden sm:inline-block pr-1">
-                AI Copilot
+            <div className="relative flex items-center gap-2 px-2 py-0.5">
+              <span className="font-semibold text-sm tracking-wide">
+                Ai copilot
               </span>
               <span className="flex h-2.5 w-2.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -498,12 +497,9 @@ export default function EmployeeAICopilot({ employee }) {
           {/* Header */}
           <div className="px-4 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
-                <Sparkles className="w-5 h-5 text-yellow-300" />
-              </div>
               <div>
                 <h3 className="font-bold text-sm leading-tight flex items-center gap-1.5">
-                  VSync Copilot
+                  AI Copilot
                   <span className="text-[10px] bg-emerald-400/30 text-emerald-100 px-1.5 py-0.2 rounded-full font-normal">
                     Online
                   </span>
@@ -1398,6 +1394,60 @@ export default function EmployeeAICopilot({ employee }) {
                                  </div>
                                )}
 
+                                {msg.actionCard.type === "confirm_punch_break" && (
+                                  <div className="space-y-1.5">
+                                    <div>
+                                      <label className="text-slate-500 font-semibold block text-[9px]">Break Type</label>
+                                      <select
+                                        value={editFormData.breakType || "Lunch Break"}
+                                        onChange={(e) => setEditFormData({ ...editFormData, breakType: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                      >
+                                        <option value="Lunch Break">Lunch Break</option>
+                                        <option value="Tea Break">Tea Break</option>
+                                        <option value="Coffee Break">Coffee Break</option>
+                                        <option value="Short Break">Short Break</option>
+                                        <option value="Snack Break">Snack Break</option>
+                                        <option value="Rest Break">Rest Break</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {![
+                                  "confirm_leave_application",
+                                  "confirm_expense_request",
+                                  "confirm_overtime_request",
+                                  "confirm_wfh_request",
+                                  "confirm_punch_out_request",
+                                  "confirm_issue_request",
+                                  "confirm_resignation_request",
+                                  "confirm_work_update",
+                                  "confirm_late_correction",
+                                  "confirm_update_wfh",
+                                  "confirm_notice_reply",
+                                  "confirm_punch_break",
+                                ].includes(msg.actionCard.type) && (
+                                  <div className="space-y-1.5">
+                                    {Object.entries(editFormData || {}).map(([k, v]) => {
+                                      if (k.endsWith("Id") || k === "actionType" || k === "sub" || k === "status" || k === "isOnBreak") return null;
+                                      return (
+                                        <div key={k}>
+                                          <label className="text-slate-500 font-semibold block text-[9px] capitalize">
+                                            {k.replace(/([A-Z])/g, " $1")}
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={v !== undefined ? v : ""}
+                                            onChange={(e) => setEditFormData({ ...editFormData, [k]: e.target.value })}
+                                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-1 text-[10px]"
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
                               {/* Edit Action Buttons */}
                               <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-slate-700">
                                 <button
@@ -1469,6 +1519,15 @@ export default function EmployeeAICopilot({ employee }) {
                                 <>
                                   <div><strong className="text-slate-500">Action:</strong> Late Arrival Justification</div>
                                   <div><strong className="text-slate-500">Date:</strong> {msg.actionCard.data.date}</div>
+                                  <div><strong className="text-slate-500">Reason:</strong> {msg.actionCard.data.reason}</div>
+                                </>
+                              )}
+
+                              {msg.actionCard.type === "confirm_request_ontime_login" && (
+                                <>
+                                  <div><strong className="text-slate-500">Action:</strong> Request On-Time Login</div>
+                                  <div><strong className="text-slate-500">Date:</strong> {msg.actionCard.data.date}</div>
+                                  <div><strong className="text-slate-500">Requested Punch-In:</strong> {msg.actionCard.data.requestedPunchIn || msg.actionCard.data.requestedTime || "09:30"}</div>
                                   <div><strong className="text-slate-500">Reason:</strong> {msg.actionCard.data.reason}</div>
                                 </>
                               )}

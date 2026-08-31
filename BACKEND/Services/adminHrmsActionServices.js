@@ -21,6 +21,10 @@ import Shift from "../models/shiftModel.js";
 import Holiday from "../models/Holiday.js";
 import Rule from "../models/Rule.js";
 import Notification from "../models/notificationModel.js";
+import Admin from "../models/adminModel.js";
+import SupportAdmin from "../models/supportAdminModel.js";
+import AdminTask from "../models/AdminTask.js";
+import DailyWorkEntry from "../models/DailyWorkEntry.js";
 
 /* =========================================================================
    1. LEAVE APPROVAL & REJECTION
@@ -465,7 +469,7 @@ export const adminServiceApproveAttendanceRequest = async ({ loggedAdmin, reques
       }
       dayRecord.loginStatus = "ON_TIME";
       if (dayRecord.lateCorrectionRequest) {
-        dayRecord.lateCorrectionRequest.status = "Approved";
+        dayRecord.lateCorrectionRequest.status = "APPROVED";
       }
       await attendance.save();
     }
@@ -493,6 +497,18 @@ export const adminServiceRejectAttendanceRequest = async ({ loggedAdmin, request
   req.adminComment = adminComment;
   req.reviewedAt = new Date();
   await req.save();
+
+  const attendance = await Attendance.findOne({
+    $or: [{ employeeId: req.employeeId }, { employeeCustomId: req.employeeId }],
+  });
+  if (attendance) {
+    const dayRecord = (attendance.attendance || []).find((a) => a.date === req.date);
+    if (dayRecord && dayRecord.lateCorrectionRequest) {
+      dayRecord.lateCorrectionRequest.status = "REJECTED";
+      dayRecord.lateCorrectionRequest.adminComment = adminComment;
+      await attendance.save();
+    }
+  }
 
   if (io) {
     io.emit("attendance:lateRejected", { requestId, employeeId: req.employeeId, date: req.date });
@@ -804,6 +820,7 @@ export const adminServiceRejectResignation = async ({ loggedAdmin, resignationId
 ========================================================================= */
 export const adminServiceUpdateShift = async ({
   loggedAdmin,
+  employeeName = "",
   shiftName = "General Shift",
   startTime = "09:30",
   endTime = "18:30",
@@ -812,42 +829,116 @@ export const adminServiceUpdateShift = async ({
   fullDayThreshold = 8,
   io = null,
 }) => {
-  const adminId = loggedAdmin._id;
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
 
-  let shift = await Shift.findOne({
-    $or: [{ adminId }, { companyId: companyId || adminId }],
-  });
+  let cleanTerm = String(employeeName || "").trim();
+  const idMatch = cleanTerm.match(/\(([^)]+)\)/);
+  const rawId = idMatch ? idMatch[1].trim() : "";
+  const rawName = cleanTerm.replace(/\([^)]+\)/g, "").trim();
 
-  if (!shift) {
-    shift = new Shift({
-      adminId,
-      companyId: companyId || adminId,
-      shiftName,
-      shiftStartTime: startTime,
-      shiftEndTime: endTime,
-      lateGracePeriod: Number(gracePeriod) || 15,
-      halfDayThresholdHours: Number(halfDayThreshold) || 4,
-      fullDayThresholdHours: Number(fullDayThreshold) || 8,
-    });
-  } else {
-    shift.shiftName = shiftName;
-    shift.shiftStartTime = startTime;
-    shift.shiftEndTime = endTime;
-    shift.lateGracePeriod = Number(gracePeriod) || 15;
-    shift.halfDayThresholdHours = Number(halfDayThreshold) || 4;
-    shift.fullDayThresholdHours = Number(fullDayThreshold) || 8;
+  let emp = null;
+  if (cleanTerm && cleanTerm !== "all" && cleanTerm !== "General Shift") {
+    emp = await Employee.findOne({
+      $or: [{ adminId }, { company: companyId || adminId }, { companyId: companyId || adminId }],
+      $or: [
+        ...(rawId ? [{ employeeId: rawId }] : []),
+        { employeeId: cleanTerm },
+        { name: new RegExp(`^${rawName || cleanTerm}$`, "i") },
+        { name: new RegExp(rawName || cleanTerm, "i") },
+        { email: new RegExp(rawName || cleanTerm, "i") },
+      ],
+    }).lean();
   }
 
-  await shift.save();
+  const sStart = startTime.includes(":") && startTime.split(":").length === 2 ? `${startTime}:00` : startTime;
+  const sEnd = endTime.includes(":") && endTime.split(":").length === 2 ? `${endTime}:00` : endTime;
+
+  let shift = null;
+  if (emp) {
+    shift = await Shift.findOneAndUpdate(
+      { employeeId: emp.employeeId, adminId: emp.adminId || adminId },
+      {
+        adminId: emp.adminId || adminId,
+        companyId: emp.company || companyId || adminId,
+        employeeId: emp.employeeId,
+        employeeName: emp.name,
+        email: emp.email,
+        department: emp.department || "General",
+        role: emp.designation || "Employee",
+        shiftStartTime: sStart,
+        shiftEndTime: sEnd,
+        lateGracePeriod: Number(gracePeriod) || 15,
+        halfDayHours: Number(halfDayThreshold) || 4,
+        fullDayHours: Number(fullDayThreshold) || 8,
+        dailyTimings: [
+          { day: 0, startTime: sStart, endTime: sEnd },
+          { day: 1, startTime: sStart, endTime: sEnd },
+          { day: 2, startTime: sStart, endTime: sEnd },
+          { day: 3, startTime: sStart, endTime: sEnd },
+          { day: 4, startTime: sStart, endTime: sEnd },
+          { day: 5, startTime: sStart, endTime: sEnd },
+          { day: 6, startTime: sStart, endTime: sEnd },
+        ],
+        isActive: true,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  } else {
+    shift = await Shift.findOne({
+      $or: [{ adminId }, { companyId: companyId || adminId }],
+    });
+
+    if (!shift) {
+      shift = new Shift({
+        adminId,
+        companyId: companyId || adminId,
+        employeeName: "General Shift",
+        email: loggedAdmin.email || "admin@company.com",
+        shiftStartTime: sStart,
+        shiftEndTime: sEnd,
+        lateGracePeriod: Number(gracePeriod) || 15,
+        halfDayHours: Number(halfDayThreshold) || 4,
+        fullDayHours: Number(fullDayThreshold) || 8,
+        dailyTimings: [
+          { day: 0, startTime: sStart, endTime: sEnd },
+          { day: 1, startTime: sStart, endTime: sEnd },
+          { day: 2, startTime: sStart, endTime: sEnd },
+          { day: 3, startTime: sStart, endTime: sEnd },
+          { day: 4, startTime: sStart, endTime: sEnd },
+          { day: 5, startTime: sStart, endTime: sEnd },
+          { day: 6, startTime: sStart, endTime: sEnd },
+        ],
+        isActive: true,
+      });
+    } else {
+      shift.shiftStartTime = sStart;
+      shift.shiftEndTime = sEnd;
+      shift.lateGracePeriod = Number(gracePeriod) || 15;
+      shift.halfDayHours = Number(halfDayThreshold) || 4;
+      shift.fullDayHours = Number(fullDayThreshold) || 8;
+      shift.dailyTimings = [
+        { day: 0, startTime: sStart, endTime: sEnd },
+        { day: 1, startTime: sStart, endTime: sEnd },
+        { day: 2, startTime: sStart, endTime: sEnd },
+        { day: 3, startTime: sStart, endTime: sEnd },
+        { day: 4, startTime: sStart, endTime: sEnd },
+        { day: 5, startTime: sStart, endTime: sEnd },
+        { day: 6, startTime: sStart, endTime: sEnd },
+      ];
+    }
+    await shift.save();
+  }
 
   if (io) {
-    io.emit("hrmsShiftUpdated", { shift });
+    io.emit("hrmsShiftUpdated", { shift, employeeId: emp?.employeeId, employeeName: emp?.name });
+    io.emit("shift:updated", { shift, employeeId: emp?.employeeId });
   }
 
+  const targetLabel = emp ? `for **${emp.name}** (${emp.employeeId})` : "company-wide";
   return {
     success: true,
-    message: `Shift timings updated to ${startTime} - ${endTime} (Grace: ${gracePeriod} mins, Half-Day: ${halfDayThreshold}h, Full-Day: ${fullDayThreshold}h).`,
+    message: `Shift timings ${targetLabel} updated to ${startTime} - ${endTime} (Grace: ${gracePeriod} mins, Half-Day: ${halfDayThreshold}h, Full-Day: ${fullDayThreshold}h).`,
     shift,
   };
 };
@@ -931,5 +1022,207 @@ export const adminServicePostRule = async ({ loggedAdmin, title, content, catego
     success: true,
     message: `Company rule '${rule.title}' published successfully.`,
     rule,
+  };
+};
+
+/* =========================================================================
+   11. ADMIN PROFILE & SETTINGS
+========================================================================= */
+export const adminServiceUpdateAdminProfile = async ({ loggedAdmin, updates = {}, io = null }) => {
+  const adminId = loggedAdmin._id;
+  const role = loggedAdmin.role;
+
+  let adminUser = null;
+  if (role === "support-admin") {
+    adminUser = await SupportAdmin.findById(loggedAdmin.actualId || adminId);
+  } else {
+    adminUser = await Admin.findById(loggedAdmin.actualId || adminId);
+  }
+
+  if (!adminUser) {
+    throw new Error("Admin user account not found.");
+  }
+
+  const allowedFields = ["name", "phone", "department", "address", "emergencyPhone", "bio"];
+  for (const [key, val] of Object.entries(updates)) {
+    if (allowedFields.includes(key) && val !== undefined && val !== null) {
+      adminUser[key] = val;
+    }
+  }
+
+  await adminUser.save();
+
+  if (io) {
+    io.emit("adminProfileUpdated", { adminId: adminUser._id, updates });
+  }
+
+  return {
+    success: true,
+    message: `Admin profile updated successfully. (${Object.keys(updates).map(k => `${k}: ${updates[k]}`).join(", ")})`,
+    admin: adminUser,
+  };
+};
+
+export const adminServiceToggleMobileAccess = async ({ loggedAdmin, enabled, io = null }) => {
+  const adminId = loggedAdmin._id;
+  const adminUser = await Admin.findById(loggedAdmin.actualId || adminId);
+
+  if (!adminUser) {
+    throw new Error("Admin account not found.");
+  }
+
+  adminUser.mobileAccessEnabled = enabled !== undefined ? enabled : !adminUser.mobileAccessEnabled;
+  await adminUser.save();
+
+  if (io) {
+    io.emit("mobileAccessUpdated", { mobileAccessEnabled: adminUser.mobileAccessEnabled });
+  }
+
+  return {
+    success: true,
+    message: `Mobile attendance access has been ${adminUser.mobileAccessEnabled ? "enabled" : "disabled"}.`,
+    mobileAccessEnabled: adminUser.mobileAccessEnabled,
+  };
+};
+
+/* =========================================================================
+   12. TASK & PERFORMANCE MANAGEMENT
+========================================================================= */
+export const adminServiceAssignTask = async ({ loggedAdmin, employeeId, title, description = "", io = null }) => {
+  const adminId = loggedAdmin._id;
+  const companyId = loggedAdmin.company || loggedAdmin.companyId;
+
+  const emp = await Employee.findOne({
+    $or: [
+      { employeeId },
+      { name: new RegExp(employeeId, "i") },
+      { firstName: new RegExp(employeeId, "i") },
+      { _id: mongoose.isValidObjectId(employeeId) ? employeeId : null },
+    ],
+    $and: [{ $or: [{ adminId }, { companyId: companyId || adminId }] }],
+  });
+
+  if (!emp) {
+    throw new Error(`Employee '${employeeId}' not found in your organization.`);
+  }
+
+  if (!title) {
+    throw new Error("Task title is required.");
+  }
+
+  const newTask = new AdminTask({
+    employeeId: emp._id,
+    adminId: loggedAdmin.actualId || adminId,
+    title: title.trim(),
+    description: description.trim(),
+    status: "Pending",
+  });
+
+  await newTask.save();
+
+  if (io) {
+    io.emit("adminTaskAssigned", { task: newTask, employeeId: emp.employeeId });
+    io.to(`user_${emp._id.toString()}`).emit("newNotification", {
+      title: "New Task Assigned",
+      message: `Admin assigned you a task: ${title}`,
+      type: "task-assigned",
+      date: new Date(),
+    });
+  }
+
+  return {
+    success: true,
+    message: `Task '${newTask.title}' assigned successfully to ${emp.name} (${emp.employeeId}).`,
+    task: newTask,
+  };
+};
+
+/* =========================================================================
+   24. WORK REPORT APPROVAL & REJECTION
+========================================================================= */
+export const adminServiceApproveWorkReport = async ({ loggedAdmin, entryId, employeeName, percentage, adminComment = "", io = null }) => {
+  const adminId = loggedAdmin._id;
+  const companyId = loggedAdmin.company || loggedAdmin.companyId;
+
+  let entry = null;
+  if (entryId && mongoose.isValidObjectId(entryId)) {
+    entry = await DailyWorkEntry.findById(entryId).populate("employeeId");
+  }
+
+  if (!entry && employeeName) {
+    const emp = await Employee.findOne({
+      name: { $regex: new RegExp(employeeName.trim(), "i") },
+      $or: [{ adminId }, { companyId: companyId || adminId }],
+    });
+    if (emp) {
+      entry = await DailyWorkEntry.findOne({ employeeId: emp._id }).sort({ date: -1 }).populate("employeeId");
+    }
+  }
+
+  if (!entry) {
+    throw new Error("Daily work report not found or employee not recognized.");
+  }
+
+  entry.status = "approved";
+  entry.daily_work_percentage = percentage !== undefined && percentage !== null ? Number(percentage) : (entry.employee_submitted_percentage || 100);
+  entry.percentage_generated_at = new Date();
+  entry.percentage_mode = "manual";
+  if (adminComment) entry.admin_comment = adminComment;
+  await entry.save();
+
+  if (io) {
+    io.emit("hrmsWorkReportsUpdated", { entryId: entry._id, status: "approved" });
+    if (entry.employeeId?._id) {
+      io.to(`user_${entry.employeeId._id.toString()}`).emit("newNotification", {
+        title: "Work Report Approved",
+        message: `Your daily work report for ${new Date(entry.date).toLocaleDateString()} has been approved (${entry.daily_work_percentage}%).`,
+        type: "work-report-approved",
+        date: new Date(),
+      });
+    }
+  }
+
+  return {
+    success: true,
+    message: `Work report for ${entry.employeeId?.name || "Employee"} approved successfully (${entry.daily_work_percentage}%).`,
+    entry,
+  };
+};
+
+export const adminServiceRejectWorkReport = async ({ loggedAdmin, entryId, employeeName, adminComment = "", io = null }) => {
+  const adminId = loggedAdmin._id;
+  const companyId = loggedAdmin.company || loggedAdmin.companyId;
+
+  let entry = null;
+  if (entryId && mongoose.isValidObjectId(entryId)) {
+    entry = await DailyWorkEntry.findById(entryId).populate("employeeId");
+  }
+
+  if (!entry && employeeName) {
+    const emp = await Employee.findOne({
+      name: { $regex: new RegExp(employeeName.trim(), "i") },
+      $or: [{ adminId }, { companyId: companyId || adminId }],
+    });
+    if (emp) {
+      entry = await DailyWorkEntry.findOne({ employeeId: emp._id }).sort({ date: -1 }).populate("employeeId");
+    }
+  }
+
+  if (!entry) {
+    throw new Error("Daily work report not found or employee not recognized.");
+  }
+
+  entry.status = "rejected";
+  if (adminComment) entry.admin_comment = adminComment;
+  await entry.save();
+
+  if (io) {
+    io.emit("hrmsWorkReportsUpdated", { entryId: entry._id, status: "rejected" });
+  }
+
+  return {
+    success: true,
+    message: `Work report for ${entry.employeeId?.name || "Employee"} rejected.`,
+    entry,
   };
 };

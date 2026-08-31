@@ -25,6 +25,7 @@ import {
   serviceStartFieldWork,
   serviceEndFieldWork,
   serviceSendMessage,
+  serviceRequestOnTimeLogin,
 } from "../services/hrmsActionServices.js";
 
 // Dynamically load API Keys from .env
@@ -452,6 +453,9 @@ export const classifyIntentTraditional = (message, todayStr, tomorrowStr, chatHi
 
   // ── 1. PUNCH IN / PUNCH OUT & MISSING PUNCH CORRECTION ────────────────────
   if (
+    q.includes("on time") ||
+    q.includes("ontime") ||
+    q.includes("on-time") ||
     q.includes("late login") ||
     q.includes("late mark") ||
     q.includes("late entry") ||
@@ -465,9 +469,10 @@ export const classifyIntentTraditional = (message, todayStr, tomorrowStr, chatHi
     const explicitDate = parseExplicitDate(message) || todayStr;
     const explicitReason = normalizeDescription(message, "general");
     return {
-      action: "draft_late_correction",
+      action: "draft_request_ontime_login",
       date: explicitDate,
-      reason: explicitReason || "Traffic delay / late arrival justification",
+      reason: explicitReason || "On-time login requested via AI Copilot",
+      requestedPunchIn: "09:30",
     };
   }
 
@@ -538,6 +543,34 @@ export const classifyIntentTraditional = (message, todayStr, tomorrowStr, chatHi
     return {
       action: "draft_punch_out",
       note: explicitNote || "Punched out via AI Copilot",
+    };
+  }
+
+  // ── 1B. REQUEST ON-TIME LOGIN / LATE LOGIN CORRECTION ───────────────────
+  if (
+    q === "request on time login" ||
+    q === "request on-time login" ||
+    q.includes("request on time login") ||
+    q.includes("request on-time login") ||
+    q.includes("on time login") ||
+    q.includes("on-time login") ||
+    q.includes("late correction") ||
+    q.includes("late login request") ||
+    q.includes("late login correction") ||
+    q.includes("request late login") ||
+    q.includes("request late correction") ||
+    q.includes("waive late") ||
+    q.includes("correct late login")
+  ) {
+    const explicitDate = parseExplicitDate(message);
+    const date = explicitDate ? explicitDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const reasonMatch = message.match(/(?:reason|because|due\s+to|for)\s*[:\-]?\s*(.+)/i);
+    const reason = reasonMatch ? reasonMatch[1].trim() : "Late login correction requested via AI Copilot";
+
+    return {
+      action: "draft_request_ontime_login",
+      date,
+      reason,
     };
   }
 
@@ -1998,6 +2031,23 @@ export const handleExecuteAction = async (req, res) => {
         });
       }
 
+      case "confirm_request_ontime_login": {
+        const { date, reason, requestedPunchIn } = decoded;
+        const result = await serviceRequestOnTimeLogin({
+          loggedUser: user,
+          date,
+          reason,
+          requestedPunchIn,
+          io,
+        });
+
+        return res.json({
+          success: true,
+          message: `✅ ${result.message}`,
+          data: result,
+        });
+      }
+
       default:
         return res.status(400).json({ error: `Unsupported action type: ${decoded.actionType}` });
     }
@@ -2385,8 +2435,81 @@ export const handleUpdateDraftAction = async (req, res) => {
         break;
       }
 
-      default:
-        return res.status(400).json({ error: `Cannot update action type: ${actionType}` });
+      case "confirm_request_ontime_login": {
+        const { date = new Date().toISOString().slice(0, 10), reason = "Late login correction", requestedPunchIn = "09:30" } = data;
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            employeeId: user.employeeId || userId.toString(),
+            date,
+            reason,
+            requestedPunchIn,
+            actionType: "confirm_request_ontime_login",
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+
+        updatedActionCard = {
+          type: "confirm_request_ontime_login",
+          title: "Request On-Time Login Confirmation (Updated)",
+          actionToken,
+          data: {
+            date,
+            reason,
+            requestedStatus: "ON_TIME",
+            requestedTime: requestedPunchIn,
+            applicantName: user.name || "Employee",
+          },
+        };
+        break;
+      }
+
+      case "confirm_punch_break": {
+        const { breakType = "Lunch Break", isOnBreak = false } = data;
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            actionType: "confirm_punch_break",
+            breakType,
+            isOnBreak: Boolean(isOnBreak),
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+
+        updatedActionCard = {
+          type: "confirm_punch_break",
+          title: isOnBreak ? "Resume Work from Break (Updated)" : "Break Time Confirmation (Updated)",
+          actionToken,
+          data: {
+            breakType: isOnBreak ? "Resume Work" : breakType,
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            employeeName: user.name || "Employee",
+            isOnBreak: Boolean(isOnBreak),
+          },
+        };
+        break;
+      }
+
+      default: {
+        const actionToken = jwt.sign(
+          {
+            sub: userId.toString(),
+            actionType,
+            ...data,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
+        updatedActionCard = {
+          type: actionType,
+          title: "Confirmation (Updated)",
+          actionToken,
+          data: { ...data },
+        };
+        break;
+      }
     }
 
     return res.json({

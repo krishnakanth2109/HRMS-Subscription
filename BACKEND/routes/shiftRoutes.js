@@ -103,15 +103,37 @@ router.get('/:employeeId', async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const shift = await Shift.findOne({ employeeId: requestedId, isActive: true });
+    const cleanId = String(requestedId || "").trim();
+    let shift = await Shift.findOne({
+      $or: [
+        { employeeId: cleanId },
+        { employeeId: new RegExp(`^${cleanId}$`, "i") },
+        ...(req.user.email ? [{ email: new RegExp(`^${req.user.email}$`, "i") }] : []),
+      ],
+      isActive: true,
+    });
+
+    if (!shift) {
+      // Check for parent admin's company-wide / general shift
+      const parentAdminId = req.user.role === "support-admin" || req.user.role === "employee" ? req.user.adminId : req.user._id;
+      const companyId = req.user.company || req.user.companyId;
+
+      shift = await Shift.findOne({
+        $or: [
+          ...(parentAdminId ? [{ adminId: parentAdminId }] : []),
+          ...(companyId ? [{ companyId }] : []),
+        ],
+        isActive: true,
+      }).sort({ updatedAt: -1 });
+    }
 
     if (!shift) {
       return res.status(200).json({
         success: true,
         data: {
           employeeId: requestedId,
-          shiftStartTime: "09:00",
-          shiftEndTime: "18:00",
+          shiftStartTime: "09:30:00",
+          shiftEndTime: "18:30:00",
           lateGracePeriod: 15,
           fullDayHours: 9, 
           halfDayHours: 4.5,

@@ -1081,6 +1081,41 @@ export const executeCopilotTool = async (toolName, toolArgs, user) => {
       };
     }
 
+    // ⚡ ON-TIME LOGIN / LATE ARRIVAL JUSTIFICATION REQUEST
+    case "draft_request_ontime_login":
+    case "draft_late_correction": {
+      const { date, reason = "On-time login requested via AI Copilot", requestedPunchIn = "09:30" } = toolArgs;
+      const dateStr = date || new Date().toISOString().slice(0, 10);
+
+      const actionToken = jwt.sign(
+        {
+          sub: userId.toString(),
+          employeeId: user.employeeId || userId.toString(),
+          actionType: "confirm_request_ontime_login",
+          date: dateStr,
+          reason,
+          requestedPunchIn,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "30m" }
+      );
+
+      return {
+        actionCard: {
+          type: "confirm_request_ontime_login",
+          title: "Request On-Time Login Confirmation",
+          actionToken,
+          data: {
+            date: dateStr,
+            requestedPunchIn,
+            reason,
+            applicantName: user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim() || "Employee",
+          },
+        },
+        message: `I have prepared your **On-Time Login Request** for **${dateStr}** (${requestedPunchIn}). Please click 'Confirm & Submit Request' below.`,
+      };
+    }
+
     // ⚡ MISSING PUNCH-OUT CORRECTION
     case "draft_punch_out_request": {
       const { originalDate, time = "18:30", reason = "Forgot to punch out" } = toolArgs;
@@ -2241,6 +2276,41 @@ export const executeCopilotTool = async (toolName, toolArgs, user) => {
           },
         },
         message: `Ready to send your message to **${targetEmp.name}**:\n\n> *"${messageText.trim()}"*\n\nPlease confirm below to deliver this message.`,
+      };
+    }
+
+    case "draft_request_ontime_login": {
+      const date = toolArgs.date || new Date().toISOString().slice(0, 10);
+      const reason = toolArgs.reason || "Late login correction request";
+      const requestedPunchIn = toolArgs.requestedPunchIn || "09:30";
+
+      const actionToken = jwt.sign(
+        {
+          sub: userId.toString(),
+          employeeId: user.employeeId || userId.toString(),
+          date,
+          reason,
+          requestedPunchIn,
+          actionType: "confirm_request_ontime_login",
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "30m" }
+      );
+
+      return {
+        actionCard: {
+          type: "confirm_request_ontime_login",
+          title: "Request On-Time Login Confirmation",
+          actionToken,
+          data: {
+            date,
+            reason,
+            requestedStatus: "ON_TIME",
+            requestedTime: requestedPunchIn,
+            applicantName: user.name || "Employee",
+          },
+        },
+        message: `Ready to submit an On-Time Login request for **${date}** (Reason: *${reason}*). Please confirm below to submit to Admin for approval.`,
       };
     }
 
