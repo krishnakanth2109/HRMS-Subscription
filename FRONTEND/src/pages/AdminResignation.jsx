@@ -1,13 +1,67 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import api from "../api";
+import {
+  FaUserFriends,
+  FaFileSignature,
+  FaClock,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaHourglassHalf,
+  FaDownload,
+  FaEye,
+  FaTrash,
+  FaSearch,
+  FaFilter,
+  FaBuilding,
+  FaSyncAlt,
+  FaPaperclip,
+  FaBoxes,
+  FaGift,
+  FaTimes,
+  FaShieldAlt,
+  FaChevronDown,
+  FaChevronUp,
+  FaCalendarAlt,
+  FaBalanceScale
+} from "react-icons/fa";
 
-// ─── Status badge colors ───────────────────────────────────────────────────────
-const STATUS_COLORS = {
-  Pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-  Approved: "bg-blue-100 text-blue-800 border-blue-300",
-  Rejected: "bg-red-100 text-red-800 border-red-300",
-  "Exit Formalities": "bg-purple-100 text-purple-800 border-purple-300",
-  Completed: "bg-green-100 text-green-800 border-green-300",
+// ─── Status Badge Colors ───────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  Pending: {
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    border: "border-amber-200/80",
+    dot: "bg-amber-500",
+    glow: "shadow-[0_0_12px_-2px_rgba(245,158,11,0.25)]"
+  },
+  Approved: {
+    bg: "bg-emerald-50",
+    text: "text-emerald-700",
+    border: "border-emerald-200/80",
+    dot: "bg-emerald-500",
+    glow: "shadow-[0_0_12px_-2px_rgba(16,185,129,0.25)]"
+  },
+  Rejected: {
+    bg: "bg-rose-50",
+    text: "text-rose-700",
+    border: "border-rose-200/80",
+    dot: "bg-rose-500",
+    glow: ""
+  },
+  "Exit Formalities": {
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    border: "border-purple-200/80",
+    dot: "bg-purple-500",
+    glow: "shadow-[0_0_12px_-2px_rgba(168,85,247,0.25)]"
+  },
+  Completed: {
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    border: "border-blue-200/80",
+    dot: "bg-blue-500",
+    glow: "shadow-[0_0_12px_-2px_rgba(59,130,246,0.25)]"
+  },
 };
 
 // ─── IST Countdown Timer ──────────────────────────────────────────────────────
@@ -31,29 +85,39 @@ const CountdownTimer = ({ endDate }) => {
   }, [endDate]);
 
   return (
-    <span className={`text-xs font-mono font-bold px-2 py-1 rounded ${expired ? "bg-red-100 text-red-700" : "bg-indigo-100 text-indigo-700"}`}>
-      {expired ? "⏰ Expired" : `⏱ ${timeLeft}`}
+    <span className={`inline-flex items-center gap-1.5 text-xs font-mono font-extrabold px-3 py-1 rounded-xl border shadow-sm ${
+      expired ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"
+    }`}>
+      <span>{expired ? "⏰" : "⏱"}</span>
+      <span>{expired ? "Expired" : timeLeft}</span>
     </span>
   );
 };
 
 // ─── View Letter Modal ─────────────────────────────────────────────────────────
 const LetterModal = ({ title, html, onClose }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-      <div className="flex items-center justify-between px-6 py-4 border-b">
-        <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xl p-4">
+    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+        <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+          <FaFileSignature className="text-indigo-600" />
+          {title}
+        </h3>
+        <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-200/60 transition-all">
+          <FaTimes />
+        </button>
       </div>
-      <div className="overflow-y-auto p-6 flex-1" dangerouslySetInnerHTML={{ __html: html }} />
-      <div className="px-6 py-3 border-t flex justify-end">
-        <button onClick={onClose} className="px-5 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700">Close</button>
+      <div className="overflow-y-auto p-6 sm:p-8 flex-1 text-sm leading-relaxed text-slate-800 bg-white" dangerouslySetInnerHTML={{ __html: html }} />
+      <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+        <button onClick={onClose} className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold transition-all shadow-md">
+          Close Document
+        </button>
       </div>
     </div>
   </div>
 );
 
-// ─── Decision Modal (with acceptance file upload) ─────────────────────────────
+// ─── Decision Modal ────────────────────────────────────────────────────────────
 const DecisionModal = ({ resignation, onClose, onSubmit }) => {
   const [action, setAction] = useState("Approved");
   const [remark, setRemark] = useState("");
@@ -77,22 +141,32 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-bold text-slate-800">Review Resignation — {resignation.employeeName}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
-        </div>
-        <div className="p-6 space-y-6">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-            <div>
-              <p className="text-sm font-semibold text-slate-500">Reason for Resignation</p>
-              <p className="text-slate-800 font-medium">{resignation.reason}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xl p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto border border-slate-200/80 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-purple-50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20">
+              <FaBalanceScale className="text-lg" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-500">Date of Resignation</p>
-              <p className="text-slate-800 font-medium">
+              <h3 className="text-lg font-black text-slate-900">Review Resignation Decision</h3>
+              <p className="text-xs text-slate-500 font-semibold">{resignation.employeeName} ({resignation.employeeId})</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-white/60 transition-all">
+            <FaTimes />
+          </button>
+        </div>
+
+        <div className="p-6 sm:p-8 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reason</p>
+              <p className="text-slate-800 font-bold text-sm mt-0.5">{resignation.reason || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Submission Date</p>
+              <p className="text-slate-800 font-bold text-sm mt-0.5">
                 {resignation.resignationDate ? new Date(resignation.resignationDate).toLocaleDateString("en-IN") : new Date(resignation.submittedAt).toLocaleDateString("en-IN")}
               </p>
             </div>
@@ -100,14 +174,19 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
 
           {/* Decision */}
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Decision</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Decision Action</label>
             <div className="flex gap-3 max-w-xs">
               {["Approved", "Rejected"].map(a => (
-                <button key={a} onClick={() => setAction(a)}
-                  className={`flex-1 py-2 rounded-lg border font-semibold transition ${action === a
-                    ? (a === "Approved" ? "bg-green-600 text-white border-green-600" : "bg-red-600 text-white border-red-600")
-                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"}`}>
-                  {a}
+                <button 
+                  key={a} 
+                  onClick={() => setAction(a)}
+                  className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition-all border shadow-sm ${
+                    action === a
+                      ? (a === "Approved" ? "bg-emerald-600 text-white border-emerald-600 shadow-emerald-500/20" : "bg-rose-600 text-white border-rose-600 shadow-rose-500/20")
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {a === "Approved" ? "Approve Resignation" : "Reject"}
                 </button>
               ))}
             </div>
@@ -115,54 +194,69 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
 
           {/* Notice period */}
           {action === "Approved" && (
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Notice Period Decision</label>
-              <div className="flex gap-3 mb-4">
+            <div className="space-y-4">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">Notice Period Determination</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {["Serve Required Notice", "Immediate Release", "Custom Notice Period"].map(t => (
-                  <button key={t} onClick={() => setNoticeType(t)}
-                    className={`flex-1 py-3 px-2 rounded-xl border font-semibold transition text-sm text-center shadow-sm ${noticeType === t ? "bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                  <button 
+                    key={t} 
+                    onClick={() => setNoticeType(t)}
+                    className={`py-3 px-3 rounded-2xl border font-bold text-xs transition-all text-center shadow-sm ${
+                      noticeType === t 
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-700 ring-2 ring-indigo-500/20" 
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
                     {t}
                   </button>
                 ))}
               </div>
               
               {noticeType === "Custom Notice Period" && (
-                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <input type="number" min={1} max={365} value={noticeDays}
+                <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                  <input 
+                    type="number" 
+                    min={1} 
+                    max={365} 
+                    value={noticeDays}
                     onChange={e => setNoticeDays(e.target.value)}
-                    className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-center font-bold text-slate-800 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
-                  <span className="text-slate-600 text-sm font-semibold">days custom notice period</span>
+                    className="border border-slate-300 rounded-xl px-4 py-2 w-28 text-center font-black text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white" 
+                  />
+                  <span className="text-slate-700 text-xs font-bold">Days Notice Period</span>
                 </div>
               )}
 
               {noticeType === "Serve Required Notice" && (
-                <div className="text-sm font-semibold text-slate-600 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  Employee will serve the applicable notice period (30 Days).
+                <div className="text-xs font-bold text-indigo-700 bg-indigo-50/60 p-4 rounded-2xl border border-indigo-200/80">
+                  Employee will serve standard company notice duration (30 Days).
                 </div>
               )}
 
               {noticeType === "Immediate Release" && (
-                <div className="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                   <label className="block text-sm font-semibold text-slate-600 mb-2">Release Date</label>
-                   <input type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)}
-                     className="border border-slate-300 rounded-lg px-4 py-2 w-full max-w-xs text-slate-800 font-semibold focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5">Release Date</label>
+                  <input 
+                    type="date" 
+                    value={releaseDate} 
+                    onChange={e => setReleaseDate(e.target.value)}
+                    className="border border-slate-300 rounded-xl px-4 py-2 text-slate-800 font-bold text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white" 
+                  />
                 </div>
               )}
 
               {/* Upload acceptance letter */}
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-slate-600 mb-1">
-                  Upload Acceptance Letter <span className="text-slate-400 font-normal">(optional)</span>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                  Upload Signed Acceptance Letter <span className="text-slate-400 font-normal">(optional)</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl px-4 py-3 hover:bg-blue-100 transition">
-                  <span className="text-2xl">📎</span>
+                <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-indigo-200 bg-indigo-50/40 rounded-2xl p-4 hover:bg-indigo-50/80 transition-all">
+                  <FaPaperclip className="text-indigo-600 text-xl" />
                   <div className="flex-1">
                     {acceptanceFile ? (
-                      <p className="text-sm font-semibold text-blue-700">{acceptanceFile.name}</p>
+                      <p className="text-xs font-bold text-indigo-700">{acceptanceFile.name}</p>
                     ) : (
-                      <p className="text-sm font-semibold text-blue-600">Click to upload file or drag and drop</p>
+                      <p className="text-xs font-bold text-indigo-600">Choose PDF or Image file to attach</p>
                     )}
-                    <p className="text-xs text-blue-400">PDF, JPG, PNG (Max 5MB)</p>
                   </div>
                   <input type="file" className="hidden" accept="image/*,.pdf"
                     onChange={e => setAcceptanceFile(e.target.files[0] || null)} />
@@ -173,17 +267,29 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
 
           {/* Remark */}
           <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-1">Remark (optional)</label>
-            <textarea rows={3} value={remark} onChange={e => setRemark(e.target.value)}
-              placeholder="Write a note to the employee..."
-              className="w-full border border-slate-300 rounded-lg px-4 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Admin Remarks</label>
+            <textarea 
+              rows={3} 
+              value={remark} 
+              onChange={e => setRemark(e.target.value)}
+              placeholder="Internal notes or communication to the employee..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-semibold text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+            />
           </div>
         </div>
-        <div className="px-6 py-4 border-t flex justify-end gap-3">
-          <button onClick={onClose} className="px-5 py-2 rounded-lg border text-slate-600 hover:bg-slate-50">Cancel</button>
-          <button onClick={handleSubmit} disabled={loading}
-            className={`px-6 py-2 rounded-lg font-semibold text-white transition ${action === "Approved" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} disabled:opacity-60`}>
-            {loading ? "Submitting…" : (action === "Approved" ? "✅ Approve" : "❌ Reject")}
+
+        <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-100 font-bold text-xs">
+            Cancel
+          </button>
+          <button 
+            onClick={handleSubmit} 
+            disabled={loading}
+            className={`px-6 py-2.5 rounded-2xl font-black text-xs text-white transition-all shadow-md ${
+              action === "Approved" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
+            } disabled:opacity-60`}
+          >
+            {loading ? "Processing..." : (action === "Approved" ? "Confirm Approval" : "Confirm Rejection")}
           </button>
         </div>
       </div>
@@ -280,159 +386,143 @@ const ExitFormalities = ({ resignation, onUpdate }) => {
     } catch { alert("Failed"); }
   };
 
-  const allVerified = resignation.exitDocuments.length > 0 &&
-    resignation.exitDocuments.every(d => d.verifiedByAdmin);
-
   return (
-    <div className="mt-4 space-y-5">
-
-      {/* ── Employee Exit Documents (for admin to verify) ── */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide">📂 Employee Exit Documents</h4>
-          {resignation.exitDocuments.length === 0 && (
-            <span className="text-xs text-slate-400 italic">No documents yet — add slots below</span>
-          )}
+    <div className="mt-4 space-y-6 pt-4 border-t border-slate-100">
+      {/* Employee Exit Documents */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
+            <FaBoxes className="text-indigo-600" /> Employee Exit Submissions
+          </h4>
         </div>
 
         {resignation.exitDocuments.map((doc, idx) => (
-          <div key={idx} className={`flex flex-wrap items-center justify-between rounded-xl px-4 py-3 border mb-2 ${doc.verifiedByAdmin ? "bg-green-50 border-green-200" : "bg-slate-50 border-slate-200"}`}>
-            <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-              <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${doc.verifiedByAdmin ? "bg-green-500" : doc.uploadedByEmployee ? "bg-yellow-400" : "bg-slate-300"}`} />
-              <div className="min-w-0">
-                <p className="font-semibold text-slate-700 text-sm truncate">{doc.docName}</p>
-                <p className="text-xs text-slate-400">
-                  {doc.verifiedByAdmin ? "✅ Verified" : doc.uploadedByEmployee ? "⏳ Uploaded by employee — needs verification" : "Waiting for employee upload"}
+          <div key={idx} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+            doc.verifiedByAdmin ? "bg-emerald-50/60 border-emerald-200/80" : "bg-slate-50 border-slate-200/80"
+          }`}>
+            <div className="flex items-center gap-3">
+              <span className={`w-2.5 h-2.5 rounded-full ${
+                doc.verifiedByAdmin ? "bg-emerald-500" : doc.uploadedByEmployee ? "bg-amber-400" : "bg-slate-300"
+              }`} />
+              <div>
+                <p className="font-extrabold text-xs text-slate-800">{doc.docName}</p>
+                <p className="text-[11px] font-semibold text-slate-400">
+                  {doc.verifiedByAdmin ? "Verified" : doc.uploadedByEmployee ? "Uploaded by employee — pending verification" : "Awaiting employee upload"}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Admin upload */}
-              <label className={`cursor-pointer px-3 py-1.5 rounded-lg text-xs font-semibold text-white ${uploading[idx] ? "bg-slate-400" : "bg-blue-600 hover:bg-blue-700"}`}>
-                {uploading[idx] ? "Uploading…" : "📎 Upload"}
+            <div className="flex items-center gap-2">
+              <label className={`cursor-pointer px-3 py-1.5 rounded-xl text-xs font-bold text-white shadow-sm ${
+                uploading[idx] ? "bg-slate-400" : "bg-slate-800 hover:bg-slate-900"
+              }`}>
+                {uploading[idx] ? "Uploading..." : "📎 Admin Upload"}
                 <input type="file" className="hidden" accept="image/*,.pdf"
                   onChange={e => handleAdminUpload(idx, e.target.files[0])} disabled={uploading[idx]} />
               </label>
-              {/* Download employee's uploaded file */}
               {doc.uploadedByEmployee && (
                 <button onClick={() => downloadFile(doc.uploadedByEmployee, `${doc.docName}_employee`)}
-                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
-                  ⬇ Employee Doc
+                  className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center gap-1">
+                  <FaDownload /> Employee File
                 </button>
               )}
-              {/* Download admin uploaded file */}
-              {doc.uploadedByAdmin && (
-                <button onClick={() => downloadFile(doc.uploadedByAdmin, `${doc.docName}_admin`)}
-                  className="px-3 py-1.5 bg-slate-600 text-white rounded-lg text-xs font-semibold hover:bg-slate-700">
-                  ⬇ Admin Doc
-                </button>
-              )}
-              {/* Verify */}
               {!doc.verifiedByAdmin && doc.uploadedByEmployee && (
                 <button onClick={() => handleVerify(idx)}
-                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700">
-                  ✔ Verify
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm flex items-center gap-1">
+                  <FaCheckCircle /> Verify
                 </button>
               )}
             </div>
           </div>
         ))}
 
-        {/* Add new exit doc slot */}
         {resignation.status === "Exit Formalities" && (
-          <div className="flex gap-2 mt-2">
-            <input value={newDocName} onChange={e => setNewDocName(e.target.value)}
-              placeholder="Document name (e.g. ID Card Return)"
-              className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-            <button onClick={handleAddDoc} disabled={addingDoc}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-60">
-              {addingDoc ? "Adding…" : "+ Add Slot"}
+          <div className="flex gap-2 pt-2">
+            <input 
+              value={newDocName} 
+              onChange={e => setNewDocName(e.target.value)}
+              placeholder="Add required document (e.g. Access Card Return)"
+              className="flex-1 bg-white border border-slate-200 rounded-2xl px-4 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+            />
+            <button 
+              onClick={handleAddDoc} 
+              disabled={addingDoc}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black shadow-sm"
+            >
+              {addingDoc ? "Adding..." : "+ Add Requirement"}
             </button>
           </div>
         )}
       </div>
 
-      {/* ── Welcome Kit Return (view only for admin) ── */}
+      {/* Welcome Kit Return */}
       {resignation.welcomeKitItems && resignation.welcomeKitItems.length > 0 && (
-        <div>
-          <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide mb-2">🎁 Welcome Kit Returns</h4>
-          <div className={`rounded-xl border p-3 ${resignation.welcomeKitSubmittedByEmployee ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"}`}>
-            {!resignation.welcomeKitSubmittedByEmployee && (
-              <p className="text-xs text-yellow-700 font-semibold mb-2">⏳ Waiting for employee to confirm item returns…</p>
-            )}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {resignation.welcomeKitItems.map((item, i) => (
-                <div key={i} className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold border ${item.returned ? "bg-green-100 border-green-300 text-green-700" : "bg-red-50 border-red-200 text-red-600"}`}>
-                  <span>{item.returned ? "✅" : "❌"}</span>
-                  <span>{item.itemName}</span>
-                </div>
-              ))}
-            </div>
+        <div className="bg-amber-50/60 border border-amber-200/80 rounded-3xl p-5 space-y-3">
+          <h4 className="font-black text-amber-900 text-xs uppercase tracking-wider flex items-center gap-2">
+            <FaGift className="text-amber-600" /> Welcome Kit Checklist Status
+          </h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {resignation.welcomeKitItems.map((item, i) => (
+              <div key={i} className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
+                item.returned ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-white border-amber-200 text-amber-800"
+              }`}>
+                <span>{item.returned ? "✅" : "⏳"}</span>
+                <span>{item.itemName}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* ── Final Documents (admin uploads for employee to download) ── */}
-      <div>
-        <h4 className="font-bold text-slate-700 text-sm uppercase tracking-wide mb-2">📄 Final Documents for Employee</h4>
-        <p className="text-xs text-slate-500 mb-3">Upload Relieving Letter, Experience Letter, NOC, or any other documents. These will be visible to the employee.</p>
+      {/* Final Documents */}
+      <div className="space-y-3">
+        <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider">
+          Final Release Documents (Relieving, Experience Letter)
+        </h4>
 
         {resignation.adminFinalDocs && resignation.adminFinalDocs.length > 0 ? (
-          <div className="space-y-2 mb-3">
+          <div className="space-y-2">
             {resignation.adminFinalDocs.map((doc, i) => (
-              <div key={i} className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-                <div>
-                  <p className="font-semibold text-indigo-800 text-sm">📄 {doc.docName}</p>
-                  {doc.uploadedAt && (
-                    <p className="text-xs text-indigo-400">
-                      Uploaded: {new Date(doc.uploadedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
-                    </p>
-                  )}
-                </div>
+              <div key={i} className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-2xl p-3.5">
+                <p className="font-bold text-xs text-indigo-950">📄 {doc.docName}</p>
                 <div className="flex items-center gap-2">
                   <button onClick={() => downloadFile(doc.uploadedByAdmin, doc.docName)}
-                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700">
-                    ⬇ View
+                    className="px-3 py-1 bg-white text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold hover:bg-indigo-50">
+                    View
                   </button>
                   <button onClick={() => handleDeleteFinalDoc(i)}
-                    className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-200">
-                    🗑 Remove
+                    className="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold hover:bg-rose-100">
+                    Remove
                   </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-400 italic mb-3">
-            No final documents uploaded yet.
-          </div>
+          <p className="text-xs text-slate-400 italic">No release letters uploaded yet.</p>
         )}
 
-        {/* Upload new final doc */}
         <div className="flex gap-2">
-          <input value={finalDocName} onChange={e => setFinalDocName(e.target.value)}
-            placeholder="Document name (e.g. Relieving Letter)"
-            className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          <label className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-bold text-white flex items-center gap-1 ${uploadingFinal ? "bg-slate-400" : "bg-indigo-600 hover:bg-indigo-700"}`}>
-            {uploadingFinal ? "Uploading…" : "📎 Upload"}
+          <input 
+            value={finalDocName} 
+            onChange={e => setFinalDocName(e.target.value)}
+            placeholder="Document title (e.g. Official Relieving Letter)"
+            className="flex-1 bg-white border border-slate-200 rounded-2xl px-4 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+          />
+          <label className={`cursor-pointer px-5 py-2 rounded-2xl text-xs font-black text-white shadow-sm flex items-center gap-1.5 ${
+            uploadingFinal ? "bg-slate-400" : "bg-indigo-600 hover:bg-indigo-700"
+          }`}>
+            {uploadingFinal ? "Uploading..." : "📎 Upload Release File"}
             <input type="file" className="hidden" accept="image/*,.pdf"
               onChange={e => handleUploadFinalDoc(e.target.files[0])} disabled={uploadingFinal} />
           </label>
         </div>
       </div>
 
-      {/* ── Complete Button ── */}
       {resignation.status === "Exit Formalities" && (
         <button onClick={handleComplete}
-          className="w-full py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition text-sm">
-          🎯 Mark as Completed & Notify Employee
+          className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/20 transition-all">
+          Mark Exit Formalities Complete & Grant Documents
         </button>
-      )}
-
-      {resignation.status === "Completed" && (
-        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700 text-sm font-semibold text-center">
-          🎉 Exit process completed. Employee has been notified.
-        </div>
       )}
     </div>
   );
@@ -489,13 +579,13 @@ const AdminResignation = () => {
   };
 
   const handleDeleteResignation = async (id) => {
-    if (!window.confirm("Are you sure you want to completely delete this resignation record? This cannot be undone.")) return;
+    if (!window.confirm("Permanently delete this resignation entry?")) return;
     try {
       await api.delete(`/api/resignations/admin/${id}`);
       setResignations(prev => prev.filter(r => r._id !== id));
       if (expanded === id) setExpanded(null);
     } catch (e) {
-      alert("Error deleting resignation: " + (e.response?.data?.message || e.message));
+      alert("Error: " + (e.response?.data?.message || e.message));
     }
   };
 
@@ -516,158 +606,183 @@ const AdminResignation = () => {
   });
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 lg:p-8 space-y-8 max-w-7xl mx-auto font-sans">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-800">📋 Resignation Management</h1>
-        <p className="text-slate-500 mt-1">Manage employee resignations, approvals, notice periods, and exit formalities.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/80 backdrop-blur-xl p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-sm">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-800 bg-clip-text text-transparent tracking-tight">
+            Resignation Management Console
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-semibold mt-1">
+            Review submissions, configure notice durations, and manage employee exit handovers
+          </p>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {["Pending", "Approved", "Rejected", "Exit Formalities", "Completed"].map(s => {
           const count = resignations.filter(r => r.status === s).length;
+          const conf = STATUS_CONFIG[s];
           return (
-            <div key={s} onClick={() => setStatusFilter(s === statusFilter ? "All" : s)}
-              className={`bg-white rounded-2xl p-4 shadow-sm border cursor-pointer transition hover:shadow-md ${statusFilter === s ? "ring-2 ring-blue-500" : ""}`}>
-              <div className="text-2xl font-bold text-slate-800">{count}</div>
-              <div className="text-xs text-slate-500 mt-1">{s}</div>
+            <div 
+              key={s} 
+              onClick={() => setStatusFilter(s === statusFilter ? "All" : s)}
+              className={`p-5 rounded-3xl border cursor-pointer transition-all duration-200 shadow-sm ${
+                statusFilter === s 
+                  ? "bg-white border-indigo-500 ring-2 ring-indigo-500/20 shadow-md -translate-y-0.5" 
+                  : "bg-white/90 border-slate-200/80 hover:border-indigo-300 hover:shadow-md"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">{s}</span>
+                <span className={`w-2 h-2 rounded-full ${conf.dot}`} />
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">{count}</h3>
             </div>
           );
         })}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-5">
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Search by name or ID..."
-          className="flex-1 min-w-[200px] border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white" />
-        <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}
-          className="border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
+      {/* Filter Ribbon */}
+      <div className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-sm flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs" />
+          <input 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            placeholder="Search by employee name or ID..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-2 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" 
+          />
+        </div>
+        <select 
+          value={companyFilter} 
+          onChange={e => setCompanyFilter(e.target.value)}
+          className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none focus:border-indigo-500"
+        >
           {companies.map(c => <option key={c} value={c}>{c === "All" ? "All Companies" : c}</option>)}
         </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <option value="All">All Status</option>
+        <select 
+          value={statusFilter} 
+          onChange={e => setStatusFilter(e.target.value)}
+          className="bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none focus:border-indigo-500"
+        >
+          <option value="All">All Statuses</option>
           {["Pending", "Approved", "Rejected", "Exit Formalities", "Completed"].map(s => <option key={s}>{s}</option>)}
         </select>
-        <button onClick={fetchAll} className="px-4 py-2.5 bg-slate-800 text-white rounded-xl text-sm hover:bg-slate-700">↺ Refresh</button>
+        <button 
+          onClick={fetchAll} 
+          className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-2xl text-xs font-extrabold flex items-center gap-1.5 transition-colors border border-indigo-200/60"
+        >
+          <FaSyncAlt className="text-xs" /> Refresh
+        </button>
       </div>
 
       {/* List */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-20 text-slate-400">
-          <div className="text-5xl mb-3">📭</div>
-          <p className="text-lg">No resignations found.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map(r => (
-            <div key={r._id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              {/* Row header */}
-              <div className="flex flex-wrap items-center justify-between px-5 py-4 gap-3 cursor-pointer"
-                onClick={() => setExpanded(expanded === r._id ? null : r._id)}>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
-                    {r.employeeName?.[0]?.toUpperCase()}
+      <div className="space-y-4">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-16 text-center shadow-sm">
+            <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+              <FaFileSignature className="text-2xl" />
+            </div>
+            <p className="text-base font-bold text-slate-700">No Resignation Entries Found</p>
+            <p className="text-xs text-slate-400 mt-1">Try adjusting search query or status filter.</p>
+          </div>
+        ) : (
+          filtered.map(r => (
+            <div key={r._id} className="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden transition-all hover:border-indigo-200">
+              <div 
+                className="p-5 sm:p-6 flex flex-wrap items-center justify-between gap-4 cursor-pointer"
+                onClick={() => setExpanded(expanded === r._id ? null : r._id)}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-black text-base shadow-md shadow-indigo-500/20">
+                    {r.employeeName?.[0]?.toUpperCase() || "E"}
                   </div>
                   <div>
-                    <p className="font-bold text-slate-800">{r.employeeName} <span className="text-slate-400 font-normal text-sm">({r.employeeId})</span></p>
-                    <p className="text-xs text-slate-500">{r.designation} · {r.department} {r.companyName && r.companyName !== "Unknown" ? `· ${r.companyName}` : ""}</p>
+                    <h4 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                      {r.employeeName} <span className="text-slate-400 font-mono font-normal text-xs">({r.employeeId})</span>
+                    </h4>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                      {r.designation} · {r.department} {r.companyName && r.companyName !== "Unknown" ? `· ${r.companyName}` : ""}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${STATUS_COLORS[r.status] || "bg-slate-100 text-slate-600"}`}>
+
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-extrabold px-3 py-1 rounded-full border ${STATUS_CONFIG[r.status]?.bg || "bg-slate-100"} ${STATUS_CONFIG[r.status]?.text || "text-slate-600"} ${STATUS_CONFIG[r.status]?.border || "border-slate-200"}`}>
                     {r.status}
                   </span>
                   {r.status === "Approved" && r.noticePeriodEndDate && (
                     <CountdownTimer endDate={r.noticePeriodEndDate} />
                   )}
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs font-semibold text-slate-400">
                     {new Date(r.submittedAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })}
                   </span>
-                  <span className="text-slate-400 text-sm">{expanded === r._id ? "▲" : "▼"}</span>
+                  <button className="p-2 text-slate-400 hover:text-slate-700 rounded-xl">
+                    {expanded === r._id ? <FaChevronUp /> : <FaChevronDown />}
+                  </button>
                 </div>
               </div>
 
-              {/* Expanded */}
               {expanded === r._id && (
-                <div className="border-t border-slate-100 px-5 py-4 space-y-4">
+                <div className="px-6 pb-6 pt-2 border-t border-slate-100 space-y-4 bg-slate-50/40">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="bg-slate-50 rounded-xl p-4 text-sm">
-                      <p className="font-semibold text-slate-600 mb-1">Reason for Leaving</p>
-                      <p className="text-slate-700">{r.reason || "—"}</p>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 text-xs">
+                      <p className="font-bold text-slate-400 uppercase tracking-wider mb-1">Reason for Leaving</p>
+                      <p className="font-bold text-slate-800 text-sm">{r.reason || "—"}</p>
                     </div>
-                    {r.adminRemark && (
-                      <div className="bg-slate-50 rounded-xl p-4 text-sm">
-                        <p className="font-semibold text-slate-600 mb-1">Admin Remark</p>
-                        <p className="text-slate-700">{r.adminRemark}</p>
-                      </div>
-                    )}
                     {r.noticePeriodDays > 0 && (
-                      <div className="bg-blue-50 rounded-xl p-4 text-sm">
-                        <p className="font-semibold text-blue-700 mb-1">Notice Period</p>
-                        <p className="text-blue-800">{r.noticePeriodDays} days — ends {new Date(r.noticePeriodEndDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</p>
+                      <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-200/80 text-xs">
+                        <p className="font-bold text-indigo-600 uppercase tracking-wider mb-1">Notice Period Schedule</p>
+                        <p className="font-extrabold text-indigo-950 text-sm">
+                          {r.noticePeriodDays} days — concludes {new Date(r.noticePeriodEndDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
+                        </p>
                       </div>
                     )}
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* Actions */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2">
                     {r.resignationLetterHtml && (
                       <button onClick={() => setViewLetter(r)}
-                        className="px-4 py-2 bg-slate-700 text-white rounded-lg text-sm font-semibold hover:bg-slate-600">
-                        📄 View Resignation Letter
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                        <FaEye /> Resignation Letter
                       </button>
                     )}
                     {r.acceptanceLetterHtml && (
                       <button onClick={() => setViewAccLetter(r)}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700">
-                        📃 View Acceptance Letter
-                      </button>
-                    )}
-                    {r.acceptanceLetterFileUrl && (
-                      <button onClick={() => downloadFile(r.acceptanceLetterFileUrl, `Acceptance_Letter_${r.employeeName}`)}
-                        className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700">
-                        ⬇ Acceptance Letter File
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                        <FaFileSignature /> Acceptance Letter
                       </button>
                     )}
                     {r.status === "Pending" && (
                       <button onClick={() => setDecisionModal(r)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700">
-                        ⚖️ Review & Decide
-                      </button>
-                    )}
-                    {/* Move to exit formalities after notice period ends */}
-                    {r.status === "Approved" && r.noticePeriodEndDate && new Date() >= new Date(r.noticePeriodEndDate) && (
-                      <button onClick={async () => {
-                        await api.post(`/api/resignations/admin/exit-formalities/${r._id}`);
-                        fetchAll();
-                      }} className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700">
-                        📦 Start Exit Formalities
+                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-500/20 flex items-center gap-1.5">
+                        <FaCheckCircle /> Review & Approve
                       </button>
                     )}
                     <button onClick={() => handleDeleteResignation(r._id)}
-                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 ml-auto">
-                      🗑 Delete
+                      className="px-4 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold hover:bg-rose-100 ml-auto flex items-center gap-1.5">
+                      <FaTrash /> Delete Entry
                     </button>
                   </div>
 
-                  {/* Exit formalities panel */}
                   {showExitFormalities(r) && (
                     <ExitFormalities resignation={r} onUpdate={handleUpdate} />
                   )}
                 </div>
               )}
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
       {/* Modals */}
       {viewLetter && (

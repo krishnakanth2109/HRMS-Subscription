@@ -1,4 +1,10 @@
-﻿import "dotenv/config.js";
+import "dotenv/config.js";
+import dns from "node:dns";
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
+} catch (e) {
+  console.warn("Could not set custom DNS servers:", e.message);
+}
 
 import express from "express";
 import cors from "cors";

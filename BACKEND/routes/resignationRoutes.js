@@ -9,6 +9,7 @@ import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import Employee from "../models/employeeModel.js";
 import Notification from "../models/notificationModel.js";
+import Admin from "../models/adminModel.js";
 
 const router = express.Router();
 
@@ -115,6 +116,41 @@ router.post("/submit", protect, async (req, res) => {
         department, 
         submittedAt: resignation.submittedAt 
       });
+    }
+
+    // Send email with the resignation letter
+    try {
+      // To Employee (acknowledgement)
+      sendMail(
+        employeeEmail,
+        "Resignation Request Submitted Successfully",
+        `<p>Dear ${employeeName},</p>
+        <p>We have successfully received your resignation request.</p>
+        <p>A copy of your generated resignation letter is provided below:</p>
+        <hr />
+        <div>${letterHtml}</div>
+        <hr />
+        <p>Your request is currently under review by management.</p>`
+      );
+
+      // To Admin
+      const adminDoc = await Admin.findById(resignation.adminId);
+      if (adminDoc && adminDoc.email) {
+        sendMail(
+          adminDoc.email,
+          `New Resignation Request from ${employeeName}`,
+          `<p>Dear Admin,</p>
+          <p>A new resignation request has been submitted by <strong>${employeeName}</strong> (${designation}, ${department}).</p>
+          <p><strong>Reason:</strong> ${reason}</p>
+          <p><strong>Resignation Letter:</strong></p>
+          <hr />
+          <div>${letterHtml}</div>
+          <hr />
+          <p>Please log in to the HRMS portal to review and take action.</p>`
+        );
+      }
+    } catch (mailErr) {
+      console.error("Failed to send resignation email on submit:", mailErr);
     }
 
     res.status(201).json({ message: "Resignation submitted successfully.", resignation });
@@ -639,7 +675,37 @@ router.post("/employee/download-relieving/:id", protect, async (req, res) => {
       await employee.save();
     }
 
-    res.status(200).json({ message: "Relieving letter downloaded and account deactivated.", resignation });
+    // Generate Relieving Letter via Gemini and Email it
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const prompt = `Write a professional Relieving Letter in HTML format (use <p>, <h3>, <strong>, <br> only, no markdown) for:
+    - Employee Name: ${resignation.employeeName}
+    - Designation: ${resignation.designation}
+    - Department: ${resignation.department}
+    - Company: ${resignation.companyName || "Our Company"}
+    - Last Working Day: ${new Date().toLocaleDateString("en-IN")}
+    Make it formal, thanking them for their service, confirming they are relieved of their duties and their full and final settlement is complete.`;
+
+    let relievingHtml = "";
+    try {
+      const result = await model.generateContent(prompt);
+      relievingHtml = result.response.text().replace(/```html|```/g, "").trim();
+    } catch (aiErr) {
+      relievingHtml = `<p>Dear ${resignation.employeeName},</p><p>This letter is to certify that you have been relieved of your duties as ${resignation.designation} at ${resignation.companyName || "our company"} effective ${new Date().toLocaleDateString("en-IN")}.</p><p>We wish you all the best in your future endeavors.</p><p>Best Regards,<br/><strong>HR Department</strong></p>`;
+    }
+
+    sendMail(
+      resignation.employeeEmail,
+      "Your Relieving Letter & Account Deactivation",
+      `<p>Dear ${resignation.employeeName},</p>
+      <p>Your final exit process is now complete, and your employee account has been deactivated.</p>
+      <p>Below is your official Relieving Letter:</p>
+      <hr />
+      <div style="background:#f9fafb; padding:20px; border:1px solid #e5e7eb; border-radius:8px;">${relievingHtml}</div>
+      <hr />
+      <p>Thank you for your service and we wish you the very best.</p>`
+    );
+
+    res.status(200).json({ message: "Relieving letter generated, emailed, and account deactivated.", resignation, relievingHtml });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
