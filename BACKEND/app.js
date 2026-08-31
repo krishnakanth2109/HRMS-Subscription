@@ -1,4 +1,4 @@
-import "dotenv/config.js";
+﻿import "dotenv/config.js";
 
 import express from "express";
 import cors from "cors";
@@ -50,7 +50,7 @@ import generalLetterRoutes from "./routes/generalLetterRoutes.js";
 import adminTaskRoutes from "./routes/adminTaskRoutes.js";
 const { employeeWorkRoutes, adminWorkRoutes } = workRoutes;
 
-/* ==================== 🔹 RAZORPAY IMPORT ==================== */
+/* ==================== ðŸ”¹ RAZORPAY IMPORT ==================== */
 import razorpayRoutes from "./routes/razorpayRoutes.js";
 import masterRoutes from "./routes/masterRoutes.js";
 import demoRequestRoutes from "./routes/Demorequest.js";
@@ -64,13 +64,14 @@ import expenseRoutes from "./routes/expenseRoutes.js";
 /* ==================== DOMAIN IMPORTS ==================== */
 import { subdomainMiddleware } from "./middleware/subdomainmiddleware.js";
 import domainRoutes from "./routes/Domainroutes.js";
+import trackerUpdateRoutes from "./routes/trackerUpdateRoutes.js";
 
 const app = express();
 const server = http.createServer(app);
 
 app.set("trust proxy", 1);
 
-/* ==================== ✅ FORCE WWW REDIRECT ==================== */
+/* ==================== âœ… FORCE WWW REDIRECT ==================== */
 app.use((req, res, next) => {
   if (req.hostname === "vwsync.com") {
     return res.redirect(301, "https://www.vwsync.com" + req.originalUrl);
@@ -78,7 +79,7 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ==================== ✅ ALLOWED ORIGINS ==================== */
+/* ==================== âœ… ALLOWED ORIGINS ==================== */
 const allowedOrigins = [
   "https://vwsync.com",
   "https://www.vwsync.com",
@@ -89,7 +90,7 @@ const allowedOrigins = [
   "https://hrms-subscription-kill.onrender.com",
 ];
 
-/* ==================== ✅ ORIGIN CHECK ==================== */
+/* ==================== âœ… ORIGIN CHECK ==================== */
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
 
@@ -105,16 +106,16 @@ const isAllowedOrigin = (origin) => {
   return false;
 };
 
-/* ==================== ✅ SUBDOMAIN MIDDLEWARE ==================== */
+/* ==================== âœ… SUBDOMAIN MIDDLEWARE ==================== */
 app.use(subdomainMiddleware);
 
-/* ==================== ✅ CORS ==================== */
+/* ==================== âœ… CORS ==================== */
 const corsOptions = {
   origin: (origin, callback) => {
     if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
-      console.warn("❌ Blocked by CORS:", origin);
+      console.warn("âŒ Blocked by CORS:", origin);
       callback(new Error("Not allowed by CORS"));
     }
   },
@@ -132,7 +133,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-/* ==================== ✅ IMPORTANT PREFLIGHT FIX ==================== */
+/* ==================== âœ… IMPORTANT PREFLIGHT FIX ==================== */
 app.options("*", cors(corsOptions));
 
 /* ==================== BODY PARSERS ==================== */
@@ -165,7 +166,7 @@ app.set("userSocketMap", userSocketMap);
 
 /* ==================== SOCKET CONNECTION ==================== */
 io.on("connection", (socket) => {
-  console.log("✅ Socket Connected:", socket.id);
+  console.log("âœ… Socket Connected:", socket.id);
 
   socket.on("register", (userId) => {
     if (userId) {
@@ -234,7 +235,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("❌ Socket Disconnected:", socket.id);
+    console.log("âŒ Socket Disconnected:", socket.id);
 
     for (const [userId, socketId] of userSocketMap.entries()) {
       if (socketId === socket.id) {
@@ -267,14 +268,14 @@ mongoose
     socketTimeoutMS: 45000,
   })
   .then(() => {
-    console.log("✅ MongoDB Connected");
+    console.log("âœ… MongoDB Connected");
   })
   .catch((err) => {
-    console.error("❌ MongoDB Error:", err.message);
+    console.error("âŒ MongoDB Error:", err.message);
   });
 
 mongoose.connection.on("disconnected", () => {
-  console.log("⚠️ MongoDB Disconnected");
+  console.log("âš ï¸ MongoDB Disconnected");
 });
 
 /* ==================== HEALTH ==================== */
@@ -335,12 +336,13 @@ app.use("/api/admin-tasks", adminTaskRoutes);
 app.use("/api/webauthn", webauthnRoutes);
 app.use("/api/face-auth", faceAuthRoutes);
 
-/* ==================== 🔹 RAZORPAY ROUTES ==================== */
+/* ==================== ðŸ”¹ RAZORPAY ROUTES ==================== */
 app.use("/api/razorpay", razorpayRoutes);
 app.use("/api/master", masterRoutes);
 app.use("/api/superadmin", masterRoutes);
 app.use("/api/demo-request", demoRequestRoutes);
 app.use("/api/domain", domainRoutes);
+app.use("/api/tracker", trackerUpdateRoutes);
 
 /* ==================== FRONTEND ==================== */
 app.use(express.static(path.join(process.cwd(), "../FRONTEND/dist")));
@@ -369,7 +371,7 @@ app.use("/api", (req, res) => {
 
 /* ==================== ERROR HANDLER ==================== */
 app.use((err, req, res, next) => {
-  console.error("🚨 Server Error:", err.message);
+  console.error("ðŸš¨ Server Error:", err.message);
 
   res.status(err.status || 500).json({
     message: err.message || "Internal Server Error",
@@ -380,5 +382,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`ðŸš€ Server running on port ${PORT}`);
 });
