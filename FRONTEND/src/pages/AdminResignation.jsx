@@ -57,8 +57,9 @@ const LetterModal = ({ title, html, onClose }) => (
 const DecisionModal = ({ resignation, onClose, onSubmit }) => {
   const [action, setAction] = useState("Approved");
   const [remark, setRemark] = useState("");
-  const [noticeType, setNoticeType] = useState("Immediate");
+  const [noticeType, setNoticeType] = useState("Serve Required Notice");
   const [noticeDays, setNoticeDays] = useState(30);
+  const [releaseDate, setReleaseDate] = useState(new Date().toISOString().split("T")[0]);
   const [acceptanceFile, setAcceptanceFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -67,8 +68,9 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
     await onSubmit({
       action,
       adminRemark: remark,
-      noticePeriodType: noticeType,
+      noticePeriodType: noticeType === "Immediate Release" ? "Immediate" : noticeType === "Custom Notice Period" ? "Custom" : "Serve Required Notice",
       noticePeriodDays: noticeDays,
+      releaseDate: noticeType === "Immediate Release" ? releaseDate : null,
       acceptanceFile,
     });
     setLoading(false);
@@ -76,16 +78,30 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h3 className="text-lg font-bold text-slate-800">Review Resignation — {resignation.employeeName}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
         </div>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-6">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <p className="text-sm font-semibold text-slate-500">Reason for Resignation</p>
+              <p className="text-slate-800 font-medium">{resignation.reason}</p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-500">Date of Resignation</p>
+              <p className="text-slate-800 font-medium">
+                {resignation.resignationDate ? new Date(resignation.resignationDate).toLocaleDateString("en-IN") : new Date(resignation.submittedAt).toLocaleDateString("en-IN")}
+              </p>
+            </div>
+          </div>
+
           {/* Decision */}
           <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-1">Decision</label>
-            <div className="flex gap-3">
+            <label className="block text-sm font-bold text-slate-700 mb-2">Decision</label>
+            <div className="flex gap-3 max-w-xs">
               {["Approved", "Rejected"].map(a => (
                 <button key={a} onClick={() => setAction(a)}
                   className={`flex-1 py-2 rounded-lg border font-semibold transition ${action === a
@@ -99,31 +115,44 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
 
           {/* Notice period */}
           {action === "Approved" && (
-            <>
-              <div>
-                <label className="block text-sm font-semibold text-slate-600 mb-1">Notice Period</label>
-                <div className="flex gap-3 mb-2">
-                  {["Immediate", "Custom"].map(t => (
-                    <button key={t} onClick={() => setNoticeType(t)}
-                      className={`flex-1 py-2 rounded-lg border font-semibold transition text-sm ${noticeType === t ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-600 border-slate-300"}`}>
-                      {t === "Immediate" ? "⚡ Immediate Release" : "📅 Custom Days"}
-                    </button>
-                  ))}
-                </div>
-                {noticeType === "Custom" && (
-                  <div className="flex items-center gap-2">
-                    <input type="number" min={1} max={365} value={noticeDays}
-                      onChange={e => setNoticeDays(e.target.value)}
-                      className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-center font-bold text-slate-800" />
-                    <span className="text-slate-500 text-sm">days notice period</span>
-                  </div>
-                )}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2">Notice Period Decision</label>
+              <div className="flex gap-3 mb-4">
+                {["Serve Required Notice", "Immediate Release", "Custom Notice Period"].map(t => (
+                  <button key={t} onClick={() => setNoticeType(t)}
+                    className={`flex-1 py-3 px-2 rounded-xl border font-semibold transition text-sm text-center shadow-sm ${noticeType === t ? "bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                    {t}
+                  </button>
+                ))}
               </div>
+              
+              {noticeType === "Custom Notice Period" && (
+                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <input type="number" min={1} max={365} value={noticeDays}
+                    onChange={e => setNoticeDays(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-4 py-2 w-32 text-center font-bold text-slate-800 focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+                  <span className="text-slate-600 text-sm font-semibold">days custom notice period</span>
+                </div>
+              )}
+
+              {noticeType === "Serve Required Notice" && (
+                <div className="text-sm font-semibold text-slate-600 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  Employee will serve the applicable notice period (30 Days).
+                </div>
+              )}
+
+              {noticeType === "Immediate Release" && (
+                <div className="mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                   <label className="block text-sm font-semibold text-slate-600 mb-2">Release Date</label>
+                   <input type="date" value={releaseDate} onChange={e => setReleaseDate(e.target.value)}
+                     className="border border-slate-300 rounded-lg px-4 py-2 w-full max-w-xs text-slate-800 font-semibold focus:ring-2 focus:ring-blue-400 focus:outline-none" />
+                </div>
+              )}
 
               {/* Upload acceptance letter */}
-              <div>
+              <div className="mt-4">
                 <label className="block text-sm font-semibold text-slate-600 mb-1">
-                  Upload Acceptance Letter <span className="text-slate-400 font-normal">(optional — PDF / image)</span>
+                  Upload Acceptance Letter <span className="text-slate-400 font-normal">(optional)</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl px-4 py-3 hover:bg-blue-100 transition">
                   <span className="text-2xl">📎</span>
@@ -131,15 +160,15 @@ const DecisionModal = ({ resignation, onClose, onSubmit }) => {
                     {acceptanceFile ? (
                       <p className="text-sm font-semibold text-blue-700">{acceptanceFile.name}</p>
                     ) : (
-                      <p className="text-sm text-blue-500">Click to attach acceptance letter file</p>
+                      <p className="text-sm font-semibold text-blue-600">Click to upload file or drag and drop</p>
                     )}
+                    <p className="text-xs text-blue-400">PDF, JPG, PNG (Max 5MB)</p>
                   </div>
                   <input type="file" className="hidden" accept="image/*,.pdf"
                     onChange={e => setAcceptanceFile(e.target.files[0] || null)} />
                 </label>
-                <p className="text-xs text-slate-400 mt-1">An AI-generated letter will also be sent to the employee via email automatically.</p>
               </div>
-            </>
+            </div>
           )}
 
           {/* Remark */}

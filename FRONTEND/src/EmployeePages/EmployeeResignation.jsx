@@ -85,12 +85,16 @@ const LetterModal = ({ title, html, onClose }) => (
 
 // ─── Submit Form Modal ────────────────────────────────────────────────────────
 const SubmitModal = ({ employee, onClose, onSuccess }) => {
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState("Better Opportunity");
+  const [resignationDate, setResignationDate] = useState(new Date().toISOString().split("T")[0]);
+  const [additionalRemarks, setAdditionalRemarks] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!agreed) { setError("Please check the acknowledgment box."); return; }
     if (!reason.trim()) { setError("Please provide a reason."); return; }
     setLoading(true); setError("");
     try {
@@ -102,6 +106,8 @@ const SubmitModal = ({ employee, onClose, onSuccess }) => {
         designation: employee.designation || employee.currentRole || "",
         companyName: employee.companyName || "Unknown",
         reason,
+        resignationDate,
+        additionalRemarks
       });
       onSuccess();
     } catch (err) {
@@ -112,29 +118,51 @@ const SubmitModal = ({ employee, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="text-lg font-bold text-slate-800">✍️ Submit Resignation Letter</h3>
+          <h3 className="text-xl font-bold text-slate-800">Submit Resignation</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
-            Your AI-generated resignation letter will be created based on the information you provide. It will include your name, role, and reason for leaving.
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Reason for Resignation <span className="text-red-500">*</span></label>
+              <select value={reason} onChange={e => setReason(e.target.value)}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <option value="Better Opportunity">Better Opportunity</option>
+                <option value="Health Issues">Health Issues</option>
+                <option value="Personal Reasons">Personal Reasons</option>
+                <option value="Higher Education">Higher Education</option>
+                <option value="Relocation">Relocation</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-1">Resignation Date <span className="text-red-500">*</span></label>
+              <input type="date" value={resignationDate} onChange={e => setResignationDate(e.target.value)}
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+            </div>
           </div>
+
           <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-1">Reason for Resignation <span className="text-red-500">*</span></label>
-            <textarea rows={5} value={reason} onChange={e => setReason(e.target.value)}
-              placeholder="Please describe your reason for resignation in detail..."
+            <label className="block text-sm font-semibold text-slate-600 mb-1">Additional Remarks (Optional)</label>
+            <textarea rows={3} value={additionalRemarks} onChange={e => setAdditionalRemarks(e.target.value)}
+              placeholder="I sincerely thank the team and management for the support..."
               className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400" />
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="w-5 h-5 accent-blue-600" />
+            <span className="text-sm font-semibold text-slate-700">I understand that I am required to serve the applicable notice period as decided by the management.</span>
+          </label>
+
           {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-4 py-2">{error}</p>}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
+          <div className="flex gap-3 pt-2 justify-end border-t mt-4 pt-4">
+            <button type="button" onClick={onClose} className="px-6 py-2.5 border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 font-semibold">Cancel</button>
             <button type="submit" disabled={loading}
-              className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-2">
-              {loading ? (
-                <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Generating Letter…</>
-              ) : "🤖 Generate & Submit"}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center justify-center gap-2">
+              {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+              Submit Resignation
             </button>
           </div>
         </form>
@@ -606,6 +634,22 @@ const EmployeeResignation = () => {
                       <button onClick={() => downloadFile(r.acceptanceLetterFileUrl, `Acceptance_Letter_${r.employeeName}`)}
                         className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700">
                         ⬇ Download Acceptance Letter
+                      </button>
+                    )}
+                    {/* Download Relieving Letter / Deactivate Account */}
+                    {(isNoticePeriodCompleted(r) || r.status === "Completed") && !r.relievingLetterDownloaded && (
+                      <button onClick={async () => {
+                        if(window.confirm("Downloading the Relieving Letter will finalize your exit and deactivate your account. Continue?")) {
+                          try {
+                             await api.post(`/api/resignations/employee/download-relieving/${r._id}`);
+                             alert("Relieving Letter Downloaded. Your account is now deactivated.");
+                             handleLogout();
+                          } catch(err) {
+                             alert("Failed to download relieving letter.");
+                          }
+                        }
+                      }} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 shadow-sm border border-red-700">
+                        ⬇ Download Relieving Letter
                       </button>
                     )}
                   </div>

@@ -198,6 +198,21 @@ const EmployeeDashboard = () => {
   // ✅ NEW: Request Limit State
   const [requestLimit, setRequestLimit] = useState({ limit: 5, used: 0 });
 
+  // ✅ Active Resignation State
+  const [activeResignation, setActiveResignation] = useState(null);
+
+  useEffect(() => {
+    if (user?.employeeId) {
+      api.get(`/api/resignations/my/${user.employeeId}`)
+        .then(res => {
+          const rs = Array.isArray(res.data) ? res.data : [];
+          const active = rs.find(r => r.status === "Approved" && r.noticePeriodEndDate && new Date() <= new Date(r.noticePeriodEndDate));
+          if (active) setActiveResignation(active);
+        })
+        .catch(err => console.log(err));
+    }
+  }, [user?.employeeId]);
+
   const dropdownRef = useRef(null);
   const breakDropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -1512,6 +1527,12 @@ const EmployeeDashboard = () => {
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs uppercase tracking-wider font-bold shadow-sm border ${currentWorkMode === 'WFH' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                   {currentWorkMode === 'WFH' ? <FaLaptopHouse size={14} /> : <FaBuilding size={14} />} {currentWorkMode === 'WFH' ? 'Work From Home' : 'Work From Office'}
                 </span>
+                
+                {activeResignation && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs uppercase tracking-wider font-bold shadow-sm border bg-red-50 text-red-700 border-red-200">
+                    <FaClock size={14} /> You are on Notice Period ({activeResignation.noticePeriodDays} Days)
+                  </span>
+                )}
                 <div className="text-[11px] text-gray-500 font-medium italic flex items-center gap-1">
                   <FaInfoCircle size={10} />
                   {currentWorkMode === 'WFO' && officeConfig?.requireAccurateLocation !== false
