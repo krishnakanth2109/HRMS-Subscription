@@ -178,7 +178,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           route: "/admin/shifttype",
           label: "Location Settings",
           icon: MapPin,
-          isWorkModeRequests: true,
         },
         {
           to: "/admin/leave-summary",
@@ -209,6 +208,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     {
       title: "Requests",
       links: [
+        {
+          to: "/admin/notifications",
+          route: "/admin/notifications",
+          label: "Work Mode Requests",
+          icon: LocateFixed,
+          isWorkModeRequests: true,
+        },
         {
           to: "/admin/admin-Leavemanage",
           route: "/admin/admin-Leavemanage",

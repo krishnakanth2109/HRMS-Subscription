@@ -19,7 +19,8 @@ const FALLBACK_FEATURES = [
   { label: "Overtime Requests", route: "/admin/admin-overtime", description: "Review and manage employee overtime requests" },
   { label: "Live Tracking", route: "/admin/field-tracking", description: "Monitor employee field location in real-time" },
   { label: "Idle Tracking", route: "/admin/live-tracking", description: "Track and analyze employee idle and active periods" },
-  { label: "Expense Management", route: "/admin/expense", description: "Handle and review employee expense requests" }
+  { label: "Expense Management", route: "/admin/expense", description: "Handle and review employee expense requests" },
+  { label: "Attendance Based Payroll", route: "attendance_based_payroll", description: "Calculate salary proportionally based on actual working days" }
 ];
 
 const CustomizingAdmin = () => {

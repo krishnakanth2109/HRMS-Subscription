@@ -2,6 +2,7 @@
 import express from 'express';
 import PayrollRule from '../models/PayrollRule.js';
 import PayrollRecord from '../models/PayrollRecord.js';
+import Admin from '../models/adminModel.js';
 import { protect } from "../controllers/authController.js";
 
 const router = express.Router();
@@ -25,9 +26,9 @@ router.get('/rules', async (req, res) => {
         : { companyId: req.user.company };
 
     const rules = await PayrollRule.findOne(query);
-
-    if (!rules) {
-      return res.status(200).json({
+    let returnedRules = rules;
+    if (!returnedRules) {
+      returnedRules = {
         basicPercentage: 40, hraPercentage: 40, conveyance: 1600, medical: 1250,
         travellingAllowance: 800,
         pfCalculationMethod: 'percentage', pfPercentage: 12, employerPfPercentage: 12,
@@ -35,9 +36,22 @@ router.get('/rules', async (req, res) => {
         ptSlab1Limit: 15000, ptSlab2Limit: 20000, ptSlab1Amount: 150, ptSlab2Amount: 200,
         customFields: [],
         customDeductions: []
-      });
+      };
+    } else {
+      // Convert to plain object if it's a mongoose document
+      returnedRules = returnedRules.toObject ? returnedRules.toObject() : returnedRules;
     }
-    res.status(200).json(rules);
+
+    // Merge Master Admin's attendance-based salary setting
+    const adminQueryId = isAdmin ? req.user._id : req.user.adminId;
+    if (adminQueryId) {
+      const adminDoc = await Admin.findById(adminQueryId).select("planDetails");
+      if (adminDoc && adminDoc.planDetails && adminDoc.planDetails.features) {
+        returnedRules.attendanceBasedSalary = adminDoc.planDetails.features.includes("attendance_based_payroll");
+      }
+    }
+
+    res.status(200).json(returnedRules);
   } catch (err) {
     res.status(500).json({ message: 'Server Error fetching payroll rules' });
   }
