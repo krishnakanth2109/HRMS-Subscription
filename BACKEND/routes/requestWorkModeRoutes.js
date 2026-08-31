@@ -1,33 +1,30 @@
 // --- START OF FILE routes/requestWorkModeRoutes.js ---
 import express from "express";
 import WorkModeRequest from "../models/WorkModeRequest.js";
-import OfficeSettings from "../models/OfficeSettings.js";
-import Admin from "../models/adminModel.js";
-import Notification from "../models/notificationModel.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
-import { sendBrevoEmail } from "../Services/emailService.js";
+import { serviceApplyWFH } from "../services/hrmsActionServices.js";
 
 const router = express.Router();
 router.use(protect);
 
 router.post("/request", async (req, res) => {
   try {
-    const { requestType, fromDate, toDate, recurringDays, requestedMode, reason } = req.body;
+    const { fromDate, toDate, requestedMode, reason } = req.body;
+    const io = req.app.get("io");
 
-    await WorkModeRequest.create({
-      adminId: req.user.adminId, // Hierarchy
-      companyId: req.user.company, // Hierarchy
-      employeeId: req.user.employeeId,
-      employeeName: req.user.name,
-      department: req.user.department,
-      requestType, fromDate, toDate, recurringDays, requestedMode, reason
+    const wfhDoc = await serviceApplyWFH({
+      loggedUser: req.user,
+      fromDate,
+      toDate,
+      requestedMode,
+      reason,
+      io,
     });
 
-    // Notify Admin (omitted details for brevity, see previous similar files)
-    res.status(201).json({ message: "Request submitted" });
+    res.status(201).json({ message: "Request submitted", data: wfhDoc });
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
+    res.status(400).json({ message: error.message || "Server Error" });
   }
 });
 

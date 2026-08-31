@@ -621,10 +621,32 @@ const EmployeeLeavemanagement = () => {
     }
   }, [user, fetchLeaves, fetchHolidays, fetchAttendance, fetchAllEmployeesLeaves, fetchShiftDetails, fetchLeavePolicies]);
 
-  // Initial data load
+  // Initial data load & Real-time sync
   useEffect(() => {
     if (user?.employeeId) {
       fetchAllData();
+
+      const handleSync = () => {
+        dataLoadedRef.current = {
+          leaves: false,
+          holidays: false,
+          attendance: false,
+          allLeaves: false,
+          shift: false,
+          policy: false,
+        };
+        fetchAllData();
+      };
+
+      window.addEventListener("hrmsShiftUpdated", handleSync);
+      window.addEventListener("hrmsLeavesUpdated", handleSync);
+      window.addEventListener("adminActionExecuted", handleSync);
+
+      return () => {
+        window.removeEventListener("hrmsShiftUpdated", handleSync);
+        window.removeEventListener("hrmsLeavesUpdated", handleSync);
+        window.removeEventListener("adminActionExecuted", handleSync);
+      };
     }
   }, [user, fetchAllData]);
 

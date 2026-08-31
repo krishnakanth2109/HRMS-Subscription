@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { io } from "socket.io-client";
 // import { AuthContext } from "../context/AuthContext";
 import {
   FaClock,
@@ -127,9 +128,29 @@ const DepartmentSettings = () => {
   const [bulkShiftForm, setBulkShiftForm] = useState(defaultShift);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
 
-  // ---------------- Fetch Data ----------------
+  // ---------------- Fetch Data & Real-Time Sync ----------------
   useEffect(() => {
     fetchData();
+
+    const handleRealtimeSync = () => {
+      fetchData();
+    };
+
+    window.addEventListener("hrmsShiftUpdated", handleRealtimeSync);
+    window.addEventListener("adminActionExecuted", handleRealtimeSync);
+
+    const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+    const s = io(SOCKET_URL, { transports: ["polling", "websocket"] });
+    s.on("hrmsShiftUpdated", handleRealtimeSync);
+    s.on("shift:updated", handleRealtimeSync);
+
+    return () => {
+      window.removeEventListener("hrmsShiftUpdated", handleRealtimeSync);
+      window.removeEventListener("adminActionExecuted", handleRealtimeSync);
+      s.off("hrmsShiftUpdated", handleRealtimeSync);
+      s.off("shift:updated", handleRealtimeSync);
+      s.disconnect();
+    };
   }, []);
 
   const fetchData = async () => {

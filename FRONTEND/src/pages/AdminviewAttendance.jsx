@@ -1283,10 +1283,14 @@ const AdminAttendance = () => {
 
     socket.on("punchout:new", refreshPunchOutRequests);
     socket.on("punchout:updated", refreshPunchOutRequests);
+    socket.on("hrmsShiftUpdated", refreshPunchOutRequests);
+    socket.on("shift:updated", refreshPunchOutRequests);
 
     return () => {
       socket.off("punchout:new", refreshPunchOutRequests);
       socket.off("punchout:updated", refreshPunchOutRequests);
+      socket.off("hrmsShiftUpdated", refreshPunchOutRequests);
+      socket.off("shift:updated", refreshPunchOutRequests);
       socket.disconnect();
     };
   }, [fetchPunchOutRequests, fetchDailyData, fetchDailyCounts, startDate, endDate]);

@@ -1697,16 +1697,24 @@ router.get("/my-corrections", protect, async (req, res) => {
   }
 });
 
-router.get('/:employeeId', async (req, res) => {
+router.get('/:employeeId', protect, async (req, res) => {
   try {
     const requestedId = req.params.employeeId;
     const loggedUser = req.user;
-    if (loggedUser.role !== "admin" && loggedUser.role !== "support-admin" && loggedUser.employeeId !== requestedId) {
-      return res.status(403).json({ message: "Access denied." });
-    }
-    const record = await Attendance.findOne({ employeeId: requestedId });
+
+    const query = {
+      $or: [
+        { employeeId: requestedId },
+        ...(loggedUser ? [
+          { employeeId: loggedUser.employeeId },
+          { employeeId: loggedUser._id?.toString() }
+        ] : [])
+      ]
+    };
+
+    const record = await Attendance.findOne(query);
     if (!record) return res.json({ success: true, data: [] });
-    const sorted = record.attendance.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sorted = (record.attendance || []).sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json({ success: true, data: sorted });
   } catch (err) {
     res.status(500).json({ error: err.message });

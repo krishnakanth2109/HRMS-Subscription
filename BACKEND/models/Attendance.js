@@ -75,7 +75,7 @@ const DailySchema = new mongoose.Schema({
   // Request for Late Login Correction
   lateCorrectionRequest: {
     hasRequest: { type: Boolean, default: false },
-    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED", "Pending", "Approved", "Rejected"], default: "PENDING" },
     requestedTime: { type: Date, default: null },
     reason: { type: String, default: null },
     adminComment: { type: String, default: null }
@@ -91,7 +91,7 @@ const DailySchema = new mongoose.Schema({
   // ✅ NEW: Status Correction Request
   statusCorrectionRequest: {
     hasRequest: { type: Boolean, default: false },
-    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED", "Pending", "Approved", "Rejected"], default: "PENDING" },
     requestedPunchOut: { type: Date, default: null },
     reason: { type: String, default: null },
     adminComment: { type: String, default: null }
@@ -100,7 +100,7 @@ const DailySchema = new mongoose.Schema({
   // ✅ NEW: Half Day → Full Day Edit Request
   fullDayRequest: {
     hasRequest: { type: Boolean, default: false },
-    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED"], default: "PENDING" },
+    status: { type: String, enum: ["PENDING", "APPROVED", "REJECTED", "Pending", "Approved", "Rejected"], default: "PENDING" },
     requestedAt: { type: Date, default: null },
     reviewedAt: { type: Date, default: null },
     reason: { type: String, default: null },

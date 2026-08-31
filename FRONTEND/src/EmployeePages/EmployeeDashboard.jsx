@@ -69,6 +69,7 @@ import { useNavigate, Link } from "react-router-dom";
 import ImageCropModal from "./ImageCropModal";
 import EmployeeQRCodeModal from "../components/employee/EmployeeQRCodeModal";
 
+
 // ✅ Registering Chart Components
 ChartJS.register(
   CategoryScale,
@@ -558,6 +559,28 @@ const EmployeeDashboard = () => {
     };
     bootstrap();
   }, [user, loadAttendance, loadShiftTimings, loadHolidaysAndLeaves, loadRequestLimit]);
+
+  // ⚡ Real-Time Attendance Synchronization from Socket & Copilot
+  useEffect(() => {
+    const handleLiveAttendanceSync = () => {
+      if (user?.employeeId) {
+        loadAttendance(user.employeeId);
+      }
+    };
+
+    window.addEventListener("hrmsAttendanceUpdated", handleLiveAttendanceSync);
+
+    if (socket) {
+      socket.on("attendance:update", handleLiveAttendanceSync);
+    }
+
+    return () => {
+      window.removeEventListener("hrmsAttendanceUpdated", handleLiveAttendanceSync);
+      if (socket) {
+        socket.off("attendance:update", handleLiveAttendanceSync);
+      }
+    };
+  }, [socket, user?.employeeId, loadAttendance]);
 
   const loadProfilePic = async () => {
     try {
@@ -2289,6 +2312,8 @@ const EmployeeDashboard = () => {
         portfolioUrl={`https://vwsync.com/portfolio/${employeeId}`}
         employeeName={displayUser?.name}
       />
+
+
     </div>
   );
 };

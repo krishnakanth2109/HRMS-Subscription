@@ -42,12 +42,13 @@ router.get('/rules', async (req, res) => {
       returnedRules = returnedRules.toObject ? returnedRules.toObject() : returnedRules;
     }
 
-    // Merge Master Admin's attendance-based salary setting
+    // Expose whether the feature is enabled by Master Admin
+    returnedRules.isAttendanceFeatureAllowed = false;
     const adminQueryId = isAdmin ? req.user._id : req.user.adminId;
     if (adminQueryId) {
       const adminDoc = await Admin.findById(adminQueryId).select("planDetails");
       if (adminDoc && adminDoc.planDetails && adminDoc.planDetails.features) {
-        returnedRules.attendanceBasedSalary = adminDoc.planDetails.features.includes("attendance_based_payroll");
+        returnedRules.isAttendanceFeatureAllowed = adminDoc.planDetails.features.includes("attendance_based_payroll");
       }
     }
 

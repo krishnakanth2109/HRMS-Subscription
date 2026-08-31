@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useContext } from "react";
 import ModalWrapper from "../components/ModalWrapper";
+import { NotificationContext } from "../context/NotificationContext";
 import api, {
   getLeaveRequests,
   getEmployees,
@@ -496,6 +497,7 @@ const AdminLeavePanel = () => {
   const [leaveList, setLeaveList]         = useState([]);
   const [employeesMap, setEmployeesMap]   = useState(new Map());
   const [allEmployeesList, setAllEmployeesList] = useState([]);
+  const { socket } = useContext(NotificationContext) || {};
   const [loading, setLoading]             = useState(true);
   const [filterMonth, setFilterMonth]     = useState(new Date().toISOString().slice(0, 7));
   const [filterDept, setFilterDept]       = useState("All");
@@ -528,6 +530,24 @@ const AdminLeavePanel = () => {
   }, []);
 
   useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+  // 🔔 Real-time socket updates when any leave is applied via Copilot or portal
+  useEffect(() => {
+    if (!socket) return;
+    const handleRefresh = () => {
+      fetchAllData();
+    };
+
+    socket.on("leave:new", handleRefresh);
+    socket.on("leave:created", handleRefresh);
+    socket.on("leave:updated", handleRefresh);
+
+    return () => {
+      socket.off("leave:new", handleRefresh);
+      socket.off("leave:created", handleRefresh);
+      socket.off("leave:updated", handleRefresh);
+    };
+  }, [socket, fetchAllData]);
 
   const activeEmployees = useMemo(() =>
     allEmployeesList.filter((e) => e.isActive !== false && (e.status || "").toLowerCase() !== "deactive"),
@@ -769,7 +789,18 @@ const AdminLeavePanel = () => {
             <FaFilter className="text-indigo-500" />
             <span className="font-black text-[10px] uppercase tracking-widest">Filters</span>
           </div>
-          <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+          <div className="flex items-center gap-1.5">
+            <input type="month" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            {filterMonth && (
+              <button
+                onClick={() => setFilterMonth("")}
+                className="px-2.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
+                title="Show All Months"
+              >
+                All
+              </button>
+            )}
+          </div>
           <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm cursor-pointer transition-all">
             <option value="All">All Departments</option>
             {allDepartments.map((d) => <option key={d} value={d}>{d}</option>)}

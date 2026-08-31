@@ -1,6 +1,7 @@
 // --- START OF FILE controllers/leaveController.js ---
 
 import LeaveRequest, { LeavePolicy } from "../models/LeaveRequest.js";
+import { serviceApplyLeave, serviceCancelLeave } from "../services/hrmsActionServices.js";
 import Notification from "../models/notificationModel.js";
 import Employee from "../models/employeeModel.js";
 import Admin from "../models/adminModel.js";
@@ -277,145 +278,29 @@ const employeeLeaveStatusEmail = ({ employeeName, status, from, to, leaveType, r
 };
 
 // ===================================================================================
-// EMPLOYEE — APPLY FOR LEAVE
+// EMPLOYEE — APPLY FOR LEAVE (Delegates to Shared Service)
 // ===================================================================================
 export const createLeave = async (req, res) => {
   try {
     const loggedUser = req.user;
     const { from, to, reason, leaveType, leaveDayType, halfDaySession = "" } = req.body;
+    const io = req.app.get("io");
 
-    if (!from || !to || !reason || !leaveType || !leaveDayType) {
-      return res.status(400).json({ message: "Missing required fields." });
-    }
-
-    const isSupportAdmin = loggedUser.role === "support-admin";
-    if (!isSupportAdmin && !loggedUser.employeeId) {
-      return res.status(400).json({ message: "Invalid user context for leave application." });
-    }
-
-    const requesterKey = isSupportAdmin
-      ? String(loggedUser.actualId || loggedUser._id)
-      : String(loggedUser.employeeId);
-
-    let adminIdForLeave = loggedUser.adminId;
-    let companyIdForLeave = loggedUser.companyId || loggedUser.company || loggedUser.adminId;
-
-    if (isSupportAdmin) {
-      if (!adminIdForLeave) {
-        return res.status(400).json({ message: "Support admin is not linked to an organization." });
-      }
-      const company = await Company.findOne({ adminId: adminIdForLeave }).select("_id").lean();
-      if (!company?._id) {
-        return res.status(400).json({
-          message: "No company found for this organization. Ask your admin to create a company before applying for leave.",
-        });
-      }
-      companyIdForLeave = company._id;
-    }
-
-    const requesterType = isSupportAdmin ? "support-admin" : "employee";
-    const requesterName = loggedUser.name || loggedUser.email || "User";
-
-    const monthKey = from.slice(0, 7);
-    const dates = listDates(from, to);
-
-    // ✅ Check past days vs attendance (same rules; support admin uses attendance employeeId = actualId)
-    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const pastDates = dates.filter((d) => d < todayStr);
-
-    if (pastDates.length > 0) {
-      const attendanceDoc = await Attendance.findOne({ employeeId: requesterKey });
-      if (attendanceDoc) {
-        for (const date of pastDates) {
-          const entry = attendanceDoc.attendance.find((e) => e.date === date);
-          if (entry) {
-            const isPunchedIn = entry.punchIn !== null && entry.punchIn !== undefined;
-            const isPresentStatus = ["PRESENT", "HALF_DAY", "WORKING", "COMPLETED"].includes(entry.status);
-
-            if (isPunchedIn || isPresentStatus) {
-              return res.status(400).json({
-                message: `You cannot apply for leave on ${date} because you were present or punched in on that day.`,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    // ✅ NEW: Prevent overlapping leave requests (Pending or Approved)
-    const existingLeaves = await LeaveRequest.find({
-      employeeId: requesterKey,
-      status: { $in: ["Pending", "Approved"] },
-      from: { $lte: to },
-      to: { $gte: from }
-    });
-
-    if (existingLeaves.length > 0) {
-      return res.status(400).json({
-        message: "You already have a Pending or Approved leave request overlapping with these dates. If you wish to reapply, please cancel the existing request first."
-      });
-    }
-
-    const { leavecategory, paidDays } = await resolveLeaveCategoryForRequest(
-      adminIdForLeave,
-      requesterKey,
+    const newLeave = await serviceApplyLeave({
+      loggedUser,
+      from,
+      to,
+      reason,
       leaveType,
       leaveDayType,
-      dates,
-      requesterType
-    );
-    const details = buildDetailsWithCategory(dates, leaveType, leaveDayType, paidDays);
-
-    const doc = await LeaveRequest.create({
-      adminId: adminIdForLeave,
-      companyId: companyIdForLeave,
-      employeeId: requesterKey,
-      requesterType,
-      requesterName,
-      from, to, reason,
-      leaveType,
-      leaveDayType, halfDaySession,
-      leavecategory,
-      monthKey,
-      status: "Pending", approvedBy: "-", actionDate: "-",
-      requestDate: new Date().toISOString().slice(0, 10),
-      details,
+      halfDaySession,
+      io,
     });
 
-    const admin = await Admin.findById(adminIdForLeave).lean();
-    if (admin) {
-      if (admin.email) {
-        try {
-          const whoLabel = isSupportAdmin ? "Support Admin" : "Employee";
-          await transporter.sendMail({
-            from: `"HRMS Leave Notification" <${process.env.SMTP_USER}>`,
-            to: admin.email,
-            subject: `New Leave Request (${whoLabel}) from ${requesterName}`,
-            html: adminLeaveNotificationEmail({
-              name: requesterName, employeeId: requesterKey,
-              email: loggedUser.email, leaveType, from, to, reason,
-            }),
-          });
-        } catch (e) { console.error("❌ Leave email to admin failed:", e); }
-      }
-      const notif = await Notification.create({
-        adminId: admin._id, companyId: doc.companyId,
-        userId: admin._id.toString(), userType: "Admin",
-        title: "New Leave Request",
-        message: `${requesterName} (${isSupportAdmin ? "Support Admin" : "Employee"}) submitted a leave request (${from} → ${to})`,
-        type: "leave", isRead: false,
-      });
-      const io = req.app.get("io");
-      if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
-    }
-
-    const ioAll = req.app.get("io");
-    if (ioAll) ioAll.emit("leave:new", doc);
-
-    return res.status(201).json(doc);
+    return res.status(201).json(newLeave);
   } catch (err) {
     console.error("createLeave error:", err);
-    res.status(500).json({ message: "Failed to create leave request." });
+    return res.status(400).json({ message: err.message || "Failed to submit leave request." });
   }
 };
 
@@ -450,7 +335,22 @@ export const listLeavesForEmployee = async (req, res) => {
 // ===================================================================================
 export const adminListAllLeaves = async (req, res) => {
   try {
-    const docs = await LeaveRequest.find({ adminId: req.user._id }).sort({ requestDate: -1 }).lean();
+    const adminId = req.user.adminId || req.user._id;
+    const actualId = req.user.actualId || req.user._id;
+    const companyId = req.user.company || req.user.companyId;
+
+    const query = {
+      $or: [
+        { adminId: req.user._id },
+        { adminId: adminId },
+        { adminId: actualId },
+        ...(companyId ? [{ companyId }] : [])
+      ]
+    };
+    const docs = await LeaveRequest.find(query).sort({ requestDate: -1 }).lean();
+
+    console.log(`🔍 [adminListAllLeaves] Admin: "${req.user.name || req.user.email}" | Query:`, JSON.stringify(query), `| Total leaves found in DB: ${docs.length}`);
+
     res.json(docs);
   } catch (err) {
     console.error("adminListAllLeaves error:", err);
@@ -576,38 +476,16 @@ export const updateLeaveStatus = async (req, res) => {
 // ===================================================================================
 export const cancelLeave = async (req, res) => {
   try {
-    const leave = await LeaveRequest.findById(req.params.id);
-    if (!leave) return res.status(404).json({ message: "Not found" });
-
-    const isSupportAdmin = req.user.role === "support-admin";
-    const supportAdminKey = isSupportAdmin ? String(req.user.actualId || req.user._id) : null;
-    const owns = isSupportAdmin
-      ? leave.requesterType === "support-admin" && String(leave.employeeId) === supportAdminKey
-      : leave.employeeId === req.user.employeeId &&
-      (!leave.requesterType || leave.requesterType === "employee");
-
-    if (!owns) return res.status(403).json({ message: "Unauthorized" });
-    if (leave.status !== "Pending") return res.status(400).json({ message: "Cannot cancel this leave" });
-
-    await LeaveRequest.findByIdAndDelete(req.params.id);
-
-    const admin = await Admin.findById(leave.adminId);
-    if (admin) {
-      const notif = await Notification.create({
-        adminId: admin._id, companyId: leave.companyId,
-        userId: admin._id.toString(), userType: "Admin",
-        title: "Leave Cancelled",
-        message: `${req.user.name} cancelled a leave (${leave.from} → ${leave.to})`,
-        type: "leave", isRead: false,
-      });
-      const io = req.app.get("io");
-      if (io) io.to(`user_${admin._id}`).emit("newNotification", notif);
-    }
-
-    return res.json({ message: "Leave cancelled successfully" });
+    const io = req.app.get("io");
+    const cancelledDoc = await serviceCancelLeave({
+      loggedUser: req.user,
+      leaveRequestId: req.params.id,
+      io,
+    });
+    return res.json({ message: "Leave cancelled successfully", data: cancelledDoc });
   } catch (err) {
     console.error("cancelLeave error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(400).json({ message: err.message || "Failed to cancel leave." });
   }
 };
 

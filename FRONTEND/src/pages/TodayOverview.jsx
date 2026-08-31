@@ -1,6 +1,5 @@
-// --- START OF FILE TodayOverview.jsx ---
-
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { io } from "socket.io-client";
 import api, {
   getAttendanceByDateRange,
   getLeaveRequests,
@@ -871,9 +870,31 @@ const TodayOverview = () => {
 
 
 
-  // Initial data fetch
+  // Initial data fetch & Real-time listeners
   useEffect(() => {
     fetchAllData();
+
+    const handleSync = () => {
+      fetchAllData();
+    };
+
+    window.addEventListener("hrmsShiftUpdated", handleSync);
+    window.addEventListener("adminActionExecuted", handleSync);
+
+    const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+    const s = io(SOCKET_URL, { transports: ["polling", "websocket"] });
+    s.on("hrmsShiftUpdated", handleSync);
+    s.on("shift:updated", handleSync);
+    s.on("hrmsAttendanceUpdated", handleSync);
+
+    return () => {
+      window.removeEventListener("hrmsShiftUpdated", handleSync);
+      window.removeEventListener("adminActionExecuted", handleSync);
+      s.off("hrmsShiftUpdated", handleSync);
+      s.off("shift:updated", handleSync);
+      s.off("hrmsAttendanceUpdated", handleSync);
+      s.disconnect();
+    };
   }, []);
 
   const allDailyData = useMemo(() => {

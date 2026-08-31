@@ -6,6 +6,16 @@ try {
   console.warn("Could not set custom DNS servers:", e.message);
 }
 
+import dns from "dns";
+
+// Fix Node.js DNS SRV lookup issues on Windows / local routers (ECONNREFUSED _mongodb._tcp...)
+try {
+  dns.setDefaultResultOrder?.("ipv4first");
+  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
+} catch (e) {
+  console.warn("⚠️ Custom DNS configuration warning:", e.message);
+}
+
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -14,7 +24,7 @@ import path from "path";
 import { Server } from "socket.io";
 import Employee from "./models/employeeModel.js";
 import { recordFieldWorkLocationForEmployee } from "./controllers/fieldTrackingController.js";
-  
+
 /*   sagar ==================== ROUTE IMPORTS ==================== */
 import employeeRoutes from "./routes/employeeRoutes.js";
 import holidayRoutes from "./routes/holidayRoutes.js";
@@ -63,6 +73,9 @@ import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import copilotRoutes from "./routes/copilotRoutes.js";
+import adminCopilotRoutes from "./routes/adminCopilotRoutes.js";
+import { seedCopilotKnowledge } from "./services/copilotIngestion.js";
 import welcomeKitRoutes from "./routes/Welcomekitroutes.js";
 import fieldTrackingRoutes from "./routes/fieldTrackingRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
@@ -268,6 +281,26 @@ app.use((req, res, next) => {
 /* ==================== DATABASE ==================== */
 mongoose.set("strictQuery", false);
 
+const connectMongoDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
+    console.log("✅ MongoDB Connected");
+    // Seed/verify HR knowledge base embeddings into MongoDB (hash-based content versioning)
+    seedCopilotKnowledge("global").catch((err) =>
+      console.warn("⚠️ Copilot knowledge seeding error:", err.message)
+    );
+  } catch (err) {
+    console.error("❌ MongoDB Connection Error:", err.message);
+    if (err.message.includes("ECONNREFUSED") || err.message.includes("querySrv")) {
+      console.error("💡 TIP: DNS SRV resolution failed. Ensure your network allows DNS queries or whitelist your IP in MongoDB Atlas.");
+    }
+  }
+};
+
+connectMongoDB();
 mongoose
   .connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 5000,
@@ -282,6 +315,10 @@ mongoose
 
 mongoose.connection.on("disconnected", () => {
   console.log("âš ï¸ MongoDB Disconnected");
+});
+
+mongoose.connection.on("reconnected", () => {
+  console.log("✅ MongoDB Reconnected");
 });
 
 /* ==================== HEALTH ==================== */
@@ -330,6 +367,8 @@ app.use("/api/offer-letters", offerLetterRoutes);
 app.use("/api/offer-letters", offerResponseRoutes);
 app.use("/api/doc-verification", documentVerificationRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/copilot", copilotRoutes);
+app.use("/api/admin/copilot", adminCopilotRoutes);
 app.use("/api/induction", inductionRoutes);
 app.use("/api/resignations", resignationRoutes);
 app.use("/api/welcome-kit", welcomeKitRoutes);
