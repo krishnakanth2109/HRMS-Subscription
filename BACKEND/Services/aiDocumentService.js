@@ -90,7 +90,7 @@ export const generateHRDocument = async ({ letterType, employeeData, companyName
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-8b",
+        model: "gemini-1.5-flash",
         generationConfig: { maxOutputTokens: 800, temperature: 0.4 }
       });
 

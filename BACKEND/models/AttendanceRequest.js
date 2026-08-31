@@ -10,12 +10,12 @@ const attendanceRequestSchema = new mongoose.Schema({
   
   currentStatus: { 
     type: String, 
-    enum: ['Absent', 'Half Day', 'Full Day', 'Working', 'Week Off', 'Holiday', 'ABSENT', 'HALF_DAY', 'FULL_DAY'], 
+    enum: ['Absent', 'Half Day', 'Full Day', 'Working', 'Week Off', 'Holiday', 'ABSENT', 'HALF_DAY', 'FULL_DAY', 'WORKING', 'ON_TIME', 'LATE', 'Late', 'On Time'], 
     required: true 
   },
   requestedStatus: { 
     type: String, 
-    enum: ['Absent', 'Half Day', 'Full Day', 'Working', 'Week Off', 'Holiday', 'ABSENT', 'HALF_DAY', 'FULL_DAY'], 
+    enum: ['Absent', 'Half Day', 'Full Day', 'Working', 'Week Off', 'Holiday', 'ABSENT', 'HALF_DAY', 'FULL_DAY', 'WORKING', 'ON_TIME', 'LATE', 'Late', 'On Time'], 
     required: true 
   },
   
