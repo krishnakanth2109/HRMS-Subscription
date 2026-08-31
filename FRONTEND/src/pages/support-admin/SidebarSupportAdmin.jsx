@@ -75,6 +75,8 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
   const isFeatureAssignedToSupportAdmin = (link) => {
     if (!currentUser || currentUser.role !== "support-admin") return true;
 
+    if (link.alwaysAllowed) return true;
+
     if (
       MANDATORY_ROUTES.includes(link.to) ||
       MANDATORY_ROUTES.includes(link.route)
@@ -248,7 +250,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
         {
           to: "/support-admin/leave-management",
           route: "/support-admin/leave-management",
-          label: "Leave Requests",
+          label: "My Leaves",
           icon: CalendarPlus,
           alwaysAllowed: true,
         },
