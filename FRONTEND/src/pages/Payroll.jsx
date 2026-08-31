@@ -409,23 +409,7 @@ const PayrollConfigModal = ({ isOpen, onClose, currentRules, onSave }) => {
       </div>
 
       <div className="space-y-4 overflow-y-auto pr-2 flex-1">
-        {/* Attendance Based Salary Toggle */}
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center shadow-sm">
-          <div>
-            <h4 className="font-bold text-blue-800 text-sm">Attendance Based Salary</h4>
-            <p className="text-xs text-blue-600 mt-1">Calculate salary proportionally based on actual working days.</p>
-          </div>
-          <div>
-            <button
-              type="button"
-              onClick={() => handleChange({ target: { name: 'attendanceBasedSalary', type: 'checkbox', checked: rules.attendanceBasedSalary === false ? true : false } })}
-              className={`relative w-12 h-6 rounded-full transition-colors flex items-center px-1 focus:outline-none ${rules.attendanceBasedSalary !== false ? 'bg-blue-600' : 'bg-gray-300'}`}
-            >
-              <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform transform ${rules.attendanceBasedSalary !== false ? 'translate-x-6' : 'translate-x-0'}`}></div>
-            </button>
-          </div>
-        </div>
-
+        
         <div className="bg-green-50 p-3 rounded-lg border border-green-100">
           <div className="flex justify-between items-center mb-2">
             <h4 className="font-bold text-green-800 text-sm uppercase">Earnings Structure</h4>
