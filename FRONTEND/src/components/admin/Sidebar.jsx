@@ -116,6 +116,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
               alwaysAllowed: true,
             },
             {
+              to: "/support-admin/leave-management",
+              route: "/support-admin/leave-management",
+              label: "My Leaves",
+              icon: Calendar,
+              alwaysAllowed: true,
+            },
+            {
               to: "/support-admin/management",
               route: "/support-admin/management",
               label: "Management",
