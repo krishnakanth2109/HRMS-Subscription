@@ -34,6 +34,9 @@ const resignationSchema = new mongoose.Schema({
   // Step 1: Employee submits
   resignationLetterHtml: { type: String, default: "" },
   reason: { type: String, default: "" },
+  resignationDate: { type: Date, default: null },
+  expectedLastWorkingDate: { type: Date, default: null },
+  additionalRemarks: { type: String, default: "" },
   submittedAt: { type: Date, default: null },
 
   // Step 2: Admin decision
@@ -72,6 +75,7 @@ const resignationSchema = new mongoose.Schema({
   // Step 8: Final Exit
   finalExitTriggered: { type: Boolean, default: false },
   finalExitAt: { type: Date, default: null },
+  relievingLetterDownloaded: { type: Boolean, default: false },
 
   // Countdown alert
   countdownAlertSent: { type: Boolean, default: false },

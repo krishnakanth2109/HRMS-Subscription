@@ -47,7 +47,7 @@ const sendMail = async (to, subject, html) => {
 // ============================================================
 router.post("/submit", protect, async (req, res) => {
   try {
-    const { employeeId, employeeName, employeeEmail, department, designation, reason, companyName } = req.body;
+    const { employeeId, employeeName, employeeEmail, department, designation, reason, companyName, resignationDate, expectedLastWorkingDate, additionalRemarks } = req.body;
     const adminId = req.user.adminId || req.user._id;
 
     const existing = await Resignation.findOne({
@@ -86,6 +86,9 @@ router.post("/submit", protect, async (req, res) => {
       department,
       designation,
       reason,
+      resignationDate,
+      expectedLastWorkingDate,
+      additionalRemarks,
       resignationLetterHtml: letterHtml,
       submittedAt: new Date(),
       status: "Pending",
@@ -154,7 +157,7 @@ router.get("/admin/all", protect, onlyAdmin, async (req, res) => {
 // ============================================================
 router.post("/admin/decision/:id", protect, onlyAdmin, upload.single("acceptanceFile"), async (req, res) => {
   try {
-    const { action, adminRemark, noticePeriodType, noticePeriodDays } = req.body;
+    const { action, adminRemark, noticePeriodType, noticePeriodDays, releaseDate } = req.body;
     const resignation = await Resignation.findById(req.params.id);
     if (!resignation) return res.status(404).json({ message: "Resignation not found" });
 
@@ -199,8 +202,12 @@ router.post("/admin/decision/:id", protect, onlyAdmin, upload.single("acceptance
 
     if (action === "Approved") {
       const days = noticePeriodType === "Immediate" ? 0 : parseInt(noticePeriodDays) || 0;
-      const endDate = new Date();
-      if (days > 0) endDate.setDate(endDate.getDate() + days);
+      let endDate = new Date();
+      if (releaseDate) {
+        endDate = new Date(releaseDate);
+      } else if (days > 0) {
+        endDate.setDate(endDate.getDate() + days);
+      }
 
       resignation.status = "Approved";
       resignation.adminRemark = adminRemark || "";
@@ -603,6 +610,36 @@ router.post("/employee/final-exit/:id", protect, async (req, res) => {
     );
     if (!resignation) return res.status(404).json({ message: "Not found" });
     res.status(200).json({ message: "Final exit recorded.", resignation });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// EMPLOYEE: Download Relieving Letter (Trigger Deactivation)
+// POST /api/resignations/employee/download-relieving/:id
+// ============================================================
+router.post("/employee/download-relieving/:id", protect, async (req, res) => {
+  try {
+    const resignation = await Resignation.findById(req.params.id);
+    if (!resignation) return res.status(404).json({ message: "Not found" });
+    
+    // Mark as downloaded
+    resignation.relievingLetterDownloaded = true;
+    await resignation.save();
+
+    // Deactivate employee account
+    const employee = await Employee.findOne({ employeeId: resignation.employeeId });
+    if (employee) {
+      employee.isActive = false;
+      employee.status = "Inactive";
+      employee.loginEnabled = false;
+      employee.deactivationDate = new Date().toISOString();
+      employee.deactivationReason = "Resignation completed and relieving letter downloaded";
+      await employee.save();
+    }
+
+    res.status(200).json({ message: "Relieving letter downloaded and account deactivated.", resignation });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
