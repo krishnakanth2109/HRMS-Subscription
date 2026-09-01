@@ -597,6 +597,13 @@ export const snapToRoads = async (req, res) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Google Roads API Error:", errorText);
+      
+      // If the API returns 404, it means the points are too far from any known road.
+      // In this case, gracefully fallback to returning the original unsnapped waypoints.
+      if (response.status === 404) {
+        return res.json({ snappedPoints: waypoints });
+      }
+
       return res.status(500).json({ message: "Failed to snap to roads." });
     }
 
