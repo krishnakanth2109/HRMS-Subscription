@@ -1,4 +1,4 @@
-﻿import "dotenv/config.js";
+import "dotenv/config.js";
 
 
 import express from "express";
@@ -58,6 +58,8 @@ import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+
+import initBirthdayCron from "./cron/birthdayCron.js";
 import copilotRoutes from "./routes/copilotRoutes.js";
 import adminCopilotRoutes from "./routes/adminCopilotRoutes.js";
 import { seedCopilotKnowledge } from "./services/copilotIngestion.js";
@@ -277,6 +279,8 @@ const connectMongoDB = async () => {
     seedCopilotKnowledge("global").catch((err) =>
       console.warn("⚠️ Copilot knowledge seeding error:", err.message)
     );
+    // Initialize automated scheduled jobs
+    initBirthdayCron();
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err.message);
     if (err.message.includes("ECONNREFUSED") || err.message.includes("querySrv")) {
