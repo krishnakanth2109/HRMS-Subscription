@@ -177,7 +177,7 @@ const SidebarSupportAdmin = ({ mobileOpen, setMobileOpen }) => {
         {
           to: "/support-admin/chatting",
           route: "/support-admin/chatting",
-          label: "Chat",
+          label: "Connect",
           icon: Users,
           alwaysAllowed: true,
         },
