@@ -1,20 +1,5 @@
-import "dotenv/config.js";
-import dns from "node:dns";
-try {
-  dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
-} catch (e) {
-  console.warn("Could not set custom DNS servers:", e.message);
-}
+﻿import "dotenv/config.js";
 
-import dns from "dns";
-
-// Fix Node.js DNS SRV lookup issues on Windows / local routers (ECONNREFUSED _mongodb._tcp...)
-try {
-  dns.setDefaultResultOrder?.("ipv4first");
-  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
-} catch (e) {
-  console.warn("⚠️ Custom DNS configuration warning:", e.message);
-}
 
 import express from "express";
 import cors from "cors";
@@ -185,7 +170,7 @@ app.set("userSocketMap", userSocketMap);
 
 /* ==================== SOCKET CONNECTION ==================== */
 io.on("connection", (socket) => {
-  console.log("âœ… Socket Connected:", socket.id);
+  console.log("yes Socket Connected:", socket.id);
 
   socket.on("register", (userId) => {
     if (userId) {
@@ -301,20 +286,9 @@ const connectMongoDB = async () => {
 };
 
 connectMongoDB();
-mongoose
-  .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  })
-  .then(() => {
-    console.log("âœ… MongoDB Connected");
-  })
-  .catch((err) => {
-    console.error("âŒ MongoDB Error:", err.message);
-  });
 
 mongoose.connection.on("disconnected", () => {
-  console.log("âš ï¸ MongoDB Disconnected");
+  console.log("âš ï¸  MongoDB Disconnected");
 });
 
 mongoose.connection.on("reconnected", () => {
