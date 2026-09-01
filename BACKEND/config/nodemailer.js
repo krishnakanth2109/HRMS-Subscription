@@ -1,6 +1,8 @@
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import axios from "axios";
+import Employee from "../models/employeeModel.js";
+import Admin from "../models/adminModel.js";
 
 dotenv.config();
 
@@ -27,6 +29,32 @@ transporter.verify(function (error, success) {
 // 2. Define the fallback mechanism
 const sendMailWithBrevoFallback = async (mailOptions) => {
   try {
+    // Attempt to inject Admin email dynamically for employee communications
+    if (!mailOptions.replyTo && mailOptions.to && !mailOptions.skipAdminOverride) {
+      try {
+        let toEmail = "";
+        if (typeof mailOptions.to === 'string') {
+          toEmail = mailOptions.to.split(',')[0].trim();
+        } else if (Array.isArray(mailOptions.to)) {
+          toEmail = typeof mailOptions.to[0] === 'string' ? mailOptions.to[0].trim() : mailOptions.to[0].email || mailOptions.to[0].address;
+        }
+
+        if (toEmail) {
+          const emp = await Employee.findOne({ email: toEmail }).lean();
+          if (emp && emp.adminId) {
+            const admin = await Admin.findById(emp.adminId).lean();
+            if (admin && admin.email) {
+              mailOptions.replyTo = admin.email;
+              const senderName = admin.name || admin.companyName || "HR Admin";
+              mailOptions.from = `"${senderName}" <${process.env.SMTP_USER}>`;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching admin email for dynamic sender:", err.message);
+      }
+    }
+
     // 💥 First Attempt: Send via Nodemailer
     return await transporter.sendMail(mailOptions);
   } catch (error) {
@@ -88,6 +116,10 @@ const sendMailWithBrevoFallback = async (mailOptions) => {
       subject: mailOptions.subject || "No Subject",
       htmlContent: mailOptions.html || mailOptions.text || "<p></p>"
     };
+
+    if (mailOptions.replyTo) {
+      payload.replyTo = { email: mailOptions.replyTo };
+    }
 
     if (mappedAttachments.length > 0) {
       payload.attachment = mappedAttachments;

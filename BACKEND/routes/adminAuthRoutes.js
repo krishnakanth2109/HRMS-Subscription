@@ -25,7 +25,9 @@ import {
     registerSupportAdmin,
     updateSupportAdmin,
     freeUpgradeToOwner,
-    sendSubscriberEmail
+    sendSubscriberEmail,
+    sendRegistrationOtp,
+    verifyRegistrationOtp
 } from "../controllers/adminAuthController.js";
 
 const router = express.Router();
@@ -59,5 +61,8 @@ router.get("/my-plan-features", protect, getMyPlanFeatures);
 router.patch("/change-password/:adminId", changeAdminPassword);
 router.delete("/delete-admin/:adminId", deleteAdmin);
 router.post("/send-subscriber-email", sendSubscriberEmail);
+// Registration OTP routes
+router.post("/send-registration-otp", sendRegistrationOtp);
+router.post("/verify-registration-otp", verifyRegistrationOtp);
 
 export default router;

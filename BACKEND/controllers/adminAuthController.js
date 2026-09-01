@@ -9,6 +9,8 @@ import jwt from "jsonwebtoken";
 import { getExpiredSubscriptionPayload } from "../utils/subscriptionAccess.js";
 import { generateAndUploadQRCode } from "../utils/qrCodeHelper.js";
 import { sendBrevoEmail } from "../Services/emailService.js";
+import customTransporter from "../config/nodemailer.js";
+import RegistrationOtp from "../models/RegistrationOtp.js";
 
 /* ==================== JWT SIGN ==================== */
 const signToken = (id, role) => {
@@ -1137,5 +1139,81 @@ export const sendSubscriberEmail = async (req, res) => {
   } catch (error) {
     console.error("Error sending subscriber email:", error);
     res.status(500).json({ success: false, message: "Failed to send email" });
+  }
+};
+
+/* ==================== REGISTRATION OTP ==================== */
+export const sendRegistrationOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    // Check if email already exists in Admin
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
+      return res.status(400).json({ success: false, message: "Email is already registered. Please login." });
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Upsert the OTP in RegistrationOtp collection
+    await RegistrationOtp.findOneAndUpdate(
+      { email },
+      { otp, createdAt: Date.now() },
+      { upsert: true, new: true }
+    );
+
+    // Send email via customTransporter
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>Verify your email</h2>
+        <p>Your one-time password (OTP) for admin registration is:</p>
+        <h1 style="color: #2563eb; letter-spacing: 2px;">${otp}</h1>
+        <p>This code will expire in 10 minutes.</p>
+        <p>If you didn't request this code, you can safely ignore this email.</p>
+      </div>
+    `;
+
+    await customTransporter.sendMail({
+      from: `"HRMS System" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Your Registration Verification Code",
+      html: htmlContent,
+      skipAdminOverride: true // Bypass the global Admin sender injection
+    });
+
+    res.status(200).json({ success: true, message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("Error sending registration OTP:", error);
+    res.status(500).json({ success: false, message: "Failed to send OTP" });
+  }
+};
+
+export const verifyRegistrationOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, message: "Email and OTP are required" });
+    }
+
+    const record = await RegistrationOtp.findOne({ email });
+    if (!record) {
+      return res.status(400).json({ success: false, message: "OTP expired or not found. Please resend." });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({ success: false, message: "Invalid OTP. Please try again." });
+    }
+
+    // OTP is valid. We can delete it now to prevent reuse.
+    await RegistrationOtp.deleteOne({ email });
+
+    res.status(200).json({ success: true, message: "OTP verified successfully" });
+  } catch (error) {
+    console.error("Error verifying registration OTP:", error);
+    res.status(500).json({ success: false, message: "Failed to verify OTP" });
   }
 };
