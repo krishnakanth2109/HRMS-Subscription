@@ -363,6 +363,27 @@ const resolveAttendanceScope = async (req, employeeId) => {
   return { adminId, companyId };
 };
 
+const populateEmployeeNames = async (records, audience) => {
+  if (!records || records.length === 0) return records;
+  let nameMap = {};
+  const employeeIds = [...new Set(records.map(r => r.employeeId))];
+  
+  if (audience === "support-admin") {
+    const supportAdmins = await SupportAdmin.find({ _id: { $in: employeeIds } }, "name").lean();
+    supportAdmins.forEach(sa => nameMap[sa._id.toString()] = sa.name);
+  } else {
+    const employees = await Employee.find({ employeeId: { $in: employeeIds } }, "employeeId name").lean();
+    employees.forEach(emp => nameMap[emp.employeeId] = emp.name);
+  }
+  
+  records.forEach(r => {
+    if (nameMap[r.employeeId]) {
+      r.employeeName = nameMap[r.employeeId];
+    }
+  });
+  return records;
+};
+
 const getEmployeeAttendanceIds = async (req, audience = "employee") => {
   if (audience === "support-admin") {
     const supportAdminIds = await SupportAdmin.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id) }).distinct("_id");
@@ -674,7 +695,8 @@ router.get('/admin/daily-status-list', onlyAdmin, async (req, res) => {
  */
 router.get('/admin/status-correction-requests', onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
     const allRecords = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
     const requests = [];
 
@@ -700,6 +722,7 @@ router.get('/admin/status-correction-requests', onlyAdmin, async (req, res) => {
     });
 
     requests.sort((a, b) => new Date(b.date) - new Date(a.date));
+    await populateEmployeeNames(requests, audience);
     res.json({ success: true, data: requests });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1668,7 +1691,8 @@ router.post('/reject-status-correction', onlyAdmin, async (req, res) => {
  */
 router.get("/all", protect, onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
     const records = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
     res.json({ success: true, data: records });
   } catch (err) {
@@ -1879,7 +1903,8 @@ router.post("/request-full-day", protect, async (req, res) => {
  */
 router.get("/admin/full-day-requests", protect, onlyAdmin, async (req, res) => {
   try {
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
     const allRecords = await Attendance.find({ adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } });
 
     const pendingRequests = [];
@@ -1910,6 +1935,7 @@ router.get("/admin/full-day-requests", protect, onlyAdmin, async (req, res) => {
     // Sort newest first
     pendingRequests.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
 
+    await populateEmployeeNames(pendingRequests, audience);
     res.json({ success: true, data: pendingRequests });
   } catch (error) {
     console.error("Error fetching full day requests:", error);
@@ -2139,7 +2165,8 @@ router.post("/request-correction-advanced", protect, async (req, res) => {
 router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) => {
   try {
     let companyIds = [];
-    const employeeIds = await getEmployeeAttendanceIds(req);
+    const audience = req.query.audience || "employee";
+    const employeeIds = await getEmployeeAttendanceIds(req, audience);
 
     if (req.user.role === 'admin' || req.user.role === 'support-admin') {
       // Find all companies owned by this admin
@@ -2154,8 +2181,9 @@ router.get("/admin/pending-corrections", protect, onlyAdmin, async (req, res) =>
       companyId: { $in: companyIds },
       employeeId: { $in: employeeIds },
       requestStatus: 'pending'
-    }).sort({ requestedAt: -1 });
+    }).sort({ requestedAt: -1 }).lean();
 
+    await populateEmployeeNames(requests, audience);
     res.json({ success: true, data: requests });
   } catch (error) {
     console.error("Error fetching pending corrections:", error);
@@ -2338,6 +2366,7 @@ router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) 
       }
     ]);
 
+    await populateEmployeeNames(pendingRequests, audience);
     res.status(200).json({ success: true, count: pendingRequests.length, data: pendingRequests });
   } catch (err) {
     console.error("Error in /admin/pending-late-requests:", err);
@@ -2352,22 +2381,35 @@ router.get("/admin/pending-late-requests", protect, onlyAdmin, async (req, res) 
 router.get("/admin/all-request-limits", protect, onlyAdmin, async (req, res) => {
   try {
     const audience = req.query.audience || "employee";
-    const employeeIds = await getEmployeeAttendanceIds(req, audience);
     const currentMonth = new Date().toISOString().slice(0, 7);
+    const adminIdToUse = req.user.role === "support-admin" ? req.user.adminId : req.user._id;
+
+    let employeesList = [];
+    let employeeIds = [];
+
+    if (audience === "support-admin") {
+      const supportAdmins = await SupportAdmin.find({ adminId: adminIdToUse }).lean();
+      employeesList = supportAdmins.map(sa => ({ employeeId: sa._id.toString(), employeeName: sa.name }));
+      employeeIds = supportAdmins.map(sa => sa._id.toString());
+    } else {
+      const employees = await Employee.find({ adminId: adminIdToUse }).lean();
+      employeesList = employees.map(emp => ({ employeeId: emp.employeeId, employeeName: emp.name }));
+      employeeIds = employees.map(emp => emp.employeeId);
+    }
 
     const attendances = await Attendance.find(
-      { adminId: (req.user.role === "support-admin" ? req.user.adminId : req.user._id), employeeId: { $in: employeeIds } },
+      { adminId: adminIdToUse, employeeId: { $in: employeeIds } },
       "employeeId employeeName monthlyRequestLimits"
     ).lean();
 
-    const limitData = attendances.map(att => {
-      // Map handling since it's a raw object after .lean()
-      const monthData = (att.monthlyRequestLimits && att.monthlyRequestLimits[currentMonth]) 
+    const limitData = employeesList.map(emp => {
+      const att = attendances.find(a => a.employeeId === emp.employeeId);
+      const monthData = (att && att.monthlyRequestLimits && att.monthlyRequestLimits[currentMonth]) 
         || { limit: 5, used: 0 };
       
       return {
-        employeeId: att.employeeId,
-        employeeName: att.employeeName,
+        employeeId: emp.employeeId,
+        employeeName: emp.employeeName,
         currentLimit: monthData.limit,
         currentUsed: monthData.used,
         remaining: monthData.limit - monthData.used

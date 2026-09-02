@@ -1499,6 +1499,98 @@ const PAYSLIP_LAYOUTS = [
   { id: 'monochrome', label: 'Monochrome', Icon: FaAdjust,      desc: 'High-contrast, bold lines',  color: 'text-neutral-800',bg: 'bg-neutral-100' },
 ];
 
+const FieldSelectionModal = ({ isOpen, onClose, employee, onConfirm }) => {
+  if (!isOpen) return null;
+
+  const [selectedEarn, setSelectedEarn] = useState(() => {
+    let earns = {
+      'Basic Salary': true,
+      'HRA': true,
+      'Conveyance': true,
+      'Medical': true,
+      'Travelling Allowance': true,
+      'Others': true
+    };
+    const customEarns = employee?.monthlyBreakdown?.customFields || [];
+    customEarns.forEach(e => earns[e.name] = true);
+    return earns;
+  });
+
+  const [selectedDeduct, setSelectedDeduct] = useState(() => {
+    let deducts = {
+      'Employee PF': true,
+      'Employer PF': true,
+      'Professional Tax': true,
+      'LOP Deduction': true,
+      'Late Penalty': true
+    };
+    const localDeducts = employee?.breakdown?.customDeductions || [];
+    localDeducts.forEach(d => deducts[d.name] = true);
+    return deducts;
+  });
+
+  const handleConfirm = () => {
+    onConfirm({ earn: selectedEarn, deduct: selectedDeduct });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-[fade-in_0.2s_ease-out]">
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-black text-gray-800">Custom Payslip Output</h3>
+            <p className="text-sm text-gray-500 mt-1">Select fields to include in the generated PDF.</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-200 transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        
+        <div className="p-6 max-h-[60vh] overflow-y-auto">
+          <div className="mb-6">
+            <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500"></span>Earnings</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-4">
+              {Object.keys(selectedEarn).map(key => (
+                <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative flex items-center">
+                    <input type="checkbox" className="peer sr-only" checked={selectedEarn[key]} onChange={(e) => setSelectedEarn(prev => ({...prev, [key]: e.target.checked}))} />
+                    <div className="w-5 h-5 border-2 border-gray-300 rounded-md peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                  </div>
+                  <span className="text-gray-700 font-medium group-hover:text-gray-900 transition-colors">{key}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span>Deductions</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-4">
+              {Object.keys(selectedDeduct).map(key => (
+                <label key={key} className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative flex items-center">
+                    <input type="checkbox" className="peer sr-only" checked={selectedDeduct[key]} onChange={(e) => setSelectedDeduct(prev => ({...prev, [key]: e.target.checked}))} />
+                    <div className="w-5 h-5 border-2 border-gray-300 rounded-md peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                  </div>
+                  <span className="text-gray-700 font-medium group-hover:text-gray-900 transition-colors">{key}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2.5 font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 hover:text-gray-900 transition-all">Cancel</button>
+          <button onClick={handleConfirm} className="px-5 py-2.5 font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20 transition-all">Continue to Print</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateOverride }) => {
   const [companyData, setCompanyData] = useState(null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -1506,6 +1598,9 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
   const [selectedLayout, setSelectedLayout] = useState('classic');
   const [isLayoutDropdownOpen, setIsLayoutDropdownOpen] = useState(false);
   const [showOverridePanel, setShowOverridePanel] = useState(false);
+  const [showFieldSelectionModal, setShowFieldSelectionModal] = useState(false);
+  const [pendingPrintAction, setPendingPrintAction] = useState(null);
+  const [selectedFieldsForPrint, setSelectedFieldsForPrint] = useState(null);
   const [localOverride, setLocalOverride] = useState({
     // Earnings
     basicValueType: employee.appliedRules.basicValueType || 'percentage', basicPercentage: employee.appliedRules.basicPercentage || 40,
@@ -1654,7 +1749,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
   };
 
   // Builds the raw payslip HTML (used both for print and PDF)
-  const buildPayslipHTML = useCallback((pfLabel, employerPfLabel, isCustomTemplate = false) => {
+  const buildPayslipHTML = useCallback((pfLabel, employerPfLabel, isCustomTemplate = false, selectedFields = null) => {
     // ── shared helpers ────────────────────────────────────────────────
     const numToWords = (num) => {
       const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
@@ -1672,7 +1767,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       return str.trim() || '';
     };
 
-    const earnList = [
+    let earnList = [
       { name: 'Basic Salary', val: employee.monthlyBreakdown.basic },
       { name: 'HRA', val: employee.monthlyBreakdown.hra },
       { name: 'Conveyance', val: employee.monthlyBreakdown.conveyance },
@@ -1682,7 +1777,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       ...(employee.monthlyBreakdown.customFields || []).map(cf => ({ name: cf.name, val: cf.value }))
     ];
 
-    const deductList = [
+    let deductList = [
       { name: pfLabel, val: employee.breakdown.pf },
       { name: employerPfLabel, val: employee.breakdown.employerPf },
       { name: 'Professional Tax', val: employee.breakdown.pt },
@@ -1700,6 +1795,28 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       },
       ...(employee.breakdown.customDeductions || []).map(cf => ({ name: cf.name, val: cf.value }))
     ];
+
+    if (selectedFields) {
+      earnList = earnList.filter(e => {
+        if (selectedFields.earn[e.name] !== undefined) {
+          return selectedFields.earn[e.name];
+        }
+        return true;
+      });
+
+      deductList = deductList.filter(d => {
+        if (d.name.startsWith('Employee PF')) return selectedFields.deduct['Employee PF'];
+        if (d.name.startsWith('Employer PF')) return selectedFields.deduct['Employer PF'];
+        if (d.name.startsWith('LOP Deduction')) return selectedFields.deduct['LOP Deduction'];
+        if (d.name.startsWith('Late Penalty')) return selectedFields.deduct['Late Penalty'];
+        if (d.name.startsWith('Professional Tax')) return selectedFields.deduct['Professional Tax'];
+        
+        if (selectedFields.deduct[d.name] !== undefined) {
+          return selectedFields.deduct[d.name];
+        }
+        return true;
+      });
+    }
 
     const maxLen = Math.max(earnList.length, deductList.length);
     const SIGN = `"/api/offer-letters/templates/fetch?url=${encodeURIComponent('https://payroll-assets.s3.ap-south-1.amazonaws.com/signature.png')}"`;
@@ -2548,13 +2665,34 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
 
   }, [employee, companyName, companyAddress, periodStart, periodEnd, selectedLayout]);
   // Plain print (no template — opens browser print dialog as before)
-  const downloadPayslip = () => {
+  const handleFieldSelectionConfirm = (fields) => {
+    setShowFieldSelectionModal(false);
+    setSelectedFieldsForPrint(fields);
+    
+    if (pendingPrintAction === 'simple') {
+      executeSimplePrint(fields);
+    } else if (pendingPrintAction === 'custom_template') {
+      setShowTemplatePicker(true);
+    }
+  };
+
+  const triggerPrintWithFields = (type) => {
+    setPendingPrintAction(type);
+    setShowFieldSelectionModal(true);
+  };
+
+  const executeSimplePrint = (fields) => {
     const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employee PF (Fixed)' : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
     const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employer PF (Fixed)' : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Payslip - ${employee.employeeName}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Arial',sans-serif;padding:24px;}</style></head><body>${buildPayslipHTML(pfLabel, employerPfLabel)}</body></html>`);
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Payslip - ${employee.employeeName}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Arial',sans-serif;padding:24px;}</style></head><body>${buildPayslipHTML(pfLabel, employerPfLabel, false, fields)}</body></html>`);
     printWindow.document.close();
     setTimeout(() => printWindow.print(), 500);
+  };
+
+  // Plain print (no template — opens browser print dialog as before)
+  const downloadPayslip = () => {
+    triggerPrintWithFields('simple');
   };
 
   // Template-based PDF generation
@@ -2572,7 +2710,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
       const { generateOfferLetterPdf } = await import('../utils/offerLetterPdfGenerator');
       const pfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employee PF (Fixed)' : `Employee PF (${employee.appliedRules.pfPercentage}%)`;
       const employerPfLabel = employee.appliedRules.pfCalculationMethod === 'fixed' ? 'Employer PF (Fixed)' : `Employer PF (${employee.appliedRules.employerPfPercentage}%)`;
-      const htmlContent = buildPayslipHTML(pfLabel, employerPfLabel, true);
+      const htmlContent = buildPayslipHTML(pfLabel, employerPfLabel, true, selectedFieldsForPrint);
       
       const dataUri = await generateOfferLetterPdf(htmlContent, template.templateUrl);
 
@@ -2829,12 +2967,12 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                               </div>
                             </div>
                           ) : (
-                            <div key={idx} className="flex justify-between items-center bg-white p-1 border rounded shadow-sm group">
+                            <div key={idx} className="flex justify-between items-center bg-white p-1 border rounded shadow-sm">
                               <div>
                                 <span className="text-[10px] font-bold text-gray-700">{cf.name}</span>
                                 <span className="text-[9px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
                               </div>
-                              <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                              <div className="flex gap-1">
                                 <button onClick={() => handleUpdateLocalCustomField(idx, 'isEditing', true)} className="text-blue-500 text-[9px]">✏️</button>
                                 <button onClick={() => handleDeleteLocalCustomField(idx)} className="text-red-500 text-[9px]">🗑️</button>
                               </div>
@@ -2905,7 +3043,7 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
                                 <span className="text-[10px] font-bold text-gray-700">{cf.name}</span>
                                 <span className="text-[9px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
                               </div>
-                              <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                              <div className="flex gap-1">
                                 <button onClick={() => handleUpdateLocalCustomDeduction(idx, 'isEditing', true)} className="text-blue-500 text-[9px]">✏️</button>
                                 <button onClick={() => handleDeleteLocalCustomDeduction(idx)} className="text-red-500 text-[9px]">🗑️</button>
                               </div>
@@ -3043,13 +3181,13 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2 shrink-0">
             <button
-              onClick={downloadPayslip}
+              onClick={() => triggerPrintWithFields('simple')}
               className="flex-1 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-black text-sm hover:bg-gray-50 hover:border-gray-300 transition active:scale-95 flex items-center justify-center gap-2"
             >
               <FaPrint className="text-gray-500" /> Simple Print
             </button>
             <button
-              onClick={() => setShowTemplatePicker(true)}
+              onClick={() => triggerPrintWithFields('custom_template')}
               disabled={generatingPdf}
               className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl font-black text-sm hover:from-blue-700 hover:to-indigo-800 shadow-lg transition active:scale-95 flex items-center justify-center gap-2"
             >
@@ -3061,6 +3199,14 @@ const PayrollSlipModal = ({ employee, onClose, periodStart, periodEnd, onUpdateO
             </button>
           </div>
         </div>
+
+        {/* Field Selection Modal */}
+        <FieldSelectionModal
+          isOpen={showFieldSelectionModal}
+          onClose={() => setShowFieldSelectionModal(false)}
+          employee={employee}
+          onConfirm={handleFieldSelectionConfirm}
+        />
 
         {/* Template picker popup */}
         {showTemplatePicker && (
@@ -3445,7 +3591,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                             <span className="text-xs font-bold text-gray-700">{cf.name}</span>
                             <span className="text-[10px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                          <div className="flex gap-2">
                             <button onClick={() => handleUpdateCustomField(idx, 'isEditing', true)} className="text-blue-500 text-[10px]">✏️</button>
                             <button onClick={() => handleDeleteCustomField(idx)} className="text-red-500 text-[10px]">🗑️</button>
                           </div>
@@ -3539,7 +3685,7 @@ const BulkOverrideModal = ({ isOpen, onClose, allEmployees, payrollGroups, emplo
                             <span className="text-xs font-bold text-gray-700">{cf.name}</span>
                             <span className="text-[10px] text-gray-400 ml-1">({cf.valueType === 'percentage' ? `${cf.value}% of ${cf.percentageOf}` : `₹${cf.value}`})</span>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 flex gap-2">
+                          <div className="flex gap-2">
                             <button onClick={() => handleUpdateCustomDeduction(idx, 'isEditing', true)} className="text-blue-500 text-[10px]">✏️</button>
                             <button onClick={() => handleDeleteCustomDeduction(idx)} className="text-red-500 text-[10px]">🗑️</button>
                           </div>
