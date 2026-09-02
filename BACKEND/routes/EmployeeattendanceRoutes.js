@@ -1736,8 +1736,9 @@ router.get('/:employeeId', protect, async (req, res) => {
       ]
     };
 
-    const record = await Attendance.findOne(query);
+    const record = await Attendance.findOne(query).select('attendance').lean();
     if (!record) return res.json({ success: true, data: [] });
+
     const sorted = (record.attendance || []).sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json({ success: true, data: sorted });
   } catch (err) {

@@ -25,18 +25,26 @@ router.get("/by-range", onlyAdmin, async (req, res) => {
           adminId: req.user._id
         }
       },
-      // Stage 1: Deconstruct the 'attendance' array
+      // Stage 1: Filter the attendance array BEFORE unwinding to save memory/processing
       {
-        $unwind: "$attendance"
-      },
-      // Stage 2: Filter dates
-      {
-        $match: {
-          "attendance.date": {
-            $gte: startDate,
-            $lte: endDate
+        $addFields: {
+          attendance: {
+            $filter: {
+              input: { $ifNull: ["$attendance", []] },
+              as: "att",
+              cond: {
+                $and: [
+                  { $gte: ["$$att.date", startDate] },
+                  { $lte: ["$$att.date", endDate] }
+                ]
+              }
+            }
           }
         }
+      },
+      // Stage 2: Deconstruct the filtered 'attendance' array
+      {
+        $unwind: "$attendance"
       },
       // Stage 3: Sort
       {
