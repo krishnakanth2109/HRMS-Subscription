@@ -17,7 +17,7 @@ import PayrollRule from "../models/PayrollRule.js";
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import { upload, cloudinary } from "../config/cloudinary.js";
-import { generateHRDocument } from "../Services/aiDocumentService.js";
+import { generateHRDocument } from "../services/aiDocumentService.js";
 import { getFallbackTemplate } from "../utils/documentTemplates.js";
 
 const router = express.Router();

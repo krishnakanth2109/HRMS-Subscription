@@ -8,7 +8,7 @@ import Company from "../models/CompanyModel.js";
 import jwt from "jsonwebtoken";
 import { getExpiredSubscriptionPayload } from "../utils/subscriptionAccess.js";
 import { generateAndUploadQRCode } from "../utils/qrCodeHelper.js";
-import { sendBrevoEmail } from "../Services/emailService.js";
+import { sendBrevoEmail } from "../services/emailService.js";
 import customTransporter from "../config/nodemailer.js";
 import RegistrationOtp from "../models/RegistrationOtp.js";
 

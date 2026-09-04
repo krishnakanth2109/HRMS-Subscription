@@ -3,7 +3,7 @@ import crypto from "crypto";
 import PlanSetting from "../models/planSettingModel.js";
 import Admin from "../models/adminModel.js";
 import { getBillableEmployeesCount } from "../utils/billingHelper.js";
-import { sendBrevoEmail } from "../Services/emailService.js";
+import { sendBrevoEmail } from "../services/emailService.js";
 
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
