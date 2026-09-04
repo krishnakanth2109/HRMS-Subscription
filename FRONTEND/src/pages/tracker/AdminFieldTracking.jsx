@@ -263,24 +263,30 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
     [stops]
   );
 
-  const waypoints = useMemo(() => {
-    if (routePoints.length < 2) return [];
-    const sampled = [];
-    let lastT = 0;
-    for (let i = 0; i < routePoints.length; i++) {
-      const pt = routePoints[i];
-      const t = pt.recordedAt ? new Date(pt.recordedAt).getTime() : i * 3000;
-      if (i === 0 || i === routePoints.length - 1 || t - lastT >= LOCATION_INTERVAL_MS) {
-        sampled.push({ lat: pt.latitude, lng: pt.longitude });
-        lastT = t;
-      }
+  // Snap GPS path to actual roads using backend proxy (Roads API), in batches of 100
+  const snapPathToRoads = useCallback(async (rawPoints) => {
+    if (rawPoints.length < 2) return rawPoints;
+    const BATCH = 100;
+    const batches = [];
+    for (let i = 0; i < rawPoints.length; i += BATCH) {
+      // Overlap by 1 point between batches to avoid gaps
+      batches.push(rawPoints.slice(i === 0 ? 0 : i - 1, i + BATCH));
     }
-    if (sampled.length <= 25) return sampled;
-    const step = (sampled.length - 1) / 24;
-    return Array.from({ length: 25 }, (_, i) => sampled[Math.round(i * step)]);
-  }, [routePoints]);
+    try {
+      const results = await Promise.all(
+        batches.map((batch) =>
+          snapToRoadsProxy(batch).then((res) => res.snappedPoints || batch).catch(() => batch)
+        )
+      );
+      // Stitch: remove the overlapping first point of every batch after the first
+      const stitched = results.flatMap((pts, idx) => (idx === 0 ? pts : pts.slice(1)));
+      return stitched.length >= 2 ? stitched : rawPoints;
+    } catch {
+      return rawPoints;
+    }
+  }, []);
 
-  const waypointsKey = waypoints.map((p) => `${p.lat},${p.lng}`).join(";");
+  const routePointsKey = routePoints.map((p) => `${p.latitude},${p.longitude}`).join(";");
 
   useEffect(() => {
     if (!mapDivRef.current || !mapsKey) return;
@@ -319,33 +325,24 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
       const google = await getGoogleMapsApi(mapsKey);
       if (cancelled || !mapRef.current) return;
       clearOverlays();
-      
+
       const map = mapRef.current;
       const iw = infoWindowRef.current;
       const newMarkers = [];
 
-      let routePath = routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+      // Raw GPS points as fallback
+      const rawPath = routePoints.map((p) => ({ lat: Number(p.latitude), lng: Number(p.longitude) }));
 
-      if (waypoints.length >= 2) {
+      // ── Snap entire GPS trail to actual roads via backend Roads API proxy ──
+      let routePath = rawPath;
+      if (rawPath.length >= 2) {
         try {
-          const directionsService = new google.maps.DirectionsService();
-          const origin = waypoints[0];
-          const destination = waypoints[waypoints.length - 1];
-          const intermediateWaypoints = waypoints.slice(1, -1).map((p) => ({ location: p, stopover: false }));
-
-          const request = {
-            origin,
-            destination,
-            waypoints: intermediateWaypoints,
-            travelMode: google.maps.TravelMode.DRIVING,
-          };
-
-          const response = await directionsService.route(request);
-          if (response.routes && response.routes.length > 0) {
-            routePath = response.routes[0].overview_path;
+          const snapped = await snapPathToRoads(rawPath);
+          if (!cancelled && snapped && snapped.length >= 2) {
+            routePath = snapped;
           }
-        } catch (error) {
-          console.warn("[AdminFieldTracking:DirectionsService] fallback to raw GPS:", error);
+        } catch (err) {
+          console.warn("[AdminFieldTracking] snapToRoads failed, using raw GPS path:", err);
         }
       }
       if (cancelled) return;
@@ -360,10 +357,11 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
       poly.setMap(map);
       polylineRef.current = poly;
 
+      // Show intermediate GPS dots along the raw recorded path
       routePoints.forEach((pt, i) => {
-        if (i === 0 || i === routePoints.length - 1 || i % 3 !== 0) return;
+        if (i === 0 || i === routePoints.length - 1 || i % 5 !== 0) return;
         newMarkers.push(new google.maps.Marker({
-          position: { lat: pt.latitude, lng: pt.longitude },
+          position: { lat: Number(pt.latitude), lng: Number(pt.longitude) },
           map,
           icon: makeIcon(google, "dot"),
           title: `Point ${i + 1}`,
@@ -470,7 +468,7 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
 
     draw();
     return () => { cancelled = true; };
-  }, [routePoints, stopPoints, breaks, waypointsKey, mapsKey]);
+  }, [routePoints, stopPoints, breaks, routePointsKey, mapsKey, snapPathToRoads]);
 
   useEffect(() => {
     if (!mapRef.current) return;
