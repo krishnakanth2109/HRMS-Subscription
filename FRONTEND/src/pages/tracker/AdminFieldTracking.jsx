@@ -203,17 +203,7 @@ const getGoogleMapsApi = async (key) => {
 // ==========================================
 // SNAP-TO-ROADS PROXY
 // ==========================================
-const callSnapToRoads = async (waypoints) => {
-  if (!waypoints || waypoints.length < 2) return waypoints;
-  try {
-    const result = await snapToRoadsProxy(waypoints.slice(0, 100));
-    const snapped = result?.snappedPoints;
-    if (Array.isArray(snapped) && snapped.length >= 2) return snapped;
-  } catch (err) {
-    console.warn("[AdminFieldTracking:snapToRoads] fallback to raw GPS:", err.message);
-  }
-  return waypoints;
-};
+// Removed in favor of Directions API (A* routing)
 
 // ==========================================
 // SVG MARKER HELPERS
@@ -285,9 +275,9 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
         lastT = t;
       }
     }
-    if (sampled.length <= 100) return sampled;
-    const step = (sampled.length - 1) / 99;
-    return Array.from({ length: 100 }, (_, i) => sampled[Math.round(i * step)]);
+    if (sampled.length <= 25) return sampled;
+    const step = (sampled.length - 1) / 24;
+    return Array.from({ length: 25 }, (_, i) => sampled[Math.round(i * step)]);
   }, [routePoints]);
 
   const waypointsKey = waypoints.map((p) => `${p.lat},${p.lng}`).join(";");
@@ -334,13 +324,34 @@ const TripRouteMap = ({ mapsKey, path = [], stops = [], breaks = [], currentPoin
       const iw = infoWindowRef.current;
       const newMarkers = [];
 
-      const snapped = waypoints.length >= 2
-        ? await callSnapToRoads(waypoints)
-        : routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+      let routePath = routePoints.map((p) => ({ lat: p.latitude, lng: p.longitude }));
+
+      if (waypoints.length >= 2) {
+        try {
+          const directionsService = new google.maps.DirectionsService();
+          const origin = waypoints[0];
+          const destination = waypoints[waypoints.length - 1];
+          const intermediateWaypoints = waypoints.slice(1, -1).map((p) => ({ location: p, stopover: false }));
+
+          const request = {
+            origin,
+            destination,
+            waypoints: intermediateWaypoints,
+            travelMode: google.maps.TravelMode.DRIVING,
+          };
+
+          const response = await directionsService.route(request);
+          if (response.routes && response.routes.length > 0) {
+            routePath = response.routes[0].overview_path;
+          }
+        } catch (error) {
+          console.warn("[AdminFieldTracking:DirectionsService] fallback to raw GPS:", error);
+        }
+      }
       if (cancelled) return;
 
       const poly = new google.maps.Polyline({
-        path: snapped,
+        path: routePath,
         geodesic: true,
         strokeColor: "#10B981",
         strokeOpacity: 0.9,
