@@ -3,7 +3,7 @@
 import express from 'express';
 import Attendance from '../models/Attendance.js';
 import Shift from '../models/shiftModel.js';
-import { reverseGeocode, validateCoordinates } from '../Services/locationService.js';
+import { reverseGeocode, validateCoordinates } from '../services/locationService.js';
 import { protect } from "../controllers/authController.js";
 import { onlyAdmin } from "../middleware/roleMiddleware.js";
 import LeaveRequest from "../models/LeaveRequest.js";
