@@ -49,7 +49,7 @@ const sendMailWithBrevoFallback = async (mailOptions) => {
               mailOptions.from = `"${senderName}" <${process.env.SMTP_USER}>`;
             }
           }
-        }
+        }   
       } catch (err) {
         console.error("Error fetching admin email for dynamic sender:", err.message);
       }
