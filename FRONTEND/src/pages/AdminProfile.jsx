@@ -709,18 +709,14 @@ const AdminProfile = () => {
      RAZORPAY UPGRADE FLOW
   ───────────────────────────────────────────────────────────────── */
   const handleUpgrade = (plan) => {
-    if (plan.planName === profile?.plan) {
-      alert("You are already on this plan!");
-      return;
-    }
-
     if (Number(plan.price) === 0) {
       alert("Please contact support to switch to a free plan.");
       return;
     }
 
+    const isSamePlan = plan.planName === profile?.plan;
     setUpgradeSelectedPlan(plan);
-    setUpgradeEmployeeCount(profile?.userLimit || 1);
+    setUpgradeEmployeeCount(isSamePlan ? 1 : Math.max(1, profile?.activeEmployeeCount || 1));
     setIsUpgradeModalOpen(true);
   };
 
@@ -1281,15 +1277,7 @@ const AdminProfile = () => {
             {plansLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {plans
-              .filter(plan => {
-                const isPaidPlan = profile?.isPaid && profile?.plan && !profile.plan.toLowerCase().includes("free");
-                if (isPaidPlan) {
-                  return plan.planName === profile.plan;
-                }
-                return true;
-              })
-              .map((plan) => {
+            {plans.map((plan) => {
               const isCurrentPlan = plan.planName === profile?.plan;
               return (
                 <div
@@ -1881,17 +1869,35 @@ const AdminProfile = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Additional Employees to Add</label>
-              <input
-                type="number"
-                min="1"
-                value={upgradeEmployeeCount}
-                onChange={(e) => setUpgradeEmployeeCount(Number(e.target.value))}
-                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 block p-3 font-medium transition-shadow hover:shadow-sm"
-              />
-              <p className="mt-2 text-xs text-gray-500">
-                Specify the exact number of extra users you want to add to your current limit.
-              </p>
+              {upgradeSelectedPlan.planName === profile?.plan ? (
+                <>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Additional Employees to Add</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={upgradeEmployeeCount}
+                    onChange={(e) => setUpgradeEmployeeCount(Number(e.target.value))}
+                    className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 block p-3 font-medium transition-shadow hover:shadow-sm"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Specify the exact number of extra users you want to add to your current limit.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Total Number of Employees</label>
+                  <input
+                    type="number"
+                    min={Math.max(1, profile?.activeEmployeeCount || 1)}
+                    value={upgradeEmployeeCount}
+                    onChange={(e) => setUpgradeEmployeeCount(Number(e.target.value))}
+                    className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 block p-3 font-medium transition-shadow hover:shadow-sm"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Specify the total number of users you want on your new plan. (Minimum {Math.max(1, profile?.activeEmployeeCount || 1)} based on your active employees)
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">

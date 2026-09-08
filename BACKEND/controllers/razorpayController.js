@@ -223,11 +223,18 @@ export const verifyPayment = async (req, res) => {
     if (existing) {
       const oldPlanExpiresAt = existing.planDetails?.expiresAt || existing.planExpiresAt;
       const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
+      const isSamePlan = existing.planDetails?.planName === planName;
       const requestedUserLimit = Math.max(1, Number(userLimit) || 1);
       const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 1;
       
-      // Make the limit additive upon upgrade
-      const renewedUserLimit = currentBaseLimit + requestedUserLimit;
+      let renewedUserLimit;
+      if (isSamePlan) {
+        // Additive for adding seats to current plan
+        renewedUserLimit = currentBaseLimit + requestedUserLimit;
+      } else {
+        // Full replacement for new plans
+        renewedUserLimit = requestedUserLimit;
+      }
 
       existing.planDetails = {
         planName: planName,
