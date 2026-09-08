@@ -122,6 +122,11 @@ const AdminProfile = () => {
   const [companiesLoading, setCompaniesLoading] = useState(true);
   const [upgradingPlanId, setUpgradingPlanId] = useState(null);
 
+  // Upgrade Modal State
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradeSelectedPlan, setUpgradeSelectedPlan] = useState(null);
+  const [upgradeEmployeeCount, setUpgradeEmployeeCount] = useState(30);
+
   // Support Admins State
   const [isSupportAdminsModalOpen, setIsSupportAdminsModalOpen] = useState(false);
   const [supportAdmins, setSupportAdmins] = useState([]);
@@ -703,7 +708,7 @@ const AdminProfile = () => {
   /* ─────────────────────────────────────────────────────────────────
      RAZORPAY UPGRADE FLOW
   ───────────────────────────────────────────────────────────────── */
-  const handleUpgrade = async (plan) => {
+  const handleUpgrade = (plan) => {
     if (plan.planName === profile?.plan) {
       alert("You are already on this plan!");
       return;
@@ -714,7 +719,21 @@ const AdminProfile = () => {
       return;
     }
 
+    setUpgradeSelectedPlan(plan);
+    setUpgradeEmployeeCount(profile?.userLimit || 1);
+    setIsUpgradeModalOpen(true);
+  };
+
+  const processUpgrade = async () => {
+    if (!upgradeSelectedPlan) return;
+    if (upgradeEmployeeCount <= 0) {
+      alert("Employee count must be greater than zero.");
+      return;
+    }
+
+    const plan = upgradeSelectedPlan;
     setUpgradingPlanId(plan._id);
+    setIsUpgradeModalOpen(false);
 
     try {
       const sdkReady = await loadRazorpayScript();
@@ -734,7 +753,7 @@ const AdminProfile = () => {
           department: profile.department,
           role: profile.role
         },
-        userLimit: profile.userLimit || 30,
+        userLimit: upgradeEmployeeCount,
         isUpgrade: true
       });
 
@@ -746,7 +765,7 @@ const AdminProfile = () => {
         amount: orderData.amount, // in paise
         currency: orderData.currency,
         name: "HRMS vwsync",
-        description: `Upgrade to ${plan.planName} Plan`,
+        description: `Upgrade to ${plan.planName} Plan (${upgradeEmployeeCount} Users)`,
         order_id: orderData.orderId,
         prefill: {
           name: profile.name,
@@ -1119,11 +1138,11 @@ const AdminProfile = () => {
                           Unlimited
                         </span>
                       ) : (
-                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${(profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0) <= 5
+                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-black ${(profile?.effectiveUserLimit || profile?.userLimit || 30) - (profile?.activeEmployeeCount || 0) - (profile?.supportAdminCount || 0) <= 5
                           ? "bg-red-50 text-red-600 border border-red-100 animate-pulse"
                           : "bg-emerald-50 text-emerald-600 border border-emerald-100"
                           }`}>
-                          {Math.max(0, (profile?.effectiveUserLimit || profile?.userLimit || 30) - companies.reduce((sum, co) => sum + (co.employeeCount || 0), 0) - (profile?.supportAdminCount || 0))} Users
+                          {Math.max(0, (profile?.effectiveUserLimit || profile?.userLimit || 30) - (profile?.activeEmployeeCount || 0) - (profile?.supportAdminCount || 0))} Users
                         </span>
                       )}
                     </div>
@@ -1147,6 +1166,28 @@ const AdminProfile = () => {
                   </div>
                 </div>
               </div>
+
+              {profile?.lastPaymentAmount > 0 && (
+                <div className="mt-8 pt-8 border-t border-dashed border-gray-200">
+                  <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <FaCreditCard className="text-indigo-500" /> Last Transaction
+                  </h4>
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Transaction ID</p>
+                      <p className="text-xs font-bold text-gray-800">{profile.razorpayPaymentId || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Date</p>
+                      <p className="text-xs font-bold text-gray-800">{formatDate(profile.lastPaymentAt)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Amount Paid</p>
+                      <p className="text-sm font-black text-indigo-600">₹{profile.lastPaymentAmount}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
@@ -1240,7 +1281,15 @@ const AdminProfile = () => {
             {plansLoading && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {plans.map((plan) => {
+            {plans
+              .filter(plan => {
+                const isPaidPlan = profile?.isPaid && profile?.plan && !profile.plan.toLowerCase().includes("free");
+                if (isPaidPlan) {
+                  return plan.planName === profile.plan;
+                }
+                return true;
+              })
+              .map((plan) => {
               const isCurrentPlan = plan.planName === profile?.plan;
               return (
                 <div
@@ -1282,10 +1331,10 @@ const AdminProfile = () => {
                   </ul>
                   <button
                     onClick={() => handleUpgrade(plan)}
-                    disabled={isCurrentPlan || upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) || Number(plan.price) === 0}
-                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${isCurrentPlan ? "bg-emerald-100 text-emerald-600 cursor-default" : Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"}`}
+                    disabled={upgradingPlanId === plan._id || (upgradingPlanId !== null && upgradingPlanId !== plan._id) || Number(plan.price) === 0}
+                    className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${Number(plan.price) === 0 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-purple-600 text-white hover:bg-purple-700 shadow-lg shadow-purple-100"}`}
                   >
-                    {isCurrentPlan ? "Active Now" : upgradingPlanId === plan._id ? "Processing..." : Number(plan.price) === 0 ? "Default Plan" : "Upgrade Plan"}
+                    {upgradingPlanId === plan._id ? "Processing..." : Number(plan.price) === 0 ? "Default Plan" : isCurrentPlan ? "Add More Seats" : "Upgrade Plan"}
                   </button>
                 </div>
               );
@@ -1806,6 +1855,84 @@ const AdminProfile = () => {
             </div>
           );
         })()}
+      </ModalWrapper>
+
+      {/* Upgrade Plan Modal */}
+      <ModalWrapper
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        title={`Upgrade to ${upgradeSelectedPlan?.planName}`}
+        icon={<FaCrown className="text-purple-500" />}
+        size="md"
+      >
+        {upgradeSelectedPlan && (
+          <div className="space-y-6 p-2">
+            <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 flex items-center justify-between">
+              <div>
+                <h4 className="text-purple-900 font-bold text-lg">{upgradeSelectedPlan.planName}</h4>
+                <p className="text-purple-600 text-xs font-semibold capitalize mt-1">
+                  {getBillingIntervalLabel(upgradeSelectedPlan.billingCycle)}
+                </p>
+              </div>
+              <div className="text-right">
+                <span className="text-2xl font-black text-purple-700">₹{upgradeSelectedPlan.price}</span>
+                <span className="text-[10px] text-purple-500 font-bold block uppercase tracking-widest mt-0.5">Per User</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Additional Employees to Add</label>
+              <input
+                type="number"
+                min="1"
+                value={upgradeEmployeeCount}
+                onChange={(e) => setUpgradeEmployeeCount(Number(e.target.value))}
+                className="w-full bg-white border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 block p-3 font-medium transition-shadow hover:shadow-sm"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Specify the exact number of extra users you want to add to your current limit.
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold text-gray-600">Base Amount</span>
+                <span className="text-sm font-bold text-gray-900">
+                  ₹{upgradeEmployeeCount * upgradeSelectedPlan.price * getBillingCycleMultiplier(upgradeSelectedPlan.billingCycle, upgradeSelectedPlan.planName)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-semibold text-gray-600">GST (18%)</span>
+                <span className="text-sm font-bold text-gray-900">
+                  ₹{Math.round(upgradeEmployeeCount * upgradeSelectedPlan.price * getBillingCycleMultiplier(upgradeSelectedPlan.billingCycle, upgradeSelectedPlan.planName) * 0.18)}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-gray-200 mt-2 flex justify-between items-center">
+                <span className="text-base font-bold text-gray-800">Total</span>
+                <span className="text-xl font-black text-indigo-600">
+                  ₹{Math.round(upgradeEmployeeCount * upgradeSelectedPlan.price * getBillingCycleMultiplier(upgradeSelectedPlan.billingCycle, upgradeSelectedPlan.planName) * 1.18)}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={processUpgrade}
+              disabled={upgradingPlanId === upgradeSelectedPlan._id}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-purple-200 transition-all flex justify-center items-center gap-2"
+            >
+              {upgradingPlanId === upgradeSelectedPlan._id ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  Proceed to Pay
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </ModalWrapper>
     </div>
   );

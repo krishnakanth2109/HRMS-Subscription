@@ -99,7 +99,7 @@ export const createOrder = async (req, res) => {
         .json({ message: "Free plan does not require payment" });
     }
 
-    const limit = Math.max(30, Number(userLimit) || 30);
+    const limit = Math.max(1, Number(userLimit) || 1);
     const multiplier = getBillingCycleMultiplier(planInfo.billingCycle, planInfo.planName);
 
     // Razorpay expects amount in paise (1 INR = 100 paise) and includes 18% GST
@@ -223,9 +223,11 @@ export const verifyPayment = async (req, res) => {
     if (existing) {
       const oldPlanExpiresAt = existing.planDetails?.expiresAt || existing.planExpiresAt;
       const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
-      const requestedUserLimit = Number(userLimit) || 30;
-      const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 30;
-      const renewedUserLimit = Math.max(requestedUserLimit, currentBaseLimit + mergedAddonSeats);
+      const requestedUserLimit = Math.max(1, Number(userLimit) || 1);
+      const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 1;
+      
+      // Make the limit additive upon upgrade
+      const renewedUserLimit = currentBaseLimit + requestedUserLimit;
 
       existing.planDetails = {
         planName: planName,
@@ -259,7 +261,7 @@ export const verifyPayment = async (req, res) => {
           price: planInfo.price || 0,
           billingCycle: planInfo.billingCycle || billingCycle || "monthly",
           durationDays: planInfo.durationDays || (durationDays ? Number(durationDays) : 30),
-          maxUsers: Number(userLimit) || 30,
+          maxUsers: Math.max(1, Number(userLimit) || 1),
           features: planInfo.features ? [...planInfo.features] : [],
           isUnlimited: planInfo.isUnlimited || false,
           isPaid: true,
