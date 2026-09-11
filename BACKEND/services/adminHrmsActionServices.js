@@ -25,6 +25,7 @@ import Admin from "../models/adminModel.js";
 import SupportAdmin from "../models/supportAdminModel.js";
 import AdminTask from "../models/AdminTask.js";
 import DailyWorkEntry from "../models/DailyWorkEntry.js";
+import Company from "../models/CompanyModel.js";
 
 /* =========================================================================
    1. LEAVE APPROVAL & REJECTION
@@ -538,34 +539,51 @@ export const adminServiceAddEmployee = async ({
   joiningDate = new Date().toISOString().slice(0, 10),
   io = null,
 }) => {
-  const adminId = loggedAdmin._id;
-  const companyId = loggedAdmin.company || loggedAdmin.companyId;
+  const isSupportAdmin = loggedAdmin.role === "support-admin";
+  const actualAdminId = isSupportAdmin ? loggedAdmin.adminId : loggedAdmin._id;
 
   if (!firstName || !email) {
     throw new Error("First name and email are mandatory for new employee creation.");
   }
 
+  // Resolve target company document
+  let targetCompany = null;
+  const companyRef = loggedAdmin.company || loggedAdmin.companyId;
+  if (companyRef) {
+    targetCompany = await Company.findById(companyRef);
+  }
+  if (!targetCompany) {
+    targetCompany = await Company.findOne({ adminId: actualAdminId });
+  }
+  if (!targetCompany) {
+    throw new Error("No company found for your organization. Please create a company first.");
+  }
+
   const existing = await Employee.findOne({
     email: email.toLowerCase().trim(),
-    $or: [{ adminId }, { companyId: companyId || adminId }],
+    $or: [{ adminId: actualAdminId }, { company: targetCompany._id }],
   });
 
   if (existing) {
     throw new Error(`An employee with email ${email} already exists in your organization.`);
   }
 
-  // Generate unique employeeId
+  // Generate unique employeeId using company prefix
   const count = await Employee.countDocuments({
-    $or: [{ adminId }, { companyId: companyId || adminId }],
+    $or: [{ adminId: actualAdminId }, { company: targetCompany._id }],
   });
-  const generatedEmployeeId = `EMP-${String(count + 1).padStart(3, "0")}`;
+  const prefix = targetCompany.prefix || "EMP";
+  const generatedEmployeeId = `${prefix}-${String(count + 1).padStart(3, "0")}`;
 
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
   const newEmp = new Employee({
-    adminId,
-    companyId: companyId || adminId,
+    adminId: actualAdminId,
+    company: targetCompany._id,
+    companyId: targetCompany._id,
+    companyName: targetCompany.name,
+    companyPrefix: targetCompany.prefix,
     employeeId: generatedEmployeeId,
     firstName: firstName.trim(),
     lastName: lastName.trim(),
@@ -582,6 +600,10 @@ export const adminServiceAddEmployee = async ({
 
   await newEmp.save();
 
+  // Sync company employee count
+  targetCompany.employeeCount = await Employee.countDocuments({ company: targetCompany._id });
+  await targetCompany.save();
+
   if (io) {
     io.emit("hrmsEmployeeAdded", { employee: newEmp });
   }
@@ -594,7 +616,7 @@ export const adminServiceAddEmployee = async ({
 };
 
 export const adminServiceUpdateEmployee = async ({ loggedAdmin, employeeId, updates = {}, io = null }) => {
-  const adminId = loggedAdmin._id;
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
 
   const emp = await Employee.findOne({
@@ -1089,7 +1111,7 @@ export const adminServiceToggleMobileAccess = async ({ loggedAdmin, enabled, io 
    12. TASK & PERFORMANCE MANAGEMENT
 ========================================================================= */
 export const adminServiceAssignTask = async ({ loggedAdmin, employeeId, title, description = "", io = null }) => {
-  const adminId = loggedAdmin._id;
+  const actualAdminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
 
   const emp = await Employee.findOne({
@@ -1097,9 +1119,10 @@ export const adminServiceAssignTask = async ({ loggedAdmin, employeeId, title, d
       { employeeId },
       { name: new RegExp(employeeId, "i") },
       { firstName: new RegExp(employeeId, "i") },
+      { lastName: new RegExp(employeeId, "i") },
       { _id: mongoose.isValidObjectId(employeeId) ? employeeId : null },
     ],
-    $and: [{ $or: [{ adminId }, { companyId: companyId || adminId }] }],
+    $and: [{ $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }] }],
   });
 
   if (!emp) {

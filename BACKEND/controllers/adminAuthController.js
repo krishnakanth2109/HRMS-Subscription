@@ -533,7 +533,9 @@ export const getAdminProfile = async (req, res) => {
     const adminObj = admin.toObject();
     const rootAdminId = req.user.role === "support-admin" ? admin.adminId : admin._id;
     const supportAdminCount = await SupportAdmin.countDocuments({ adminId: rootAdminId });
+    const activeEmployeeCount = await Employee.countDocuments({ adminId: rootAdminId, isActive: true });
     adminObj.supportAdminCount = supportAdminCount;
+    adminObj.activeEmployeeCount = activeEmployeeCount;
 
     // Calculate active addon sum (addons that are paid and not expired)
     const now = new Date();
@@ -563,6 +565,9 @@ export const getAdminProfile = async (req, res) => {
       adminObj.planActivatedAt = adminObj.planDetails.activatedAt;
       adminObj.planExpiresAt = adminObj.planDetails.expiresAt;
       adminObj.userLimit = adminObj.planDetails.maxUsers;
+      adminObj.lastPaymentAmount = adminObj.planDetails.lastPaymentAmount;
+      adminObj.lastPaymentAt = adminObj.planDetails.lastPaymentAt;
+      adminObj.razorpayPaymentId = adminObj.planDetails.razorpayPaymentId;
     } else {
       const planInfo = await PlanSetting.findOne({ planName: admin.plan });
       isOwner = (planInfo && (planInfo.isOwnerPlan || planInfo.isUnlimited)) || (admin.plan && admin.plan.toLowerCase() === 'owner');

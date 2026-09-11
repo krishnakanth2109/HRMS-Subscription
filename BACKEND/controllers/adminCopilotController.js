@@ -7,6 +7,8 @@ import jwt from "jsonwebtoken";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { retrieveRelevantHRContext } from "../services/copilotRAGService.js";
 import { executeAdminCopilotTool, generateAdminActionToken } from "../services/adminCopilotTools.js";
+import { extractExplicitDateRange, normalizeDescription } from "./copilotController.js";
+import { serviceApplyLeave } from "../services/hrmsActionServices.js";
 import {
   adminServiceApproveLeave,
   adminServiceRejectLeave,
@@ -65,7 +67,17 @@ const CANDIDATE_MODELS = [
 export const classifyAdminIntentTraditional = (message) => {
   if (!message || typeof message !== "string") return null;
 
-  const q = message.toLowerCase().trim().replace(/[\s\-_]+/g, " ");
+  let q = message.toLowerCase().trim().replace(/[\s\-_]+/g, " ");
+
+  // Normalization for common phonetic typos & misspellings
+  q = q
+    .replace(/abscent/g, "absent")
+    .replace(/abcent/g, "absent")
+    .replace(/\b(?:attendence|atendance|attedance|attandance|atendence)\b/g, "attendance")
+    .replace(/\b(?:emplyee|employe|emoloyee|empolyee)\b/g, "employee")
+    .replace(/\b(?:calender)\b/g, "calendar")
+    .replace(/\b(?:bday|birth-day)\b/g, "birthday")
+    .replace(/\b(?:compnay|cmpany|compny)\b/g, "company");
 
   // ── 1. DASHBOARD & ORG OVERVIEW ──────────────────────────────────────────
   if (
@@ -86,6 +98,28 @@ export const classifyAdminIntentTraditional = (message) => {
     q.includes("total employees")
   ) {
     return { action: "admin_get_dashboard_summary" };
+  }
+
+  // ── 1B. COMPANY & ORGANIZATION PROFILE ───────────────────────────────────
+  if (
+    q === "company" ||
+    q === "my company" ||
+    q === "our company" ||
+    q === "about company" ||
+    q.includes("company details") ||
+    q.includes("company profile") ||
+    q.includes("company info") ||
+    q.includes("company information") ||
+    q.includes("about our company") ||
+    q.includes("about my company") ||
+    q === "org" ||
+    q === "organization" ||
+    q.includes("organization details") ||
+    q.includes("organization info") ||
+    q.includes("org details") ||
+    q.includes("org profile")
+  ) {
+    return { action: "admin_get_company_details" };
   }
 
   // ── 2. LIVE ATTENDANCE / ATTENDANCE INQUIRIES ────────────────────────────
@@ -126,25 +160,61 @@ export const classifyAdminIntentTraditional = (message) => {
     }
   }
 
-  // ── 3. ABSENT EMPLOYEES ──────────────────────────────────────────────────
+  // ── 3. ABSENT EMPLOYEES & ABSENTEES ───────────────────────────────────────
   if (
+    q === "absent" ||
+    q === "absentees" ||
     q.includes("who is absent") ||
+    q.includes("who are absent") ||
+    q.includes("who was absent") ||
+    q.includes("who were absent") ||
     q.includes("absent today") ||
     q.includes("absent employees") ||
+    q.includes("absent employee") ||
+    q.includes("absent staff") ||
+    q.includes("absent list") ||
+    q.includes("view absent") ||
+    q.includes("view absentees") ||
+    q.includes("show absent") ||
+    q.includes("show absentees") ||
+    q.includes("list absent") ||
+    q.includes("list absentees") ||
+    q.includes("check absent") ||
+    q.includes("check absentees") ||
     q.includes("who didn't punch in") ||
+    q.includes("who didnt punch in") ||
     q.includes("not clocked in") ||
-    q.includes("missing attendance")
+    q.includes("not punched in") ||
+    q.includes("missing attendance") ||
+    q.includes("absentee") ||
+    (q.includes("absent") && !q.includes("policy") && !q.includes("rule"))
   ) {
     return { action: "admin_get_absent_employees" };
   }
 
-  // ── 4. LATE ARRIVALS ─────────────────────────────────────────────────────
+  // ── 4. LATE ARRIVALS & INQUIRIES ──────────────────────────────────────────
   if (
+    q === "late" ||
+    q.includes("late employee") ||
+    q.includes("late staff") ||
+    q.includes("late arrival") ||
+    q.includes("late comers") ||
+    q.includes("who are late") ||
     q.includes("who is late") ||
+    q.includes("who was late") ||
+    q.includes("who were late") ||
+    q.includes("who came late") ||
+    q.includes("who arrived late") ||
+    q.includes("who clocked in late") ||
+    q.includes("who punched late") ||
+    q.includes("who punched in late") ||
+    q.includes("who late") ||
+    q.includes("whos late") ||
+    q.includes("who's late") ||
     q.includes("late today") ||
-    q.includes("late employees") ||
-    q.includes("late arrivals") ||
-    q.includes("late mark list")
+    q.includes("late list") ||
+    q.includes("late mark list") ||
+    (q.includes("late") && !q.includes("approve") && !q.includes("waive") && !q.includes("reject") && !q.includes("policy") && !q.includes("rule") && !q.includes("justification") && !q.includes("request"))
   ) {
     return { action: "admin_get_late_employees" };
   }
@@ -200,6 +270,42 @@ export const classifyAdminIntentTraditional = (message) => {
 
   // ── 6. LEAVE REQUESTS, INQUIRIES & APPROVALS ──────────────────────────────
   if (q.includes("leave") || q.includes("vacation") || q.includes("time off")) {
+    if (
+      q.includes("apply") ||
+      q.includes("want to apply") ||
+      q.includes("want leave") ||
+      q.includes("request leave") ||
+      q.includes("take leave") ||
+      q.includes("taking leave") ||
+      q.includes("need leave") ||
+      q.includes("apply for leave")
+    ) {
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      const tomorrowDate = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+      const tomorrowStr = tomorrowDate.toLocaleDateString("en-CA");
+      const { from, to } = extractExplicitDateRange(message, todayStr, tomorrowStr);
+
+      const leaveType = (q.includes("sick") || q.includes("sl"))
+        ? "Sick Leave"
+        : (q.includes("paid") || q.includes("annual") || q.includes("pl"))
+        ? "Paid Leave"
+        : "Casual Leave";
+
+      const leaveDayType = (q.includes("half day") || q.includes("half-day")) ? "Half Day" : "Full Day";
+      const extractedReason = normalizeDescription(message, "leave");
+      const reason = extractedReason || "Emergency leave";
+
+      return {
+        action: "admin_draft_apply_leave",
+        from,
+        to,
+        leaveType,
+        leaveDayType,
+        reason,
+      };
+    }
+
     if (q.includes("approve") || q.includes("accept")) {
       const match = message.match(/(?:approve|accept)\s+(?:leave\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+leave|\s+leave|$)/i);
       const name = match ? match[1].replace(/leave|for|of/gi, "").trim() : "";
@@ -221,16 +327,27 @@ export const classifyAdminIntentTraditional = (message) => {
     };
   }
 
-  // ── 7. WFH & REMOTE WORK REQUESTS ─────────────────────────────────────────
-  if (q.includes("wfh") || q.includes("work from home") || q.includes("remote")) {
+  // ── 7. WFH & REMOTE WORK / WORK MODE REQUESTS ─────────────────────────────
+  if (
+    q.includes("wfh") ||
+    q.includes("work from home") ||
+    q.includes("remote") ||
+    q.includes("work mode request") ||
+    q.includes("work mode requests") ||
+    q.includes("workmode request") ||
+    q.includes("work mode") ||
+    q.includes("workmode") ||
+    q.includes("work from office") ||
+    q.includes("wfo")
+  ) {
     if (q.includes("approve") || q.includes("accept")) {
-      const match = message.match(/(?:approve|accept)\s+(?:wfh\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+wfh|\s+wfh|$)/i);
-      const name = match ? match[1].replace(/wfh|for|of|remote/gi, "").trim() : "";
+      const match = message.match(/(?:approve|accept)\s+(?:wfh\s+(?:for\s+|of\s+)?|work\s+mode\s+(?:for\s+|of\s+)?|wfo\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+wfh|'s\s+work\s+mode|'s\s+wfo|\s+wfh|\s+work\s+mode|\s+wfo|$)/i);
+      const name = match ? match[1].replace(/wfh|work\s+mode|wfo|for|of|remote/gi, "").trim() : "";
       return { action: "admin_draft_approve_wfh", employeeName: name || "all" };
     }
     if (q.includes("reject") || q.includes("deny")) {
-      const match = message.match(/(?:reject|deny)\s+(?:wfh\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+wfh|\s+wfh|$)/i);
-      const name = match ? match[1].replace(/wfh|for|of|remote/gi, "").trim() : "";
+      const match = message.match(/(?:reject|deny)\s+(?:wfh\s+(?:for\s+|of\s+)?|work\s+mode\s+(?:for\s+|of\s+)?|wfo\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+wfh|'s\s+work\s+mode|'s\s+wfo|\s+wfh|\s+work\s+mode|\s+wfo|$)/i);
+      const name = match ? match[1].replace(/wfh|work\s+mode|wfo|for|of|remote/gi, "").trim() : "";
       return { action: "admin_draft_reject_wfh", employeeName: name || "all" };
     }
     return { action: "admin_get_pending_approvals" };
@@ -467,7 +584,17 @@ export const classifyAdminIntentTraditional = (message) => {
     return { action: "admin_draft_toggle_mobile_access", enabled: true };
   }
 
-  // ── 9E. PERFORMANCE & WORK REPORTS ───────────────────────────────────────
+  // ── 9E. PERFORMANCE, WORK REPORTS & TASK/WORK ASSIGNMENT ─────────────────
+  const isTaskAssign =
+    (q.includes("assign") || q.includes("give") || q.includes("allocate") || q.startsWith("create task")) &&
+    (q.includes("task") || q.includes("work") || q.includes("job") || q.includes("project")) &&
+    !q.includes("work report") &&
+    !q.includes("work mode") &&
+    !q.includes("shift") &&
+    !q.includes("leave") &&
+    !q.includes("approve") &&
+    !q.includes("reject");
+
   if (
     q.includes("work report") ||
     q.includes("work reports") ||
@@ -475,12 +602,18 @@ export const classifyAdminIntentTraditional = (message) => {
     q.includes("daily work") ||
     q.includes("work percentage") ||
     q.includes("task submission") ||
+    isTaskAssign ||
     q.startsWith("assign a task") ||
     q.startsWith("assign task") ||
+    q.startsWith("assign a work") ||
+    q.startsWith("assign work") ||
     q.startsWith("give task") ||
+    q.startsWith("give work") ||
     q.startsWith("create task") ||
     q.includes("assign task to") ||
-    q.includes("assign a task to")
+    q.includes("assign a task to") ||
+    q.includes("assign work to") ||
+    q.includes("assign a work to")
   ) {
     if (q.includes("approve") || q.includes("accept")) {
       let employeeName = "";
@@ -519,20 +652,35 @@ export const classifyAdminIntentTraditional = (message) => {
     }
 
     if (
+      isTaskAssign ||
       q.startsWith("assign a task") ||
       q.startsWith("assign task") ||
+      q.startsWith("assign a work") ||
+      q.startsWith("assign work") ||
       q.startsWith("give task") ||
+      q.startsWith("give work") ||
       q.startsWith("create task") ||
       q.includes("assign task to") ||
-      q.includes("assign a task to")
+      q.includes("assign a task to") ||
+      q.includes("assign work to") ||
+      q.includes("assign a work to")
     ) {
-      const nameMatch = message.match(/(?:to|for)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+title|\s+task)/i);
-      const employeeName = nameMatch ? nameMatch[1].replace(/employee|to|for/gi, "").trim() : "";
+      let employeeName = "";
+      const nameMatch = message.match(/(?:to|for)\s+([a-zA-Z0-9\s.-]+?)(?:[:,\n]|$|\s+title|\s+task|\s+work|\s+named|\s+called|\s+to\s+do)/i);
+      if (nameMatch) {
+        employeeName = nameMatch[1].replace(/employee|to|for|task|work/gi, "").trim();
+      }
 
-      const titleMatch = message.match(/(?:task|title|named|called|[:])\s*[:\-]?\s*([a-zA-Z0-9\s.-]+)/i);
-      const title = titleMatch && titleMatch[1] && !titleMatch[1].toLowerCase().includes("to")
-        ? titleMatch[1].trim()
-        : "Complete Assigned Project Task";
+      let title = "Complete Assigned Project Task";
+      const colonMatch = message.match(/[:\-]\s*(.+)$/);
+      if (colonMatch && colonMatch[1]) {
+        title = colonMatch[1].trim();
+      } else {
+        const explicitTitleMatch = message.match(/(?:titled|named|called|task\s+title)\s*[:\-]?\s*([a-zA-Z0-9\s.-]+)/i);
+        if (explicitTitleMatch && explicitTitleMatch[1]) {
+          title = explicitTitleMatch[1].trim();
+        }
+      }
 
       return {
         action: "admin_draft_assign_task",
@@ -659,6 +807,18 @@ export const classifyAdminIntentTraditional = (message) => {
       return { action: "admin_draft_add_holiday", name, date };
     }
     return { action: "admin_get_holidays" };
+  }
+
+  // ── 12B. BIRTHDAYS & CELEBRATIONS ────────────────────────────────────────
+  if (
+    q === "birthday" ||
+    q === "birthdays" ||
+    q.includes("birthday") ||
+    q.includes("birthdays") ||
+    q.includes("bday") ||
+    q.includes("birth day")
+  ) {
+    return { action: "admin_get_birthdays" };
   }
 
   // ── 13. RULES & GUIDELINES ───────────────────────────────────────────────
@@ -962,6 +1122,19 @@ export const handleAdminExecuteAction = async (req, res) => {
           io,
         });
         return res.json({ success: true, message: `✅ ${result.message}`, data: result });
+      }
+
+      case "admin_confirm_apply_leave": {
+        const result = await serviceApplyLeave({
+          loggedUser: user,
+          from: req.body?.from || decoded.from,
+          to: req.body?.to || decoded.to,
+          reason: req.body?.reason || decoded.reason,
+          leaveType: req.body?.leaveType || decoded.leaveType,
+          leaveDayType: req.body?.leaveDayType || decoded.leaveDayType,
+          io,
+        });
+        return res.json({ success: true, message: `✅ ${result.message || "Leave application submitted successfully."}`, data: result });
       }
 
       case "admin_confirm_add_employee": {
