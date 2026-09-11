@@ -415,6 +415,10 @@ const DynamicHRMSLandingPage = () => {
         role: "admin",
         department: "",
     });
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [otpCode, setOtpCode] = useState("");
+    const [isOtpVerifying, setIsOtpVerifying] = useState(false);
+    const [otpSentMessage, setOtpSentMessage] = useState("");
     const [supportForm, setSupportForm] = useState({
         name: "",
         email: "",
@@ -564,17 +568,41 @@ const DynamicHRMSLandingPage = () => {
         setSignupLoading(true);
 
         try {
+            const response = await API.post("/api/admin/send-registration-otp", { email: signupForm.email });
+            setOtpSentMessage(response.data.message || "OTP sent successfully!");
+            setShowOtpModal(true);
+            setSignupLoading(false);
+        } catch (err) {
+            setSignupError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+            setSignupLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.length < 6) return setSignupError("Please enter a valid 6-digit OTP");
+        
+        setIsOtpVerifying(true);
+        setSignupError("");
+
+        try {
+            await API.post("/api/admin/verify-registration-otp", { email: signupForm.email, otp: otpCode });
+            
+            // OTP is correct! Now proceed with the actual registration/payment
             if (Number(selectedPlan.price) === 0) {
                 await API.post("/api/admin/register", { ...signupForm, plan: selectedPlan.planName, userLimit });
                 setSignupSuccess(`🎉 ${selectedPlan.planName} account created! Please login.`);
                 setSignupForm({ name: "", email: "", password: "", phone: "", role: "admin", department: "" });
-                setSignupLoading(false);
-                return;
+                setShowOtpModal(false);
+                setOtpCode("");
+            } else {
+                setShowOtpModal(false);
+                setOtpCode("");
+                await handleRazorpayPayment(selectedPlan);
             }
-            await handleRazorpayPayment(selectedPlan);
         } catch (err) {
-            setSignupError(err.response?.data?.message || "Registration failed. Please try again.");
-            setSignupLoading(false);
+            setSignupError(err.response?.data?.message || "Invalid OTP. Please try again.");
+        } finally {
+            setIsOtpVerifying(false);
         }
     };
 
@@ -2018,6 +2046,50 @@ const DynamicHRMSLandingPage = () => {
                             </div>
 
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* ─── OTP MODAL ─── */}
+            {showOtpModal && (
+                <div className="fixed inset-0 z-[110] bg-zinc-950/70 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className={`${modalBg} rounded-3xl shadow-2xl p-8 max-w-sm w-full border relative`}>
+                        <button
+                            onClick={() => setShowOtpModal(false)}
+                            className={`absolute top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full ${isDarkMode ? 'bg-white/5 hover:bg-white/10 text-zinc-400' : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-500'} transition-all`}
+                        >
+                            <FaTimes size={12} />
+                        </button>
+                        
+                        <div className="text-center mb-6">
+                            <h2 className={`text-xl font-bold ${text} mb-2`}>Verify Your Email</h2>
+                            <p className={`${textSec} text-xs leading-relaxed`}>
+                                We've sent a 6-digit verification code to <strong>{signupForm.email}</strong>.<br/>
+                                Please enter it below.
+                            </p>
+                        </div>
+                        
+                        {signupError && (
+                            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/30 text-red-650 dark:text-red-400 px-4 py-3 rounded-xl mb-5 text-xs font-bold text-center">
+                                {signupError}
+                            </div>
+                        )}
+
+                        <input
+                            type="text"
+                            maxLength="6"
+                            placeholder="Enter 6-digit OTP"
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                            className={`w-full ${inputBg} ${text} text-center font-mono text-2xl tracking-[0.25em] px-4 py-3.5 rounded-xl border focus:outline-none ${inputFocus} transition-all mb-4`}
+                        />
+
+                        <button
+                            onClick={handleVerifyOtp}
+                            disabled={isOtpVerifying || otpCode.length < 6}
+                            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest shadow-premium-md transform active:scale-98 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {isOtpVerifying ? "Verifying..." : "Verify & Continue"}
+                        </button>
                     </div>
                 </div>
             )}

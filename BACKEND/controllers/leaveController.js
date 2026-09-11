@@ -348,9 +348,6 @@ export const adminListAllLeaves = async (req, res) => {
       ]
     };
     const docs = await LeaveRequest.find(query).sort({ requestDate: -1 }).lean();
-
-    console.log(`🔍 [adminListAllLeaves] Admin: "${req.user.name || req.user.email}" | Query:`, JSON.stringify(query), `| Total leaves found in DB: ${docs.length}`);
-
     res.json(docs);
   } catch (err) {
     console.error("adminListAllLeaves error:", err);

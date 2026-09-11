@@ -90,7 +90,9 @@ const checkUserLimit = async (adminId) => {
   const effectiveLimit = (maxUsers || 0) + activeAddonTotal;
 
   if (effectiveLimit > 0) {
-    const currentEmployeeCount = await Employee.countDocuments({ adminId });
+    // Only count active employees towards the user limit
+    const currentEmployeeCount = await Employee.countDocuments({ adminId, isActive: true });
+    // Support admins are generally always active, but we can safely count them all
     const currentSupportAdminCount = await SupportAdmin.countDocuments({ adminId });
     const totalCount = currentEmployeeCount + currentSupportAdminCount; // Admin is account owner and does not count toward user limit
     if (totalCount >= effectiveLimit) {

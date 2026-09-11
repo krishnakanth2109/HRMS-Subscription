@@ -1,14 +1,5 @@
-﻿import "dotenv/config.js";
+import "dotenv/config.js";
 
-import dns from "dns";
-
-// Fix Node.js DNS SRV lookup issues on Windows / local routers (ECONNREFUSED _mongodb._tcp...)
-try {
-  dns.setDefaultResultOrder?.("ipv4first");
-  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
-} catch (e) {
-  console.warn("⚠️ Custom DNS configuration warning:", e.message);
-}
 
 import express from "express";
 import cors from "cors";
@@ -67,6 +58,8 @@ import demoRequestRoutes from "./routes/Demorequest.js";
 import payrollcandidatesRoutes from "./routes/payrollcandidatesRoutes.js";
 import documentVerificationRoutes from "./routes/documentVerificationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+
+import initBirthdayCron from "./cron/birthdayCron.js";
 import copilotRoutes from "./routes/copilotRoutes.js";
 import adminCopilotRoutes from "./routes/adminCopilotRoutes.js";
 import { seedCopilotKnowledge } from "./services/copilotIngestion.js";
@@ -179,7 +172,7 @@ app.set("userSocketMap", userSocketMap);
 
 /* ==================== SOCKET CONNECTION ==================== */
 io.on("connection", (socket) => {
-  console.log("âœ… Socket Connected:", socket.id);
+  console.log("yes Socket Connected:", socket.id);
 
   socket.on("register", (userId) => {
     if (userId) {
@@ -286,6 +279,8 @@ const connectMongoDB = async () => {
     seedCopilotKnowledge("global").catch((err) =>
       console.warn("⚠️ Copilot knowledge seeding error:", err.message)
     );
+    // Initialize automated scheduled jobs
+    initBirthdayCron();
   } catch (err) {
     console.error("❌ MongoDB Connection Error:", err.message);
     if (err.message.includes("ECONNREFUSED") || err.message.includes("querySrv")) {
@@ -295,20 +290,9 @@ const connectMongoDB = async () => {
 };
 
 connectMongoDB();
-mongoose
-  .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  })
-  .then(() => {
-    console.log("âœ… MongoDB Connected");
-  })
-  .catch((err) => {
-    console.error("âŒ MongoDB Error:", err.message);
-  });
 
 mongoose.connection.on("disconnected", () => {
-  console.log("âš ï¸ MongoDB Disconnected");
+  console.log("âš ï¸  MongoDB Disconnected");
 });
 
 mongoose.connection.on("reconnected", () => {
