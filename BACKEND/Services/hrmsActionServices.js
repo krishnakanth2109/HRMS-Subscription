@@ -439,16 +439,23 @@ export const servicePunchIn = async ({ loggedUser, date, note = "", latitude = n
 
   try {
     const [shiftHour, shiftMin] = (shift.shiftStartTime || "09:30").split(":").map(Number);
-    const shiftDate = new Date(now);
-    shiftDate.setHours(shiftHour, shiftMin, 0, 0);
+    const punchDate = new Date(now);
+    const istTimeStr = punchDate.toLocaleTimeString("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    let [pHour, pMin] = istTimeStr.split(":").map(Number);
+    if (pHour === 24) pHour = 0;
 
-    const graceMinutes = shift.lateGracePeriod || 15;
-    const lateCutoff = new Date(shiftDate.getTime() + graceMinutes * 60000);
+    const punchMinutes = pHour * 60 + pMin;
+    const shiftMinutes = shiftHour * 60 + shiftMin;
+    const graceMinutes = shift.lateGracePeriod !== undefined ? Number(shift.lateGracePeriod) : 15;
 
-    if (now > lateCutoff) {
+    if (punchMinutes > (shiftMinutes + graceMinutes)) {
       loginStatus = "LATE";
-      const diffMs = now.getTime() - shiftDate.getTime();
-      lateByMinutes = Math.floor(diffMs / 60000);
+      lateByMinutes = punchMinutes - shiftMinutes;
     }
   } catch (calcError) {
     console.error("Time calculation error in servicePunchIn:", calcError);

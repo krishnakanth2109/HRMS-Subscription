@@ -74,7 +74,7 @@ export const normalizeDescription = (message, domain = "general") => {
   const commandBoilerplates = [
     /\b(?:please|can\s+you|kindly|i\s+want\s+to|i\s+would\s+like\s+to|i\s+need\s+to|want\s+to|need\s+to|got\s+to)\b/gi,
     /\b(?:apply(?:\s+for)?|taking|take|request(?:\s+for)?|submit(?:\s+for|\s+a)?|claim(?:\s+for)?|raise(?:\s+a)?|report(?:\s+a)?|draft(?:\s+a)?)\b/gi,
-    /\b(?:casual|sick|paid|annual|earned|comp[\s-]off)?\s*(?:leave|days?\s*off|half[\s-]day|wfh|work\s+from\s+home|overtime|ot|hours?\s+extra|expense|reimbursement|claim|ticket|issue|grievance|resignation|punch[\s-]out)\b/gi,
+    /\b(?:casual|sick|paid|annual|earned|comp[\s-]off)?\s*(?:leave|days?\s*off|half[\s-]day|wfh|work\s+from\s+home|work\s+mode|workmode|wfo|work\s+from\s+office|overtime|ot|hours?\s+extra|expense|reimbursement|claim|ticket|issue|grievance|resignation|punch[\s-]out)\b/gi,
     /\b(?:for\s+(?:the\s+)?expense(?:\s+of)?|for\s+expense|for\s+reimbursement|as\s+an\s+expense)\b/gi,
   ];
 
@@ -397,6 +397,8 @@ export const fuzzyNormalizeText = (text) => {
     .replace(/\b(instgram|insta|instagrm)\b/g, "instagram")
     .replace(/\b(websit|portfolo|portfilio)\b/g, "website")
     .replace(/\b(adhar|adharno|aadharno)\b/g, "aadhaar")
+    .replace(/\b(abscent|abcent|abscents|abcents)\b/g, "absent")
+    .replace(/\b(workmode|work-mode)\b/g, "work mode")
     .replace(/\b(mon|monday)\b/g, "monday")
     .replace(/\b(tue|tues|tuesday)\b/g, "tuesday")
     .replace(/\b(wed|wednesday)\b/g, "wednesday")
@@ -697,28 +699,48 @@ export const classifyIntentTraditional = (message, todayStr, tomorrowStr, chatHi
     };
   }
 
-  // ── 7. WORK FROM HOME (WFH / REMOTE WORK) ─────────────────────────────────
+  // ── 7. WORK FROM HOME (WFH / REMOTE WORK / WORK MODE) ─────────────────────
   if (
     q === "wfh" ||
     q === "work from home" ||
     q === "remote" ||
     q === "remote work" ||
+    q === "work mode" ||
+    q === "work mode request" ||
+    q === "request work mode" ||
+    q === "wfh request" ||
+    q === "wfo request" ||
+    q === "work from office" ||
+    q === "wfo" ||
     q.includes("wfh") ||
     q.includes("work from home") ||
     q.includes("remote work") ||
     q.includes("working from home") ||
     q.includes("work remotely") ||
-    q.includes("remote mode")
+    q.includes("remote mode") ||
+    q.includes("work mode") ||
+    q.includes("workmode") ||
+    q.includes("work from office") ||
+    q.includes("wfo")
   ) {
     if (q.includes("cancel") || q.includes("withdraw") || q.includes("delete") || q.includes("remove") || q.includes("revoke")) {
       return { action: "draft_cancel_wfh" };
     }
-    if (q.includes("history") || q.includes("status") || q.includes("requests") || (q.includes("check") && !q.includes("apply") && !q.includes("tomorrow"))) {
+    if (
+      (q.includes("history") || q.includes("status") || (q.includes("requests") && !q.includes("apply") && !q.includes("submit") && !q.startsWith("request")) || (q.includes("check") && !q.includes("apply") && !q.includes("tomorrow"))) &&
+      !q.includes("apply") &&
+      !q.includes("draft") &&
+      !q.includes("submit") &&
+      q !== "work mode request" &&
+      q !== "wfh request" &&
+      q !== "wfo request" &&
+      q !== "request work mode"
+    ) {
       return { action: "get_my_wfh_requests" };
     }
 
     const { from, to } = extractExplicitDateRange(message, todayStr, tomorrowStr);
-    const requestedMode = q.includes("office") ? "Office" : "WFH";
+    const requestedMode = (q.includes("office") || q.includes("wfo")) ? "Office" : "WFH";
     const cleanWfhReason = normalizeDescription(message, "wfh");
     return {
       action: "draft_wfh_request",
@@ -938,6 +960,18 @@ export const classifyIntentTraditional = (message, todayStr, tomorrowStr, chatHi
     q.includes("festival off")
   ) {
     return { action: "get_upcoming_holidays" };
+  }
+
+  // ── 13B. BIRTHDAYS ────────────────────────────────────────────────────────
+  if (
+    q === "birthday" ||
+    q === "birthdays" ||
+    q.includes("birthday") ||
+    q.includes("birthdays") ||
+    q.includes("bday") ||
+    q.includes("birth day")
+  ) {
+    return { action: "get_birthdays" };
   }
 
   // ── 14. SHIFTS & SCHEDULE ─────────────────────────────────────────────────
@@ -1473,6 +1507,12 @@ export const handleCopilotChat = async (req, res) => {
               type: "upcoming_holidays_widget",
               title: "Upcoming Holidays",
               data: toolOutput.holidays,
+            };
+          } else if (toolName === "get_birthdays") {
+            actionCard = {
+              type: "birthdays_widget",
+              title: "Team Birthdays",
+              data: toolOutput,
             };
           } else if (toolName === "get_my_expenses") {
             actionCard = {

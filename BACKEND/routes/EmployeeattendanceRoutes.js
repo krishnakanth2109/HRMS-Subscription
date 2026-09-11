@@ -734,8 +734,16 @@ const addMinutesToTime = (timeStr, minutesToAdd) => {
 };
 
 const getTimeDifferenceInMinutes = (punchIn, shiftStart) => {
-  const t = new Date(punchIn);
-  return t.getHours() * 60 + t.getMinutes() - timeToMinutes(shiftStart);
+  const punchDate = new Date(punchIn);
+  const istTimeStr = punchDate.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  let [pHour, pMin] = istTimeStr.split(":").map(Number);
+  if (pHour === 24) pHour = 0;
+  return pHour * 60 + pMin - timeToMinutes(shiftStart);
 };
 
 

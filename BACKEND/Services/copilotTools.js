@@ -552,6 +552,106 @@ export const executeCopilotTool = async (toolName, toolArgs, user) => {
       };
     }
 
+    case "get_birthdays": {
+      const companyId = user.company || user.companyId || user.adminId;
+      const adminId = user.adminId || user._id;
+
+      const employees = await Employee.find({
+        $or: [{ companyId }, { adminId }],
+        status: { $ne: "Terminated" },
+      })
+        .select("employeeId name firstName lastName email phone department designation dob personalDetails personal")
+        .lean();
+
+      const now = new Date();
+      const istDateParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kolkata",
+        month: "numeric",
+        day: "numeric",
+        year: "numeric",
+      }).formatToParts(now);
+
+      const currentMonth = Number(istDateParts.find((p) => p.type === "month")?.value);
+      const currentDay = Number(istDateParts.find((p) => p.type === "day")?.value);
+      const currentYear = Number(istDateParts.find((p) => p.type === "year")?.value);
+
+      const parseDob = (raw) => {
+        if (!raw) return null;
+        if (typeof raw === "string") {
+          const mIso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+          if (mIso) return { year: Number(mIso[1]), month: Number(mIso[2]), day: Number(mIso[3]) };
+          const mDmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+          if (mDmy) return { year: Number(mDmy[3]), month: Number(mDmy[2]), day: Number(mDmy[1]) };
+        }
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+        return null;
+      };
+
+      const birthdayList = [];
+      employees.forEach((emp) => {
+        const rawDob = emp.dob || emp.personalDetails?.dob || emp.personal?.dob;
+        const parsed = parseDob(rawDob);
+        if (parsed) {
+          birthdayList.push({
+            ...emp,
+            dobParsed: parsed,
+            dobFormatted: `${parsed.day.toString().padStart(2, "0")}/${parsed.month.toString().padStart(2, "0")}`,
+          });
+        }
+      });
+
+      const todayBirthdays = birthdayList.filter(
+        (b) => b.dobParsed.month === currentMonth && b.dobParsed.day === currentDay
+      );
+
+      const upcomingBirthdays = birthdayList
+        .filter((b) => {
+          let nextBd = new Date(currentYear, b.dobParsed.month - 1, b.dobParsed.day);
+          const todayDate = new Date(currentYear, currentMonth - 1, currentDay);
+          if (nextBd <= todayDate) nextBd = new Date(currentYear + 1, b.dobParsed.month - 1, b.dobParsed.day);
+          const diffMs = nextBd - todayDate;
+          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          b.daysUntil = diffDays;
+          return diffDays > 0 && diffDays <= 30;
+        })
+        .sort((a, b) => a.daysUntil - b.daysUntil);
+
+      let message = "";
+      if (todayBirthdays.length > 0) {
+        message = `🎂 **Happy Birthday Today! (${todayBirthdays.length})**\n\n` +
+          todayBirthdays.map((e) => `• 🎉 **${e.name || (e.firstName + " " + (e.lastName || "")).trim()}** (${e.employeeId}) — ${e.department || "General"}`).join("\n");
+        if (upcomingBirthdays.length > 0) {
+          message += `\n\n🎈 **Upcoming Birthdays**:\n` +
+            upcomingBirthdays.slice(0, 5).map((e) => `• **${e.name || e.firstName}** (${e.dobFormatted}, in ${e.daysUntil} day${e.daysUntil === 1 ? "" : "s"}) — ${e.department || "General"}`).join("\n");
+        }
+      } else {
+        message = `🎂 **No team birthdays today** (${currentDay}/${currentMonth}).`;
+        if (upcomingBirthdays.length > 0) {
+          message += `\n\n🎈 **Upcoming Birthdays (Next 30 Days)**:\n` +
+            upcomingBirthdays.slice(0, 5).map((e) => `• **${e.name || e.firstName}** (${e.dobFormatted}, in ${e.daysUntil} day${e.daysUntil === 1 ? "" : "s"}) — ${e.department || "General"}`).join("\n");
+        }
+      }
+
+      return {
+        todayCount: todayBirthdays.length,
+        todayBirthdays: todayBirthdays.map((e) => ({
+          name: e.name || (e.firstName + " " + (e.lastName || "")).trim(),
+          employeeId: e.employeeId,
+          department: e.department || "General",
+          dob: e.dobFormatted,
+        })),
+        upcomingBirthdays: upcomingBirthdays.slice(0, 5).map((e) => ({
+          name: e.name || (e.firstName + " " + (e.lastName || "")).trim(),
+          employeeId: e.employeeId,
+          department: e.department || "General",
+          dob: e.dobFormatted,
+          daysUntil: e.daysUntil,
+        })),
+        message,
+      };
+    }
+
     case "get_my_expenses": {
       const queryOr = [{ employeeId: userId }];
       if (mongoose.Types.ObjectId.isValid(user.employeeId)) {

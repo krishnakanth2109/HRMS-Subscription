@@ -25,6 +25,7 @@ import IdleTime from "../models/IdleTimeModel.js";
 import OfficeSettings from "../models/OfficeSettings.js";
 import DailyWorkEntry from "../models/DailyWorkEntry.js";
 import SupportAdmin from "../models/supportAdminModel.js";
+import Company from "../models/CompanyModel.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "default_hrms_super_secret_jwt_key_2026";
 
@@ -44,9 +45,9 @@ export const generateAdminActionToken = (payload) => {
    📊 1. ADMIN ANALYTICS & DASHBOARD METRICS
 ========================================================================= */
 export const adminGetDashboardSummary = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = args?.date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
   const tenantFilter = { $or: [{ adminId }, { companyId: companyId || adminId }] };
 
@@ -57,6 +58,12 @@ export const adminGetDashboardSummary = async (args, loggedAdmin) => {
 
   // 2. Attendance Summary Today
   const attendanceDocs = await Attendance.find(tenantFilter).lean();
+  const shifts = await Shift.find({ ...tenantFilter, isActive: true }).lean();
+  const shiftMap = {};
+  shifts.forEach((s) => {
+    if (s.employeeId) shiftMap[s.employeeId] = s;
+  });
+
   let presentCount = 0;
   let onBreakCount = 0;
   let lateCount = 0;
@@ -67,7 +74,31 @@ export const adminGetDashboardSummary = async (args, loggedAdmin) => {
     if (today && today.punchIn) {
       presentCount++;
       if (today.isOnBreak) onBreakCount++;
-      if (today.loginStatus === "LATE") lateCount++;
+
+      let isLate = today.loginStatus?.toUpperCase() === "LATE" || today.isLate === true;
+      if (!isLate) {
+        const empShift = shiftMap[doc.employeeId] || { shiftStartTime: "09:00", lateGracePeriod: 15 };
+        try {
+          const punchDate = new Date(today.punchIn);
+          const istTimeStr = punchDate.toLocaleTimeString("en-US", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+          let [pHour, pMin] = istTimeStr.split(":").map(Number);
+          if (pHour === 24) pHour = 0;
+          const punchMinutes = pHour * 60 + pMin;
+
+          const [sHour, sMin] = (empShift.shiftStartTime || "09:00").split(":").map(Number);
+          const grace = empShift.lateGracePeriod !== undefined ? Number(empShift.lateGracePeriod) : 15;
+          const shiftMinutes = sHour * 60 + sMin + grace;
+
+          if (punchMinutes > shiftMinutes) isLate = true;
+        } catch (e) {}
+      }
+
+      if (isLate) lateCount++;
       if (today.status === "COMPLETED" || today.isFinalPunchOut) completedCount++;
     }
   });
@@ -132,9 +163,9 @@ export const adminGetDashboardSummary = async (args, loggedAdmin) => {
 };
 
 export const adminGetTodayAttendance = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
-  const targetDate = args?.date || new Date().toISOString().slice(0, 10);
+  const targetDate = args?.date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const tenantFilter = { $or: [{ adminId }, { companyId: companyId || adminId }] };
 
   const employees = await Employee.find(tenantFilter).select("employeeId name department designation").lean();
@@ -150,12 +181,25 @@ export const adminGetTodayAttendance = async (args, loggedAdmin) => {
     const day = (doc.attendance || []).find((a) => a.date === targetDate);
     if (day && day.punchIn) {
       const empInfo = empMap[doc.employeeId] || { name: doc.employeeName || "Employee", department: "General" };
+      const punchInFormatted = new Date(day.punchIn).toLocaleTimeString("en-US", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const punchOutFormatted = day.punchOut
+        ? new Date(day.punchOut).toLocaleTimeString("en-US", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : (day.isOnBreak ? "On Break" : "In Progress");
+
       records.push({
         employeeId: doc.employeeId,
         name: empInfo.name,
         department: empInfo.department,
-        punchIn: new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        punchOut: day.punchOut ? new Date(day.punchOut).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : (day.isOnBreak ? "On Break" : "In Progress"),
+        punchIn: punchInFormatted,
+        punchOut: punchOutFormatted,
         status: day.isOnBreak ? "ON BREAK" : (day.status === "COMPLETED" ? "COMPLETED" : "WORKING"),
         loginStatus: day.loginStatus || "ON_TIME",
         workedTime: day.displayTime || (day.workedHours ? `${day.workedHours}h ${day.workedMinutes || 0}m` : "Active"),
@@ -193,9 +237,9 @@ export const adminGetTodayAttendance = async (args, loggedAdmin) => {
 };
 
 export const adminGetAbsentEmployees = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
-  const todayStr = args?.date || new Date().toISOString().slice(0, 10);
+  const todayStr = args?.date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const tenantFilter = { $or: [{ adminId }, { companyId: companyId || adminId }], status: "Active" };
 
   const employees = await Employee.find(tenantFilter).select("employeeId name department email phone").lean();
@@ -219,9 +263,14 @@ export const adminGetAbsentEmployees = async (args, loggedAdmin) => {
 
   const absentList = employees.filter((e) => !clockedInIds.has(e.employeeId) && !leaveEmpIds.has(e.employeeId));
 
+  let absentDetailsText = "";
+  if (absentList.length > 0) {
+    absentDetailsText = "\n" + absentList.map((emp) => `• **${emp.name}** (${emp.employeeId}) — ${emp.department || "General"}`).join("\n");
+  }
+
   return {
     success: true,
-    message: `🚨 **Absent Employees Today (${todayStr})**: **${absentList.length}** employee(s) have not clocked in.`,
+    message: `🚨 **Absent Employees Today (${todayStr})**: **${absentList.length}** employee(s) have not clocked in.${absentDetailsText}`,
     actionCard: {
       type: "admin_absent_list_widget",
       title: `Absent Employees (${todayStr})`,
@@ -234,9 +283,9 @@ export const adminGetAbsentEmployees = async (args, loggedAdmin) => {
 };
 
 export const adminGetLateEmployees = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
-  const todayStr = args?.date || new Date().toISOString().slice(0, 10);
+  const todayStr = args?.date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const tenantFilter = { $or: [{ adminId }, { companyId: companyId || adminId }] };
 
   const employees = await Employee.find(tenantFilter).select("employeeId name department phone").lean();
@@ -246,27 +295,77 @@ export const adminGetLateEmployees = async (args, loggedAdmin) => {
   });
 
   const attendanceDocs = await Attendance.find(tenantFilter).lean();
+  const shifts = await Shift.find({ ...tenantFilter, isActive: true }).lean();
+  const shiftMap = {};
+  shifts.forEach((s) => {
+    if (s.employeeId) shiftMap[s.employeeId] = s;
+  });
+
   const lateList = [];
 
   attendanceDocs.forEach((doc) => {
     const day = (doc.attendance || []).find((a) => a.date === todayStr);
-    if (day && day.punchIn && day.loginStatus === "LATE") {
-      const empInfo = empMap[doc.employeeId] || { name: doc.employeeName || "Employee", department: "General" };
-      lateList.push({
-        employeeId: doc.employeeId,
-        name: empInfo.name,
-        department: empInfo.department,
-        punchIn: new Date(day.punchIn).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        lateByMinutes: day.lateByMinutes || 0,
-        lateCorrectionStatus: day.lateCorrectionRequest?.status || "None",
-        lateReason: day.lateCorrectionRequest?.reason || "No reason submitted",
-      });
+    if (day && day.punchIn) {
+      let isLate = day.loginStatus?.toUpperCase() === "LATE" || day.isLate === true;
+      let lateMinutes = day.lateByMinutes || 0;
+
+      if (!isLate) {
+        const empShift = shiftMap[doc.employeeId] || { shiftStartTime: "09:00", lateGracePeriod: 15 };
+        try {
+          const punchDate = new Date(day.punchIn);
+          const istTimeStr = punchDate.toLocaleTimeString("en-US", {
+            timeZone: "Asia/Kolkata",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+          let [pHour, pMin] = istTimeStr.split(":").map(Number);
+          if (pHour === 24) pHour = 0;
+          const punchMinutes = pHour * 60 + pMin;
+
+          const [sHour, sMin] = (empShift.shiftStartTime || "09:00").split(":").map(Number);
+          const grace = empShift.lateGracePeriod !== undefined ? Number(empShift.lateGracePeriod) : 15;
+          const shiftMinutes = sHour * 60 + sMin + grace;
+
+          if (punchMinutes > shiftMinutes) {
+            isLate = true;
+            lateMinutes = punchMinutes - (sHour * 60 + sMin);
+          }
+        } catch (e) {
+          console.error("Dynamic shift check error in adminGetLateEmployees:", e);
+        }
+      }
+
+      if (isLate) {
+        const empInfo = empMap[doc.employeeId] || { name: doc.employeeName || "Employee", department: "General" };
+        const punchDate = new Date(day.punchIn);
+        const istPunchIn = punchDate.toLocaleTimeString("en-US", {
+          timeZone: "Asia/Kolkata",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        lateList.push({
+          employeeId: doc.employeeId,
+          name: empInfo.name,
+          department: empInfo.department,
+          punchIn: istPunchIn,
+          lateByMinutes: lateMinutes,
+          lateCorrectionStatus: day.lateCorrectionRequest?.status || "None",
+          lateReason: day.lateCorrectionRequest?.reason || "No reason submitted",
+        });
+      }
     }
   });
 
+  let lateDetailsText = "";
+  if (lateList.length > 0) {
+    lateDetailsText = "\n" + lateList.map((emp) => `• **${emp.name}** (${emp.department}) — In: **${emp.punchIn}**${emp.lateByMinutes > 0 ? ` (${emp.lateByMinutes}m late)` : ""}`).join("\n");
+  }
+
   return {
     success: true,
-    message: `⏰ **Late Arrivals Today (${todayStr})**: **${lateList.length}** employee(s) clocked in late.`,
+    message: `⏰ **Late Arrivals Today (${todayStr})**: **${lateList.length}** employee(s) clocked in late.${lateDetailsText}`,
     actionCard: {
       type: "admin_late_list_widget",
       title: `Late Arrivals (${todayStr})`,
@@ -482,18 +581,48 @@ export const adminGetEmployeeProfile = async (args, loggedAdmin) => {
    ⚙️ 3. SHIFTS, HOLIDAYS & POLICIES
 ========================================================================= */
 export const adminGetShifts = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const actualAdminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
 
-  const shifts = await Shift.find({ $or: [{ adminId }, { companyId: companyId || adminId }] }).lean();
+  const shifts = await Shift.find({
+    $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }],
+  }).lean();
+
+  let shiftSummaryText = "";
+  if (shifts.length > 0) {
+    shiftSummaryText = "\n\n" + shifts.slice(0, 6).map((s) => {
+      const name = s.employeeName || s.shiftName || (s.employeeId ? `Shift for ${s.employeeId}` : "General Shift");
+      const start = s.shiftStartTime || s.startTime || "09:00";
+      const end = s.shiftEndTime || s.endTime || "18:00";
+      const grace = s.lateGracePeriod !== undefined ? s.lateGracePeriod : (s.gracePeriod !== undefined ? s.gracePeriod : 15);
+      return `• **${name}** (${s.department || "General"}) — ${start} to ${end} (Grace: ${grace}m)`;
+    }).join("\n");
+    if (shifts.length > 6) {
+      shiftSummaryText += `\n...and **${shifts.length - 6}** more shift(s).`;
+    }
+  }
 
   return {
     success: true,
-    message: `⏰ Found **${shifts.length}** configured shift(s).`,
+    message: `⏰ Found **${shifts.length}** configured shift(s).${shiftSummaryText}`,
     actionCard: {
       type: "admin_shifts_widget",
       title: "Shift Timings & Rules",
-      data: shifts,
+      data: {
+        total: shifts.length,
+        shifts: shifts.map((s) => ({
+          id: s._id,
+          name: s.employeeName || s.shiftName || "General Shift",
+          employeeId: s.employeeId || "ALL",
+          department: s.department || "General",
+          role: s.role || "All Roles",
+          startTime: s.shiftStartTime || s.startTime || "09:00",
+          endTime: s.shiftEndTime || s.endTime || "18:00",
+          gracePeriod: s.lateGracePeriod !== undefined ? s.lateGracePeriod : (s.gracePeriod !== undefined ? s.gracePeriod : 15),
+          fullDayHours: s.fullDayHours || 9,
+          isActive: s.isActive !== false,
+        })),
+      },
     },
   };
 };
@@ -513,6 +642,130 @@ export const adminGetHolidays = async (args, loggedAdmin) => {
       type: "admin_holidays_widget",
       title: "Company Holiday Calendar",
       data: holidays,
+    },
+  };
+};
+
+export const adminGetBirthdays = async (args, loggedAdmin) => {
+  const actualAdminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
+  const companyId = loggedAdmin.company || loggedAdmin.companyId;
+  const tenantFilter = {
+    $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }],
+    status: { $ne: "Terminated" },
+  };
+
+  const employees = await Employee.find(tenantFilter)
+    .select("employeeId name firstName lastName email phone department designation dob personalDetails personal")
+    .lean();
+
+  const now = new Date();
+  const istDateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+  }).formatToParts(now);
+
+  const currentMonth = Number(istDateParts.find((p) => p.type === "month")?.value);
+  const currentDay = Number(istDateParts.find((p) => p.type === "day")?.value);
+  const currentYear = Number(istDateParts.find((p) => p.type === "year")?.value);
+
+  const parseDob = (raw) => {
+    if (!raw) return null;
+    if (typeof raw === "string") {
+      const mIso = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (mIso) {
+        return { year: Number(mIso[1]), month: Number(mIso[2]), day: Number(mIso[3]) };
+      }
+      const mDmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (mDmy) {
+        return { year: Number(mDmy[3]), month: Number(mDmy[2]), day: Number(mDmy[1]) };
+      }
+    }
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) {
+      return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+    }
+    return null;
+  };
+
+  const birthdayList = [];
+  employees.forEach((emp) => {
+    const rawDob = emp.dob || emp.personalDetails?.dob || emp.personal?.dob;
+    const parsed = parseDob(rawDob);
+    if (parsed) {
+      birthdayList.push({
+        ...emp,
+        dobParsed: parsed,
+        dobFormatted: `${parsed.day.toString().padStart(2, "0")}/${parsed.month.toString().padStart(2, "0")}`,
+      });
+    }
+  });
+
+  const todayBirthdays = birthdayList.filter(
+    (b) => b.dobParsed.month === currentMonth && b.dobParsed.day === currentDay
+  );
+
+  const upcomingBirthdays = birthdayList
+    .filter((b) => {
+      let nextBd = new Date(currentYear, b.dobParsed.month - 1, b.dobParsed.day);
+      const todayDate = new Date(currentYear, currentMonth - 1, currentDay);
+      if (nextBd <= todayDate) {
+        nextBd = new Date(currentYear + 1, b.dobParsed.month - 1, b.dobParsed.day);
+      }
+      const diffMs = nextBd - todayDate;
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      b.daysUntil = diffDays;
+      return diffDays > 0 && diffDays <= 30;
+    })
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
+  let message = "";
+  if (todayBirthdays.length > 0) {
+    message = `🎂 **Happy Birthday Today! (${todayBirthdays.length})**\n\n` +
+      todayBirthdays.map((e) => `• 🎉 **${e.name || (e.firstName + " " + (e.lastName || "")).trim()}** (${e.employeeId}) — ${e.department || "General"} (${e.email || "No email"})`).join("\n");
+    if (upcomingBirthdays.length > 0) {
+      message += `\n\n🎈 **Upcoming Birthdays (Next 30 Days)**:\n` +
+        upcomingBirthdays.slice(0, 5).map((e) => `• **${e.name || e.firstName}** (${e.dobFormatted}, in ${e.daysUntil} day${e.daysUntil === 1 ? "" : "s"}) — ${e.department || "General"}`).join("\n");
+    }
+  } else {
+    message = `🎂 **No employee birthdays today** (${currentDay}/${currentMonth}).`;
+    if (upcomingBirthdays.length > 0) {
+      message += `\n\n🎈 **Upcoming Birthdays (Next 30 Days)**:\n` +
+        upcomingBirthdays.slice(0, 5).map((e) => `• **${e.name || e.firstName}** (${e.dobFormatted}, in ${e.daysUntil} day${e.daysUntil === 1 ? "" : "s"}) — ${e.department || "General"}`).join("\n");
+    } else {
+      message += `\nNo upcoming birthdays within the next 30 days.`;
+    }
+  }
+
+  return {
+    success: true,
+    message,
+    actionCard: {
+      type: "admin_birthdays_widget",
+      title: "Employee Birthdays",
+      data: {
+        todayCount: todayBirthdays.length,
+        todayBirthdays: todayBirthdays.map((e) => ({
+          id: e._id,
+          name: e.name || (e.firstName + " " + (e.lastName || "")).trim(),
+          employeeId: e.employeeId,
+          email: e.email,
+          department: e.department || "General",
+          designation: e.designation || "Employee",
+          dob: e.dobFormatted,
+        })),
+        upcomingBirthdays: upcomingBirthdays.slice(0, 8).map((e) => ({
+          id: e._id,
+          name: e.name || (e.firstName + " " + (e.lastName || "")).trim(),
+          employeeId: e.employeeId,
+          email: e.email,
+          department: e.department || "General",
+          designation: e.designation || "Employee",
+          dob: e.dobFormatted,
+          daysUntil: e.daysUntil,
+        })),
+      },
     },
   };
 };
@@ -709,6 +962,62 @@ export const adminGetOfficeSettings = async (args, loggedAdmin) => {
   };
 };
 
+export const adminGetCompanyDetails = async (args, loggedAdmin) => {
+  const adminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
+  const companyRef = loggedAdmin.company || loggedAdmin.companyId;
+
+  let company = null;
+  if (companyRef) {
+    company = await Company.findById(companyRef).lean();
+  }
+  if (!company) {
+    company = await Company.findOne({ adminId }).lean();
+  }
+
+  const totalEmployees = await Employee.countDocuments({
+    $or: [{ adminId }, { company: company?._id }],
+  });
+
+  if (!company) {
+    return {
+      success: true,
+      message: `🏢 **Company Information**:\n• Total Employees: **${totalEmployees}**\n• No registered company profile found. You can set up your company in Company Settings.`,
+    };
+  }
+
+  const loc = company.officeLocation || {};
+  const addrParts = [loc.address, loc.city, loc.state, loc.zipCode, loc.country].filter(Boolean);
+  const fullAddress = addrParts.length > 0 ? addrParts.join(", ") : "Location not configured";
+
+  return {
+    success: true,
+    message: `🏢 **${company.name}** (${company.prefix})\n` +
+      `• **Status**: ${company.isActive !== false ? "Active" : "Inactive"}\n` +
+      `• **Total Employees**: **${totalEmployees || company.employeeCount || 0}**\n` +
+      `• **Registration No**: ${company.registrationNumber || "N/A"}\n` +
+      `• **Email**: ${company.email || "N/A"}\n` +
+      `• **Phone**: ${company.phone || "N/A"}\n` +
+      `• **Website**: ${company.website || "N/A"}\n` +
+      `• **Office Address**: ${fullAddress}\n` +
+      `• **Allowed Geofence Radius**: ${loc.allowedRadius || 200} meters`,
+    actionCard: {
+      type: "admin_company_details_widget",
+      title: `${company.name} Profile`,
+      data: {
+        name: company.name,
+        prefix: company.prefix,
+        employeeCount: totalEmployees || company.employeeCount || 0,
+        email: company.email || "N/A",
+        phone: company.phone || "N/A",
+        website: company.website || "N/A",
+        registrationNumber: company.registrationNumber || "N/A",
+        address: fullAddress,
+        allowedRadius: loc.allowedRadius || 200,
+      },
+    },
+  };
+};
+
 export const adminGetPerformanceReports = async (args, loggedAdmin) => {
   const adminId = loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
@@ -846,6 +1155,41 @@ export const adminGetCompanyRules = async (args, loggedAdmin) => {
 /* =========================================================================
    ✍️ 4. DRAFT ACTION GENERATORS (SIGNED ACTION TOKENS)
 ========================================================================= */
+export const adminDraftApplyLeave = async (args, loggedAdmin) => {
+  const from = args?.from || args?.date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const to = args?.to || from;
+  const reason = args?.reason || "Emergency leave";
+  const leaveType = args?.leaveType || "Casual Leave";
+  const leaveDayType = args?.leaveDayType || "Full Day";
+
+  const token = generateAdminActionToken({
+    actionType: "admin_confirm_apply_leave",
+    adminId: loggedAdmin._id.toString(),
+    from,
+    to,
+    reason,
+    leaveType,
+    leaveDayType,
+  });
+
+  return {
+    success: true,
+    message: `Ready to submit leave application for **${from}${to && to !== from ? ` to ${to}` : ""}** (${leaveType}, ${leaveDayType}). Reason: **${reason}**. Please review and confirm below:`,
+    actionCard: {
+      type: "admin_confirm_apply_leave",
+      title: "Apply Leave Application",
+      actionToken: token,
+      data: {
+        from,
+        to,
+        leaveType,
+        leaveDayType,
+        reason,
+      },
+    },
+  };
+};
+
 export const adminDraftApproveLeave = async (args, loggedAdmin) => {
   const adminId = loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
@@ -1488,7 +1832,7 @@ export const adminDraftToggleMobileAccess = async (args, loggedAdmin) => {
 };
 
 export const adminDraftAssignTask = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const actualAdminId = loggedAdmin.role === "support-admin" ? loggedAdmin.adminId : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
   const term = args.employeeId || args.employeeName;
   const title = args.title || "Complete Assigned Project Task";
@@ -1501,26 +1845,27 @@ export const adminDraftAssignTask = async (args, loggedAdmin) => {
         { employeeId: term },
         { name: new RegExp(term, "i") },
         { firstName: new RegExp(term, "i") },
+        { lastName: new RegExp(term, "i") },
         { _id: mongoose.isValidObjectId(term) ? term : null },
       ],
-      $and: [{ $or: [{ adminId }, { companyId: companyId || adminId }] }],
+      $and: [{ $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }] }],
     });
   }
 
   if (!emp) {
     emp = await Employee.findOne({
-      $or: [{ adminId }, { companyId: companyId || adminId }],
+      $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }],
       status: "Active",
     });
   }
 
   if (!emp) {
-    throw new Error("No employee found in your organization to assign a task.");
+    throw new Error(term ? `Employee '${term}' was not found in your organization.` : "No employee found in your organization to assign a task.");
   }
 
   const token = generateAdminActionToken({
     actionType: "admin_confirm_assign_task",
-    adminId: adminId.toString(),
+    adminId: actualAdminId.toString(),
     employeeId: emp.employeeId,
     employeeName: emp.name,
     title,
@@ -1951,6 +2296,8 @@ export const executeAdminCopilotTool = async (toolName, toolArgs, loggedAdmin) =
       return adminGetShifts(toolArgs, loggedAdmin);
     case "admin_get_holidays":
       return adminGetHolidays(toolArgs, loggedAdmin);
+    case "admin_get_birthdays":
+      return adminGetBirthdays(toolArgs, loggedAdmin);
     case "admin_get_notices":
       return adminGetNotices(toolArgs, loggedAdmin);
     case "admin_get_payroll_summary":
@@ -1965,8 +2312,12 @@ export const executeAdminCopilotTool = async (toolName, toolArgs, loggedAdmin) =
       return adminGetSupportAdmins(toolArgs, loggedAdmin);
     case "admin_get_company_rules":
       return adminGetCompanyRules(toolArgs, loggedAdmin);
+    case "admin_get_company_details":
+      return adminGetCompanyDetails(toolArgs, loggedAdmin);
 
     // Action Drafters
+    case "admin_draft_apply_leave":
+      return adminDraftApplyLeave(toolArgs, loggedAdmin);
     case "admin_draft_approve_leave":
       return adminDraftApproveLeave(toolArgs, loggedAdmin);
     case "admin_draft_reject_leave":

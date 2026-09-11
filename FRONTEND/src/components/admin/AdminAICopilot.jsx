@@ -679,6 +679,32 @@ export default function AdminAICopilot({ admin }) {
                             </div>
                           )}
 
+                          {/* 3B. Late Employees List Widget */}
+                          {msg.actionCard.type === "admin_late_list_widget" && (
+                            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-amber-950 dark:text-amber-200">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="text-amber-700 dark:text-amber-300 font-semibold">{msg.actionCard.data?.count} Late</span>
+                              </div>
+                              <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                                {msg.actionCard.data?.lateList?.map((emp, i) => (
+                                  <div key={i} className="bg-white dark:bg-slate-800 p-1.5 rounded-lg border border-amber-100 dark:border-slate-700 flex justify-between items-center text-[10px]">
+                                    <div>
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 block">{emp.name}</span>
+                                      <span className="text-[9px] text-slate-400">{emp.department || "General"} • In: {emp.punchIn}</span>
+                                    </div>
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">
+                                      {emp.lateByMinutes > 0 ? `+${emp.lateByMinutes}m Late` : "Late"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {/* 4. Pending Approvals Hub Widget */}
                           {msg.actionCard.type === "admin_pending_approvals_widget" && (
                             <div className="bg-amber-50/70 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-100 dark:border-amber-900/50 space-y-2">
@@ -888,6 +914,82 @@ export default function AdminAICopilot({ admin }) {
                                           </button>
                                         </div>
                                       )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4B-2. Shift Configurations Widget */}
+                          {msg.actionCard.type === "admin_shifts_widget" && (
+                            <div className="bg-indigo-50/70 dark:bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-indigo-950 dark:text-indigo-200">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                                  {msg.actionCard.title || "Shift Timings & Rules"}
+                                </span>
+                                <span className="text-indigo-700 dark:text-indigo-300 font-semibold text-[10px]">
+                                  {msg.actionCard.data?.total || msg.actionCard.data?.shifts?.length || (Array.isArray(msg.actionCard.data) ? msg.actionCard.data.length : 0)} Shift(s)
+                                </span>
+                              </div>
+                              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                                {((msg.actionCard.data?.shifts || (Array.isArray(msg.actionCard.data) ? msg.actionCard.data : []))).length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No shifts configured.</div>
+                                ) : (
+                                  (msg.actionCard.data?.shifts || (Array.isArray(msg.actionCard.data) ? msg.actionCard.data : [])).map((s, i) => (
+                                    <div key={`shift-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-indigo-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2 shadow-2xs">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                            {s.name || s.employeeName || s.shiftName || "Shift"}
+                                          </span>
+                                          <span className="px-1.5 py-0.2 rounded text-[8px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300 shrink-0">
+                                            {s.startTime || s.shiftStartTime || "09:00"} - {s.endTime || s.shiftEndTime || "18:00"}
+                                          </span>
+                                        </div>
+                                        <span className="text-[9px] text-slate-400 block truncate">
+                                          {s.department || "General"} • Grace: {s.gracePeriod ?? s.lateGracePeriod ?? 15}m • {s.fullDayHours || 9}h workday
+                                        </span>
+                                      </div>
+                                      <button
+                                        onClick={() => handleSend(`change shift timing for ${s.name || s.employeeName || "General Shift"} to 09:30 to 18:30`)}
+                                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded text-[9px] font-semibold transition shrink-0 cursor-pointer"
+                                      >
+                                        Update
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 4B-3. Holidays Calendar Widget */}
+                          {msg.actionCard.type === "admin_holidays_widget" && (
+                            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-2.5 rounded-xl border border-emerald-100 dark:border-emerald-900/50 space-y-2">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-emerald-950 dark:text-emerald-200">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                                  {msg.actionCard.title || "Company Holiday Calendar"}
+                                </span>
+                                <span className="text-emerald-700 dark:text-emerald-300 font-semibold text-[10px]">
+                                  {(Array.isArray(msg.actionCard.data) ? msg.actionCard.data.length : (msg.actionCard.data?.holidays?.length || 0))} Holiday(s)
+                                </span>
+                              </div>
+                              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                {(Array.isArray(msg.actionCard.data) ? msg.actionCard.data : (msg.actionCard.data?.holidays || [])).length === 0 ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No holidays found.</div>
+                                ) : (
+                                  (Array.isArray(msg.actionCard.data) ? msg.actionCard.data : (msg.actionCard.data?.holidays || [])).map((h, i) => (
+                                    <div key={`hol-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-emerald-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2 shadow-2xs">
+                                      <div className="flex-1 min-w-0">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200 block truncate">{h.name || h.title}</span>
+                                        <span className="text-[9px] text-slate-400 block truncate">{h.type || "General"}</span>
+                                      </div>
+                                      <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 shrink-0">
+                                        {h.date}
+                                      </span>
                                     </div>
                                   ))
                                 )}
@@ -1125,6 +1227,102 @@ export default function AdminAICopilot({ admin }) {
                                   <span className="text-slate-500">Leaves Taken:</span> <strong>{msg.actionCard.data?.approvedLeavesCount || 0} days</strong>
                                 </div>
                               </div>
+                            </div>
+                          )}
+
+                          {/* 5B. Company Details Widget */}
+                          {msg.actionCard.type === "admin_company_details_widget" && (
+                            <div className="bg-sky-50/70 dark:bg-sky-950/40 p-2.5 rounded-xl border border-sky-100 dark:border-sky-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-sky-950 dark:text-sky-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <Building2 className="w-3.5 h-3.5 text-sky-600" />
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="px-1.5 py-0.5 bg-sky-100 text-sky-800 rounded text-[9px] font-bold">
+                                  {msg.actionCard.data?.prefix}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-1.5 text-[10px] pt-1">
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-sky-100 dark:border-slate-700">
+                                  <span className="text-slate-500">Staff Count:</span> <strong>{msg.actionCard.data?.employeeCount || 0}</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-sky-100 dark:border-slate-700">
+                                  <span className="text-slate-500">Phone:</span> <strong>{msg.actionCard.data?.phone || "N/A"}</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-sky-100 dark:border-slate-700 col-span-2">
+                                  <span className="text-slate-500">Email:</span> <strong>{msg.actionCard.data?.email || "N/A"}</strong>
+                                </div>
+                                <div className="bg-white dark:bg-slate-800 p-1.5 rounded border border-sky-100 dark:border-slate-700 col-span-2">
+                                  <span className="text-slate-500">Address:</span> <strong>{msg.actionCard.data?.address || "N/A"}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 5B. Employee Birthdays Widget */}
+                          {msg.actionCard.type === "admin_birthdays_widget" && (
+                            <div className="bg-rose-50/70 dark:bg-rose-950/40 p-2.5 rounded-xl border border-rose-100 dark:border-rose-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-rose-950 dark:text-rose-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="text-base">🎂</span>
+                                  {msg.actionCard.title}
+                                </span>
+                                <span className="text-rose-700 dark:text-rose-300 font-semibold text-[10px]">
+                                  {msg.actionCard.data?.todayCount > 0 ? `${msg.actionCard.data.todayCount} Today!` : "No Birthdays Today"}
+                                </span>
+                              </div>
+
+                              {/* Today's Birthdays */}
+                              {msg.actionCard.data?.todayBirthdays?.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[9px] font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider block">Today's Celebrations 🎉</span>
+                                  {msg.actionCard.data.todayBirthdays.map((b, i) => (
+                                    <div key={`tb-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-rose-200 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2 shadow-xs">
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-lg">🎈</span>
+                                        <div className="min-w-0">
+                                          <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{b.name}</span>
+                                          <span className="text-[9px] text-slate-400 block truncate">{b.department} • {b.designation}</span>
+                                        </div>
+                                      </div>
+                                      {b.email && (
+                                        <a
+                                          href={`mailto:${b.email}?subject=Happy Birthday from the Team! 🎂`}
+                                          className="px-2 py-1 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-600 hover:to-rose-700 text-white rounded text-[9px] font-bold transition shadow-xs shrink-0 flex items-center gap-1 cursor-pointer"
+                                        >
+                                          Wish ✉️
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Upcoming Birthdays */}
+                              {msg.actionCard.data?.upcomingBirthdays?.length > 0 && (
+                                <div className="space-y-1 pt-1">
+                                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Upcoming (Next 30 Days)</span>
+                                  <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                                    {msg.actionCard.data.upcomingBirthdays.map((u, i) => (
+                                      <div key={`ub-${i}`} className="bg-white/80 dark:bg-slate-800/80 p-1.5 rounded-lg border border-rose-100 dark:border-slate-700 flex justify-between items-center text-[9px]">
+                                        <div className="truncate">
+                                          <span className="font-semibold text-slate-700 dark:text-slate-300">{u.name}</span>
+                                          <span className="text-slate-400 ml-1.5">({u.department})</span>
+                                        </div>
+                                        <span className="text-rose-600 dark:text-rose-400 font-bold shrink-0 ml-2">
+                                          {u.dob} (in {u.daysUntil}d)
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {(!msg.actionCard.data?.todayBirthdays?.length && !msg.actionCard.data?.upcomingBirthdays?.length) && (
+                                <div className="text-[10px] text-slate-500 py-3 text-center bg-white dark:bg-slate-800 rounded-lg">
+                                  No birthdays recorded for active employees.
+                                </div>
+                              )}
                             </div>
                           )}
 
