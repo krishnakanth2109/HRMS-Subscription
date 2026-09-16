@@ -502,9 +502,9 @@ export const adminGetLeaveRequests = async (args, loggedAdmin) => {
    👥 2. EMPLOYEE DIRECTORY & PROFILE LOOKUP
 ========================================================================= */
 export const adminGetAllEmployees = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const actualAdminId = (loggedAdmin.role === "support-admin" || loggedAdmin.role === "support_admin") ? (loggedAdmin.adminId || loggedAdmin._id) : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
-  const query = { $or: [{ adminId }, { companyId: companyId || adminId }] };
+  const query = { $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }, { company: companyId || actualAdminId }] };
 
   if (args?.department) {
     query.department = new RegExp(args.department, "i");
@@ -515,12 +515,28 @@ export const adminGetAllEmployees = async (args, loggedAdmin) => {
 
   const employees = await Employee.find(query)
     .select("employeeId name firstName lastName email department designation salary phone status joiningDate")
-    .limit(30)
+    .limit(50)
     .lean();
+
+  const formattedList = employees
+    .slice(0, 20)
+    .map((e) => {
+      const fullName = (e.name || `${e.firstName || ""} ${e.lastName || ""}`).trim() || "Employee";
+      const idStr = e.employeeId ? ` (${e.employeeId})` : "";
+      const dept = e.department || "General";
+      const desig = e.designation ? ` — ${e.designation}` : "";
+      const emailStr = e.email ? ` [${e.email}]` : "";
+      return `• **${fullName}**${idStr} — ${dept}${desig}${emailStr}`;
+    })
+    .join("\n");
+
+  const overflow = employees.length > 20 ? `\n\n*(Showing 20 of ${employees.length} employees)*` : "";
 
   return {
     success: true,
-    message: `👥 **Employee Directory**: Found **${employees.length}** employees.`,
+    message: employees.length > 0
+      ? `👥 **Organization Employees (${employees.length})**:\n\n${formattedList}${overflow}`
+      : `👥 **Employee Directory**: No employees found in the directory.`,
     actionCard: {
       type: "admin_employee_directory_widget",
       title: "Employee Directory",
@@ -533,7 +549,7 @@ export const adminGetAllEmployees = async (args, loggedAdmin) => {
 };
 
 export const adminGetEmployeeProfile = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const actualAdminId = (loggedAdmin.role === "support-admin" || loggedAdmin.role === "support_admin") ? (loggedAdmin.adminId || loggedAdmin._id) : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
   const term = args?.query || args?.employeeName || args?.employeeId;
 
@@ -546,10 +562,11 @@ export const adminGetEmployeeProfile = async (args, loggedAdmin) => {
       { employeeId: term },
       { name: new RegExp(term, "i") },
       { firstName: new RegExp(term, "i") },
+      { lastName: new RegExp(term, "i") },
       { email: term.toLowerCase() },
       { _id: mongoose.isValidObjectId(term) ? term : null },
     ],
-    $and: [{ $or: [{ adminId }, { companyId: companyId || adminId }] }],
+    $and: [{ $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }, { company: companyId || actualAdminId }] }],
   }).lean();
 
   if (!emp) {
@@ -564,10 +581,10 @@ export const adminGetEmployeeProfile = async (args, loggedAdmin) => {
 
   return {
     success: true,
-    message: `👤 **Employee Profile**: ${emp.name} (${emp.employeeId})\n• Department: **${emp.department || "N/A"}** | Role: **${emp.designation || "N/A"}**\n• Status: **${emp.status || "Active"}** | Salary: **₹${(emp.salary || 0).toLocaleString()}**\n• Email: **${emp.email}** | Phone: **${emp.phone || "N/A"}**`,
+    message: `👤 **Employee Profile**: ${emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim()} (${emp.employeeId})\n• Department: **${emp.department || "N/A"}** | Role: **${emp.designation || "N/A"}**\n• Status: **${emp.status || "Active"}** | Salary: **₹${(emp.salary || 0).toLocaleString()}**\n• Email: **${emp.email}** | Phone: **${emp.phone || "N/A"}**`,
     actionCard: {
       type: "admin_employee_profile_widget",
-      title: `Employee Profile: ${emp.name}`,
+      title: `Employee Profile: ${emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim()}`,
       data: {
         employee: emp,
         approvedLeavesCount: leaves.length,
@@ -1570,29 +1587,39 @@ export const adminDraftApproveLate = async (args, loggedAdmin) => {
 };
 
 export const adminDraftApprovePunchOut = async (args, loggedAdmin) => {
-  const adminId = loggedAdmin._id;
+  const actualAdminId = (loggedAdmin.role === "support-admin" || loggedAdmin.role === "support_admin") ? (loggedAdmin.adminId || loggedAdmin._id) : loggedAdmin._id;
   const companyId = loggedAdmin.company || loggedAdmin.companyId;
   const term = args?.requestId || args?.employeeName;
 
   let req = null;
-  if (mongoose.isValidObjectId(term)) {
+  if (term && mongoose.isValidObjectId(term)) {
     req = await PunchOutRequest.findById(term);
+  }
+  if (!req && term && term !== "all") {
+    req = await PunchOutRequest.findOne({
+      $and: [
+        { $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }] },
+        { status: "Pending" },
+        { $or: [{ employeeName: new RegExp(term, "i") }, { employeeId: term }] },
+      ],
+    }).sort({ requestDate: -1 });
   }
   if (!req) {
     req = await PunchOutRequest.findOne({
-      $or: [{ adminId }, { companyId: companyId || adminId }],
-      status: "Pending",
-      $or: [{ employeeName: new RegExp(term, "i") }, { employeeId: term }],
+      $and: [
+        { $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }] },
+        { status: "Pending" },
+      ],
     }).sort({ requestDate: -1 });
   }
 
   if (!req) {
-    throw new Error(`No pending missing punch-out request found for '${term}'.`);
+    throw new Error(term && term !== "all" ? `No pending missing punch-out request found for '${term}'.` : "No pending missing punch-out requests found.");
   }
 
   const token = generateAdminActionToken({
     actionType: "admin_confirm_approve_punch_out",
-    adminId: adminId.toString(),
+    adminId: actualAdminId.toString(),
     requestId: req._id.toString(),
     employeeName: req.employeeName,
     date: req.originalDate,
@@ -1604,6 +1631,62 @@ export const adminDraftApprovePunchOut = async (args, loggedAdmin) => {
     actionCard: {
       type: "admin_confirm_approve_punch_out",
       title: "Approve Missing Punch-Out",
+      actionToken: token,
+      data: {
+        requestId: req._id.toString(),
+        employeeName: req.employeeName,
+        date: req.originalDate,
+        reason: req.reason,
+      },
+    },
+  };
+};
+
+export const adminDraftRejectPunchOut = async (args, loggedAdmin) => {
+  const actualAdminId = (loggedAdmin.role === "support-admin" || loggedAdmin.role === "support_admin") ? (loggedAdmin.adminId || loggedAdmin._id) : loggedAdmin._id;
+  const companyId = loggedAdmin.company || loggedAdmin.companyId;
+  const term = args?.requestId || args?.employeeName;
+
+  let req = null;
+  if (term && mongoose.isValidObjectId(term)) {
+    req = await PunchOutRequest.findById(term);
+  }
+  if (!req && term && term !== "all") {
+    req = await PunchOutRequest.findOne({
+      $and: [
+        { $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }] },
+        { status: "Pending" },
+        { $or: [{ employeeName: new RegExp(term, "i") }, { employeeId: term }] },
+      ],
+    }).sort({ requestDate: -1 });
+  }
+  if (!req) {
+    req = await PunchOutRequest.findOne({
+      $and: [
+        { $or: [{ adminId: actualAdminId }, { companyId: companyId || actualAdminId }] },
+        { status: "Pending" },
+      ],
+    }).sort({ requestDate: -1 });
+  }
+
+  if (!req) {
+    throw new Error(term && term !== "all" ? `No pending missing punch-out request found for '${term}'.` : "No pending missing punch-out requests found.");
+  }
+
+  const token = generateAdminActionToken({
+    actionType: "admin_confirm_reject_punch_out",
+    adminId: actualAdminId.toString(),
+    requestId: req._id.toString(),
+    employeeName: req.employeeName,
+    date: req.originalDate,
+  });
+
+  return {
+    success: true,
+    message: `Ready to reject missing punch-out request for **${req.employeeName}** on ${req.originalDate}.`,
+    actionCard: {
+      type: "admin_confirm_reject_punch_out",
+      title: "Reject Missing Punch-Out",
       actionToken: token,
       data: {
         requestId: req._id.toString(),
@@ -2334,6 +2417,8 @@ export const executeAdminCopilotTool = async (toolName, toolArgs, loggedAdmin) =
       return adminDraftApproveLate(toolArgs, loggedAdmin);
     case "admin_draft_approve_punch_out":
       return adminDraftApprovePunchOut(toolArgs, loggedAdmin);
+    case "admin_draft_reject_punch_out":
+      return adminDraftRejectPunchOut(toolArgs, loggedAdmin);
     case "admin_draft_approve_attendance_request":
       return adminDraftApproveAttendanceRequest(toolArgs, loggedAdmin);
     case "admin_draft_reject_attendance_request":

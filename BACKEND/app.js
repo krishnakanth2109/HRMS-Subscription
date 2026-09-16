@@ -1,5 +1,13 @@
 import "dotenv/config.js";
+import dns from "node:dns";
 
+// Configure DNS resolution to prioritize IPv4 and use public DNS resolvers for MongoDB Atlas SRV lookups on Windows
+try {
+  dns.setDefaultResultOrder?.("ipv4first");
+  dns.setServers(["8.8.8.8", "1.1.1.1", "8.8.4.4"]);
+} catch (dnsErr) {
+  console.warn("⚠️ DNS configuration warning:", dnsErr?.message);
+}
 
 import express from "express";
 import cors from "cors";
@@ -268,13 +276,20 @@ app.use((req, res, next) => {
 /* ==================== DATABASE ==================== */
 mongoose.set("strictQuery", false);
 
-const connectMongoDB = async () => {
+let isMongoConnecting = false;
+const connectMongoDB = async (retryCount = 0) => {
+  if (mongoose.connection.readyState === 1) return;
+  if (isMongoConnecting && retryCount === 0) return;
+  isMongoConnecting = true;
+
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 15000,
       socketTimeoutMS: 45000,
+      family: 4,
     });
-    console.log("✅ MongoDB Connected");
+    isMongoConnecting = false;
+    console.log("✅ MongoDB Connected Successfully");
     // Seed/verify HR knowledge base embeddings into MongoDB (hash-based content versioning)
     seedCopilotKnowledge("global").catch((err) =>
       console.warn("⚠️ Copilot knowledge seeding error:", err.message)
@@ -282,17 +297,24 @@ const connectMongoDB = async () => {
     // Initialize automated scheduled jobs
     initBirthdayCron();
   } catch (err) {
+    isMongoConnecting = false;
     console.error("❌ MongoDB Connection Error:", err.message);
     if (err.message.includes("ECONNREFUSED") || err.message.includes("querySrv")) {
       console.error("💡 TIP: DNS SRV resolution failed. Ensure your network allows DNS queries or whitelist your IP in MongoDB Atlas.");
+    } else if (err.message.includes("timed out") || err.message.includes("ETIMEDOUT") || err.message.includes("buffering timed out")) {
+      console.error("💡 TIP: Connection timed out. Make sure your current IP address is whitelisted in MongoDB Atlas Network Access (0.0.0.0/0 or Current IP).");
     }
+    const nextRetry = Math.min(30000, 4000 * Math.pow(1.3, Math.min(retryCount, 6)));
+    console.log(`⏳ Reconnecting to MongoDB in ${Math.round(nextRetry / 1000)}s... (attempt ${retryCount + 1})`);
+    setTimeout(() => connectMongoDB(retryCount + 1), nextRetry);
   }
 };
 
 connectMongoDB();
 
 mongoose.connection.on("disconnected", () => {
-  console.log("âš ï¸  MongoDB Disconnected");
+  console.log("⚠️ MongoDB Disconnected. Attempting reconnection...");
+  connectMongoDB();
 });
 
 mongoose.connection.on("reconnected", () => {
