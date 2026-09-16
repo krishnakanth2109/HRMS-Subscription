@@ -396,11 +396,21 @@ export const classifyAdminIntentTraditional = (message) => {
   }
 
   // ── 8D. MISSING PUNCH-OUT & FORCE PUNCH-OUT ──────────────────────────────
-  if (q.includes("punch out request") || q.includes("punch out requests") || q.includes("missing punch") || q.includes("punchout request")) {
+  if (
+    q.includes("punch out") ||
+    q.includes("punchout") ||
+    q.includes("missing punch") ||
+    q.includes("punch-out")
+  ) {
     if (q.includes("approve") || q.includes("accept")) {
-      const match = message.match(/(?:approve|accept)\s+(?:punch\s+out\s+request\s+(?:for\s+|of\s+)?|missing\s+punch\s+(?:for\s+|of\s+)?|)([a-zA-Z\s]+?)(?:'s\s+punch|\s+punch|$)/i);
+      const match = message.match(/(?:approve|accept)\s+(?:(?:missing\s+)?(?:punch\s*out|punchout|punch-out)\s+(?:request\s+)?(?:for\s+|of\s+)?|)([a-zA-Z0-9\s.-]+?)(?:'s\s+punch|\s+punch|$)/i);
       const name = match ? match[1].replace(/punch|out|request|missing|for|of/gi, "").trim() : "";
       return { action: "admin_draft_approve_punch_out", employeeName: name || "all" };
+    }
+    if (q.includes("reject") || q.includes("deny")) {
+      const match = message.match(/(?:reject|deny)\s+(?:(?:missing\s+)?(?:punch\s*out|punchout|punch-out)\s+(?:request\s+)?(?:for\s+|of\s+)?|)([a-zA-Z0-9\s.-]+?)(?:'s\s+punch|\s+punch|$)/i);
+      const name = match ? match[1].replace(/punch|out|request|missing|for|of/gi, "").trim() : "";
+      return { action: "admin_draft_reject_punch_out", employeeName: name || "all" };
     }
     return { action: "admin_get_pending_approvals" };
   }
@@ -488,22 +498,66 @@ export const classifyAdminIntentTraditional = (message) => {
     };
   }
 
+  // ── 9. EMPLOYEE DIRECTORY & PROFILE LOOKUP ────────────────────────────────
+  const isAllEmployeesQuery =
+    q === "employees" ||
+    q === "all employees" ||
+    q === "employee directory" ||
+    q === "staff directory" ||
+    q === "employee details" ||
+    q === "employees details" ||
+    q === "all employee details" ||
+    q === "all employees details" ||
+    q.includes("all employee details") ||
+    q.includes("all employees details") ||
+    q.includes("give all employee") ||
+    q.includes("give employee details") ||
+    q.includes("get employee details") ||
+    q.includes("show employee details") ||
+    q.includes("view employee details") ||
+    q.includes("list employee details") ||
+    q.includes("show all employee") ||
+    q.includes("view all employee") ||
+    q.includes("list all employee") ||
+    q.includes("get all employee") ||
+    q.includes("employee list") ||
+    q.includes("employees list") ||
+    q.includes("staff list") ||
+    q.includes("all staff") ||
+    q.includes("list employees") ||
+    q.includes("list all employees") ||
+    q.includes("show all employees") ||
+    q.includes("show employees") ||
+    q.includes("view all employees") ||
+    q.includes("view employees") ||
+    q.includes("get all employees") ||
+    q.includes("team members") ||
+    q.includes("all team members") ||
+    q.includes("who are the employees") ||
+    q.includes("who are our employees");
+
+  if (isAllEmployeesQuery) {
+    return { action: "admin_get_all_employees" };
+  }
+
   if (
     q.startsWith("search employee") ||
     q.startsWith("find employee") ||
     q.startsWith("view profile") ||
     q.startsWith("employee profile") ||
     q.includes("profile of ") ||
-    q.includes("details of ")
+    q.includes("details of ") ||
+    q.includes("details for ") ||
+    q.includes("info about ") ||
+    q.includes("profile for ") ||
+    q.includes("details about ") ||
+    (q.includes("employee details") && !isAllEmployeesQuery)
   ) {
-    const match = message.match(/(?:search|find|view|profile\s+of|details\s+of)\s+(?:employee\s+)?([a-zA-Z0-9\s.-]+)/i);
-    const query = match ? match[1].replace(/profile|details|of|employee/gi, "").trim() : "";
-    if (query) {
+    const match = message.match(/(?:search|find|view|profile\s+of|details\s+of|details\s+for|profile\s+for|info\s+about|details\s+about|employee\s+details\s+for|employee\s+details\s+of)\s+(?:employee\s+)?([a-zA-Z0-9\s.-]+)/i);
+    const query = match ? match[1].replace(/profile|details|of|for|about|employee/gi, "").trim() : "";
+    if (query && query.toLowerCase() !== "all" && query.toLowerCase() !== "everyone" && query.toLowerCase() !== "all employees") {
       return { action: "admin_get_employee_profile", query };
     }
-  }
-
-  if (q === "employees" || q === "all employees" || q === "employee directory" || q.includes("staff list") || q.includes("all staff")) {
     return { action: "admin_get_all_employees" };
   }
 

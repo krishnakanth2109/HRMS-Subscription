@@ -1201,6 +1201,48 @@ export default function AdminAICopilot({ admin }) {
                             </div>
                           )}
 
+                          {/* 4I. Employee Directory Widget */}
+                          {msg.actionCard.type === "admin_employee_directory_widget" && (
+                            <div className="bg-indigo-50/70 dark:bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 space-y-2">
+                              <div className="text-[11px] font-bold text-indigo-950 dark:text-indigo-200 flex items-center justify-between">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-3.5 h-3.5 text-indigo-600" />
+                                  {msg.actionCard.title || "Employee Directory"}
+                                </span>
+                                <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-300 rounded text-[9px] font-bold">
+                                  {msg.actionCard.data?.total || msg.actionCard.data?.employees?.length || 0} Staff
+                                </span>
+                              </div>
+                              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                                {(!msg.actionCard.data?.employees || msg.actionCard.data.employees.length === 0) ? (
+                                  <div className="text-[10px] text-slate-500 py-2 text-center bg-white dark:bg-slate-800 rounded-lg">No employees found.</div>
+                                ) : (
+                                  msg.actionCard.data.employees.map((emp, i) => (
+                                    <div key={`dir-emp-${i}`} className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-indigo-100 dark:border-slate-700 flex justify-between items-center text-[10px] gap-2 shadow-2xs">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                            {emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim()}
+                                          </span>
+                                          <span className="text-[9px] text-slate-400">({emp.employeeId || "N/A"})</span>
+                                        </div>
+                                        <span className="text-[9px] text-slate-400 block truncate">
+                                          {emp.department || "General"} • {emp.designation || "Staff"} • {emp.email || ""}
+                                        </span>
+                                      </div>
+                                      <button
+                                        onClick={() => handleSend(`view profile of ${emp.name || emp.employeeId}`)}
+                                        className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded text-[9px] font-semibold transition shrink-0 cursor-pointer"
+                                      >
+                                        Profile
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           {/* 5. Employee Profile Widget */}
                           {msg.actionCard.type === "admin_employee_profile_widget" && (
                             <div className="bg-indigo-50/70 dark:bg-indigo-950/40 p-2.5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 space-y-2">
