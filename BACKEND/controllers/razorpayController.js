@@ -195,13 +195,15 @@ export const verifyPayment = async (req, res) => {
     // ── Upsert admin ────────────────────────────────────────────────────────
     const existing = await Admin.findOne({ email });
 
-    // ── Calculate subscription window using precise calendar cycles ───────────
     let activatedAt = new Date();
     let expiresAt = new Date();
-    if (existing && existing.plan === planName && existing.planExpiresAt && new Date(existing.planExpiresAt) > new Date()) {
+    const currentPlanName = existing?.planDetails?.planName;
+    const currentExpiresAt = existing?.planDetails?.expiresAt;
+    
+    if (existing && currentPlanName === planName && currentExpiresAt && new Date(currentExpiresAt) > new Date()) {
       // Extend early renewal from existing expiration date ONLY if the plan is the same
-      activatedAt = new Date(existing.planExpiresAt);
-      expiresAt = new Date(existing.planExpiresAt);
+      activatedAt = new Date(currentExpiresAt);
+      expiresAt = new Date(currentExpiresAt);
     }
 
     if (durationDays) {
@@ -226,13 +228,14 @@ export const verifyPayment = async (req, res) => {
       const isSamePlan = existing.planDetails?.planName === planName;
       const requestedUserLimit = Math.max(1, Number(userLimit) || 1);
       const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 1;
+      const isUpgrade = notes.isUpgrade === "true";
       
       let renewedUserLimit;
-      if (isSamePlan) {
+      if (isSamePlan && isUpgrade) {
         // Additive for adding seats to current plan
         renewedUserLimit = currentBaseLimit + requestedUserLimit;
       } else {
-        // Full replacement for new plans
+        // Full replacement for new plans or renewals
         renewedUserLimit = requestedUserLimit;
       }
 
@@ -395,8 +398,11 @@ export const razorpayWebhookHandler = async (req, res) => {
 
     const activatedAt = new Date();
     let expiresAt = new Date();
-    if (existing && existing.plan === planName && existing.planExpiresAt && new Date(existing.planExpiresAt) > new Date()) {
-      expiresAt = new Date(existing.planExpiresAt);
+    const currentPlanName = existing?.planDetails?.planName;
+    const currentExpiresAt = existing?.planDetails?.expiresAt;
+
+    if (existing && currentPlanName === planName && currentExpiresAt && new Date(currentExpiresAt) > new Date()) {
+      expiresAt = new Date(currentExpiresAt);
     }
 
     if (durationDays) {
@@ -420,7 +426,15 @@ export const razorpayWebhookHandler = async (req, res) => {
       const mergedAddonSeats = mergeSameDateAddonsIntoMain(existing, oldPlanExpiresAt);
       const requestedUserLimit = Number(userLimit) || 30;
       const currentBaseLimit = existing.planDetails?.maxUsers || existing.userLimit || 30;
-      const renewedUserLimit = Math.max(requestedUserLimit, currentBaseLimit + mergedAddonSeats);
+      
+      const isUpgrade = notes.isUpgrade === "true";
+      const isSamePlan = existing.planDetails?.planName === planName;
+      let renewedUserLimit;
+      if (isSamePlan && isUpgrade) {
+          renewedUserLimit = currentBaseLimit + requestedUserLimit;
+      } else {
+          renewedUserLimit = requestedUserLimit;
+      }
 
       existing.planDetails = {
         planName: planName,
