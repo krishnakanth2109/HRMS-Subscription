@@ -4,6 +4,7 @@ import Admin from "../models/adminModel.js";
 import PlanSetting from "../models/planSettingModel.js";
 import jwt from "jsonwebtoken";
 import { cloudinary } from "../config/cloudinary.js";
+import Company from "../models/CompanyModel.js";
 
 const DEFAULT_LOGO = "https://image2url.com/r2/default/images/1774247571292-e7459e42-1868-4206-bd5c-bb4c59de5716.png";
 
@@ -445,6 +446,71 @@ export const updateProfile = async (req, res) => {
       message: "Profile updated successfully."
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Manually create an Admin and Company
+// @route   POST /api/master/create-admin-manual
+// @access  Private (Master Only)
+export const createAdminManual = async (req, res) => {
+  try {
+    const { name, email, password, companyName, userLimit } = req.body;
+    
+    if (!name || !email || !password || !companyName) {
+      return res.status(400).json({ message: "Please provide all required fields." });
+    }
+
+    const adminExists = await Admin.findOne({ email });
+    if (adminExists) {
+      return res.status(400).json({ message: "Admin with this email already exists." });
+    }
+
+    // Set expiration 10 years in the future for manual creations
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 10);
+
+    const admin = await Admin.create({
+      name,
+      email,
+      password,
+      planDetails: {
+        planName: "Manual Owner",
+        price: 0,
+        billingCycle: "custom",
+        durationDays: 3650,
+        maxUsers: userLimit || 50,
+        isUnlimited: false,
+        isPaid: true,
+        activatedAt: new Date(),
+        expiresAt: expiresAt,
+      }
+    });
+
+    const prefix = companyName.substring(0, 3).toUpperCase() + Math.floor(Math.random() * 100);
+
+    const company = await Company.create({
+      adminId: admin._id,
+      name: companyName,
+      prefix: prefix,
+      isActive: true,
+    });
+
+    res.status(201).json({
+      message: "Admin and Company created successfully.",
+      admin: {
+        _id: admin._id,
+        name: admin.name,
+        email: admin.email,
+      },
+      company: {
+        _id: company._id,
+        name: company.name,
+        prefix: company.prefix,
+      }
+    });
+  } catch (error) {
+    console.error("CREATE ADMIN MANUAL ERROR:", error);
     res.status(500).json({ message: error.message });
   }
 };

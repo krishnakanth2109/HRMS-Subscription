@@ -476,12 +476,17 @@ const AddEmployee = () => {
           title: "User Limit Exceeded",
           text: err.response.data.error,
           showCancelButton: true,
+          showDenyButton: true,
           confirmButtonText: "Upgrade Plan",
+          denyButtonText: "Add Addon Seats",
           cancelButtonText: "Close",
           confirmButtonColor: "#9333ea", // purple-600
+          denyButtonColor: "#4f46e5", // indigo-600
         }).then((result) => {
           if (result.isConfirmed) {
             navigate("/admin/profile#plans");
+          } else if (result.isDenied) {
+            navigate("/admin/profile#addon");
           }
         });
       } else {

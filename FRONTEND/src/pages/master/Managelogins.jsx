@@ -102,6 +102,26 @@ export default function ManageLogins() {
   const [openActionMenu, setOpenActionMenu] = useState(null);
   const actionMenuRef = useRef(null);
 
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [manualFormData, setManualFormData] = useState({ name: "", email: "", password: "", companyName: "", userLimit: 50 });
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+
+  const handleManualSubmit = async (e) => {
+    e.preventDefault();
+    setManualSubmitting(true);
+    try {
+      await api.post("/api/master/create-admin-manual", manualFormData);
+      toast("Admin login created successfully", "success");
+      setIsManualModalOpen(false);
+      setManualFormData({ name: "", email: "", password: "", companyName: "", userLimit: 50 });
+      fetchData(); // reload the data
+    } catch (err) {
+      toast(err.response?.data?.message || err.message, "error");
+    } finally {
+      setManualSubmitting(false);
+    }
+  };
+
   const toggleStaff = (adminId) => {
     setExpandedStaff(prev => ({ ...prev, [adminId]: !prev[adminId] }));
   };
@@ -442,14 +462,22 @@ export default function ManageLogins() {
     <div className="space-y-8 animate-[fadeIn_0.4s_ease-out]">
 
       {/* ── HEADER ── */}
-      <div>
-        <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-purple-600" />
-          Access Management
-        </h2>
-        <p className="mt-1 text-slate-400 text-xs font-semibold tracking-wide">
-          Control login access for administrators and their staff, monitor subscription statuses, and manage billing accounts.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-purple-600" />
+            Access Management
+          </h2>
+          <p className="mt-1 text-slate-400 text-xs font-semibold tracking-wide">
+            Control login access for administrators and their staff, monitor subscription statuses, and manage billing accounts.
+          </p>
+        </div>
+        <button
+          onClick={() => setIsManualModalOpen(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all shadow-md shadow-purple-500/20 hover:shadow-lg flex items-center gap-2"
+        >
+          + Create Login Manually
+        </button>
       </div>
 
       {/* ── COUNTS / STATS ── */}
@@ -716,6 +744,50 @@ export default function ManageLogins() {
               </div>
             );
           })}
+        </div>
+      )}
+      {/* ── MANUAL CREATION MODAL ── */}
+      {isManualModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-lg font-bold text-slate-800">Create Login Manually</h3>
+              <button onClick={() => setIsManualModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+              </button>
+            </div>
+            <form onSubmit={handleManualSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Company Name</label>
+                <input required type="text" value={manualFormData.companyName} onChange={e => setManualFormData({ ...manualFormData, companyName: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-sm transition-all" placeholder="e.g. Acme Corp" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Admin Name</label>
+                <input required type="text" value={manualFormData.name} onChange={e => setManualFormData({ ...manualFormData, name: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-sm transition-all" placeholder="Admin Full Name" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                <input required type="email" value={manualFormData.email} onChange={e => setManualFormData({ ...manualFormData, email: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-sm transition-all" placeholder="admin@example.com" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                  <input required type="password" value={manualFormData.password} onChange={e => setManualFormData({ ...manualFormData, password: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-sm transition-all" placeholder="Min 6 chars" minLength="6" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">User Limit</label>
+                  <input required type="number" value={manualFormData.userLimit} onChange={e => setManualFormData({ ...manualFormData, userLimit: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-sm transition-all" placeholder="e.g. 50" min="1" />
+                </div>
+              </div>
+              <div className="pt-4 flex items-center justify-end gap-3">
+                <button type="button" onClick={() => setIsManualModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancel</button>
+                <button type="submit" disabled={manualSubmitting} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md shadow-purple-500/20 transition-all disabled:opacity-50 flex items-center gap-2">
+                  {manualSubmitting && <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>}
+                  {manualSubmitting ? "Creating..." : "Create Login"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

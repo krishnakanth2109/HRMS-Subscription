@@ -123,6 +123,7 @@ router.get('/:employeeId', async (req, res) => {
           ...(parentAdminId ? [{ adminId: parentAdminId }] : []),
           ...(companyId ? [{ companyId }] : []),
         ],
+        employeeId: null, // ONLY match global/default shifts
         isActive: true,
       }).sort({ updatedAt: -1 });
     }

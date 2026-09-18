@@ -14,7 +14,8 @@ import {
   uploadFavicon,
   removeFavicon,
   getProfile,
-  updateProfile
+  updateProfile,
+  createAdminManual
 } from "../controllers/masterController.js";
 import { protectMaster } from "../middleware/authMasterMiddleware.js";
 import { cloudinary } from "../config/cloudinary.js";
@@ -51,6 +52,11 @@ router.post("/login", authMaster);
 // @desc    Get all registered companies/admins
 // @access  Private (Master Only)
 router.get("/admins", protectMaster, getAllAdmins);
+
+// @route   POST /api/master/create-admin-manual
+// @desc    Manually create an Admin and Company
+// @access  Private (Master Only)
+router.post("/create-admin-manual", protectMaster, createAdminManual);
 
 // @route   PUT /api/master/settings
 // @desc    Update global system settings

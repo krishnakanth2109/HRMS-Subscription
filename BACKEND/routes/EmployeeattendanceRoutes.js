@@ -360,6 +360,11 @@ const resolveAttendanceScope = async (req, employeeId) => {
     companyId = company?._id;
   }
 
+  // Fallback for support admins created by Master Admin who have no company
+  if (!companyId && req.user && req.user.role === "support-admin") {
+    companyId = adminId; 
+  }
+
   return { adminId, companyId };
 };
 

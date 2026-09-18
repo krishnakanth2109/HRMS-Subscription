@@ -843,6 +843,11 @@ const AdminProfile = () => {
           element.scrollIntoView({ behavior: "smooth" });
         }
       }, 100);
+    } else if (!loading && location.hash === "#addon") {
+      setTimeout(() => {
+        openAddonModal();
+        window.history.replaceState(null, '', location.pathname);
+      }, 100);
     }
   }, [loading, plansLoading, location.hash]);
 
