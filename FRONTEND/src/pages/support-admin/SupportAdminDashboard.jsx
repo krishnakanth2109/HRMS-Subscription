@@ -254,7 +254,9 @@ const SupportAdminDashboard = () => {
   const breakDropdownRef = useRef(null);
   const alarmPlayedRef = useRef(false);
 
-  const targetEmployeeId = user?.employeeId || user?.actualId || user?._id;
+  // For support-admins, the canonical attendance key is their real ObjectId string (actualId).
+  // actualId is now set in the login response. Prefer it over employeeId to ensure consistent lookup.
+  const targetEmployeeId = user?.actualId || user?.employeeId || user?._id;
   const displayAdministrationId = adminProfile?.supportAdminId || user?.supportAdminId || targetEmployeeId;
   const displayRoleName = adminProfile?.positionName || user?.positionName || "Support Admin";
   const todayIso = new Date().toISOString().split("T")[0];

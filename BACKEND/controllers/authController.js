@@ -155,7 +155,10 @@ export const login = async (req, res) => {
 
     // Normalize employeeId for Support Admins so employee components work properly
     if (role === "support-admin") {
-      userObj.employeeId = userObj.supportAdminId || userObj._id;
+      // actualId = the SA's real MongoDB _id (before any _id overwrite in protect middleware)
+      // This is the canonical key used for Attendance records (matches getEmployeeAttendanceIds)
+      userObj.actualId = String(userObj._id);
+      userObj.employeeId = String(userObj._id); // Always use ObjectId string — matches admin panel queries
     }
 
     if (rootAdmin) {
@@ -239,8 +242,8 @@ export const protect = async (req, res, next) => {
       if (currentUser) {
         currentUser.role = "support-admin";
         currentUser.actualId = currentUser._id;
-        // Normalize employeeId for Support Admins so employee routes work properly
-        currentUser.employeeId = currentUser.supportAdminId || currentUser._id;
+        // Always use ObjectId string as the canonical attendance key — matches getEmployeeAttendanceIds
+        currentUser.employeeId = String(currentUser._id);
         if (currentUser.adminId) {
           currentUser._id = currentUser.adminId;
         }

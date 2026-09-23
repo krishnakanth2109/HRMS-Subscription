@@ -781,7 +781,15 @@ const getTimeDifferenceInMinutes = (punchIn, shiftStart) => {
 
 router.post('/punch-in', protect, async (req, res) => {
   try {
-    const { employeeId, employeeName, latitude, longitude, lateReason } = req.body;
+    let { employeeId } = req.body;
+    const { employeeName, latitude, longitude, lateReason } = req.body;
+
+    // ✅ CANONICAL KEY FIX: For support-admins, always use their real ObjectId string as
+    // the attendance key. This matches what getEmployeeAttendanceIds() returns, ensuring
+    // their punch status appears in the admin panel. Client-sent employeeId is overridden.
+    if (req.user && req.user.role === "support-admin" && req.user.actualId) {
+      employeeId = String(req.user.actualId);
+    }
 
     if (!employeeId || !employeeName)
       return res.status(400).json({ message: 'Employee ID & Name required' });
@@ -1027,20 +1035,17 @@ router.post('/punch-in', protect, async (req, res) => {
 
 router.post('/punch-out', protect, async (req, res) => {
   try {
-    const { employeeId, latitude, longitude, earlyLeaveReason } = req.body;
+    const { latitude, longitude, earlyLeaveReason } = req.body;
+    // ✅ CANONICAL KEY FIX: support-admins always punch out under their ObjectId string
+    let employeeId = (req.user?.role === "support-admin" && req.user?.actualId)
+      ? String(req.user.actualId)
+      : req.body.employeeId;
     if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
 
     const today = getToday();
     const now = new Date();
 
-    // Build all possible IDs to find the correct attendance record for support admins
-    const lookupIds = new Set([String(employeeId)]);
-    if (req.user) {
-      if (req.user.employeeId) lookupIds.add(String(req.user.employeeId));
-      if (req.user.actualId) lookupIds.add(String(req.user.actualId));
-      if (req.user.supportAdminId) lookupIds.add(String(req.user.supportAdminId));
-    }
-    let attendance = await Attendance.findOne({ employeeId: { $in: Array.from(lookupIds) } });
+    let attendance = await Attendance.findOne({ employeeId });
     if (!attendance) return res.status(404).json({ message: "No record found" });
 
     let todayRecord = attendance.attendance.find(a => a.date === today);
@@ -1143,7 +1148,11 @@ router.post('/punch-out', protect, async (req, res) => {
 
 router.post('/punch-break', protect, async (req, res) => {
   try {
-    const { employeeId, latitude, longitude } = req.body;
+    const { latitude, longitude } = req.body;
+    // ✅ CANONICAL KEY FIX: support-admins always use their ObjectId string
+    let employeeId = (req.user?.role === "support-admin" && req.user?.actualId)
+      ? String(req.user.actualId)
+      : req.body.employeeId;
     if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
 
     const today = getToday();
