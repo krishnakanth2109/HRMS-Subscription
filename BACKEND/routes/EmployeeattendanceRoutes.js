@@ -779,7 +779,7 @@ const getTimeDifferenceInMinutes = (punchIn, shiftStart) => {
    8. CORE PUNCH-IN LOGIC
    ========================================================== */
 
-router.post('/punch-in', async (req, res) => {
+router.post('/punch-in', protect, async (req, res) => {
   try {
     const { employeeId, employeeName, latitude, longitude, lateReason } = req.body;
 
@@ -979,7 +979,10 @@ router.post('/punch-in', async (req, res) => {
       if (todayRecord.isFinalPunchOut) {
         return res.status(400).json({ message: "You have punched out for the day. Re-punch-in is not allowed after a final punch out." });
       }
-      if (todayRecord.status === "WORKING") {
+      // Only block if there's actually an open session (punchIn with no punchOut)
+      // A status of "WORKING" with no open session means a stale/corrupted record — allow re-punch-in
+      const hasOpenSession = (todayRecord.sessions || []).some(s => s.punchIn && !s.punchOut);
+      if (todayRecord.status === "WORKING" && hasOpenSession) {
         return res.status(400).json({ message: "You are already Punched In." });
       }
 
@@ -1022,7 +1025,7 @@ router.post('/punch-in', async (req, res) => {
    9. CORE PUNCH-OUT LOGIC
    ========================================================== */
 
-router.post('/punch-out', async (req, res) => {
+router.post('/punch-out', protect, async (req, res) => {
   try {
     const { employeeId, latitude, longitude, earlyLeaveReason } = req.body;
     if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
@@ -1030,7 +1033,14 @@ router.post('/punch-out', async (req, res) => {
     const today = getToday();
     const now = new Date();
 
-    let attendance = await Attendance.findOne({ employeeId });
+    // Build all possible IDs to find the correct attendance record for support admins
+    const lookupIds = new Set([String(employeeId)]);
+    if (req.user) {
+      if (req.user.employeeId) lookupIds.add(String(req.user.employeeId));
+      if (req.user.actualId) lookupIds.add(String(req.user.actualId));
+      if (req.user.supportAdminId) lookupIds.add(String(req.user.supportAdminId));
+    }
+    let attendance = await Attendance.findOne({ employeeId: { $in: Array.from(lookupIds) } });
     if (!attendance) return res.status(404).json({ message: "No record found" });
 
     let todayRecord = attendance.attendance.find(a => a.date === today);
@@ -1131,7 +1141,7 @@ router.post('/punch-out', async (req, res) => {
    10. BREAK (LUNCH/REST) LOGIC
    ========================================================== */
 
-router.post('/punch-break', async (req, res) => {
+router.post('/punch-break', protect, async (req, res) => {
   try {
     const { employeeId, latitude, longitude } = req.body;
     if (!employeeId) return res.status(400).json({ message: "Employee ID required" });
@@ -1739,15 +1749,16 @@ router.get('/:employeeId', protect, async (req, res) => {
     const requestedId = req.params.employeeId;
     const loggedUser = req.user;
 
-    const query = {
-      $or: [
-        { employeeId: requestedId },
-        ...(loggedUser ? [
-          { employeeId: loggedUser.employeeId },
-          { employeeId: loggedUser._id?.toString() }
-        ] : [])
-      ]
-    };
+    const ids = new Set([requestedId]);
+    if (loggedUser) {
+      if (loggedUser.employeeId) ids.add(String(loggedUser.employeeId));
+      if (loggedUser.actualId) ids.add(String(loggedUser.actualId));
+      if (loggedUser._id) ids.add(String(loggedUser._id));
+      // For support admins: supportAdminId may differ from employeeId if not set
+      if (loggedUser.supportAdminId) ids.add(String(loggedUser.supportAdminId));
+    }
+
+    const query = { employeeId: { $in: Array.from(ids) } };
 
     const record = await Attendance.findOne(query).select('attendance').lean();
     if (!record) return res.json({ success: true, data: [] });
